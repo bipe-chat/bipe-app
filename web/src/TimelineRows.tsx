@@ -38,6 +38,7 @@ import {
 } from './phosphor/icons';
 import { MessageMenu, pillsOf, ReactionPills, type MessageAction, type ReactionPill } from './Reactions';
 import { voiceMedia } from './bipe/generated/registries.json';
+import { isOfficial } from './registries';
 import { linkify } from './linkify';
 import { mentionLinksOf, type MentionLink } from './mentions';
 import { internalRoute, navigate } from './router';
@@ -57,6 +58,7 @@ import {
 import { mediaOf, TimelineMediaRow, type MediaInfo } from './TimelineMedia';
 import { dayText, s, timeText } from './ui/i18n';
 import { Icon } from './ui/Icon';
+import { OfficialBadge } from './ui/List';
 
 type Body = 'text' | 'media' | 'sticker' | 'poll' | 'location' | 'deleted' | 'undecryptable' | 'other';
 export type Send = 'sending' | 'failed' | 'sent' | 'read';
@@ -70,6 +72,7 @@ export type MessageRow = {
   kind: 'message';
   key: string;
   who: string;
+  whoId: string;
   own: boolean;
   at: number;
   body: Body;
@@ -239,6 +242,7 @@ function makeRow(item: TimelineItem, ownUserId: string): Row | undefined {
     kind: 'message',
     key,
     who,
+    whoId: event.sender,
     own: event.isOwn,
     at: Number(event.timestamp),
     body,
@@ -383,9 +387,10 @@ function MessageBubble({ row, isDm, on }: { row: MessageRow; isDm: boolean; on: 
     >
       {!row.own && (!isDm || row.body === 'undecryptable') && (
         <span
-          className={`text-caption font-bold ${row.body === 'undecryptable' ? 'text-ink-secondary' : 'text-accent-ink'}`}
+          className={`flex items-center gap-1 text-caption font-bold ${row.body === 'undecryptable' ? 'text-ink-secondary' : 'text-accent-ink'}`}
         >
           {row.who}
+          {isOfficial(row.whoId) && <OfficialBadge />}
         </span>
       )}
       {row.forwardCount > 0 && <ForwardLine count={row.forwardCount} />}

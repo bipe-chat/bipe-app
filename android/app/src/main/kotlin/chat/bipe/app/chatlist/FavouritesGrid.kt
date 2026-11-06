@@ -47,6 +47,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import chat.bipe.app.common.OfficialBadge
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.MediaLoader
@@ -180,15 +181,18 @@ private fun FavouriteCell(
                     )
                 }
             }
-            Text(
-                chat.name,
-                style = MaterialTheme.typography.labelMedium,
-                color = colors.inkPrimary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 6.dp),
-            )
+            Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    chat.name,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = colors.inkPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                if (chat.isOfficial) OfficialBadge()
+            }
         }
         if (!reordering) ChatRowMenu(chat, commands, menu)
     }

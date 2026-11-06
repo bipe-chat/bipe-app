@@ -28,7 +28,7 @@ import { check, magnifyingGlass } from './phosphor/icons';
 import { Avatar } from './ui/Avatar';
 import { s } from './ui/i18n';
 import { Icon } from './ui/Icon';
-import { NavBar } from './ui/List';
+import { NavBar, OfficialBadge } from './ui/List';
 import { Spinner } from './ui/Spinner';
 import { describe, normalize } from './util';
 
@@ -199,7 +199,10 @@ export function PersonRow({ person, picked, onClick }: { person: Person; picked?
       >
         <Avatar name={person.name} size={40} mxcUrl={person.avatarUrl} userId={person.userId} />
         <span className="flex min-w-0 flex-1 flex-col">
-          <span className="truncate text-body text-ink-primary">{person.name}</span>
+          <span className="flex items-center gap-1.5">
+            <span className="min-w-0 truncate text-body text-ink-primary">{person.name}</span>
+            {isOfficial(person.userId) && <OfficialBadge />}
+          </span>
           {person.handle && <span className="truncate text-footnote text-ink-secondary">@{person.handle}</span>}
         </span>
         {picked !== undefined && (

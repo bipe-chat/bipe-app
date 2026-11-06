@@ -842,10 +842,13 @@ private struct ComposerBar: View {
                             AvatarView(name: suggestion.name, mxcUrl: suggestion.avatarUrl, loader: media, size: 32, userId: suggestion.userId)
                             VStack(alignment: .leading, spacing: 0) {
                                 // Spec composer nameAmbiguous: the @ follows a name another member also has.
-                                Text(suggestion.nameAmbiguous && suggestion.userId != nil && suggestion.handle == nil
-                                     ? MemberNames.label(name: suggestion.name, userId: suggestion.userId ?? "", handles: handles)
-                                     : suggestion.name)
-                                    .foregroundStyle(BipeColor.inkPrimary)
+                                HStack(spacing: 6) {
+                                    Text(suggestion.nameAmbiguous && suggestion.userId != nil && suggestion.handle == nil
+                                         ? MemberNames.label(name: suggestion.name, userId: suggestion.userId ?? "", handles: handles)
+                                         : suggestion.name)
+                                        .foregroundStyle(BipeColor.inkPrimary)
+                                    if BipeOfficialAccounts.isOfficial(suggestion.userId) { OfficialBadge() }
+                                }
                                 if let handle = suggestion.handle {
                                     Text(handle)
                                         .font(.caption)

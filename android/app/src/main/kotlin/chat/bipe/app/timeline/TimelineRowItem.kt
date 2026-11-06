@@ -64,6 +64,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import chat.bipe.shared.BipeOfficialAccounts
+import chat.bipe.app.common.OfficialBadge
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.common.SealMark
 import chat.bipe.app.common.memberLabel
@@ -686,6 +688,7 @@ private fun SenderLine(message: TimelineMessage, color: androidx.compose.ui.grap
             color = color,
             modifier = Modifier.weight(1f, fill = false),
         )
+        if (BipeOfficialAccounts.isOfficial(message.senderId)) OfficialBadge()
         SealMark(message.senderId, size = 14.dp)
     }
 }

@@ -105,10 +105,13 @@ private struct RequestRow: View {
             // hidePhotos: the initials avatar, never the photo, until accepted.
             AvatarView(name: request.name, mxcUrl: request.avatarUrl, loader: media, userId: request.inviterId, showsPhoto: !hidePhoto)
             VStack(alignment: .leading, spacing: 2) {
-                Text(request.name)
-                    .font(.headline)
-                    .foregroundStyle(BipeColor.inkPrimary)
-                    .lineLimit(1)
+                HStack(spacing: 6) {
+                    Text(request.name)
+                        .font(.headline)
+                        .foregroundStyle(BipeColor.inkPrimary)
+                        .lineLimit(1)
+                    if request.isDm, BipeOfficialAccounts.isOfficial(request.inviterId) { OfficialBadge() }
+                }
                 TrustLine(trust: trust)
             }
         }
@@ -153,10 +156,13 @@ struct ChatRequestView: View {
         ScrollView {
             VStack(spacing: 16) {
                 AvatarView(name: request.name, mxcUrl: request.avatarUrl, loader: media, size: 72, userId: request.inviterId, showsPhoto: !model.hidePhotos)
-                Text(request.name)
-                    .font(.title2.bold())
-                    .foregroundStyle(BipeColor.inkPrimary)
-                    .multilineTextAlignment(.center)
+                HStack(spacing: 6) {
+                    Text(request.name)
+                        .font(.title2.bold())
+                        .foregroundStyle(BipeColor.inkPrimary)
+                        .multilineTextAlignment(.center)
+                    if request.isDm, BipeOfficialAccounts.isOfficial(request.inviterId) { OfficialBadge(font: .footnote) }
+                }
                 if let handle = model.people.handles.handle(for: request.inviterId) {
                     Text("@\(handle)")
                         .font(.subheadline)

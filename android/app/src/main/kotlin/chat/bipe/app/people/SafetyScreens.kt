@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.AlertDialog
+import chat.bipe.shared.BipeOfficialAccounts
+import chat.bipe.app.common.OfficialBadge
 import chat.bipe.app.common.BipeButton
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -192,7 +194,10 @@ fun BlockedListScreen(people: PeopleService, openPerson: (String) -> Unit, onBac
                         Avatar(person.displayName, person.avatarUrl, people.media, size = 40.dp, userId = person.userId)
                         Spacer(Modifier.width(12.dp))
                         Column {
-                            Text(person.displayName, color = colors.inkPrimary, maxLines = 1)
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text(person.displayName, color = colors.inkPrimary, maxLines = 1, modifier = Modifier.weight(1f, fill = false))
+                                if (BipeOfficialAccounts.isOfficial(person.userId)) OfficialBadge()
+                            }
                             person.handle?.let { Text("@$it", style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary) }
                         }
                     }

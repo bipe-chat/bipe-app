@@ -51,11 +51,11 @@ import {
 import { useDesktopNotifications, useNotificationPermission, useTabTitle } from './notifications';
 import { bannerDismissed, EncryptionBanner, EncryptionSheet, needsApproval, useEncryptionState } from './Encryption';
 import { useIsNewsRoom } from './news-room';
-import { isOfficial } from './registries';
 import { navigate, useRoute } from './router';
 import { useEscape } from './ui/keys';
 import { rowTime } from './row-preview';
-import { NavBar, OfficialBadge } from './ui/List';
+import { NavBar } from './ui/List';
+import { ChatOfficialBadge } from './ui/ChatOfficialBadge';
 import { RequestScreen, RequestsList, requesterOf } from './Requests';
 import { ClientContext } from './media';
 import { useNotesRoomId } from './notes';
@@ -841,7 +841,10 @@ function FavouritesGrid({
                     <span className="absolute top-0 right-0 size-[14px] rounded-full border-2 border-surface-base bg-accent-fill" />
                   )}
                 </span>
-                <span className="w-full truncate px-1 text-center text-caption text-ink-primary">{chat.face.name}</span>
+                <span className="flex w-full items-center justify-center gap-1 px-1">
+                  <span className="min-w-0 truncate text-center text-caption text-ink-primary">{chat.face.name}</span>
+                  <ChatOfficialBadge roomId={chat.roomId} peerId={chat.face.peer?.userId} />
+                </span>
               </button>
             </li>
           );
@@ -981,7 +984,7 @@ function ChatRow({
         <span className="flex min-h-[72px] min-w-0 flex-1 flex-col justify-center gap-1 border-b-[0.5px] border-line-subtle py-2 pr-4">
           <span className="flex items-baseline gap-2">
             <span className="min-w-0 flex-1 truncate text-headline text-ink-primary">{name}</span>
-            {isOfficial(chat.face.peer?.userId) && <OfficialBadge />}
+            <ChatOfficialBadge roomId={chat.roomId} peerId={chat.face.peer?.userId} />
             {chat.row.at !== undefined && (
               <time
                 className="shrink-0 text-caption text-ink-secondary tabular-nums"

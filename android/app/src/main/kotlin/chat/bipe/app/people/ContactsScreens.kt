@@ -4,6 +4,8 @@
 
 package chat.bipe.app.people
 
+import chat.bipe.shared.BipeOfficialAccounts
+import chat.bipe.app.common.OfficialBadge
 import chat.bipe.app.common.BipeToasts
 import android.Manifest
 import android.content.Context
@@ -226,7 +228,10 @@ fun ContactsScreen(people: PeopleService, openChat: (String) -> Unit, invite: ((
                             Avatar(match.person.displayName, match.person.avatarUrl, people.media, size = 40.dp, userId = match.person.userId)
                             Spacer(Modifier.width(12.dp))
                             Column(Modifier.weight(1f)) {
-                                Text(match.person.displayName, color = colors.inkPrimary, maxLines = 1)
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Text(match.person.displayName, color = colors.inkPrimary, maxLines = 1, modifier = Modifier.weight(1f, fill = false))
+                                    if (BipeOfficialAccounts.isOfficial(match.person.userId)) OfficialBadge()
+                                }
                                 val movedAge = match.numberMovedAge
                                 if (movedAge != null) {
                                     Text(stringResource(R.string.bipe_contacts_number_moved, movedAge), style = MaterialTheme.typography.bodySmall, color = colors.trustCautionInk)

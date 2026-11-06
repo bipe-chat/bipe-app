@@ -27,6 +27,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import chat.bipe.shared.BipeOfficialAccounts
+import chat.bipe.app.common.OfficialBadge
 import chat.bipe.app.common.BipeButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -484,7 +486,10 @@ fun ChatRequestsList(
                             // hidePhotos: the initials avatar, never the photo, until accepted.
                             Avatar(request.name, request.avatarUrl, media, userId = request.inviterId, showsPhoto = !hidePhotos)
                             Column {
-                                Text(request.name, style = MaterialTheme.typography.titleMedium, color = colors.inkPrimary, maxLines = 1)
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Text(request.name, style = MaterialTheme.typography.titleMedium, color = colors.inkPrimary, maxLines = 1, modifier = Modifier.weight(1f, fill = false))
+                                    if (request.isDm && BipeOfficialAccounts.isOfficial(request.inviterId)) OfficialBadge()
+                                }
                                 TrustLine(trustOf(request))
                             }
                         }
@@ -537,7 +542,10 @@ fun ChatRequestScreen(
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 Avatar(request.name, request.avatarUrl, media, size = 72.dp, userId = request.inviterId, showsPhoto = !model.hidePhotos)
-                Text(request.name, style = MaterialTheme.typography.headlineSmall, color = colors.inkPrimary, textAlign = TextAlign.Center)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(request.name, style = MaterialTheme.typography.headlineSmall, color = colors.inkPrimary, textAlign = TextAlign.Center, modifier = Modifier.weight(1f, fill = false))
+                    if (request.isDm && BipeOfficialAccounts.isOfficial(request.inviterId)) OfficialBadge(style = MaterialTheme.typography.labelMedium)
+                }
                 handles[request.inviterId]?.let { handle ->
                     Text("@$handle", style = MaterialTheme.typography.bodyMedium, color = colors.inkSecondary)
                 }

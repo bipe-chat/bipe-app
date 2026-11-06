@@ -41,6 +41,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import chat.bipe.app.common.OfficialBadge
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.common.Avatar
@@ -199,7 +200,10 @@ fun ChatSearchResults(
                 ) {
                     Avatar(chat.name, chat.avatarUrl, media, size = 40.dp, userId = chat.peerUserId, official = chat.isNewsRoom, members = chat.avatarMembers)
                     Column {
-                        Text(chat.name, color = colors.inkPrimary, maxLines = 1)
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(chat.name, color = colors.inkPrimary, maxLines = 1, modifier = Modifier.weight(1f, fill = false))
+                            if (chat.isOfficial) OfficialBadge()
+                        }
                         // Each result shows whether it is a chat or a group.
                         Text(
                             stringResource(if (chat.isDm) R.string.bipe_tab_chats else R.string.bipe_tab_groups),
