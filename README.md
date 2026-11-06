@@ -4,4 +4,6 @@ Bipe's own messenger client for iOS (`ios/`, SwiftUI) and Android (`android/`, J
 
 Licence: [AGPL-3.0-only](LICENSE) with an additional permission for app stores ([APP-STORE-PERMISSION.md](APP-STORE-PERMISSION.md)).
 
+The native Mac feasibility target is in [`macos/`](macos/README.md). It starts with phone-approved QR linking, encrypted local storage and text messaging. Full personal/work parity is tracked in [bipe#1018](https://github.com/bipe-chat/bipe/issues/1018); Windows follows the Mac spike evidence.
+
 iPhone Duo research, first layout changes and the device validation matrix: [docs/iphone-duo.md](docs/iphone-duo.md).

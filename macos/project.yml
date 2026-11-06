@@ -1,0 +1,65 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
+# Copyright 2026 Bipe contributors
+
+name: BipeMac
+options:
+  developmentLanguage: pt-BR
+  deploymentTarget:
+    macOS: "15.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    CODE_SIGN_IDENTITY: "-"
+    CODE_SIGN_STYLE: Manual
+    ENABLE_HARDENED_RUNTIME: YES
+    GENERATE_INFOPLIST_FILE: NO
+packages:
+  MatrixRustSDK:
+    url: https://github.com/matrix-org/matrix-rust-components-swift
+    exactVersion: 26.08.11
+  BipeKit:
+    path: ../ios/BipeKit
+targets:
+  BipeMac:
+    type: application
+    platform: macOS
+    sources:
+      - path: BipeMac
+      - path: ../ios/Bipe/Common/Listeners.swift
+    info:
+      path: SupportFiles/Info.plist
+      properties:
+        CFBundleDisplayName: Bipe
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundleDevelopmentRegion: pt-BR
+        CFBundleLocalizations: [pt-BR, en]
+        LSApplicationCategoryType: public.app-category.social-networking
+        NSHumanReadableCopyright: Copyright 2026 Bipe contributors
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: chat.bipe.app.mac
+    dependencies:
+      - package: MatrixRustSDK
+      - package: BipeKit
+  BipeMacTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources: [Tests]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: chat.bipe.app.mac.tests
+        GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - target: BipeMac
+schemes:
+  BipeMac:
+    build:
+      targets:
+        BipeMac: all
+        BipeMacTests: [test]
+    test:
+      targets: [BipeMacTests]

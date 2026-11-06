@@ -25,8 +25,8 @@ export const DENIED = [
 
 // Dependency manifests. A file that does not exist passes.
 export function manifests(root) {
-  const ios = walk(root, 'ios').filter(
-    (f) => f === 'ios/project.yml' || f.endsWith('/Package.swift') || f.endsWith('/Package.resolved'),
+  const ios = [...walk(root, 'ios'), ...walk(root, 'macos')].filter(
+    (f) => f.endsWith('/project.yml') || f.endsWith('/Package.swift') || f.endsWith('/Package.resolved'),
   );
   const android = walk(root, 'android').filter(
     (f) => f.endsWith('.gradle.kts') || f.endsWith('.gradle') || f === 'android/gradle/libs.versions.toml',
