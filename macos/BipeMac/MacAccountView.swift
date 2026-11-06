@@ -105,7 +105,7 @@ struct MacAccountView: View {
                     .searchable(text: $search, prompt: BipeStrings.appSearchPlaceholder)
                     .navigationSplitViewColumnWidth(min: 240, ideal: 300, max: 380)
                 } detail: {
-                    if let entry = rows.first(where: { $0.id == selected }) {
+                    if let entry = account.roomRows.first(where: { $0.id == selected }) {
                         MacChatView(room: entry.room, name: entry.name, drafts: account.drafts).id(entry.id)
                     } else {
                         VStack(spacing: MacDesign.gap) {
