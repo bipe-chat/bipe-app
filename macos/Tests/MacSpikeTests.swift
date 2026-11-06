@@ -65,7 +65,7 @@ final class MacSpikeTests: XCTestCase {
     }
 
     @MainActor
-    func testSharedColorsResolveForLightDarkAndIncreasedContrastOnMac() throws {
+    func testSharedColorsResolveForLightAndDarkAndIconIsBundled() throws {
         func resolve(_ name: NSAppearance.Name) throws -> NSColor {
             let appearance = try XCTUnwrap(NSAppearance(named: name))
             var color: NSColor?
@@ -76,9 +76,9 @@ final class MacSpikeTests: XCTestCase {
         }
         let light = try resolve(.aqua)
         let dark = try resolve(.darkAqua)
-        let high = try resolve(.accessibilityHighContrastAqua)
         XCTAssertGreaterThan(dark.redComponent, light.redComponent)
-        XCTAssertLessThan(high.redComponent, light.redComponent)
+        // A synthetic NSAppearance does not change NSWorkspace's actual Increase Contrast preference.
+        // The shared generator checks all four palettes and their WCAG contrast; the provider reads the OS flag.
         XCTAssertNotNil(Bundle.main.url(forResource: "AppIcon", withExtension: "icns"))
     }
 
