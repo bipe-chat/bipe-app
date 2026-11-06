@@ -135,6 +135,7 @@ struct MacChatView: View {
     let name: String
     @StateObject private var model: MacTimeline
     @Environment(\.scenePhase) private var scenePhase
+    @FocusState private var composerFocused: Bool
 
     init(room: Room, name: String, drafts: MacDrafts) {
         self.room = room
@@ -147,19 +148,19 @@ struct MacChatView: View {
             ScrollViewReader { scroll in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: MacDesign.gap) {
-                        Button(BipeStrings.appTimelineLoadingHistory) { Task { await model.loadHistory() } }
+                        Button(model.loadingHistory ? BipeStrings.appTimelineLoadingHistory : BipeStrings.actionShowMore) { Task { await model.loadHistory() } }
                             .disabled(model.loadingHistory)
                         ForEach(model.messages) { message in
                             MacMessageView(message: message).id(message.id)
                                 .contextMenu {
-                                    Button(BipeStrings.appMessageActionReply) { model.startReply(message) }
+                                    Button(BipeStrings.appMessageActionReply) { model.startReply(message); composerFocused = true }
                                         .disabled(!message.canReply || message.eventID == nil)
                                     Button(BipeStrings.appCopy) {
                                         NSPasteboard.general.clearContents()
                                         NSPasteboard.general.setString(message.body, forType: .string)
                                     }
                                 }
-                                .accessibilityAction(named: BipeStrings.appMessageActionReply) { model.startReply(message) }
+                                .accessibilityAction(named: BipeStrings.appMessageActionReply) { model.startReply(message); composerFocused = true }
                         }
                     }.padding()
                 }
@@ -183,6 +184,7 @@ struct MacChatView: View {
             }
             HStack(alignment: .bottom) {
                 TextField(BipeStrings.appTimelineComposerPlaceholder, text: $model.draft, axis: .vertical)
+                    .focused($composerFocused)
                     .lineLimit(1...6).onSubmit { Task { await model.send() } }
                     .textFieldStyle(.plain).padding(12)
                     .background(BipeColor.surfaceRaised, in: RoundedRectangle(cornerRadius: 12))

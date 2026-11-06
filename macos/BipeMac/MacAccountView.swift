@@ -92,11 +92,12 @@ struct MacAccountView: View {
                                 }.padding(.vertical, 8).tag(entry.id)
                             }
                             if account.roomRows.count >= 100 {
-                                Button(BipeStrings.appTimelineLoadingHistory) { account.loadMoreRooms() }
+                                Button(BipeStrings.actionShowMore) { account.loadMoreRooms() }
                             }
                         }.overlay {
                             if rows.isEmpty {
-                                Text(search.isEmpty ? BipeStrings.appChatListEmpty : BipeStrings.appSearchNoResults(search))
+                                Text(!search.isEmpty ? BipeStrings.appSearchNoResults(search)
+                                     : unreadOnly ? BipeStrings.appChatListNoUnread : BipeStrings.appChatListEmpty)
                                     .foregroundStyle(BipeColor.inkSecondary).padding()
                             }
                         }
@@ -109,7 +110,7 @@ struct MacAccountView: View {
                     } else {
                         VStack(spacing: MacDesign.gap) {
                             MacBrand()
-                            Text(BipeStrings.appChatListEmpty).foregroundStyle(BipeColor.inkSecondary)
+                            Text(rows.isEmpty ? BipeStrings.appChatListEmpty : destination.title).foregroundStyle(BipeColor.inkSecondary)
                         }.frame(maxWidth: .infinity, maxHeight: .infinity).background(BipeColor.surfaceBase)
                     }
                 }
