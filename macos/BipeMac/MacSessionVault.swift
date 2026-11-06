@@ -51,7 +51,7 @@ struct SystemMacKeychain: MacKeychain {
     }
 }
 
-enum MacVaultError: Error { case keychain, invalidRecord, missingKey }
+enum MacVaultError: Error { case keychain, invalidRecord, missingKey, missingStore }
 
 /// Tokens and the database encryption key only enter the Keychain. No credentials enter UserDefaults or logs.
 struct MacSessionVault: Sendable {

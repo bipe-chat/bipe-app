@@ -10,7 +10,7 @@ Started 6 November 2026. Tracking: [bipe#1018](https://github.com/bipe-chat/bipe
 - Codes refresh after 25 seconds if nobody scanned them. A new attempt has its own store folder. Unapproved tokens are not persisted.
 - After approval and key transfer, the Mac starts sync and displays joined rooms. The text timeline reads available history, sends messages and checks incoming text with the shared scam detector.
 - The session, refresh token and random database key live in a separate, non-synced macOS Keychain service. SQLite stores are encrypted and excluded from backups. A failed Keychain read never opens the store without its key.
-- Restart restores the same device. SDK offline mode makes cached state available without waiting for a network response.
+- Restart restores the same device. A missing crypto store fails closed instead of making new keys under the saved device ID. SDK offline mode makes cached state available without waiting for a network response.
 - An authentication refusal ends the local session. Delayed refresh callbacks cannot save it again after revocation. The encrypted cache remains local; this spike makes no remote-erasure claim.
 
 The spike holds one linked account and uses light appearance. BipeKit's current generated non-UIKit colors use the light palette, so forcing light appearance keeps text readable when macOS uses dark appearance. Adaptive Mac color/high-contrast generation, multiple personal/work accounts, rich media, full scam-warning presentation, search, notifications, calls and the work UI remain in #1018. The phone/inbox merge needs the key-model decision specified by ADR 0252. Windows implementation follows the Mac spike's recorded evidence.

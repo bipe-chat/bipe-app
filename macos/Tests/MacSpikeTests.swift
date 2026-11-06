@@ -74,14 +74,23 @@ final class MacSpikeTests: XCTestCase {
         XCTAssertNil(try vault.load(), "A delayed refresh must not resurrect a revoked device")
     }
 
+    func testRestoreNeverRecreatesAMissingCryptoStore() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let folder = UUID().uuidString
+        XCTAssertThrowsError(try MacAccount.paths(folder: folder, restoring: true, root: root))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: root.path))
+        _ = try MacAccount.paths(folder: folder, root: root)
+        XCTAssertThrowsError(try MacAccount.paths(folder: folder, restoring: true, root: root))
+    }
+
     /// Loads the pinned native SDK and encrypted SQLite on the CI Mac without a server or real credentials.
     func testNativeMatrixSDKOpensEncryptedStoreWithoutNetwork() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         defer { try? FileManager.default.removeItem(at: root) }
-        let data = root.appendingPathComponent("data", isDirectory: true)
-        let cache = root.appendingPathComponent("cache", isDirectory: true)
-        try FileManager.default.createDirectory(at: data, withIntermediateDirectories: true)
-        try FileManager.default.createDirectory(at: cache, withIntermediateDirectories: true)
+        let folder = UUID().uuidString
+        let paths = try MacAccount.paths(folder: folder, root: root)
+        let (data, cache) = (paths.data, paths.cache)
         func openAndClose() async throws {
             let client = try await MacAccount.builder(data: data, cache: cache, key: Data(repeating: 7, count: 32))
                 .homeserverUrl(url: "https://example.invalid").build()
@@ -89,6 +98,7 @@ final class MacSpikeTests: XCTestCase {
             XCTAssertThrowsError(try client.session())
         }
         try await openAndClose()
+        XCTAssertNoThrow(try MacAccount.paths(folder: folder, restoring: true, root: root))
         try await openAndClose()
         do {
             _ = try await MacAccount.builder(data: data, cache: cache, key: Data(repeating: 9, count: 32))

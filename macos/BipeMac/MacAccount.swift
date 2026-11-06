@@ -175,7 +175,7 @@ final class MacAccount: ObservableObject {
     }
 
     private func makeClient(folder: String, restoring: Bool, delegate: MacSessionDelegate) async throws -> Client {
-        let paths = try Self.paths(folder: folder)
+        let paths = try Self.paths(folder: folder, restoring: restoring)
         let key = try vault.storeKey(create: !restoring)
         return try await Self.builder(data: paths.data, cache: paths.cache, key: key)
             .setSessionDelegate(sessionDelegate: delegate)
@@ -196,14 +196,22 @@ final class MacAccount: ObservableObject {
             .backupDownloadStrategy(backupDownloadStrategy: .afterDecryptionFailure)
     }
 
-    nonisolated static func paths(folder: String) throws -> (data: URL, cache: URL) {
+    nonisolated static func paths(folder: String, restoring: Bool = false, root: URL? = nil) throws -> (data: URL, cache: URL) {
         guard UUID(uuidString: folder) != nil else { throw MacVaultError.invalidRecord }
         let manager = FileManager.default
-        var root = manager.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        var root = root ?? manager.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("chat.bipe.app.mac/Stores", isDirectory: true)
         let account = root.appendingPathComponent(folder, isDirectory: true)
         let data = account.appendingPathComponent("data", isDirectory: true)
         let cache = account.appendingPathComponent("cache", isDirectory: true)
+        // Restoring tokens into a fresh store would replace this device's crypto keys under its old ID.
+        if restoring {
+            // matrix-sdk-sqlite 26.08.11 crypto_store.rs DATABASE_NAME; checked by the native SDK test.
+            let database = data.appendingPathComponent("matrix-sdk-crypto.sqlite3")
+            guard let size = try? database.resourceValues(forKeys: [.fileSizeKey]).fileSize, size > 0 else {
+                throw MacVaultError.missingStore
+            }
+        }
         for path in [root, account, data, cache] {
             try manager.createDirectory(at: path, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         }

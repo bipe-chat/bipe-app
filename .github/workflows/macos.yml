@@ -60,7 +60,7 @@ jobs:
         shell: bash
         run: |
           xcodebuild test -project macos/BipeMac.xcodeproj -scheme BipeMac \
-            -configuration Debug -destination 'platform=macOS' -derivedDataPath "$RUNNER_TEMP/bipe-mac-tests" \
+            -configuration Debug -destination 'platform=macOS' -derivedDataPath "$RUNNER_TEMP/bipe-mac" \
             CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM='' \
             -resultBundlePath "$RUNNER_TEMP/macos-tests.xcresult" \
             > "$RUNNER_TEMP/macos-tests.log" 2>&1 || { tail -120 "$RUNNER_TEMP/macos-tests.log"; exit 1; }
@@ -68,9 +68,18 @@ jobs:
         shell: bash
         run: |
           node tools/sdk-version.mjs
-          expected=$(cat sdk-version)
-          actual=$(jq -r '.pins[] | select(.identity == "matrix-rust-components-swift") | .state.version' macos/BipeMac.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved)
-          test "$actual" = "$expected"
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import { readFileSync } from 'node:fs';
+          const pin = (file) => JSON.parse(readFileSync(file, 'utf8')).pins.find((p) => p.identity === 'matrix-rust-components-swift').state;
+          const expected = pin('ios/Package.resolved');
+          const actual = pin('macos/BipeMac.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved');
+          // SwiftPM canonicalizes the release tag 26.08.11 to the semantic version 26.8.11.
+          const normalize = (value) => value.trim().split('.').map(Number).join('.');
+          assert.equal(normalize(actual.version), normalize(readFileSync('sdk-version', 'utf8')));
+          assert.equal(actual.revision, expected.revision);
+          console.log(`Mac Matrix SDK ${actual.version} at ${actual.revision}`);
+          JS
       - name: Package the spike
         if: matrix.configuration == 'Release'
         run: |
