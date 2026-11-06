@@ -409,6 +409,9 @@ private fun Header(model: PersonProfileModel, state: PersonProfileModel.State, i
         // Spec brand-mark: next to the reseller's own name, never instead of it.
         BrandMarkLine(state.person.userId, model.people.brandMarks, model.people.seals)
         state.person.handle?.let { Text("@$it", style = MaterialTheme.typography.bodyMedium, color = colors.inkSecondary) }
+        if (model.userId == BipeRegistries.groupsAccountId) {
+            Text(stringResource(R.string.bipe_groups_service_about), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary, textAlign = TextAlign.Center)
+        }
         // Spec person-profile profileFacts (ADR 0049): below the header, apart from the trust facts. Not on the own profile.
         if (model.userId != model.people.session.userId) ProfileFactsLines(model.people, model.userId)
         if (state.reservedNameWarning) {

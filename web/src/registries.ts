@@ -12,4 +12,9 @@ export function isOfficial(userId: string | undefined): boolean {
   return userId !== undefined && Object.values(officialAccounts.accounts).some((a) => a.userId === userId);
 }
 
+/** The groups service account (security.md rule 17): the member list says what it does. */
+export function isGroupsAccount(userId: string | undefined): boolean {
+  return userId === officialAccounts.accounts.groups.userId;
+}
+
 export { homeScore, settings };

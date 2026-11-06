@@ -271,7 +271,7 @@ private struct MuralTileContent: View {
     }
 
     private func avatar(_ size: CGFloat) -> some View {
-        AvatarView(name: chat.name, mxcUrl: chat.avatarUrl, loader: media, size: size, userId: chat.peerUserId,
+        AvatarView(name: chat.name, mxcUrl: chat.avatarUrl, loader: media, size: size, userId: chat.peerUserId, official: chat.isNewsRoom,
                    members: chat.avatarMembers)
     }
 
@@ -305,7 +305,7 @@ private struct MuralQuietFace: View {
     let isSelected: Bool
 
     var body: some View {
-        AvatarView(name: chat.name, mxcUrl: chat.avatarUrl, loader: media, size: 44, userId: chat.peerUserId,
+        AvatarView(name: chat.name, mxcUrl: chat.avatarUrl, loader: media, size: 44, userId: chat.peerUserId, official: chat.isNewsRoom,
                    members: chat.avatarMembers)
             .overlay(alignment: .topTrailing) {
                 if chat.isUnread {

@@ -17,6 +17,7 @@ import { ComposerDraftType } from './generated/matrix_sdk_ffi';
 import { useClient } from './media';
 import { tileMessages, type MuralTile, type TileMessage } from './mural-plan';
 import { paperPlaneRight } from './phosphor/icons';
+import { useIsNewsRoom } from './news-room';
 import { homeScore, isOfficial } from './registries';
 import { Avatar, useIsCompany } from './ui/Avatar';
 import { ChatBadges, unreadLabel } from './ui/ChatBadges';
@@ -123,10 +124,11 @@ const selectedRing = (tile: MuralTile, openId?: string) =>
 
 function TileAvatar({ chat, size, dot }: { chat: ChatSummary; size: number; dot?: boolean }) {
   const { name, avatarUrl, peer, members } = chat.face;
+  const newsRoom = useIsNewsRoom(chat.roomId);
   const unread = Number(chat.info?.numUnreadMessages ?? 0) > 0 || chat.info?.isMarkedUnread === true;
   return (
     <span className="relative shrink-0">
-      <Avatar name={name} size={size} mxcUrl={avatarUrl} userId={peer?.userId} members={members} />
+      <Avatar name={name} size={size} mxcUrl={avatarUrl} userId={peer?.userId} official={newsRoom} members={members} />
       {dot && unread && (
         <span className="absolute top-0 right-0 size-[14px] rounded-full border-2 border-surface-base bg-accent-fill" />
       )}

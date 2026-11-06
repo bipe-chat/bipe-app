@@ -252,7 +252,7 @@ private fun WideTile(
         footer = { if (isFirst) TileReplyField(model, chat.roomId, onReplyFocus) },
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Avatar(chat.name, chat.avatarUrl, media, size = WIDE_AVATAR.dp, userId = chat.peerUserId, members = chat.avatarMembers)
+            Avatar(chat.name, chat.avatarUrl, media, size = WIDE_AVATAR.dp, userId = chat.peerUserId, official = chat.isNewsRoom, members = chat.avatarMembers)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) { TileName(chat, chat.name, MaterialTheme.typography.titleMedium) }
             ChatUnreadBadge(chat)
@@ -269,7 +269,7 @@ private fun MediumTile(entry: MuralEntry, media: MediaLoader, ownerId: String, c
     val messages = chat.tileMessages(BipeHomeScore.TIER2_BUBBLES)
     TileFrame(entry, ownerId, commands, onOpen, messages, color = colors.surfaceRaised, modifier = modifier) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Avatar(chat.name, chat.avatarUrl, media, size = TILE_AVATAR.dp, userId = chat.peerUserId, members = chat.avatarMembers)
+            Avatar(chat.name, chat.avatarUrl, media, size = TILE_AVATAR.dp, userId = chat.peerUserId, official = chat.isNewsRoom, members = chat.avatarMembers)
             Spacer(Modifier.width(8.dp))
             Column(Modifier.weight(1f)) {
                 TileName(chat, chat.name, MaterialTheme.typography.titleSmall)
@@ -299,7 +299,7 @@ private fun SmallTile(entry: MuralEntry, media: MediaLoader, ownerId: String, co
         entry, ownerId, commands, onOpen, messages,
         color = colors.surfaceRaised, modifier = modifier, horizontal = Alignment.CenterHorizontally,
     ) {
-        Avatar(chat.name, chat.avatarUrl, media, size = TILE_AVATAR.dp, userId = chat.peerUserId, members = chat.avatarMembers)
+        Avatar(chat.name, chat.avatarUrl, media, size = TILE_AVATAR.dp, userId = chat.peerUserId, official = chat.isNewsRoom, members = chat.avatarMembers)
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f, fill = false)) {
                 TileName(chat, chat.name.trim().substringBefore(' '), MaterialTheme.typography.labelLarge)
@@ -390,7 +390,7 @@ private fun QuietTile(entry: MuralEntry, media: MediaLoader, ownerId: String, co
                 .chatRowSemantics(chat, commands, menu),
         ) {
             Box(Modifier.fillMaxSize().clearAndSetSemantics { contentDescription = label }, contentAlignment = Alignment.Center) {
-                Avatar(chat.name, chat.avatarUrl, media, size = TILE_AVATAR.dp, userId = chat.peerUserId, members = chat.avatarMembers)
+                Avatar(chat.name, chat.avatarUrl, media, size = TILE_AVATAR.dp, userId = chat.peerUserId, official = chat.isNewsRoom, members = chat.avatarMembers)
                 if (chat.isUnread) {
                     Box(
                         Modifier.align(Alignment.TopEnd).size(14.dp)

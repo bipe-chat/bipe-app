@@ -146,6 +146,12 @@ struct PersonProfileView: View {
                     .font(.subheadline)
                     .foregroundStyle(BipeColor.inkSecondary)
             }
+            if model.userId == BipeRegistries.groupsAccountID {
+                Text(BipeStrings.groupsServiceAbout)
+                    .font(.footnote)
+                    .foregroundStyle(BipeColor.inkSecondary)
+                    .multilineTextAlignment(.center)
+            }
             BusinessProfileButtons(model: business)
                 .padding(.top, 4)
             // Spec person-profile profileFacts (ADR 0049): below the header, apart from the trust facts. Not on the own profile.

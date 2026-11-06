@@ -197,12 +197,13 @@ final class GroupInviteMembersModel: ObservableObject {
     }
 
     private func rebuild() {
+        // Spec group-invite-members notes: an official account joins a group only through its own flow.
         contacts = people
-            .filter { $0.matches(query) || results[$0.userId] != nil }
+            .filter { !BipeOfficialAccounts.isOfficial($0.userId) && ($0.matches(query) || results[$0.userId] != nil) }
             .map { PersonPick(person: $0, status: status(of: $0.userId)) }
         // The holder of the @ shows on its own row unless the contacts above show the person already.
         handleMatch = holder.flatMap { holder in
-            contacts.contains { $0.person.userId == holder.userId } ? nil : PersonPick(person: holder, status: status(of: holder.userId))
+            BipeOfficialAccounts.isOfficial(holder.userId) || contacts.contains { $0.person.userId == holder.userId } ? nil : PersonPick(person: holder, status: status(of: holder.userId))
         }
     }
 }

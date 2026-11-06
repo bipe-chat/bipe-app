@@ -46,10 +46,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.account.AccountSession
+import chat.bipe.app.common.OfficialBadge
 import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.MediaLoader
 import chat.bipe.app.common.memberLabel
 import chat.bipe.phosphor.PhosphorIcon
+import chat.bipe.shared.generated.BipeRegistries
+import chat.bipe.shared.BipeOfficialAccounts
 import chat.bipe.shared.R
 import chat.bipe.shared.generated.BipeScreen
 
@@ -252,14 +255,25 @@ private fun MemberRow(member: GroupMember, media: MediaLoader, onClick: () -> Un
     ) {
         Avatar(member.person.displayName, member.person.avatarUrl, media, size = 40.dp, userId = member.person.userId)
         Spacer(Modifier.width(12.dp))
-        Text(
-            memberLabel(member.person.displayName, member.person.userId, member.nameAmbiguous),
-            style = MaterialTheme.typography.bodyLarge,
-            color = colors.inkPrimary,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
-        )
+        Column(Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    memberLabel(member.person.displayName, member.person.userId, member.nameAmbiguous),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = colors.inkPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                if (BipeOfficialAccounts.isOfficial(member.person.userId)) {
+                    Spacer(Modifier.width(6.dp))
+                    OfficialBadge()
+                }
+            }
+            if (member.person.userId == BipeRegistries.groupsAccountId) {
+                Text(stringResource(R.string.bipe_groups_service_about), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary)
+            }
+        }
         when {
             member.isYou -> Text(stringResource(R.string.bipe_app_you), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary)
             member.isAdmin -> Text(stringResource(R.string.bipe_app_group_admin), style = MaterialTheme.typography.bodySmall, color = colors.accentInk)

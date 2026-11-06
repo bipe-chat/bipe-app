@@ -59,6 +59,7 @@ import { BlockAlert } from './ChatActions';
 import { useClearedChats, useIgnoredUsers } from './chat-actions';
 import { clearedChatKeepsEvent } from './bipe/generated/lib/registries.mjs';
 import { useClient } from './media';
+import { useIsNewsRoom } from './news-room';
 import { applyDiffs, describe, type DiffVariants } from './util';
 
 // The composer's mode (specs message-reply, message-edit): a reply bar or an edit bar above the field.
@@ -324,6 +325,7 @@ export function RoomTimeline({
     },
   };
   const name = face.name;
+  const newsRoom = useIsNewsRoom(room.id());
   const newestLabel = s('bipe_a11y_scroll_to_newest');
   const canSend = draft.trim() !== '';
 
@@ -376,7 +378,7 @@ export function RoomTimeline({
             aria-expanded={showsInfo}
             onClick={() => onInfo(!showsInfo)}
           >
-            <Avatar name={name} size={32} mxcUrl={face.avatarUrl} userId={face.peer?.userId} members={face.members} />
+            <Avatar name={name} size={32} mxcUrl={face.avatarUrl} userId={face.peer?.userId} official={newsRoom} members={face.members} />
             <h2 className="truncate text-headline text-ink-primary">{name}</h2>
           </button>
           {/* Buscar na conversa (spec chat-search with roomId). */}
