@@ -3,3 +3,6 @@
 // Copyright 2026 Bipe contributors
 
 #include "../QRCode/qrcodegen.h"
+
+// Swift does not import the upstream macro because it expands another function-like macro.
+static inline size_t bipeQRCodeBufferLength(void) { return qrcodegen_BUFFER_LEN_MAX; }

@@ -10,7 +10,7 @@ import Foundation
 enum MacQRCode {
     static func image(_ payload: Data) -> NSImage? {
         guard !payload.isEmpty, payload.count <= 2953 else { return nil }
-        var input = [UInt8](repeating: 0, count: Int(qrcodegen_BUFFER_LEN_MAX))
+        var input = [UInt8](repeating: 0, count: Int(bipeQRCodeBufferLength()))
         var output = input
         input.replaceSubrange(0..<payload.count, with: payload)
         guard qrcodegen_encodeBinary(&input, payload.count, &output, qrcodegen_Ecc_LOW,
