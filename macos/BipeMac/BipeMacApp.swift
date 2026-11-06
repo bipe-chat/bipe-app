@@ -17,6 +17,8 @@ struct BipeMacApp: App {
             MacRootView(account: account)
                 .frame(minWidth: 760, minHeight: 520)
                 .fontDesign(.rounded)
+                // BipeKit's current non-UIKit tokens are light-only. Adaptive Mac tokens remain in #1018.
+                .preferredColorScheme(.light)
                 .tint(BipeColor.accentFill)
                 .task {
                     #if DEBUG

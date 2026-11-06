@@ -52,7 +52,9 @@ jobs:
             -derivedDataPath "$RUNNER_TEMP/bipe-mac" ARCHS='arm64 x86_64' ONLY_ACTIVE_ARCH=NO \
             CODE_SIGNING_ALLOWED=NO $bipe_version_settings \
             > "$RUNNER_TEMP/macos-build.log" 2>&1 || { tail -100 "$RUNNER_TEMP/macos-build.log"; exit 1; }
-          lipo "$RUNNER_TEMP/bipe-mac/Build/Products/${{ matrix.configuration }}/BipeMac.app/Contents/MacOS/BipeMac" -verify_arch arm64 x86_64
+          bipe_archs=" $(lipo -archs "$RUNNER_TEMP/bipe-mac/Build/Products/${{ matrix.configuration }}/BipeMac.app/Contents/MacOS/BipeMac") "
+          echo "$bipe_archs"
+          [[ "$bipe_archs" == *" arm64 "* && "$bipe_archs" == *" x86_64 "* ]]
       - name: SDK loading, encrypted storage and session tests
         if: matrix.configuration == 'Debug'
         shell: bash

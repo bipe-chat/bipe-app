@@ -13,7 +13,7 @@ Started 6 November 2026. Tracking: [bipe#1018](https://github.com/bipe-chat/bipe
 - Restart restores the same device. SDK offline mode makes cached state available without waiting for a network response.
 - An authentication refusal ends the local session. Delayed refresh callbacks cannot save it again after revocation. The encrypted cache remains local; this spike makes no remote-erasure claim.
 
-The spike holds one linked account. Multiple personal/work accounts, rich media, full scam-warning presentation, search, notifications, calls and the work UI remain in #1018. The phone/inbox merge needs the key-model decision specified by ADR 0252. Windows implementation follows the Mac spike's recorded evidence.
+The spike holds one linked account and uses light appearance. BipeKit's current generated non-UIKit colors use the light palette, so forcing light appearance keeps text readable when macOS uses dark appearance. Adaptive Mac color/high-contrast generation, multiple personal/work accounts, rich media, full scam-warning presentation, search, notifications, calls and the work UI remain in #1018. The phone/inbox merge needs the key-model decision specified by ADR 0252. Windows implementation follows the Mac spike's recorded evidence.
 
 ## CI evidence
 

@@ -82,10 +82,21 @@ final class MacSpikeTests: XCTestCase {
         let cache = root.appendingPathComponent("cache", isDirectory: true)
         try FileManager.default.createDirectory(at: data, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: cache, withIntermediateDirectories: true)
-        let client = try await MacAccount.builder(data: data, cache: cache, key: Data(repeating: 7, count: 32))
-            .homeserverUrl(url: "https://example.invalid").build()
-        XCTAssertTrue(client.rooms().isEmpty)
-        XCTAssertThrowsError(try client.session())
+        func openAndClose() async throws {
+            let client = try await MacAccount.builder(data: data, cache: cache, key: Data(repeating: 7, count: 32))
+                .homeserverUrl(url: "https://example.invalid").build()
+            XCTAssertTrue(client.rooms().isEmpty)
+            XCTAssertThrowsError(try client.session())
+        }
+        try await openAndClose()
+        try await openAndClose()
+        do {
+            _ = try await MacAccount.builder(data: data, cache: cache, key: Data(repeating: 9, count: 32))
+                .homeserverUrl(url: "https://example.invalid").build()
+            XCTFail("An existing encrypted store must reject a different key")
+        } catch {
+            // Expected: the SDK cannot decrypt the existing store with another key.
+        }
         XCTAssertFalse(ScamDetector.matchIDs(in: "urgente").isEmpty)
     }
 }
