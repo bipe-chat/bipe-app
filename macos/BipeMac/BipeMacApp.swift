@@ -4,7 +4,6 @@
 
 import AppKit
 import BipeKit
-import CoreImage.CIFilterBuiltins
 import MatrixRustSDK
 import SwiftUI
 
@@ -17,9 +16,8 @@ struct BipeMacApp: App {
             MacRootView(account: account)
                 .frame(minWidth: 760, minHeight: 520)
                 .fontDesign(.rounded)
-                // BipeKit's current non-UIKit tokens are light-only. Adaptive Mac tokens remain in #1018.
-                .preferredColorScheme(.light)
                 .tint(BipeColor.accentFill)
+                .foregroundStyle(BipeColor.inkPrimary)
                 .task {
                     #if DEBUG
                     // Hosted unit tests use synthetic clients; they must not start a real phone-link attempt.
@@ -42,18 +40,29 @@ struct MacRootView: View {
                 NavigationSplitView {
                     List(selection: $selected) {
                         ForEach(account.rooms.map { MacRoom(room: $0) }) { entry in
-                            Text(entry.room.displayName() ?? entry.id).tag(entry.id)
+                            HStack(spacing: 12) {
+                                MacAvatar(name: entry.room.displayName() ?? entry.id)
+                                Text(entry.room.displayName() ?? entry.id).font(.body).lineLimit(2)
+                            }.padding(.vertical, 6).tag(entry.id)
                         }
                     }
                     .navigationTitle(BipeStrings.appChatListTitle)
+                    .navigationSplitViewColumnWidth(min: 240, ideal: 280, max: 360)
                     .safeAreaInset(edge: .bottom) {
-                        Text(account.userId).font(.caption).textSelection(.enabled).padding()
+                        HStack(spacing: 10) {
+                            MacAvatar(name: account.userId)
+                            Text(account.userId).font(.caption).textSelection(.enabled).lineLimit(2)
+                            Spacer(minLength: 0)
+                        }.padding().background(BipeColor.surfaceRaised)
                     }
                 } detail: {
                     if let room = account.rooms.first(where: { $0.id() == selected }) {
                         MacChatView(room: room).id(room.id())
                     } else {
-                        Text(BipeStrings.appChatListEmpty).foregroundStyle(BipeColor.inkSecondary)
+                        VStack(spacing: 16) {
+                            MacBrand()
+                            Text(BipeStrings.appChatListEmpty).font(.body).foregroundStyle(BipeColor.inkSecondary)
+                        }.frame(maxWidth: .infinity, maxHeight: .infinity).background(BipeColor.surfaceBase)
                     }
                 }
             } else {
@@ -62,8 +71,7 @@ struct MacRootView: View {
         }
         .safeAreaInset(edge: .top) {
             if account.storageFailed {
-                Text(BipeStrings.errorGeneric).padding().frame(maxWidth: .infinity)
-                    .foregroundStyle(BipeColor.trustDangerInk).background(BipeColor.trustDangerWash)
+                MacNotice(text: BipeStrings.errorGeneric, danger: true).padding()
             }
         }
     }
@@ -78,19 +86,22 @@ struct MacLinkView: View {
     @ObservedObject var account: MacAccount
 
     var body: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: MacDesign.sectionGap) {
+            MacBrand()
             Text(title).font(.title2).fontWeight(.semibold).multilineTextAlignment(.center)
             if account.phase == .qr, let bytes = account.qrBytes, let image = Self.qrImage(bytes) {
-                HStack(spacing: 40) {
+                HStack(alignment: .center, spacing: 40) {
                     VStack(alignment: .leading, spacing: 20) {
-                        Text(BipeStrings.webSigninStepOpen)
-                        Text(BipeStrings.webSigninStepPath(BipeStrings.tabYou, BipeStrings.settingsAccount,
+                        instruction(1, BipeStrings.webSigninStepOpen)
+                        instruction(2, BipeStrings.webSigninStepPath(BipeStrings.tabYou, BipeStrings.settingsAccount,
                                                           BipeStrings.linkedDevicesTitle, BipeStrings.linkedDevicesLinkComputer))
-                        Text(BipeStrings.webSigninStepScan)
+                        instruction(3, BipeStrings.webSigninStepScan)
                     }.frame(maxWidth: 320)
-                    Image(nsImage: image).interpolation(.none).resizable().scaledToFit()
-                        .frame(width: 280, height: 280)
-                        .accessibilityLabel(BipeStrings.webSigninStepScan)
+                    MacCard {
+                        Image(nsImage: image).interpolation(.none).resizable().scaledToFit()
+                            .frame(width: 260, height: 260)
+                            .accessibilityLabel(BipeStrings.webSigninStepScan)
+                    }
                 }
             } else if account.phase == .checkCode {
                 TextField(BipeStrings.webSigninCheckCodeTitle, text: $account.checkCode)
@@ -100,16 +111,25 @@ struct MacLinkView: View {
                     }
                     .onSubmit { account.submitCheckCode() }
                 Button(BipeStrings.webSigninCheckCodeSend) { account.submitCheckCode() }
-                    .keyboardShortcut(.defaultAction).controlSize(.large)
+                    .keyboardShortcut(.defaultAction).buttonStyle(.bipeProminent)
             } else if account.phase == .failed || account.phase == .revoked {
-                Button(BipeStrings.appRetry) { account.retry() }.controlSize(.large)
+                Button(BipeStrings.appRetry) { account.retry() }.buttonStyle(.bipeProminent)
             } else {
                 ProgressView().accessibilityLabel(title)
             }
         }
-        .padding(40)
+        .padding(MacDesign.pageInset)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(BipeColor.surfaceBase)
+        .background(LinearGradient(colors: [BipeColor.accentWash, BipeColor.surfaceBase], startPoint: .topLeading, endPoint: .bottomTrailing))
+    }
+
+    private func instruction(_ number: Int, _ text: String) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Text(number.formatted()).font(.subheadline).fontWeight(.semibold)
+                .foregroundStyle(BipeColor.inkOnAccent).frame(width: 28, height: 28)
+                .background(BipeColor.accentFill, in: Circle()).accessibilityHidden(true)
+            Text(text).font(.body).fixedSize(horizontal: false, vertical: true).padding(.top, 3)
+        }
     }
 
     private var title: String {
@@ -124,18 +144,8 @@ struct MacLinkView: View {
         }
     }
 
-    /// A white quiet zone is part of the QR bitmap itself, independent of the app's light/dark palette.
-    private static func qrImage(_ bytes: Data) -> NSImage? {
-        let filter = CIFilter.qrCodeGenerator()
-        filter.message = bytes
-        filter.correctionLevel = "L"
-        guard let output = filter.outputImage else { return nil }
-        let quiet = output.extent.insetBy(dx: -4, dy: -4)
-        let white = CIImage(color: CIColor.white).cropped(to: quiet)
-        let image = output.composited(over: white).transformed(by: CGAffineTransform(scaleX: 6, y: 6))
-        guard let bitmap = CIContext().createCGImage(image, from: image.extent) else { return nil }
-        return NSImage(cgImage: bitmap, size: NSSize(width: bitmap.width, height: bitmap.height))
-    }
+    static func qrImage(_ bytes: Data) -> NSImage? { MacQRCode.image(bytes) }
+
 }
 
 struct MacChatView: View {
@@ -146,41 +156,26 @@ struct MacChatView: View {
         VStack(spacing: 0) {
             ScrollViewReader { scroll in
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 16) {
+                    LazyVStack(alignment: .leading, spacing: MacDesign.gap) {
                         Button(BipeStrings.appTimelineLoadingHistory) { Task { await model.loadHistory() } }
                             .disabled(model.loadingHistory)
-                        ForEach(model.messages) { message in
-                            VStack(alignment: .leading, spacing: 6) {
-                                HStack {
-                                    Text(message.sender).font(.headline)
-                                    Spacer()
-                                    Text(message.timestamp, style: .time).font(.caption)
-                                }
-                                Text(message.body).textSelection(.enabled)
-                                if let warning = message.warning {
-                                    Text(warning.message).font(.callout).padding(8)
-                                        .foregroundStyle(BipeColor.trustCautionInk).background(BipeColor.trustCautionWash)
-                                }
-                                if message.pending { Text(BipeStrings.appTimelineSending).font(.caption) }
-                                if message.failed { Text(BipeStrings.appTimelineFailed).foregroundStyle(BipeColor.trustDangerInk) }
-                            }
-                            .padding(12)
-                            .background(message.isOwn ? BipeColor.bubbleOwn : BipeColor.surfaceRaised,
-                                        in: RoundedRectangle(cornerRadius: 12))
-                            .id(message.id)
-                        }
+                        ForEach(model.messages) { message in MacMessageView(message: message).id(message.id) }
                     }.padding()
                 }
                 .onChange(of: model.messages.last?.id) { _, id in
                     if let id { scroll.scrollTo(id, anchor: .bottom) }
                 }
             }
-            if model.failed { Text(BipeStrings.errorGeneric).foregroundStyle(BipeColor.trustDangerInk).padding() }
+            if model.failed { MacNotice(text: BipeStrings.errorGeneric, danger: true).padding() }
             Divider()
             HStack(alignment: .bottom) {
                 TextField(BipeStrings.appTimelineComposerPlaceholder, text: $model.draft, axis: .vertical)
                     .lineLimit(1...6).onSubmit { Task { await model.send() } }
+                    .textFieldStyle(.plain).padding(12)
+                    .background(BipeColor.surfaceRaised, in: RoundedRectangle(cornerRadius: 12))
+                    .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(BipeColor.lineSubtle))
                 Button(BipeStrings.appTimelineSend) { Task { await model.send() } }
+                    .buttonStyle(.bipeProminent)
                     .keyboardShortcut(.return, modifiers: .command)
                     .disabled(model.sending || model.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }.padding()

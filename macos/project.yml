@@ -28,7 +28,15 @@ targets:
     platform: macOS
     sources:
       - path: BipeMac
+      - path: QRCode/qrcodegen.c
+      - path: QRCode/Nayuki-LICENSE.txt
+        buildPhase: resources
       - path: ../ios/Bipe/Common/Listeners.swift
+      - path: ../ios/Bipe/Common/ButtonSize.swift
+      - path: ../ios/BipeKit/Sources/BipeKit/Generated/AppIcons.xcassets
+      - path: ../ios/Phosphor/Sources/Phosphor/Resources/Phosphor.xcassets
+      - path: ../ios/Phosphor/LICENSE
+        buildPhase: resources
     info:
       path: SupportFiles/Info.plist
       properties:
@@ -42,6 +50,8 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: chat.bipe.app.mac
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        SWIFT_OBJC_BRIDGING_HEADER: BipeMac/BipeMac-Bridging-Header.h
     dependencies:
       - package: MatrixRustSDK
       - package: BipeKit

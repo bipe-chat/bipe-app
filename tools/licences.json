@@ -313,6 +313,13 @@
       "checked": "2026-10-29",
       "scope": "test",
       "note": "Gradle plugin of the store captures (bipe-chat/bipe#457), [plugins] in the catalog. Build time only, not in the APK; tools/licences.mjs does not read [plugins], the row records the check."
+    },
+    "qrcodegen": {
+      "ecosystem": "vendored-c",
+      "licence": "MIT",
+      "source": "https://github.com/nayuki/QR-Code-generator/tree/v1.8.0/c",
+      "checked": "2026-11-06",
+      "note": "macOS only; unmodified v1.8.0 C encoder; macos/QRCode/provenance.json records file hashes."
     }
   }
 }
