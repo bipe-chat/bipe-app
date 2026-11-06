@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.people.Person
+import chat.bipe.shared.BipeOfficialAccounts
 import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.api.avatarAccountIsCompany
 import kotlinx.coroutines.Dispatchers
@@ -119,7 +120,13 @@ fun Avatar(
     members: List<Person> = emptyList(),
     /** The public profile photo, for a person whose Matrix profile the server hides. */
     publicPhotoUrl: String? = null,
+    /** An official room with no user behind the avatar: the news room. */
+    official: Boolean = false,
 ) {
+    if (official || BipeOfficialAccounts.isOfficial(userId)) {
+        OfficialLogo(size)
+        return
+    }
     if (mxcUrl == null && members.isNotEmpty()) {
         MemberCluster(members, loader, size, showsPhoto)
         return
@@ -154,6 +161,18 @@ fun Avatar(
     }
 }
 
+/** Spec person-profile notes, Official avatar (ADR 0117): the app draws the logo, so no profile photo can replace it. */
+@Composable
+private fun OfficialLogo(size: Dp) {
+    val colors = BipeTheme.colors
+    Box(
+        modifier = Modifier.size(size).clip(RoundedCornerShape(percent = 25)).background(colors.accentFill),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(Modifier.size(size * 0.58f).background(colors.inkOnAccent, BipeMarkShape))
+    }
+}
+
 /** Diameter and centre of a member circle, as fractions of the group circle. */
 private data class ClusterSlot(val diameter: Float, val x: Float, val y: Float)
 
@@ -182,9 +201,10 @@ private fun MemberCluster(members: List<Person>, loader: MediaLoader?, size: Dp,
                 modifier = Modifier
                     .offset(x = size * slot.x - diameter / 2, y = size * slot.y - diameter / 2)
                     .size(diameter)
+                    .clip(CircleShape)
                     .border(maxOf(1.dp, size * 0.025f), colors.surfaceSunken, CircleShape),
             ) {
-                Avatar(person.displayName, person.avatarUrl, loader, size = diameter, showsPhoto = showsPhoto)
+                Avatar(person.displayName, person.avatarUrl, loader, size = diameter, showsPhoto = showsPhoto, official = BipeOfficialAccounts.isOfficial(person.userId))
             }
         }
     }

@@ -138,7 +138,7 @@ struct ChatSearchResults: View {
                         onOpenChat(chat.roomId)
                     } label: {
                         HStack(spacing: 12) {
-                            AvatarView(name: chat.name, mxcUrl: chat.avatarUrl, loader: media, size: 40, userId: chat.peerUserId,
+                            AvatarView(name: chat.name, mxcUrl: chat.avatarUrl, loader: media, size: 40, userId: chat.peerUserId, official: chat.isNewsRoom,
                                        members: chat.avatarMembers)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(chat.name)

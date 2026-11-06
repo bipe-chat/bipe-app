@@ -8,10 +8,13 @@
 // GET /v1/accounts/{id}/type; a failure keeps the circle (fail closed).
 // MemberCluster (AvatarView.swift): a group with no photo shows its members as overlapping circles on
 // surface.sunken, each with a surface.sunken ring; one member shows that member's avatar.
+// Official avatar (ADR 0117): the app draws the logo, so no profile photo can replace it.
 
 import { useContext, useEffect, useState } from 'react';
 import { accountType } from '../api';
 import { ClientContext, thumbnailOfUrl, useObjectUrl } from '../media';
+import { isOfficial } from '../registries';
+import { BipeMark } from './BipeMark';
 
 function initial(name: string): string {
   const letter = Array.from(name.replace(/^[@#!+ ]+|[@#!+ ]+$/g, ''))[0];
@@ -71,7 +74,9 @@ function MemberCluster({ members, size }: { members: AvatarMember[]; size: numbe
             style={{ left: size * x - side / 2 - ring, top: size * y - side / 2 - ring, padding: ring }}
           >
             {/* No userId: the hero already carries the photo, and the circles stay round. */}
-            <Avatar name={m.displayName ?? m.userId} size={side} mxcUrl={m.avatarUrl} />
+            <span className="block overflow-hidden rounded-full">
+              <Avatar name={m.displayName ?? m.userId} size={side} mxcUrl={m.avatarUrl} official={isOfficial(m.userId)} />
+            </span>
           </span>
         );
       })}
@@ -84,6 +89,7 @@ export function Avatar({
   size,
   mxcUrl,
   userId,
+  official,
   members,
 }: {
   name: string;
@@ -91,11 +97,26 @@ export function Avatar({
   mxcUrl?: string;
   /** The account behind the avatar, for its shape. */
   userId?: string;
+  /** An official room with no user behind the avatar: the news room. */
+  official?: boolean;
   /** A group with no photo: its members, shown as a cluster when mxcUrl is empty. */
   members?: AvatarMember[];
 }) {
+  if (official || isOfficial(userId)) return <OfficialLogo size={size} />;
   if (!mxcUrl && members?.length) return <MemberCluster members={members} size={size} />;
   return <Single name={name} size={size} mxcUrl={mxcUrl} userId={userId} />;
+}
+
+function OfficialLogo({ size }: { size: number }) {
+  return (
+    <span
+      aria-hidden
+      className="grid shrink-0 place-items-center overflow-hidden bg-accent-fill text-ink-on-accent"
+      style={{ width: size, height: size, borderRadius: size * 0.25 }}
+    >
+      <BipeMark style={{ width: size * 0.58, height: size * 0.58 }} />
+    </span>
+  );
 }
 
 function Single({ name, size, mxcUrl, userId }: { name: string; size: number; mxcUrl?: string; userId?: string }) {

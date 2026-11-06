@@ -555,7 +555,7 @@ struct ChatTimelineView: View {
 
     private var chatTitle: some View {
         HStack(spacing: 8) {
-            AvatarView(name: model.roomName, mxcUrl: model.roomAvatarUrl, loader: media, size: 32, userId: model.peerUserId,
+            AvatarView(name: model.roomName, mxcUrl: model.roomAvatarUrl, loader: media, size: 32, userId: model.peerUserId, official: model.isNewsRoom,
                        members: model.avatarMembers)
             VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 8) {
@@ -839,7 +839,7 @@ private struct ComposerBar: View {
                         model.pickSuggestion(suggestion)
                     } label: {
                         HStack(spacing: 10) {
-                            AvatarView(name: suggestion.name, mxcUrl: suggestion.avatarUrl, loader: media, size: 32)
+                            AvatarView(name: suggestion.name, mxcUrl: suggestion.avatarUrl, loader: media, size: 32, userId: suggestion.userId)
                             VStack(alignment: .leading, spacing: 0) {
                                 // Spec composer nameAmbiguous: the @ follows a name another member also has.
                                 Text(suggestion.nameAmbiguous && suggestion.userId != nil && suggestion.handle == nil

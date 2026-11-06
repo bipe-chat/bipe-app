@@ -23,6 +23,7 @@ import {
 } from './generated/matrix_sdk_ffi';
 import { apiFor } from './api';
 import { useClient } from './media';
+import { isOfficial } from './registries';
 import { check, magnifyingGlass } from './phosphor/icons';
 import { Avatar } from './ui/Avatar';
 import { s } from './ui/i18n';
@@ -367,7 +368,7 @@ export function NewGroup({
       <h3 className="px-4 pt-4 text-footnote text-ink-secondary">{s('bipe_app_group_add_people')}</h3>
       <SearchBox value={query} onChange={setQuery} />
       <ul className="min-h-0 flex-1 overflow-y-auto">
-        {[...picked, ...people.filter((p) => !picked.some((x) => x.userId === p.userId))].map((p) => (
+        {[...picked, ...people.filter((p) => !isOfficial(p.userId) && !picked.some((x) => x.userId === p.userId))].map((p) => (
           <PersonRow
             key={p.userId}
             person={p}

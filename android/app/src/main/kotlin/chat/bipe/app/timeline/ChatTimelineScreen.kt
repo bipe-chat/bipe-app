@@ -414,7 +414,7 @@ fun ChatTimelineScreen(
                         modifier = Modifier.weight(1f).then(if (isDm && onOpenInfo != null) Modifier.clickable(onClick = onOpenInfo) else Modifier),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Avatar(roomName, roomAvatarUrl, media, size = 32.dp, userId = peerUserId, members = avatarMembers)
+                        Avatar(roomName, roomAvatarUrl, media, size = 32.dp, userId = peerUserId, official = model.isNewsRoom, members = avatarMembers)
                         Spacer(Modifier.size(8.dp))
                         Column(modifier = Modifier.weight(1f, fill = false)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -971,7 +971,7 @@ private fun ComposerBar(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                             ) {
-                                Avatar(suggestion.name, suggestion.avatarUrl, media, size = 32.dp)
+                                Avatar(suggestion.name, suggestion.avatarUrl, media, size = 32.dp, userId = suggestion.userId)
                                 Column {
                                     // Spec composer nameAmbiguous: a member with no handle line shows the Matrix ID after a shared name.
                                     val label = suggestion.userId?.takeIf { suggestion.handle == null }

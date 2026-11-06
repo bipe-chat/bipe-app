@@ -64,6 +64,8 @@ struct AvatarView: View {
     let loader: MediaLoader
     var size: CGFloat = 48
     var userId: String? = nil
+    /// An official room with no user behind the avatar: the news room.
+    var official = false
     var isCompany = false
     var showsPhoto = true
     /// Spec chat-list notes, Group avatar (bipe-chat/bipe#1004): a group with no photo shows these members.
@@ -75,11 +77,26 @@ struct AvatarView: View {
     @State private var resolvedCompany = false
 
     var body: some View {
-        if mxcUrl == nil, !members.isEmpty {
+        if official || BipeOfficialAccounts.isOfficial(userId) {
+            logo
+        } else if mxcUrl == nil, !members.isEmpty {
             MemberCluster(members: members, loader: loader, size: size, showsPhotos: showsPhoto)
         } else {
             single
         }
+    }
+
+    /// Spec person-profile notes, Official avatar (ADR 0117): the app draws the logo, so no profile photo can replace it.
+    private var logo: some View {
+        ZStack {
+            BipeColor.accentFill
+            BipeMark()
+                .fill(BipeColor.inkOnAccent)
+                .frame(width: size * 0.58, height: size * 0.58)
+        }
+        .frame(width: size, height: size)
+        .clipShape(RoundedRectangle(cornerRadius: size * 0.25, style: .continuous))
+        .accessibilityHidden(true)
     }
 
     private var single: some View {
@@ -157,7 +174,8 @@ private struct MemberCluster: View {
                     let person = members[index]
                     // No userId: the hero already carries the photo, and the circles stay round.
                     AvatarView(name: person.displayName, mxcUrl: person.avatarUrl, loader: loader, size: size * slot.diameter,
-                               showsPhoto: showsPhotos)
+                               official: BipeOfficialAccounts.isOfficial(person.userId), showsPhoto: showsPhotos)
+                        .clipShape(Circle())
                         .overlay(Circle().stroke(BipeColor.surfaceSunken, lineWidth: max(1, size * 0.025)))
                         .position(x: size * slot.x, y: size * slot.y)
                 }

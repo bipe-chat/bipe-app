@@ -136,11 +136,23 @@ struct GroupMembersView: View {
         } label: {
             HStack(spacing: 12) {
                 AvatarView(name: member.person.displayName, mxcUrl: member.person.avatarUrl, loader: media, size: 40, userId: member.person.userId)
-                Text(member.nameAmbiguous
-                     ? MemberNames.label(name: member.person.displayName, userId: member.person.userId, handles: handles)
-                     : member.person.displayName)
-                    .foregroundStyle(BipeColor.inkPrimary)
-                    .lineLimit(1)
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text(member.nameAmbiguous
+                             ? MemberNames.label(name: member.person.displayName, userId: member.person.userId, handles: handles)
+                             : member.person.displayName)
+                            .foregroundStyle(BipeColor.inkPrimary)
+                            .lineLimit(1)
+                        if BipeOfficialAccounts.isOfficial(member.person.userId) {
+                            OfficialBadge()
+                        }
+                    }
+                    if member.person.userId == BipeRegistries.groupsAccountID {
+                        Text(BipeStrings.groupsServiceAbout)
+                            .font(.footnote)
+                            .foregroundStyle(BipeColor.inkSecondary)
+                    }
+                }
                 Spacer()
                 if member.isYou {
                     Text(BipeStrings.appYou)

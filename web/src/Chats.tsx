@@ -50,6 +50,7 @@ import {
 } from './phosphor/icons';
 import { useDesktopNotifications, useNotificationPermission, useTabTitle } from './notifications';
 import { bannerDismissed, EncryptionBanner, EncryptionSheet, needsApproval, useEncryptionState } from './Encryption';
+import { useIsNewsRoom } from './news-room';
 import { isOfficial } from './registries';
 import { navigate, useRoute } from './router';
 import { useEscape } from './ui/keys';
@@ -835,13 +836,7 @@ function FavouritesGrid({
                 onContextMenu={(e) => onMenu(chat, e)}
               >
                 <span className="relative">
-                  <Avatar
-                    name={chat.face.name}
-                    size={72}
-                    mxcUrl={chat.face.avatarUrl}
-                    userId={chat.face.peer?.userId}
-                    members={chat.face.members}
-                  />
+                  <ChatAvatar chat={chat} name={chat.face.name} avatarUrl={chat.face.avatarUrl} size={72} />
                   {unread && (
                     <span className="absolute top-0 right-0 size-[14px] rounded-full border-2 border-surface-base bg-accent-fill" />
                   )}
@@ -954,6 +949,13 @@ function ChatMenu({ x, y, items, onClose }: { x: number; y: number; items: MenuI
 // ChatRow (ChatListView.swift): a 48 pt avatar, 12 pt gap; the name in headline with the date in caption
 // on the first line; the preview in subheadline (two lines) with the muted bell, the @ mark and the
 // unread count (or the marked-unread dot) on the second. The separator starts at the text.
+function ChatAvatar({ chat, name, avatarUrl, size }: { chat: ChatSummary; name: string; avatarUrl?: string; size: number }) {
+  const newsRoom = useIsNewsRoom(chat.roomId);
+  return (
+    <Avatar name={name} size={size} mxcUrl={avatarUrl} userId={chat.face.peer?.userId} official={newsRoom} members={chat.face.members} />
+  );
+}
+
 function ChatRow({
   chat,
   selected,
@@ -975,7 +977,7 @@ function ChatRow({
         onClick={onOpen}
         onContextMenu={onMenu}
       >
-        <Avatar name={name} size={48} mxcUrl={avatarUrl} userId={chat.face.peer?.userId} members={chat.face.members} />
+        <ChatAvatar chat={chat} name={name} avatarUrl={avatarUrl} size={48} />
         <span className="flex min-h-[72px] min-w-0 flex-1 flex-col justify-center gap-1 border-b-[0.5px] border-line-subtle py-2 pr-4">
           <span className="flex items-baseline gap-2">
             <span className="min-w-0 flex-1 truncate text-headline text-ink-primary">{name}</span>

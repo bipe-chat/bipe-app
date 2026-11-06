@@ -4,6 +4,7 @@
 
 package chat.bipe.app.groups
 
+import chat.bipe.shared.BipeOfficialAccounts
 import android.content.Context
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.common.MediaLoader
@@ -179,11 +180,12 @@ class GroupInviteMembersModel(
 
     private fun rebuild() {
         val query = _query.value
+        // Spec group-invite-members notes: an official account joins a group only through its own flow.
         _contacts.value = people
-            .filter { it.matches(query) || results.containsKey(it.userId) }
+            .filter { !BipeOfficialAccounts.isOfficial(it.userId) && (it.matches(query) || results.containsKey(it.userId)) }
             .map { PersonPick(it, status(it.userId)) }
         // The holder of the @ shows on its own row unless the contacts above show the person already.
-        _handleMatch.value = holder?.takeIf { found -> _contacts.value.none { it.person.userId == found.userId } }
+        _handleMatch.value = holder?.takeIf { found -> !BipeOfficialAccounts.isOfficial(found.userId) && _contacts.value.none { it.person.userId == found.userId } }
             ?.let { PersonPick(it, status(it.userId)) }
         _selectedCount.value = selected.size
     }

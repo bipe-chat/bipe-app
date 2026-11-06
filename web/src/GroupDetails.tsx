@@ -20,7 +20,7 @@ import {
   type RoomPowerLevelsLike,
 } from './generated';
 import { PersonRow, SearchBox, usePeople } from './NewChat';
-import { isOfficial } from './registries';
+import { isGroupsAccount, isOfficial } from './registries';
 import type { RoomFace } from './room-face';
 import { Alert } from './ui/Alert';
 import { Avatar, type AvatarMember } from './ui/Avatar';
@@ -170,6 +170,9 @@ export function GroupDetails({
                     </span>
                     {isAdmin(m) && (
                       <span className="text-footnote text-ink-secondary">{s('bipe_app_group_admin')}</span>
+                    )}
+                    {isGroupsAccount(m.userId) && (
+                      <span className="text-footnote text-ink-secondary">{s('bipe_groups_service_about')}</span>
                     )}
                   </button>
                   {m.userId === own && <span className="text-subheadline text-ink-secondary">{s('bipe_app_you')}</span>}
@@ -331,7 +334,7 @@ function AddPeople({
       <SearchBox value={query} onChange={setQuery} />
       <ul className="min-h-0 flex-1 overflow-y-auto">
         {people
-          .filter((p) => !already.has(p.userId))
+          .filter((p) => !already.has(p.userId) && !isOfficial(p.userId))
           .map((p) => (
             <PersonRow
               key={p.userId}

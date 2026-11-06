@@ -819,7 +819,7 @@ struct ChatRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            AvatarView(name: chat.name, mxcUrl: chat.avatarUrl, loader: media, userId: chat.peerUserId, members: chat.avatarMembers)
+            AvatarView(name: chat.name, mxcUrl: chat.avatarUrl, loader: media, userId: chat.peerUserId, official: chat.isNewsRoom, members: chat.avatarMembers)
             VStack(alignment: .leading, spacing: 4) {
                 HStack(alignment: .firstTextBaseline) {
                     Text(chat.name)
@@ -999,7 +999,7 @@ private struct FavouritesGrid<MenuContent: View>: View {
 
     private func cell(_ chat: ChatSummary) -> some View {
         VStack(spacing: 6) {
-            AvatarView(name: chat.name, mxcUrl: chat.avatarUrl, loader: media, size: avatarSize, userId: chat.peerUserId,
+            AvatarView(name: chat.name, mxcUrl: chat.avatarUrl, loader: media, size: avatarSize, userId: chat.peerUserId, official: chat.isNewsRoom,
                        members: chat.avatarMembers)
                 .overlay(alignment: .topTrailing) {
                     if chat.isUnread {
