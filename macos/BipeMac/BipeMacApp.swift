@@ -145,6 +145,7 @@ struct MacChatView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            if !model.isEncrypted { MacNotice(text: BipeStrings.appTimelineNotEncrypted).padding() }
             ScrollViewReader { scroll in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: MacDesign.gap) {
@@ -192,7 +193,7 @@ struct MacChatView: View {
                 Button(BipeStrings.appTimelineSend) { Task { await model.send() } }
                     .buttonStyle(.bipeProminent)
                     .keyboardShortcut(.return, modifiers: .command)
-                    .disabled(model.sending || model.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(!model.ready || model.sending || model.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }.padding()
         }
         .navigationTitle(name)

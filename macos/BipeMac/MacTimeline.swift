@@ -28,6 +28,8 @@ final class MacTimeline: ObservableObject {
     @Published private(set) var failed = false
     @Published private(set) var sending = false
     @Published private(set) var loadingHistory = false
+    @Published private(set) var ready = false
+    @Published private(set) var isEncrypted = true
     @Published var draft = "" { didSet { persistDraft() } }
     @Published private(set) var replyID: String? { didSet { persistDraft() } }
     var replyTarget: MacMessage? { messages.first { $0.eventID == replyID } }
@@ -56,6 +58,7 @@ final class MacTimeline: ObservableObject {
             }
             self.room = room
             if editedWhileLoading { persistDraft() }
+            isEncrypted = await room.isEncrypted()
             let isDm = (try? await room.roomInfo())?.isDm ?? true
             let configuration = TimelineConfiguration(focus: .live(hideThreadedEvents: !isDm), filter: .all,
                                                        internalIdPrefix: nil, dateDividerMode: .daily,
@@ -64,7 +67,8 @@ final class MacTimeline: ObservableObject {
             self.timeline = timeline
             let stream = TimelineDiffStream()
             listener = await timeline.addListener(listener: stream)
-            defer { listener?.cancel(); listener = nil; self.timeline = nil; self.room = nil }
+            ready = true
+            defer { listener?.cancel(); listener = nil; self.timeline = nil; self.room = nil; ready = false }
             for await updates in stream.updates {
                 guard !Task.isCancelled else { return }
                 for update in updates { items.apply(update.vectorDiff) }
