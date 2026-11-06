@@ -133,7 +133,14 @@ struct MacLinkView: View {
 struct MacChatView: View {
     let room: Room
     let name: String
-    @StateObject private var model = MacTimeline()
+    @StateObject private var model: MacTimeline
+    @Environment(\.scenePhase) private var scenePhase
+
+    init(room: Room, name: String, drafts: MacDrafts) {
+        self.room = room
+        self.name = name
+        _model = StateObject(wrappedValue: MacTimeline(drafts: drafts))
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -142,7 +149,18 @@ struct MacChatView: View {
                     LazyVStack(alignment: .leading, spacing: MacDesign.gap) {
                         Button(BipeStrings.appTimelineLoadingHistory) { Task { await model.loadHistory() } }
                             .disabled(model.loadingHistory)
-                        ForEach(model.messages) { message in MacMessageView(message: message).id(message.id) }
+                        ForEach(model.messages) { message in
+                            MacMessageView(message: message).id(message.id)
+                                .contextMenu {
+                                    Button(BipeStrings.appMessageActionReply) { model.startReply(message) }
+                                        .disabled(!message.canReply || message.eventID == nil)
+                                    Button(BipeStrings.appCopy) {
+                                        NSPasteboard.general.clearContents()
+                                        NSPasteboard.general.setString(message.body, forType: .string)
+                                    }
+                                }
+                                .accessibilityAction(named: BipeStrings.appMessageActionReply) { model.startReply(message) }
+                        }
                     }.padding()
                 }
                 .onChange(of: model.messages.last?.id) { _, id in
@@ -151,6 +169,18 @@ struct MacChatView: View {
             }
             if model.failed { MacNotice(text: BipeStrings.errorGeneric, danger: true).padding() }
             Divider()
+            if model.replyID != nil {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(model.replyTarget.map { BipeStrings.appMessageReplyingTo($0.sender) } ?? BipeStrings.appMessageActionReply)
+                            .font(.callout).fontWeight(.semibold)
+                        Text(model.replyTarget?.body ?? BipeStrings.appMessageReplyUnavailable)
+                            .font(.caption).lineLimit(2).foregroundStyle(BipeColor.inkSecondary)
+                    }
+                    Spacer()
+                    Button(BipeStrings.appCancel) { model.cancelReply() }
+                }.padding().background(BipeColor.accentWash)
+            }
             HStack(alignment: .bottom) {
                 TextField(BipeStrings.appTimelineComposerPlaceholder, text: $model.draft, axis: .vertical)
                     .lineLimit(1...6).onSubmit { Task { await model.send() } }
@@ -166,5 +196,6 @@ struct MacChatView: View {
         .navigationTitle(name)
         .background(BipeColor.surfaceBase)
         .task { await model.run(room: room) }
+        .onChange(of: scenePhase) { _, phase in if phase == .active { Task { await model.markRead() } } }
     }
 }

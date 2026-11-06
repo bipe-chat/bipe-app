@@ -19,6 +19,8 @@ The desktop rail has Chats, Groups and You for personal accounts, or Chats, Work
 
 The app is named Bipe in Finder, the menu bar and About. It uses Bipe's generated icon, shared rounded typography, adaptive colors for light/dark/Increase Contrast, Phosphor glyphs and large native buttons. Desktop cards, message bubbles, account rows and the composer use the shared tokens.
 
+Text replies use the SDK's reply relation. Composer text and reply targets live in the room's encrypted SDK store. Each account has an ordered draft-write queue, so reopening a room waits for edits from its dismissed view. Visible conversations send read receipts only while Bipe is active. The privacy switch keeps DM receipts private when off; group receipts keep the shared public-receipt rule.
+
 QR codes use one binary byte segment, as the web does, so released phone scanners can read them. Apple's Core Image encoder mixed an alphanumeric MATRIX header with byte segments; the released iPhone scanner ignored that result. The native MIT-licensed Nayuki encoder is vendored unchanged, with source hashes and its notice in macos/QRCode. The regression test decodes the final bitmap with the released phone's byte-only rules. No phone update is needed for this compatibility fix.
 
 ## CI evidence

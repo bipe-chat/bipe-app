@@ -105,7 +105,7 @@ struct MacAccountView: View {
                     .navigationSplitViewColumnWidth(min: 240, ideal: 300, max: 380)
                 } detail: {
                     if let entry = rows.first(where: { $0.id == selected }) {
-                        MacChatView(room: entry.room, name: entry.name).id(entry.id)
+                        MacChatView(room: entry.room, name: entry.name, drafts: account.drafts).id(entry.id)
                     } else {
                         VStack(spacing: MacDesign.gap) {
                             MacBrand()
@@ -140,6 +140,7 @@ private struct MacAccountMenuLabel: View {
 private struct MacYouView: View {
     @ObservedObject var workspace: MacWorkspace
     @ObservedObject var account: MacAccount
+    @AppStorage(MacReceiptPolicy.key) private var readReceipts = true
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: MacDesign.sectionGap) {
@@ -164,6 +165,13 @@ private struct MacYouView: View {
                         }
                         Divider()
                         Button(BipeStrings.appAccountNew) { workspace.addAccount() }.buttonStyle(.bipeBordered)
+                    }
+                }
+                MacCard {
+                    VStack(alignment: .leading, spacing: MacDesign.gap) {
+                        Text(BipeStrings.settingsPrivacy).font(.headline)
+                        Toggle(BipeStrings.privacyReadReceipts, isOn: $readReceipts)
+                        Text(BipeStrings.privacyReadReceiptsFooter).font(.callout).foregroundStyle(BipeColor.inkSecondary)
                     }
                 }
             }.padding(MacDesign.pageInset).frame(maxWidth: 800, alignment: .leading)

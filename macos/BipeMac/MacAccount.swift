@@ -40,6 +40,7 @@ final class MacAccount: ObservableObject {
     private(set) var client: Client?
     private var sync: SyncService?
     let api = BipeAPIClient(baseURL: URL(string: "https://api.bipe.net.br")!)
+    let drafts = MacDrafts()
     private let vault: MacSessionVault
     private var savedUserID: String?
     private var openID: BipeOpenIDTokens?
@@ -265,6 +266,9 @@ final class MacAccount: ObservableObject {
         guard attempt == current else { throw CancellationError() }
         self.client = client
         userId = try client.userId()
+        displayName = BipeAccountLabels.label(for: userId)
+        handle = BipeHandleCache.handle(for: userId)
+        isCompany = BipeAccountLabels.isCompany(userId)
         openID = BipeOpenIDTokens(homeserverURL: try client.session().homeserverUrl, userID: userId) { [weak self] in
             try? self?.client?.session().accessToken
         }

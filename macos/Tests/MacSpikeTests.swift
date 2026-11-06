@@ -216,6 +216,16 @@ final class MacSpikeTests: XCTestCase {
         XCTAssertTrue(MacDestination.chats.includes(isDm: true, isCompany: false))
     }
 
+    func testReadReceiptPrivacyKeepsGroupsPublicAndDMsPrivateWhenDisabled() throws {
+        let suite = "chat.bipe.mac.receipts-test.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        XCTAssertEqual(MacReceiptPolicy.type(isDm: true, defaults: defaults), .read)
+        defaults.set(false, forKey: MacReceiptPolicy.key)
+        XCTAssertEqual(MacReceiptPolicy.type(isDm: true, defaults: defaults), .readPrivate)
+        XCTAssertEqual(MacReceiptPolicy.type(isDm: false, defaults: defaults), .read)
+    }
+
     func testRestoreNeverRecreatesAMissingCryptoStore() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         defer { try? FileManager.default.removeItem(at: root) }
