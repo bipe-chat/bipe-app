@@ -434,7 +434,8 @@ public enum BipeColor {
         return Color(nsColor: NSColor(name: nil) { appearance in
             let match = appearance.bestMatch(from: [.accessibilityHighContrastDarkAqua, .accessibilityHighContrastAqua, .darkAqua, .aqua])
             let darkMode = match == .darkAqua || match == .accessibilityHighContrastDarkAqua
-            let high = match == .accessibilityHighContrastAqua || match == .accessibilityHighContrastDarkAqua
+            let high = NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast
+                || match == .accessibilityHighContrastAqua || match == .accessibilityHighContrastDarkAqua
             let value = darkMode ? (high ? darkHighContrast : dark) : (high ? lightHighContrast : light)
             return NSColor(srgbRed: CGFloat((value >> 16) & 0xFF) / 255,
                            green: CGFloat((value >> 8) & 0xFF) / 255,
