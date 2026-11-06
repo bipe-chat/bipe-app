@@ -5652,6 +5652,8 @@ public enum BipeStrings {
 
     public static var groupsServiceName: String { NSLocalizedString("bipe_groups_service_name", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var groupsServiceAbout: String { NSLocalizedString("bipe_groups_service_about", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var yearRecapTitle: String { NSLocalizedString("bipe_year_recap_title", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static func yearRecapCardTitle(_ p1: String) -> String {
