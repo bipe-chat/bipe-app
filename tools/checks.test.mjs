@@ -292,6 +292,7 @@ test('similarity rejects an unknown CSV header', () => {
 // SDK version
 
 const SDK_FILES = {
+  'macos/project.yml': 'packages:\n  MatrixRustSDK:\n    url: https://github.com/matrix-org/matrix-rust-components-swift\n    exactVersion: 26.08.11\n',
   'sdk-version': '26.08.11\n',
   'ios/project.yml':
     'packages:\n  MatrixRustSDK:\n    url: https://github.com/matrix-org/matrix-rust-components-swift\n    exactVersion: 26.08.11\n  BipeKit:\n    path: BipeKit\n',
@@ -304,6 +305,15 @@ const SDK_FILES = {
 
 test('sdk-version passes when every pin equals sdk-version', () => {
   assert.deepEqual(checkSdkVersion(tree(SDK_FILES)).errors, []);
+});
+
+test('macOS cannot bypass the dependency deny-list or SDK pin', () => {
+  const root = tree({
+    ...SDK_FILES,
+    'macos/project.yml': 'packages:\n  MatrixRustSDK:\n    url: https://github.com/matrix-org/matrix-rust-components-swift\n    exactVersion: 1.0.0\n  Forbidden:\n    url: https://github.com/element-hq/compound-ios\n',
+  });
+  assert.ok(checkSdkVersion(root).errors.some((error) => error.startsWith('macos/project.yml:')));
+  assert.ok(checkDenyList(root).errors.some((error) => error.startsWith('macos/project.yml:')));
 });
 
 test('sdk-version fails on a different pin and on a missing file', () => {

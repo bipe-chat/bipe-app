@@ -2,9 +2,10 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
-// SDK version: iOS and Android use the same matrix-rust-sdk release. The file
+// SDK version: iOS, Android and macOS use the same matrix-rust-sdk release. The file
 // sdk-version at the repo root holds it. Each platform pin must be equal:
 // - ios/project.yml: exactVersion of the matrix-rust-components-swift package.
+// - macos/project.yml: exactVersion of the same Swift package.
 // - ios/Package.resolved: version of the matrix-rust-components-swift pin.
 // - android/gradle/libs.versions.toml: [versions] matrix-rust-sdk.
 // Usage: node tools/sdk-version.mjs [repo-root]
@@ -62,6 +63,7 @@ export function checkSdkVersion(root) {
   if (!expected) return { errors: ['sdk-version is missing or empty. It holds the matrix-rust-sdk release for both platforms.'] };
   const sources = [
     ['ios/project.yml', projectPin, `exactVersion of the ${SWIFT_PACKAGE} package`],
+    ['macos/project.yml', projectPin, `exactVersion of the ${SWIFT_PACKAGE} package`],
     ['ios/Package.resolved', resolvedPin, `version of the ${SWIFT_PACKAGE} pin`],
     ['android/gradle/libs.versions.toml', catalogPin, '[versions] matrix-rust-sdk'],
   ];

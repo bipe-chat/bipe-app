@@ -1,0 +1,269 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
+// Copyright 2026 Bipe contributors
+
+import BipeKit
+import Combine
+import Foundation
+import MatrixRustSDK
+
+final class MacQRProgress: GeneratedQrLoginProgressListener {
+    let updates: AsyncStream<GeneratedQrLoginProgress>
+    private let continuation: AsyncStream<GeneratedQrLoginProgress>.Continuation
+    init() { (updates, continuation) = AsyncStream.makeStream() }
+    func onUpdate(state: GeneratedQrLoginProgress) { continuation.yield(state) }
+    func finish() { continuation.finish() }
+}
+
+final class MacAuthDelegate: ClientDelegate, @unchecked Sendable {
+    let onRefused: @Sendable () -> Void
+    init(onRefused: @escaping @Sendable () -> Void) { self.onRefused = onRefused }
+    func didReceiveAuthError(isSoftLogout: Bool) { onRefused() }
+    func onBackgroundTaskErrorReport(taskName: String, error: BackgroundTaskFailureReason) {}
+}
+
+/// First Mac slice of link-computer and chat-list. The phone remains the authority for a new computer.
+@MainActor
+final class MacAccount: ObservableObject {
+    enum Phase { case starting, qr, checkCode, approving, keys, signedIn, failed, revoked }
+    @Published private(set) var phase: Phase = .starting
+    @Published private(set) var qrBytes: Data?
+    @Published private(set) var rooms: [Room] = []
+    @Published private(set) var userId = ""
+    @Published private(set) var storageFailed = false
+    @Published var checkCode = ""
+
+    private(set) var client: Client?
+    private var sync: SyncService?
+    private let vault = MacSessionVault(keychain: SystemMacKeychain())
+    private var loginTask: Task<Void, Never>?
+    private var refreshTask: Task<Void, Never>?
+    private var listTask: Task<Void, Never>?
+    private var entries: RoomListEntriesWithDynamicAdaptersResult?
+    private var authDelegate: MacAuthDelegate?
+    private var sessionSaver: MacSessionDelegate?
+    private var authHandle: TaskHandle?
+    private var checkSender: CheckCodeSender?
+    private var attempt = UUID()
+    private var launched = false
+
+    func start() {
+        guard !launched else { return }
+        launched = true
+        retry()
+    }
+
+    func retry() {
+        loginTask?.cancel()
+        refreshTask?.cancel()
+        listTask?.cancel()
+        entries?.entriesStream().cancel()
+        entries = nil
+        authHandle?.cancel()
+        authHandle = nil
+        sessionSaver?.deactivate()
+        let oldSync = sync
+        sync = nil
+        client = nil
+        rooms = []
+        attempt = UUID()
+        let current = attempt
+        phase = .starting
+        qrBytes = nil
+        checkSender = nil
+        checkCode = ""
+        loginTask = Task {
+            do {
+                await oldSync?.stop()
+                try Task.checkCancellation()
+                if let saved = try vault.load() {
+                    let delegate = sessionDelegate(folder: saved.folder, active: true)
+                    let client = try await makeClient(folder: saved.folder, restoring: true, delegate: delegate)
+                    try Task.checkCancellation()
+                    try await client.restoreSession(session: saved.session)
+                    try Task.checkCancellation()
+                    try await connected(client, attempt: current)
+                } else {
+                    try await link(attempt: current)
+                }
+            } catch {
+                guard attempt == current, !Task.isCancelled else { return }
+                refreshTask?.cancel()
+                qrBytes = nil
+                checkSender = nil
+                phase = .failed
+            }
+        }
+    }
+
+    private func sessionDelegate(folder: String, active: Bool) -> MacSessionDelegate {
+        let delegate = MacSessionDelegate(vault: vault, folder: folder, active: active) { [weak self] in
+            Task { @MainActor in self?.storageFailed = true }
+        }
+        sessionSaver = delegate
+        return delegate
+    }
+
+    private func link(attempt current: UUID) async throws {
+        let folder = UUID().uuidString
+        var committed = false
+        defer {
+            if !committed, let paths = try? Self.paths(folder: folder) {
+                try? FileManager.default.removeItem(at: paths.data.deletingLastPathComponent())
+            }
+        }
+        let delegate = sessionDelegate(folder: folder, active: false)
+        let client = try await makeClient(folder: folder, restoring: false, delegate: delegate)
+        let progress = MacQRProgress()
+        let reader = Task {
+            for await state in progress.updates {
+                guard attempt == current, !Task.isCancelled else { return }
+                switch state {
+                case .starting: break
+                case .qrReady(let code):
+                    qrBytes = code.toBytes()
+                    phase = .qr
+                    refreshTask = Task {
+                        try? await Task.sleep(for: .seconds(25))
+                        guard !Task.isCancelled, attempt == current, phase == .qr else { return }
+                        retry()
+                    }
+                case .qrScanned(let sender):
+                    refreshTask?.cancel()
+                    qrBytes = nil
+                    checkSender = sender
+                    phase = .checkCode
+                case .waitingForToken:
+                    checkSender = nil
+                    phase = .approving
+                case .syncingSecrets, .done: phase = .keys
+                }
+            }
+        }
+        defer {
+            progress.finish()
+            reader.cancel()
+            if attempt == current { refreshTask?.cancel() }
+        }
+        let oauth = OAuthConfiguration(clientName: "Bipe (Mac)", redirectUri: "chat.bipe.app.mac:/callback",
+                                       clientUri: "https://bipe.chat", logoUri: nil, tosUri: nil,
+                                       policyUri: nil, staticRegistrations: [:])
+        try await client.newLoginWithQrCodeHandler(oauthConfiguration: oauth).generate(progressListener: progress)
+        progress.finish()
+        await reader.value
+        try Task.checkCancellation()
+        guard attempt == current else { throw CancellationError() }
+        try vault.save(client.session(), folder: folder)
+        committed = true
+        delegate.activate()
+        try await connected(client, attempt: current)
+    }
+
+    func submitCheckCode() {
+        guard phase == .checkCode, let code = UInt8(checkCode), code < 100, !checkCode.isEmpty,
+              let sender = checkSender else { return }
+        checkSender = nil
+        phase = .approving
+        let current = attempt
+        Task {
+            do { try await sender.send(code: code) } catch {
+                guard attempt == current else { return }
+                loginTask?.cancel()
+                phase = .failed
+            }
+        }
+    }
+
+    private func makeClient(folder: String, restoring: Bool, delegate: MacSessionDelegate) async throws -> Client {
+        let paths = try Self.paths(folder: folder)
+        let key = try vault.storeKey(create: !restoring)
+        return try await Self.builder(data: paths.data, cache: paths.cache, key: key)
+            .setSessionDelegate(sessionDelegate: delegate)
+            .userAgent(userAgent: "Bipe/Mac")
+            .homeserverUrl(url: "https://matrix.bipe.net.br")
+            .build()
+    }
+
+    /// Shared Matrix security policy: signed recipients, encrypted stores and local offline readiness.
+    nonisolated static func builder(data: URL, cache: URL, key: Data) -> ClientBuilder {
+        ClientBuilder()
+            .sqliteStore(config: SqliteStoreBuilder(dataPath: data.path, cachePath: cache.path).key(key: key))
+            .slidingSyncVersionBuilder(versionBuilder: .native)
+            .autoEnableCrossSigning(autoEnableCrossSigning: true)
+            .autoEnableBackups(autoEnableBackups: true)
+            .roomKeyRecipientStrategy(strategy: .identityBasedStrategy)
+            .decryptionSettings(decryptionSettings: DecryptionSettings(senderDeviceTrustRequirement: .crossSignedOrLegacy))
+            .backupDownloadStrategy(backupDownloadStrategy: .afterDecryptionFailure)
+    }
+
+    nonisolated static func paths(folder: String) throws -> (data: URL, cache: URL) {
+        guard UUID(uuidString: folder) != nil else { throw MacVaultError.invalidRecord }
+        let manager = FileManager.default
+        var root = manager.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("chat.bipe.app.mac/Stores", isDirectory: true)
+        let account = root.appendingPathComponent(folder, isDirectory: true)
+        let data = account.appendingPathComponent("data", isDirectory: true)
+        let cache = account.appendingPathComponent("cache", isDirectory: true)
+        for path in [root, account, data, cache] {
+            try manager.createDirectory(at: path, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        }
+        var values = URLResourceValues()
+        values.isExcludedFromBackup = true
+        try root.setResourceValues(values)
+        return (data, cache)
+    }
+
+    private func connected(_ client: Client, attempt current: UUID) async throws {
+        guard attempt == current else { throw CancellationError() }
+        self.client = client
+        userId = try client.userId()
+        let delegate = MacAuthDelegate { [weak self] in
+            Task { @MainActor in
+                guard self?.attempt == current else { return }
+                await self?.revoked()
+            }
+        }
+        authDelegate = delegate
+        authHandle = try client.setDelegate(delegate: delegate)
+        let sync = try await client.syncService().withOfflineMode().finish()
+        try Task.checkCancellation()
+        guard attempt == current else { return }
+        self.sync = sync
+        await sync.start()
+        guard attempt == current, phase != .revoked else { return }
+        phase = .signedIn
+        let service = sync.roomListService()
+        let list = try await service.allRooms()
+        let stream = RoomListEntriesStream()
+        let entries = list.entriesWithDynamicAdapters(pageSize: 100, listener: stream)
+        _ = entries.controller().setFilter(kind: .all(filters: [.joined, .nonSpace, .deduplicateVersions]))
+        self.entries = entries
+        listTask = Task {
+            for await updates in stream.updates {
+                guard !Task.isCancelled, attempt == current else { return }
+                for update in updates { rooms.apply(update.vectorDiff) }
+                try? await service.subscribeToRooms(roomIds: rooms.map { $0.id() })
+            }
+        }
+    }
+
+    private func revoked() async {
+        guard phase != .revoked else { return }
+        phase = .revoked
+        attempt = UUID()
+        loginTask?.cancel()
+        refreshTask?.cancel()
+        listTask?.cancel()
+        entries?.entriesStream().cancel()
+        entries = nil
+        authHandle?.cancel()
+        authHandle = nil
+        sessionSaver?.deactivate()
+        await sync?.stop()
+        sync = nil
+        client = nil
+        rooms = []
+        userId = ""
+        do { try vault.clear() } catch { storageFailed = true }
+    }
+}
