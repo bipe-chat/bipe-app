@@ -7,8 +7,10 @@ package chat.bipe.app.media
 import android.content.Context
 import android.util.Log
 import chat.bipe.app.account.AccountSession
+import chat.bipe.app.common.serverAccountData
 import chat.bipe.app.settings.SettingsKeys
 import chat.bipe.app.settings.ShowMedia
+import chat.bipe.shared.BipeRequestRooms
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -70,6 +72,7 @@ object MediaPreviewSync {
         job?.cancel()
         val client = session.client
         this.client = client
+        syncRequestRooms(appContext, client)
         job = scope.launch {
             val listener = object : MediaPreviewConfigListener {
                 override fun onChange(mediaPreviewConfig: MediaPreviewConfig?) {
@@ -90,6 +93,15 @@ object MediaPreviewSync {
                 // Offline: keep the phone's copy; the subscription brings the value later.
                 Log.i(TAG, "media preview config not fetched now")
             }
+        }
+    }
+
+    /** Spec timeline-media fromStranger. A failure changes nothing, and the next attach tries again. */
+    fun syncRequestRooms(context: Context, client: Client, adding: List<String> = emptyList()) {
+        val appContext = context.applicationContext
+        scope.launch {
+            runCatching { RequestRooms.sync(appContext, client, adding) }
+                .onFailure { Log.i(TAG, "request rooms not synced now") }
         }
     }
 
@@ -135,21 +147,36 @@ object MediaPreviewSync {
 }
 
 /**
- * Spec timeline-media fromStranger (bipe-chat/bipe#827): the DMs the person accepted from chat-requests on this phone.
- * Room IDs only, on the phone.
+ * Spec timeline-media fromStranger (bipe-chat/bipe#827, bipe-chat/bipe#1162): the DMs the person accepted from
+ * chat-requests on any device of the account. The phone keeps a copy of the room IDs for all its accounts.
  */
 object RequestRooms {
     private const val KEY = "request_rooms"
-    /** The newest this many rooms are kept. */
-    private const val LIMIT = 500
 
-    fun remember(context: Context, roomId: String) {
-        val prefs = context.getSharedPreferences(SettingsKeys.FILE, Context.MODE_PRIVATE)
-        val rooms = (prefs.getString(KEY, null)?.split('\n')?.filter { it.isNotEmpty() } ?: emptyList()) - roomId
-        prefs.edit().putString(KEY, (rooms + roomId).takeLast(LIMIT).joinToString("\n")).apply()
+    private fun rooms(context: Context): List<String> =
+        context.getSharedPreferences(SettingsKeys.FILE, Context.MODE_PRIVATE)
+            .getString(KEY, null)?.split('\n')?.filter { it.isNotEmpty() } ?: emptyList()
+
+    private fun store(context: Context, rooms: List<String>) {
+        context.getSharedPreferences(SettingsKeys.FILE, Context.MODE_PRIVATE)
+            .edit().putString(KEY, rooms.joinToString("\n")).apply()
     }
 
-    fun contains(context: Context, roomId: String): Boolean =
-        context.getSharedPreferences(SettingsKeys.FILE, Context.MODE_PRIVATE)
-            .getString(KEY, null)?.split('\n')?.contains(roomId) == true
+    fun remember(context: Context, roomId: String) {
+        store(context, BipeRequestRooms.merged(rooms(context) - roomId, listOf(roomId)))
+    }
+
+    fun contains(context: Context, roomId: String): Boolean = roomId in rooms(context)
+
+    /**
+     * Read-merge-write of the server copy. Adds only rooms this client knows: the phone's copy can hold rooms of
+     * another account.
+     */
+    suspend fun sync(context: Context, client: Client, adding: List<String>) {
+        val known = rooms(context).filter { runCatching { client.getRoom(it) }.getOrNull() != null }
+        val server = BipeRequestRooms.parse(serverAccountData(client, BipeRequestRooms.EVENT_TYPE))
+        val merged = BipeRequestRooms.merged(server, known + adding)
+        if (merged != server) client.setAccountData(BipeRequestRooms.EVENT_TYPE, BipeRequestRooms.content(merged))
+        store(context, BipeRequestRooms.merged(rooms(context), server))
+    }
 }

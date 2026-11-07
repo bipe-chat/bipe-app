@@ -26,6 +26,9 @@ final class MacMedia: ObservableObject {
     private let accountTypes = NSCache<NSString, NSNumber>()
     private let api = BipeAPIClient(baseURL: URL(string: "https://api.bipe.net.br")!)
     private var generation = UUID()
+    /// Spec timeline-media fromStranger. The Mac has no chat-requests yet, so it reads the account's list.
+    @Published private var requestRooms: Set<String> = []
+    @Published private var requestRoomsChecked: Set<String> = []
 
     init() { images.totalCostLimit = 64 * 1024 * 1024 }
 
@@ -62,6 +65,27 @@ final class MacMedia: ObservableObject {
         policy = nil
         images.removeAllObjects()
         accountTypes.removeAllObjects()
+        requestRooms = []
+        requestRoomsChecked = []
+    }
+
+    /// A room waits for a tap until a read of the account's list succeeds for it. The Mac has no address book, so
+    /// nobody counts as a contact.
+    func isFromRequest(_ roomID: String) -> Bool {
+        !requestRoomsChecked.contains(roomID) || requestRooms.contains(roomID)
+    }
+
+    func checkRequestRooms(for roomID: String) async {
+        guard let client else { return }
+        let generation = generation
+        do {
+            let json = try await ServerAccountData.json(client: client, eventType: BipeRequestRooms.eventType)
+            guard self.generation == generation else { return }
+            requestRooms = Set(BipeRequestRooms.parse(json))
+            requestRoomsChecked.insert(roomID)
+        } catch {
+            // The room keeps waiting for a tap. Opening it again reads the list again.
+        }
     }
 
     func maxUploadSize() async -> UInt64? { try? await client?.getMaxMediaUploadSize() }

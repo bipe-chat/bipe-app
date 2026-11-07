@@ -253,7 +253,11 @@ final class ChatRequestsModel: ObservableObject {
         // Spec timeline-media fromStranger: media in a DM accepted from Pedidos waits for a tap.
         let isRequest = requests.contains { $0.roomId == roomId }
         guard await run(roomId, { room in try await room.join() }) else { return nil }
-        if isRequest { RequestRooms.remember(roomId) }
+        if isRequest {
+            RequestRooms.remember(roomId)
+            let client = session.client
+            Task { await RequestRooms.sync(client: client, adding: [roomId]) }
+        }
         return roomId
     }
 
