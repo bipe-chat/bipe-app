@@ -865,6 +865,10 @@ object BipeRegistries {
     const val CHAT_FAVOURITES_ORDER_EVENT_TYPE = "chat.bipe.favourites_order"
     const val CHAT_FAVOURITES_ORDER_MAX = 200
 
+    /** Chats accepted from chat-requests (spec timeline-media fromStranger; registries/request-rooms.json): the global account data event with the room IDs. */
+    const val REQUEST_ROOMS_EVENT_TYPE = "chat.bipe.request_rooms"
+    const val REQUEST_ROOMS_MAX = 500
+
     /** Image descriptions (bipe-chat/bipe#501; registries/image-descriptions.json): the m.image content field and its length limit. */
     const val IMAGE_DESCRIPTION_FIELD = "chat.bipe.image_description"
     const val IMAGE_DESCRIPTION_MAX_LENGTH = 1000
