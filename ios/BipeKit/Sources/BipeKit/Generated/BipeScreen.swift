@@ -484,6 +484,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Theft protection (flow settings). Spec: bipe-shared/product/screens/theft-protection.json
     case theftProtection = "theft-protection"
 
+    /// Threads of a group (flow groups). Spec: bipe-shared/product/screens/thread-list.json
+    case threadList = "thread-list"
+
     /// Threads in groups (flow chat). Spec: bipe-shared/product/screens/threads.json
     case threads = "threads"
 

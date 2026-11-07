@@ -2339,6 +2339,8 @@
     <string name="bipe_thread_reply_action">Reply in thread</string>
     <string name="bipe_thread_title">Thread</string>
     <string name="bipe_thread_replies">Replies: %1$s</string>
+    <string name="bipe_thread_list_title">Group threads</string>
+    <string name="bipe_thread_list_empty">No threads in this group yet.</string>
     <string name="bipe_select_action">Select</string>
     <string name="bipe_select_count">Selected: %1$s</string>
     <string name="bipe_select_limit">Pick up to %1$s messages.</string>
@@ -2519,4 +2521,12 @@
     <string name="bipe_mac_accounts_title">Accounts on this Mac</string>
     <string name="bipe_mac_work_overview">Work overview</string>
     <string name="bipe_mac_refresh">Refresh</string>
+    <string name="bipe_mac_notifications_off">Off on this Mac</string>
+    <string name="bipe_mac_notifications_enable">Turn on for this Mac</string>
+    <string name="bipe_mac_notifications_permission_body">You can change this in System Settings.</string>
+    <string name="bipe_mac_account_change_on_phone">To change these, use Bipe on your phone.</string>
+    <string name="bipe_mac_linked_devices_footer">To sign out a device, use Bipe on your phone.</string>
+    <string name="bipe_mac_sign_out_title">Sign out of Bipe on this Mac?</string>
+    <string name="bipe_mac_sign_out_body">To come back, link this Mac again from your phone.</string>
+    <string name="bipe_mac_sign_out_history">Your old messages are only on this Mac. Without a recovery key, they don\'t come back.</string>
 </resources>
