@@ -2309,7 +2309,7 @@
     <string name="bipe_chats_media_quality_standard">Padrão, arquivos menores</string>
     <string name="bipe_chats_media_quality_high">Alta, como foram tiradas</string>
     <string name="bipe_chats_mural">Mural</string>
-    <string name="bipe_chats_mural_footer">Suas conversas aparecem em blocos de tamanhos diferentes. Menções e mensagens não lidas deixam o bloco maior. O Bipe monta o mural neste aparelho, e nada disso sai dele.</string>
+    <string name="bipe_chats_mural_footer">Suas conversas e seus grupos aparecem em blocos de tamanhos diferentes, e a aba Grupos some. Menções e mensagens não lidas deixam o bloco maior. O Bipe monta o mural neste aparelho, e nada disso sai dele.</string>
     <string name="bipe_chat_mural_no_news">Sem novidade</string>
     <string name="bipe_chat_mural_view_list">Ver todas em lista</string>
     <string name="bipe_chat_mural_reason_mention">Mencionou você</string>

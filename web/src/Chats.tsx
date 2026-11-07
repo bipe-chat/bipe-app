@@ -12,7 +12,8 @@
 // The apps switch them with the tab bar; the web has a segmented control under the title. Archived chats
 // leave both lists and show under the Arquivadas row at the end of each scope. Favourites (m.favourite)
 // leave the list too and show as a grid of large avatars at its top. An account can turn on Mural (ADR 0246,
-// spec chat-list): Conversas then shows DMs and groups as tiles (Mural.tsx), and the plain list one tap away.
+// spec chat-list): Conversas then shows DMs and groups as tiles (Mural.tsx), and the plain list one tap away, and
+// the Grupos scope does not show.
 
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { ChatArchive, useArchiveVersion } from './archive';
@@ -97,9 +98,14 @@ export function Chats({ client }: { client: Client }) {
   const [overlay, setOverlay] = useState<'encryption' | 'newChat' | 'newGroup'>();
   // A new page (a link, back or forward) closes them.
   useEffect(() => setOverlay(undefined), [route]);
+  // Spec chat-list, Mural scope: Conversas shows DMs and groups, and the Grupos scope does not show.
+  const muralOn = useMuralEnabled(client.userId());
   const lastScope = useRef<Scope>('conversas');
   if (route.kind === 'list') lastScope.current = route.scope;
-  const scope: Scope = route.kind === 'list' ? route.scope : lastScope.current;
+  const scope: Scope = muralOn ? 'conversas' : route.kind === 'list' ? route.scope : lastScope.current;
+  useEffect(() => {
+    if (muralOn && route.kind === 'list' && route.scope === 'grupos') navigate({ kind: 'list', scope: 'conversas' }, true);
+  }, [muralOn, route]);
   const showingArchived = route.kind === 'archived';
   const setScope = (next: Scope) => navigate({ kind: 'list', scope: next });
   const setShowingArchived = (on: boolean) => navigate(on ? { kind: 'archived' } : { kind: 'list', scope });
@@ -252,9 +258,6 @@ export function Chats({ client }: { client: Client }) {
   const openId = useRef<string>(undefined);
   openId.current = open?.id();
   const ownUserId = client.userId();
-  // Spec chat-list, Mural scope: Conversas shows DMs and groups. Grupos does not change.
-  const muralOn = useMuralEnabled(ownUserId);
-  const muralScope = muralOn && scope === 'conversas';
   const inScope = (c: ChatSummary) =>
     scope === 'conversas' ? c.kind === 'dm' || (muralOn && c.kind === 'group') : c.kind === 'group';
   // Spec dm-delete: a cleared DM stays hidden until a message newer than its marker arrives.
@@ -271,7 +274,7 @@ export function Chats({ client }: { client: Client }) {
   );
   const archived = summaries.filter((c) => inScope(c) && archive.isArchived(c.roomId) && !cleared(c));
   // A favourite adds to the score and has no row of its own in Mural, so these chats include favourites.
-  const muralChats = muralScope
+  const muralChats = muralOn
     ? summaries.filter((c) => inScope(c) && !archive.isArchived(c.roomId) && !cleared(c))
     : [];
   const requests = summaries.filter((c) => c.kind === 'request');
@@ -357,9 +360,9 @@ export function Chats({ client }: { client: Client }) {
   const [encryptionDismissed, setEncryptionDismissed] = useState(bannerDismissed);
   const searching = query.trim() !== '';
   const needle = normalize(query.trim());
-  // Action openMuralList of spec chat-list. The back row and a change of scope return to the tiles.
+  // Action openMuralList of spec chat-list. The back row returns to the tiles.
   const [muralShowsList, setMuralShowsList] = useState(false);
-  const inMural = muralScope && !searching && !showingArchived;
+  const inMural = muralOn && !searching && !showingArchived;
   const showsTiles = inMural && !muralShowsList;
   const scroller = useRef<HTMLUListElement>(null);
   const screenAtRest = useScreenAtRest(scroller, showsTiles);
@@ -482,17 +485,13 @@ export function Chats({ client }: { client: Client }) {
           </div>
           <h1 className="shrink-0 px-4 pb-2 text-large-title text-ink-primary">{scopeTitle}</h1>
           <SearchField value={query} onChange={setQuery} />
-          {!searching && (
+          {!searching && !muralOn && (
             <ScopePicker
               scope={scope}
-              // Spec app-tabs: with Mural on, the Conversas badge adds the Grupos attention count.
-              badges={{ conversas: muralOn ? chatsBadge + groupsBadge : chatsBadge, grupos: groupsBadge }}
+              badges={{ conversas: chatsBadge, grupos: groupsBadge }}
               // setScope goes to the list of that scope, out of Arquivadas too. A second navigate here would
               // read the old scope and go back.
-              onChange={(next) => {
-                setMuralShowsList(false);
-                setScope(next);
-              }}
+              onChange={setScope}
             />
           )}
           {permission === 'default' && !bannerClosed && (
@@ -582,6 +581,8 @@ export function Chats({ client }: { client: Client }) {
                     onOpen={() => setDetail({ kind: 'requests' })}
                   />
                 )}
+                {muralOn &&
+                  groupInvites.map((invite) => <GroupInviteRow key={invite.roomId} invite={invite} onJoined={openChat} />)}
               </>
             ) : (
               groupInvites.map((invite) => <GroupInviteRow key={invite.roomId} invite={invite} onJoined={openChat} />)

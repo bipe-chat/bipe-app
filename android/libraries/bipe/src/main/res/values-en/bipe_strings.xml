@@ -2309,7 +2309,7 @@
     <string name="bipe_chats_media_quality_standard">Standard, smaller files</string>
     <string name="bipe_chats_media_quality_high">High, as they were taken</string>
     <string name="bipe_chats_mural">Mural</string>
-    <string name="bipe_chats_mural_footer">Your chats show as tiles of different sizes. Mentions and unread messages make a tile bigger. Bipe builds the mural on this device, and none of it leaves the device.</string>
+    <string name="bipe_chats_mural_footer">Your chats and groups show as tiles of different sizes, and the Groups tab goes away. Mentions and unread messages make a tile bigger. Bipe builds the mural on this device, and none of it leaves the device.</string>
     <string name="bipe_chat_mural_no_news">Nothing new</string>
     <string name="bipe_chat_mural_view_list">See all as a list</string>
     <string name="bipe_chat_mural_reason_mention">Mentioned you</string>
