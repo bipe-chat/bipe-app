@@ -818,8 +818,18 @@
   ]
  },
  "schemes": {
-  "$comment": "Verification schemes (bipe ADR 0272; docs/badge-attestation.md, docs/signed-lists.md). A scheme is one proof rail or registry in one country. class: person or org. assurance: person is bank or state, org is registry+control. alias: the older badge level of this scheme; an alias badge counts as this scheme. names: the label per locale. Each scheme belongs to one region in registries/regions.json. The signed issuer registry carries the schemes of every region, so a new country needs no app release. zz is reserved for test vectors and never appears here.",
+  "$comment": "Verification schemes (bipe ADR 0272; docs/badge-attestation.md, docs/signed-lists.md). A scheme is one proof rail or registry in one country. class: person or org. assurance: person is bank or state, org is registry+control. alias: the older badge level of this scheme; an alias badge counts as this scheme. names: the label per locale. Each scheme belongs to one region in registries/regions.json. The signed issuer registry carries the schemes of every region, so a new country needs no app release. zz is reserved for test vectors and never appears here. personAssurance: the person assurances, strongest first, with the compact seal mark of each (ADR 0275): regular is Phosphor seal-check, fill is seal-check-fill. personProofs in tools/lib/registries.mjs reads it; test-vectors/person-proofs.json checks it.",
   "version": 1,
+  "personAssurance": [
+   {
+    "id": "state",
+    "mark": "fill"
+   },
+   {
+    "id": "bank",
+    "mark": "regular"
+   }
+  ],
   "schemes": [
    {
     "id": "br.pix",
@@ -4392,6 +4402,12 @@
   "strings": {
    "bipe_badge_verified": "Nome verificado",
    "bipe_badge_verified_name": "Nome verificado: %1$s",
+   "bipe_badge_verified_via": "Nome verificado via %1$s",
+   "bipe_badge_verified_name_via": "Nome verificado via %1$s: %2$s",
+   "bipe_person_seal_scheme": "Verificado com",
+   "bipe_person_seal_checked": "Conferido em",
+   "bipe_person_seal_valid_until": "Válido até",
+   "bipe_person_seal_body": "O selo confirma o nome da pessoa. Não garante que ela é honesta nem que a mensagem é segura.",
    "bipe_badge_institution": "Instituição verificada",
    "bipe_badge_suspended": "Verificação do nome suspensa",
    "bipe_profile_fact_created": "Conta criada há %1$s",
@@ -6909,6 +6925,12 @@
   "strings": {
    "bipe_badge_verified": "Name verified",
    "bipe_badge_verified_name": "Name verified: %1$s",
+   "bipe_badge_verified_via": "Name verified via %1$s",
+   "bipe_badge_verified_name_via": "Name verified via %1$s: %2$s",
+   "bipe_person_seal_scheme": "Verified with",
+   "bipe_person_seal_checked": "Checked",
+   "bipe_person_seal_valid_until": "Valid until",
+   "bipe_person_seal_body": "The seal confirms the person's name. It does not promise that they are honest or that the message is safe.",
    "bipe_badge_institution": "Verified organisation",
    "bipe_badge_suspended": "Name verification suspended",
    "bipe_profile_fact_created": "Account created %1$s ago",

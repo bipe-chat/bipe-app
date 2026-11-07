@@ -322,6 +322,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// A person's profile (flow people). Spec: bipe-shared/product/screens/person-profile.json
     case personProfile = "person-profile"
 
+    /// Person seal (flow people). Spec: bipe-shared/product/screens/person-seal.json
+    case personSeal = "person-seal"
+
     /// Your number: link state and yearly confirmation (flow settings). Spec: bipe-shared/product/screens/phone-link-status.json
     case phoneLinkStatus = "phone-link-status"
 
