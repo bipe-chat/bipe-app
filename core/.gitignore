@@ -1,0 +1,8 @@
+target/
+build/
+generated/
+.build/
+.gradle/
+badges.json
+jniLibs/
+node_modules/

@@ -1,0 +1,507 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
+# Copyright 2026 Bipe contributors
+
+# Rust core spike (ADR 0267, bipe-chat/bipe#1172). Each job builds bipe-core for one client, loads the
+# packaged artifact, runs bipe-shared test-vectors/badges.json through it and writes its numbers to the summary.
+# No production client uses this library.
+name: core
+
+on:
+  pull_request:
+    paths:
+      - "core/**"
+      - "sdk-version"
+      - ".github/workflows/core.yml"
+      - "android/libraries/bipe/src/test/kotlin/chat/bipe/shared/BadgeVerifierBenchTest.kt"
+      - "ios/BipeKit/Tests/BipeKitTests/BadgeVerifierBenchTests.swift"
+  push:
+    branches: [main]
+    paths:
+      - "core/**"
+      - "sdk-version"
+      - ".github/workflows/core.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: core-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_VERSION: "1.95.0"
+  PROFILE: small-release-stripped
+  UBRN_VERSION: 0.31.0-6
+  BUDGET_NATIVE: 1048576
+  BUDGET_WASM_BROTLI: 307200
+
+jobs:
+  rust:
+    name: core-rust
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - &shared-branch
+        name: bipe-shared branch
+        id: shared
+        run: |
+          branch="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+          if git ls-remote --exit-code --heads https://github.com/bipe-chat/bipe-shared "refs/heads/$branch" > /dev/null; then
+            echo "ref=$branch" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=main" >> "$GITHUB_OUTPUT"
+          fi
+      - &shared-checkout
+        uses: actions/checkout@v4
+        with:
+          repository: bipe-chat/bipe-shared
+          path: bipe-shared
+          ref: ${{ steps.shared.outputs.ref }}
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: core
+      - name: Lockfiles
+        working-directory: core
+        run: |
+          [ -f Cargo.lock ] || cargo generate-lockfile
+          [ -f tools/uniffi-bindgen/Cargo.lock ] || cargo generate-lockfile --manifest-path tools/uniffi-bindgen/Cargo.toml
+      - uses: actions/upload-artifact@v4
+        with:
+          name: core-lockfiles
+          path: |
+            core/Cargo.lock
+            core/tools/uniffi-bindgen/Cargo.lock
+      - name: Vectors against the crate
+        working-directory: core
+        env:
+          BIPE_SHARED: ${{ github.workspace }}/bipe-shared
+        run: cargo test --locked
+      - name: Shipped graph and licences
+        working-directory: core
+        run: |
+          {
+            echo '### Shipped graph (no build, dev or proc-macro dependencies)'
+            echo
+            echo '```'
+            cargo tree --locked -p bipe-core -e normal,no-proc-macro --prefix none --no-dedupe | sort -u
+            echo '```'
+            echo
+            echo '### Cargo licences'
+            echo
+            echo '| Package | Version | Licence |'
+            echo '| ------- | ------- | ------- |'
+            cargo metadata --locked --format-version 1 | jq -r '.packages[] | select(.source != null) | "| \(.name) | \(.version) | \(.license) |"' | sort
+          } >> "$GITHUB_STEP_SUMMARY"
+          cargo metadata --locked --format-version 1 | jq '[.packages[] | select(.source != null) | {name, version, license, repository}]' > "$RUNNER_TEMP/cargo-licences.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: core-cargo-licences
+          path: ${{ runner.temp }}/cargo-licences.json
+
+  apple:
+    name: core-apple
+    runs-on: xcode-27
+    timeout-minutes: 60
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@v4
+      - *shared-branch
+      - *shared-checkout
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim,aarch64-apple-darwin,x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: core
+      - name: Build each slice
+        working-directory: core
+        run: |
+          for target in aarch64-apple-ios aarch64-apple-ios-sim aarch64-apple-darwin x86_64-apple-darwin; do
+            cargo build --locked -p bipe-core --profile "$PROFILE" --target "$target"
+          done
+      - name: Generate the Swift bindings
+        working-directory: core
+        run: |
+          mkdir -p "$RUNNER_TEMP/swift-out" harness/swift/Sources/BipeCore/generated
+          cargo run --locked --release --manifest-path tools/uniffi-bindgen/Cargo.toml -- generate \
+            --library "target/aarch64-apple-darwin/$PROFILE/libbipe_core.dylib" --language swift --out-dir "$RUNNER_TEMP/swift-out"
+          ls -la "$RUNNER_TEMP/swift-out"
+          cp "$RUNNER_TEMP/swift-out/bipe_core.swift" harness/swift/Sources/BipeCore/generated/
+      - name: Make the XCFramework
+        working-directory: core
+        run: |
+          headers="$RUNNER_TEMP/headers"
+          mkdir -p "$headers" harness/swift/build target/universal-macos
+          cp "$RUNNER_TEMP/swift-out/bipe_coreFFI.h" "$headers/"
+          cp "$RUNNER_TEMP/swift-out/bipe_coreFFI.modulemap" "$headers/module.modulemap"
+          lipo -create "target/aarch64-apple-darwin/$PROFILE/libbipe_core.a" "target/x86_64-apple-darwin/$PROFILE/libbipe_core.a" -output target/universal-macos/libbipe_core.a
+          xcodebuild -create-xcframework \
+            -library "target/aarch64-apple-ios/$PROFILE/libbipe_core.a" -headers "$headers" \
+            -library "target/aarch64-apple-ios-sim/$PROFILE/libbipe_core.a" -headers "$headers" \
+            -library target/universal-macos/libbipe_core.a -headers "$headers" \
+            -output harness/swift/build/bipe_coreFFI.xcframework
+          cp "$GITHUB_WORKSPACE/bipe-shared/test-vectors/badges.json" harness/swift/Tests/BipeCoreHarnessTests/badges.json
+      - name: Vectors on macOS, next to the Matrix SDK
+        working-directory: core/harness/swift
+        run: |
+          swift test -c release -Xswiftc -enable-testing 2>&1 | tee "$RUNNER_TEMP/mac.log"
+          grep -h BIPE_CORE_METRICS "$RUNNER_TEMP/mac.log" | head -1 > "$RUNNER_TEMP/mac.metrics"
+          test -s "$RUNNER_TEMP/mac.metrics"
+      - name: Vectors on the iOS simulator, next to the Matrix SDK
+        working-directory: core/harness/swift
+        run: |
+          id=$(xcrun simctl list devices available -j | jq -r '[.devices | to_entries[] | select(.key | test("iOS")) | .value[] | select(.name | test("iPhone"))][0].udid')
+          echo "simulator $id"
+          xcodebuild test -scheme BipeCoreHarness-Package -destination "platform=iOS Simulator,id=$id" -configuration Release ENABLE_TESTABILITY=YES CODE_SIGNING_ALLOWED=NO 2>&1 | tee "$RUNNER_TEMP/ios.log" | grep -E "BIPE_CORE_METRICS|error:|TEST (SUCCEEDED|FAILED)|\*\* " || true
+          grep -q 'TEST SUCCEEDED' "$RUNNER_TEMP/ios.log"
+          grep -h BIPE_CORE_METRICS "$RUNNER_TEMP/ios.log" | head -1 > "$RUNNER_TEMP/ios.metrics"
+          test -s "$RUNNER_TEMP/ios.metrics"
+      - name: Current verifier on macOS
+        working-directory: ios/BipeKit
+        env:
+          BIPE_SHARED: ${{ github.workspace }}/bipe-shared
+          BIPE_BENCH: "1"
+        run: |
+          swift test -c release -Xswiftc -enable-testing --filter BadgeVerifierBenchTests 2>&1 | tee "$RUNNER_TEMP/base.log" | tail -5
+          grep -h BIPE_BASELINE_METRICS "$RUNNER_TEMP/base.log" | head -1 > "$RUNNER_TEMP/base.metrics"
+          test -s "$RUNNER_TEMP/base.metrics"
+      - name: Size added to a linked binary
+        working-directory: core
+        run: |
+          probe="$RUNNER_TEMP/probe"
+          mkdir -p "$probe"
+          cp harness/swift/size-probe.swift "$probe/main.swift"
+          link() { # sdk triple target
+            sdk=$(xcrun --sdk "$1" --show-sdk-path)
+            xcrun swiftc -O -wmo -sdk "$sdk" -target "$2" -parse-as-library -Xlinker -dead_strip -o "$probe/base-$3" "$probe/empty-main.swift"
+            xcrun swiftc -O -wmo -sdk "$sdk" -target "$2" -I "$RUNNER_TEMP/headers" -L "target/$3/$PROFILE" -lbipe_core \
+              -Xlinker -dead_strip -o "$probe/core-$3" "$probe/main.swift" harness/swift/Sources/BipeCore/generated/bipe_core.swift
+            strip -x "$probe/base-$3" "$probe/core-$3"
+            base=$(stat -f %z "$probe/base-$3"); core=$(stat -f %z "$probe/core-$3")
+            echo "| $3 | $((core - base)) | $(stat -f %z "target/$3/$PROFILE/libbipe_core.dylib" 2>/dev/null || echo -) |" >> "$probe/table"
+          }
+          printf '@main struct Empty { static func main() { print(CommandLine.arguments.count) } }\n' > "$probe/empty-main.swift"
+          : > "$probe/table"
+          link iphoneos arm64-apple-ios17.0 aarch64-apple-ios
+          link macosx arm64-apple-macos14.0 aarch64-apple-darwin
+          link macosx x86_64-apple-macos14.0 x86_64-apple-darwin
+          {
+            echo '### Apple'
+            echo
+            echo "Budget per slice: $BUDGET_NATIVE bytes."
+            echo
+            echo '| Slice | Bytes added to a stripped linked binary | Stripped dylib bytes |'
+            echo '| ----- | --------------------------------------- | -------------------- |'
+            cat "$probe/table"
+            echo
+            echo '| Run | Metrics |'
+            echo '| --- | ------- |'
+            echo "| macOS, bipe-core | $(cat "$RUNNER_TEMP/mac.metrics") |"
+            echo "| iOS simulator, bipe-core | $(cat "$RUNNER_TEMP/ios.metrics") |"
+            echo "| macOS, BadgeVerifier.swift | $(cat "$RUNNER_TEMP/base.metrics") |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  android:
+    name: core-android
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - *shared-branch
+      - *shared-checkout
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: core
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-ndk
+      - name: Build each ABI
+        working-directory: core
+        run: |
+          export ANDROID_NDK_HOME="$ANDROID_NDK_LATEST_HOME"
+          cargo ndk -t arm64-v8a -t armeabi-v7a -t x86_64 --platform 26 -o harness/android/bipecore/src/main/jniLibs build --locked -p bipe-core --profile "$PROFILE"
+      - name: Generate the Kotlin bindings
+        working-directory: core
+        run: |
+          cargo build --locked -p bipe-core --profile "$PROFILE"
+          cargo run --locked --release --manifest-path tools/uniffi-bindgen/Cargo.toml -- generate \
+            --library "target/$PROFILE/libbipe_core.so" --language kotlin --out-dir harness/android/bipecore/src/main/kotlin/generated
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build the AAR
+        working-directory: core/harness/android
+        run: |
+          ../../../android/gradlew --no-daemon :bipecore:assembleRelease
+          mkdir -p harness/src/androidTest/assets
+          cp "$GITHUB_WORKSPACE/bipe-shared/test-vectors/badges.json" harness/src/androidTest/assets/badges.json
+          unzip -l bipecore/build/outputs/aar/bipecore-release.aar
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Vectors on the emulator, next to the Matrix SDK
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          working-directory: core/harness/android
+          script: |
+            adb logcat -c
+            ../../../android/gradlew --no-daemon :harness:connectedDebugAndroidTest
+            adb logcat -d | grep BIPE_CORE_METRICS | head -1 | sed 's/.*BIPE_CORE_METRICS/BIPE_CORE_METRICS/' > /tmp/android.metrics
+      - name: Current verifier on the JVM
+        working-directory: android
+        env:
+          BIPE_SHARED: ${{ github.workspace }}/bipe-shared
+          BIPE_BENCH: /tmp/android-base.metrics
+        run: ./gradlew --no-daemon :libraries:bipe:testDebugUnitTest --tests '*BadgeVerifierBenchTest*'
+      - name: Report
+        working-directory: core/harness/android/bipecore/src/main/jniLibs
+        run: |
+          test -s /tmp/android.metrics
+          {
+            echo '### Android'
+            echo
+            echo "Budget per slice: $BUDGET_NATIVE bytes."
+            echo
+            echo '| ABI | Stripped .so bytes | gzip -9 |'
+            echo '| --- | ------------------ | ------- |'
+            for f in */libbipe_core.so; do
+              echo "| ${f%%/*} | $(stat -c %s "$f") | $(gzip -9c "$f" | wc -c) |"
+            done
+            echo
+            echo '| Run | Metrics |'
+            echo '| --- | ------- |'
+            echo "| x86_64 emulator, API 34, bipe-core | $(cat /tmp/android.metrics) |"
+            echo "| JVM on this runner, BadgeVerifier.kt | $(cat /tmp/android-base.metrics) |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  jvm:
+    name: core-jvm-${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - *shared-branch
+      - *shared-checkout
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: core
+      - name: Build the library and the Kotlin bindings
+        working-directory: core
+        run: |
+          cargo build --locked -p bipe-core --profile "$PROFILE"
+          lib="target/$PROFILE/libbipe_core.so"
+          [ -f "$lib" ] || lib="target/$PROFILE/bipe_core.dll"
+          echo "library $lib"
+          echo "BIPE_CORE_LIB=$PWD/$lib" >> "$GITHUB_ENV"
+          echo "BIPE_CORE_LIB_DIR=$PWD/target/$PROFILE" >> "$GITHUB_ENV"
+          cargo run --locked --release --manifest-path tools/uniffi-bindgen/Cargo.toml -- generate \
+            --library "$lib" --language kotlin --out-dir harness/jvm/generated
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Vectors on the JVM through JNA
+        working-directory: core/harness/jvm
+        env:
+          BIPE_VECTORS: ${{ github.workspace }}/bipe-shared/test-vectors/badges.json
+        run: |
+          ../../../android/gradlew --no-daemon run | tee "$RUNNER_TEMP/jvm.log"
+          grep -h BIPE_CORE_METRICS "$RUNNER_TEMP/jvm.log" | head -1 > "$RUNNER_TEMP/jvm.metrics"
+          test -s "$RUNNER_TEMP/jvm.metrics"
+      - name: Report
+        run: |
+          {
+            echo "### JVM on ${{ matrix.os }}"
+            echo
+            echo "Budget per slice: $BUDGET_NATIVE bytes."
+            echo
+            echo "- Library bytes: $(wc -c < "$BIPE_CORE_LIB")"
+            echo "- $(cat "$RUNNER_TEMP/jvm.metrics")"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  web:
+    name: core-web
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - *shared-branch
+      - *shared-checkout
+      - uses: actions/checkout@v4
+        with:
+          repository: bipe-chat/bipe-web
+          path: bipe-web
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: core
+      - name: wasm-bindgen version
+        working-directory: core
+        run: |
+          wb="$(awk '/^name = "wasm-bindgen"$/{getline; gsub(/version = |"/,""); print; exit}' Cargo.lock)"
+          echo "wasm-bindgen ${wb:-none}"
+          echo "WASM_BINDGEN_VERSION=$wb" >> "$GITHUB_ENV"
+      - uses: taiki-e/install-action@v2
+        if: env.WASM_BINDGEN_VERSION != ''
+        with:
+          tool: wasm-bindgen@${{ env.WASM_BINDGEN_VERSION }}
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-tools
+      - name: Install ubrn
+        run: |
+          if ! cargo install --list | grep -q "^uniffi-bindgen-react-native v.*$UBRN_VERSION"; then
+            cargo install --locked --force --git https://github.com/jhugman/uniffi-bindgen-react-native --tag "$UBRN_VERSION" uniffi-bindgen-react-native
+          fi
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: core/harness/web/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install harness dependencies
+        working-directory: core/harness/web
+        run: pnpm install --frozen-lockfile
+      - name: Build the WASM package
+        working-directory: core/harness/web
+        run: |
+          uniffi-bindgen-react-native build wasm2 --config ubrn.config.yaml --profile "$PROFILE"
+          ls -la generated
+          for f in generated/*.wasm; do
+            wasm-tools strip --all -o "$f.stripped" "$f"
+            mv "$f.stripped" "$f"
+          done
+      - name: Vectors in Node
+        working-directory: core/harness/web
+        run: |
+          pnpm exec esbuild run.ts --bundle --platform=node --format=esm --outfile=build/run.mjs \
+            --banner:js="import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);"
+          node build/run.mjs "$GITHUB_WORKSPACE/bipe-shared/test-vectors/badges.json" "$PWD/$(ls generated/*.wasm | head -1)" | tee "$RUNNER_TEMP/web.log"
+          grep -h BIPE_CORE_METRICS "$RUNNER_TEMP/web.log" | head -1 > "$RUNNER_TEMP/web.metrics"
+          test -s "$RUNNER_TEMP/web.metrics"
+      - name: Current website verifier in Node
+        working-directory: core/harness/web
+        run: |
+          pnpm exec esbuild baseline.ts --bundle --platform=node --format=esm --outfile=build/baseline.mjs \
+            --alias:@web/badge="$GITHUB_WORKSPACE/bipe-web/src/badge.ts" --alias:@shared="$GITHUB_WORKSPACE/bipe-shared"
+          node build/baseline.mjs "$GITHUB_WORKSPACE/bipe-shared/test-vectors/badges.json" | tee "$RUNNER_TEMP/base.log"
+          grep -h BIPE_BASELINE_METRICS "$RUNNER_TEMP/base.log" | head -1 > "$RUNNER_TEMP/base.metrics"
+          test -s "$RUNNER_TEMP/base.metrics"
+      - name: Report
+        working-directory: core/harness/web
+        run: |
+          command -v brotli > /dev/null || sudo apt-get install -y -qq brotli
+          mkdir -p "$RUNNER_TEMP/pack"
+          pnpm exec esbuild generated/index.ts --bundle --minify --format=esm --external:node:* --outfile="$RUNNER_TEMP/pack/bindings.mjs"
+          cp generated/*.wasm "$RUNNER_TEMP/pack/"
+          {
+            echo '### Web'
+            echo
+            echo "Budget: $BUDGET_WASM_BROTLI bytes Brotli."
+            echo
+            echo '| File | Bytes | brotli -q 11 |'
+            echo '| ---- | ----- | ------------ |'
+            total=0
+            for f in "$RUNNER_TEMP"/pack/*.wasm "$RUNNER_TEMP"/pack/*.mjs; do
+              b=$(brotli -q 11 -c "$f" | wc -c)
+              total=$((total + b))
+              echo "| $(basename "$f") | $(stat -c %s "$f") | $b |"
+            done
+            echo "| Total | | $total |"
+            echo
+            echo '| Run | Metrics |'
+            echo '| --- | ------- |'
+            echo "| Node 24, bipe-core | $(cat "$RUNNER_TEMP/web.metrics") |"
+            echo "| Node 24, bipe-web src/badge.ts | $(cat "$RUNNER_TEMP/base.metrics") |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # bipe-chat/bipe#1172 step 4. The answer may be no, and that is a result of the spike, so a failure here does
+  # not fail the workflow. The summary says what happened.
+  combined:
+    name: core-combined
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Free disk
+        run: sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: core/spike/combined
+      - name: The SDK's lockfile
+        working-directory: core/spike/combined
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          rev=$(grep -oE 'rev = "[0-9a-f]{40}"' Cargo.toml | head -1 | cut -d'"' -f2)
+          version="$(tr -d '[:space:]' < "$GITHUB_WORKSPACE/sdk-version")"
+          gh release view "$version" --repo matrix-org/matrix-rust-components-swift --json body --jq .body | grep -q "$rev" \
+            || { echo "::error::Cargo.toml names $rev, which is not the commit of sdk-version $version"; exit 1; }
+          curl -fsSL "https://raw.githubusercontent.com/matrix-org/matrix-rust-sdk/$rev/Cargo.lock" -o Cargo.lock
+      - name: Build one library with both
+        working-directory: core/spike/combined
+        run: cargo build --profile "$PROFILE"
+      - name: Check both sets of exports in one library
+        working-directory: core/spike/combined
+        run: |
+          lib="target/$PROFILE/libbipe_combined.so"
+          core=$(nm -D --defined-only "$lib" | grep -c ' uniffi_bipe_core_fn_')
+          sdk=$(nm -D --defined-only "$lib" | grep -c ' uniffi_matrix_sdk_ffi_fn_')
+          test "$core" -gt 0
+          test "$sdk" -gt 0
+          python3 -c "
+          import ctypes, sys
+          lib = ctypes.CDLL(sys.argv[1])
+          print('contract', lib.ffi_bipe_core_uniffi_contract_version(), lib.ffi_matrix_sdk_ffi_uniffi_contract_version())
+          " "$PWD/$lib"
+          cargo run --locked --release --manifest-path ../../tools/uniffi-bindgen/Cargo.toml -- generate \
+            --library "$lib" --language kotlin --out-dir "$RUNNER_TEMP/combined-kotlin"
+          find "$RUNNER_TEMP/combined-kotlin" -name '*.kt' | sed "s#$RUNNER_TEMP/combined-kotlin/##" | head -20
+          {
+            echo '### One library with bipe-core and matrix-sdk-ffi'
+            echo
+            echo "- Linux x86_64, no SDK fork. The workspace repeats the SDK's [patch.crates-io] list and uses its Cargo.lock."
+            echo "- Library bytes: $(stat -c %s "$lib")"
+            echo "- Exported functions: bipe-core $core, matrix-sdk-ffi $sdk"
+            echo "- Bindings generated from it: $(find "$RUNNER_TEMP/combined-kotlin" -name '*.kt' | wc -l) Kotlin files"
+          } >> "$GITHUB_STEP_SUMMARY"

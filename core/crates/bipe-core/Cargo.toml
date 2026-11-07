@@ -1,0 +1,27 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
+# Copyright 2026 Bipe contributors
+
+[package]
+name = "bipe-core"
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.95"
+license = "AGPL-3.0-only"
+publish = false
+
+[lib]
+name = "bipe_core"
+crate-type = ["cdylib", "staticlib", "lib"]
+
+[dependencies]
+base64 = { version = "0.22", default-features = false, features = ["alloc"] }
+ed25519-dalek = { version = "2", default-features = false, features = ["fast", "std"] }
+serde_json = { version = "1", default-features = false, features = ["std"] }
+# The revision of matrix-rust-sdk at ../../../sdk-version, so both libraries use one UniFFI.
+uniffi = { git = "https://github.com/mozilla/uniffi-rs.git", rev = "e5f4821410bea19e71984ea5e06a7bc8b11ed9e5", version = "0.31.0", default-features = false, features = ["cargo-metadata"] }
+
+[target.'cfg(target_family = "wasm")'.dependencies]
+uniffi = { git = "https://github.com/mozilla/uniffi-rs.git", rev = "e5f4821410bea19e71984ea5e06a7bc8b11ed9e5", version = "0.31.0", default-features = false, features = ["cargo-metadata", "wasm-unstable-single-threaded"] }
+# Allocator and panic hook for the ubrn wasm2 player (web/patches/0002).
+uniffi-runtime-wasm = "=0.31.0-6"
