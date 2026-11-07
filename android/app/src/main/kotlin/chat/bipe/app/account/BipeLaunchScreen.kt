@@ -32,6 +32,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowInsetsControllerCompat
 import chat.bipe.app.common.AppTheme
+import chat.bipe.app.common.LocalReduceMotion
 import chat.bipe.shared.R
 import chat.bipe.shared.generated.BipeLaunchRing
 import chat.bipe.shared.generated.BipePalette
@@ -56,12 +57,18 @@ fun BipeLaunchScreen() {
         }
     }
     val label = stringResource(R.string.bipe_app_start_loading)
-    val turn by rememberInfiniteTransition(label = "launch").animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(tween(BipeLaunchRing.TURN_MS, easing = LinearEasing), RepeatMode.Restart),
-        label = "launch-ring",
-    )
+    // Under reduced motion the ring stands still.
+    val turn = if (LocalReduceMotion.current) {
+        0f
+    } else {
+        val turning by rememberInfiniteTransition(label = "launch").animateFloat(
+            initialValue = 0f,
+            targetValue = 360f,
+            animationSpec = infiniteRepeatable(tween(BipeLaunchRing.TURN_MS, easing = LinearEasing), RepeatMode.Restart),
+            label = "launch-ring",
+        )
+        turning
+    }
     Box(
         modifier = Modifier
             .fillMaxSize()

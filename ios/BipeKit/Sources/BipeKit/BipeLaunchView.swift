@@ -36,7 +36,11 @@ public struct BipeLaunchView: View {
         .accessibilityLabel(label)
         .onAppear {
             guard fadesFromStandard else { return }
-            withAnimation(.easeOut(duration: 0.25)) { showsStored = true }
+            if reduceMotion {
+                showsStored = true
+            } else {
+                withAnimation(.easeOut(duration: 0.25)) { showsStored = true }
+            }
         }
     }
 
