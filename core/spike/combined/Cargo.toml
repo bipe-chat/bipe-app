@@ -1,0 +1,38 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
+# Copyright 2026 Bipe contributors
+
+# bipe-chat/bipe#1172 step 4: one library that holds bipe-core and matrix-sdk-ffi,
+# with no SDK fork. CI copies the SDK's Cargo.lock here before the build. Never ships.
+[package]
+name = "bipe-combined"
+version = "0.0.0"
+edition = "2024"
+license = "AGPL-3.0-only"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "staticlib"]
+
+[dependencies]
+bipe-core = { path = "../../crates/bipe-core" }
+# The commit of ../../../sdk-version (26.08.11).
+matrix-sdk-ffi = { git = "https://github.com/matrix-org/matrix-rust-sdk", rev = "15a3ce2369a1e96fcad02cb2b1da3198ef23348a" }
+
+# Cargo reads patches only from the top workspace, so this list repeats the SDK's list.
+[patch.crates-io]
+async-compat = { git = "https://github.com/element-hq/async-compat", rev = "5a27c8b290f1f1dcfc0c4ec22c464e38528aa591" }
+const_panic = { git = "https://github.com/jplatte/const_panic", rev = "e0b317a9a7bde2d48a7d15b6a60d70e4a41d3b5f" }
+ruma = { git = "https://github.com/matrix-org/ruma", rev = "2a1d714314f6f711d5bca755c73cf2ce3053c3d1" }
+tracing = { git = "https://github.com/tokio-rs/tracing.git", rev = "20f5b3d8ba057ca9c4ae00ad30dda3dce8a71c05" }
+tracing-core = { git = "https://github.com/tokio-rs/tracing.git", rev = "20f5b3d8ba057ca9c4ae00ad30dda3dce8a71c05" }
+tracing-subscriber = { git = "https://github.com/tokio-rs/tracing.git", rev = "20f5b3d8ba057ca9c4ae00ad30dda3dce8a71c05" }
+tracing-appender = { git = "https://github.com/tokio-rs/tracing.git", rev = "20f5b3d8ba057ca9c4ae00ad30dda3dce8a71c05" }
+
+[profile.small-release-stripped]
+inherits = "release"
+opt-level = "s"
+strip = "debuginfo"
+lto = true
+
+[workspace]

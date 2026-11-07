@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
+# Copyright 2026 Bipe contributors
+
+# The minimum Rust version of matrix-rust-sdk at ../sdk-version (ADR 0267).
+[toolchain]
+channel = "1.95.0"

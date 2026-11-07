@@ -13,6 +13,10 @@
 //   "group:name". Build plugins ([plugins]) do not ship in the app and are not
 //   checked.
 //
+// - Cargo: core/Cargo.lock, every package with a source (ADR 0267). The key is
+//   "cargo:name". Workspace members have no source. The lockfile holds what ships in
+//   the apps: the bindings generator and core/spike have their own workspaces.
+//
 // ADR 0148: a dependency marked "scope": "test" may also have a licence in
 // "testOnly" (EPL). It must then appear in Android Gradle files only on
 // testImplementation or screenshotTestImplementation lines (the store captures,
@@ -22,7 +26,7 @@
 // "playOnly" (Google Play services). It must then appear in Android Gradle files
 // only on playImplementation lines, so the foss flavour stays free of it.
 
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { walk, runCheck, isMain, REPO_ROOT } from './lib.mjs';
 
@@ -30,6 +34,16 @@ export function swiftPins(text) {
   const json = JSON.parse(text);
   const pins = json.pins ?? json.object?.pins ?? [];
   return pins.map((p) => (p.identity ?? p.package ?? '').toLowerCase()).filter(Boolean);
+}
+
+// The third-party package names of a Cargo.lock, each once.
+export function cargoPackages(text) {
+  const names = new Set();
+  for (const block of text.split('[[package]]').slice(1)) {
+    const name = block.match(/^name = "([^"]+)"$/m);
+    if (name && /^source = "/m.test(block)) names.add(name[1]);
+  }
+  return [...names];
 }
 
 // Reads the [libraries] table of a Gradle version catalog. Supports the three
@@ -104,6 +118,10 @@ export function dependencies(root) {
     for (const { coord, alias } of catalogLibraries(readFileSync(join(root, catalog), 'utf8'), { withAlias: true })) {
       deps.push({ name: coord, file: catalog, alias });
     }
+  }
+  const cargoLock = 'core/Cargo.lock';
+  if (existsSync(join(root, cargoLock))) {
+    for (const name of cargoPackages(readFileSync(join(root, cargoLock), 'utf8'))) deps.push({ name: `cargo:${name}`, file: cargoLock });
   }
   return deps;
 }
