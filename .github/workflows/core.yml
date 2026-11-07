@@ -267,7 +267,7 @@ jobs:
           working-directory: core/harness/android
           script: |
             adb logcat -c
-            ../../../android/gradlew --no-daemon :harness:connectedDebugAndroidTest
+            ../../../android/gradlew --no-daemon :harness:connectedDebugAndroidTest --stacktrace
             adb logcat -d | grep BIPE_CORE_METRICS | head -1 | sed 's/.*BIPE_CORE_METRICS/BIPE_CORE_METRICS/' > /tmp/android.metrics
       - name: Current verifier on the JVM
         working-directory: android

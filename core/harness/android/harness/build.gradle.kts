@@ -19,6 +19,8 @@ android {
         versionCode = 1
         versionName = "1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // The emulator's ABI. The Matrix SDK library is large in each ABI.
+        ndk { abiFilters += "x86_64" }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
