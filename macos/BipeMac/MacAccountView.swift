@@ -154,6 +154,21 @@ private struct MacYouView: View {
     }
 }
 
+/// The icon tile of a settings group (spec settings-root): a glyph in ink.onAccent on accent.fill, in a rounded square.
+/// Decorative: the group title says what the card is.
+private struct MacSettingsIconTile: View {
+    let icon: String
+
+    var body: some View {
+        Image(decorative: icon).renderingMode(.template).resizable().scaledToFit()
+            .frame(width: 18, height: 18)
+            .foregroundStyle(BipeColor.inkOnAccent)
+            .frame(width: 29, height: 29)
+            .background(BipeColor.accentFill, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+            .accessibilityHidden(true)
+    }
+}
+
 /// The rows of registries/settings.json the Mac has, in the shared order. A row the Mac has no handler for stays hidden.
 private struct MacSettingsGroups: View {
     @ObservedObject var media: MacMedia
@@ -179,7 +194,10 @@ private struct MacSettingsGroups: View {
             if !sections.isEmpty {
                 MacCard {
                     VStack(alignment: .leading, spacing: MacDesign.gap) {
-                        Text(group.title).macFont(.headline)
+                        HStack(spacing: 12) {
+                            if let icon = group.icon { MacSettingsIconTile(icon: icon) }
+                            Text(group.title).macFont(.headline)
+                        }
                         ForEach(sections, id: \.0.key) { section, rows in
                             if let title = section.title { Text(title).macFont(.subheadline).foregroundStyle(BipeColor.inkSecondary) }
                             ForEach(rows, id: \.self) { row($0) }
