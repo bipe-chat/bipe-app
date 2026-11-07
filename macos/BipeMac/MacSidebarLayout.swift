@@ -35,6 +35,8 @@ struct MacSidebarSizing: NSViewRepresentable {
         private weak var split: NSSplitView?
         private var scheduled = false
 
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
             if window == nil {
