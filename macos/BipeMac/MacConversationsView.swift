@@ -16,7 +16,6 @@ struct MacConversationsView: View {
         Binding(get: { search }, set: { account.roomSearches[scope] = $0 })
     }
     @State private var showingArchived = false
-    @State private var showingRequests = false
     @State private var startingChat = false
     @State private var selectedRequest: String?
     @State private var reordering = false
@@ -28,6 +27,10 @@ struct MacConversationsView: View {
         Binding(get: { account.selectedRooms[scope] }, set: { account.selectedRooms[scope] = $0 })
     }
     private var selected: String? { account.selectedRooms[scope] }
+    private var showingRequests: Bool {
+        get { scope == .chats && account.showingRequests }
+        nonmutating set { account.showingRequests = newValue }
+    }
     private var scoped: [MacRoomSummary] { list.scoped(scope, isCompany: account.isCompany, archived: showingArchived) }
     private var favourites: [MacRoomSummary] {
         showingArchived || !search.isEmpty ? [] : list.favourites(scope, isCompany: account.isCompany)
