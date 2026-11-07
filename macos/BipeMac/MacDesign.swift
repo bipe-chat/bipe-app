@@ -66,13 +66,34 @@ struct MacAvatar: View {
 
 struct MacMessageView: View {
     let message: MacMessage
+    @ObservedObject var media: MacMedia
+    let isPrivateRoom: Bool
+    let fromRequest: Bool
+    let pauseSecondsLeft: (Date) -> Int
+    let onReply: () -> Void
     var body: some View {
+        if let warning = message.warning, BipeMoneyPause.applies(to: warning) {
+            TimelineView(.periodic(from: .now, by: 1)) { context in content(secondsLeft: pauseSecondsLeft(context.date)) }
+        } else { content(secondsLeft: 0) }
+    }
+
+    private func content(secondsLeft: Int) -> some View {
         HStack(alignment: .bottom, spacing: 12) {
             if message.isOwn { Spacer(minLength: 64) }
             VStack(alignment: .leading, spacing: 8) {
                 if !message.isOwn { Text(message.sender).font(.subheadline).fontWeight(.semibold).foregroundStyle(BipeColor.accentInk) }
-                Text(message.body).font(.body).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+                if let photo = message.photo {
+                    MacPhotoView(photo: photo, eventID: message.id, isOwn: message.isOwn,
+                                 isPrivate: isPrivateRoom, fromRequest: fromRequest, media: media)
+                }
+                if !message.richText.text.isEmpty {
+                    if secondsLeft > 0 { richText } else { richText.textSelection(.enabled) }
+                }
                 if let warning = message.warning { MacNotice(text: warning.message) }
+                if secondsLeft > 0 {
+                    Text(BipeStrings.pauseCountdown(String(secondsLeft))).font(.caption.monospacedDigit())
+                        .foregroundStyle(BipeColor.trustCautionInk)
+                }
                 HStack(spacing: 8) {
                     Spacer(minLength: 0)
                     Text(message.timestamp, style: .time).font(.caption).foregroundStyle(BipeColor.inkSecondary)
@@ -87,5 +108,20 @@ struct MacMessageView: View {
             .overlay(RoundedRectangle(cornerRadius: MacDesign.corner).strokeBorder(BipeColor.lineSubtle))
             if !message.isOwn { Spacer(minLength: 64) }
         }
+        .environment(\.openURL, OpenURLAction { url in pauseSecondsLeft(.now) > 0 ? .handled : .systemAction })
+        .contextMenu {
+            Button(BipeStrings.appMessageActionReply, action: onReply).disabled(!message.canReply || message.eventID == nil)
+            Button(BipeStrings.appCopy) {
+                guard pauseSecondsLeft(.now) == 0 else { return }
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(message.body, forType: .string)
+            }.disabled(secondsLeft > 0 || message.body.isEmpty)
+        }
+        .accessibilityAction(named: BipeStrings.appMessageActionReply) { onReply() }
+    }
+
+    private var richText: some View {
+        Text(MacRichText.attributed(message.richText, emoteSender: message.isEmote ? message.sender : nil))
+            .font(.body).tint(BipeColor.accentInk).fixedSize(horizontal: false, vertical: true)
     }
 }

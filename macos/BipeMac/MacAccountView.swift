@@ -22,106 +22,97 @@ struct MacAccountView: View {
     }
 
     var body: some View {
-        HStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: MacDesign.sectionGap) {
-                MacBrand(compact: true).padding(.top, 12)
-                ForEach(MacDestination.visible(isCompany: account.isCompany)) { item in
-                    Button {
-                        destination = item
-                        selected = nil
-                        search = ""
-                    } label: {
-                        HStack(spacing: 12) {
-                            Image(decorative: item.icon).resizable().frame(width: 22, height: 22)
-                            Text(item.title).font(.body).fontWeight(destination == item ? .semibold : .regular)
-                            Spacer(minLength: 0)
-                        }.padding(12).contentShape(Rectangle())
-                            .foregroundStyle(destination == item ? BipeColor.accentInk : BipeColor.inkSecondary)
-                            .background(destination == item ? BipeColor.accentWash : BipeColor.surfaceBase,
-                                        in: RoundedRectangle(cornerRadius: 12))
-                    }.buttonStyle(.plain).accessibilityAddTraits(destination == item ? .isSelected : [])
-                }
-                Spacer()
-                Menu {
-                    ForEach(workspace.accounts, id: \.userId) { entry in
-                        Button { workspace.select(entry) } label: {
-                            MacAccountMenuLabel(account: entry, current: entry === account)
+        NavigationSplitView {
+            VStack(spacing: 0) {
+                MacBrand(compact: true).frame(maxWidth: .infinity, alignment: .leading).padding()
+                Picker(BipeStrings.appName, selection: $destination) {
+                    ForEach(MacDestination.visible(isCompany: account.isCompany)) { item in
+                        Text(item.title).tag(item)
+                    }
+                }.pickerStyle(.segmented).labelsHidden().padding(.horizontal).padding(.bottom, 12)
+                if destination == .chats || destination == .groups {
+                    HStack {
+                        Text(destination.title).font(.title2).fontWeight(.bold)
+                        Spacer()
+                        Toggle(BipeStrings.appChatListFilterUnread, isOn: $unreadOnly).toggleStyle(.button)
+                    }.padding(.horizontal).padding(.bottom, 12)
+                    List(selection: $selected) {
+                        ForEach(rows) { entry in
+                            HStack(spacing: 12) {
+                                MacAvatar(name: entry.name)
+                                Text(entry.name).font(.body).lineLimit(2)
+                                Spacer(minLength: 0)
+                                if entry.unread > 0 {
+                                    Text(entry.unread.formatted()).font(.caption).fontWeight(.semibold)
+                                        .padding(6).background(BipeColor.accentWash, in: Capsule())
+                                        .accessibilityLabel(BipeStrings.appChatListUnread(entry.unread.formatted()))
+                                } else if entry.markedUnread {
+                                    Circle().fill(BipeColor.accentFill).frame(width: 8, height: 8)
+                                        .accessibilityLabel(BipeStrings.appChatListFilterUnread)
+                                }
+                            }.padding(.vertical, 8).tag(entry.id)
+                        }
+                        if account.roomRows.count >= 100 {
+                            Button(BipeStrings.actionShowMore) { account.loadMoreRooms() }
+                        }
+                    }.searchable(text: $search, prompt: BipeStrings.appSearchPlaceholder).overlay {
+                        if rows.isEmpty {
+                            Text(!search.isEmpty ? BipeStrings.appSearchNoResults(search)
+                                 : unreadOnly ? BipeStrings.appChatListNoUnread
+                                 : destination == .groups ? BipeStrings.appGroupsEmpty : BipeStrings.appChatListEmpty)
+                                .foregroundStyle(BipeColor.inkSecondary).padding()
                         }
                     }
-                    Divider()
-                    Button(BipeStrings.appAccountNew) { workspace.addAccount() }
-                } label: {
-                    HStack(spacing: 10) {
-                        MacAvatar(name: account.displayName, isCompany: account.isCompany)
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(account.displayName).font(.headline).lineLimit(1)
-                            if let handle = account.handle { Text("@" + handle).font(.caption).foregroundStyle(BipeColor.inkSecondary) }
-                        }
-                    }.frame(maxWidth: .infinity, alignment: .leading)
-                }.menuStyle(.borderlessButton).accessibilityLabel(BipeStrings.a11ySwitchAccount)
-            }.padding(16).frame(width: 204).background(BipeColor.surfaceBase)
-            Divider()
+                } else {
+                    Spacer()
+                }
+            }
+            .navigationSplitViewColumnWidth(min: 260, ideal: 300, max: 380)
+            .safeAreaInset(edge: .bottom) { accountMenu.padding().background(BipeColor.surfaceRaised) }
+        } detail: {
             if account.phase != .signedIn {
                 MacLinkView(account: account)
             } else if destination == .work {
                 MacWorkView(account: account)
             } else if destination == .you {
                 MacYouView(workspace: workspace, account: account)
+            } else if let entry = account.roomRows.first(where: { $0.id == selected }) {
+                MacChatView(room: entry.room, name: entry.name, drafts: account.drafts, media: account.media).id(entry.id)
             } else {
-                NavigationSplitView {
-                    VStack(spacing: 0) {
-                        HStack {
-                            Text(destination.title).font(.title2).fontWeight(.bold)
-                            Spacer()
-                            Toggle(BipeStrings.appChatListFilterUnread, isOn: $unreadOnly).toggleStyle(.button)
-                        }.padding()
-                        List(selection: $selected) {
-                            ForEach(rows) { entry in
-                                HStack(spacing: 12) {
-                                    MacAvatar(name: entry.name)
-                                    Text(entry.name).font(.body).lineLimit(2)
-                                    Spacer(minLength: 0)
-                                    if entry.unread > 0 {
-                                        Text(entry.unread.formatted()).font(.caption).fontWeight(.semibold)
-                                            .padding(6).background(BipeColor.accentWash, in: Capsule())
-                                            .accessibilityLabel(BipeStrings.appChatListUnread(entry.unread.formatted()))
-                                    } else if entry.markedUnread {
-                                        Circle().fill(BipeColor.accentFill).frame(width: 8, height: 8)
-                                            .accessibilityLabel(BipeStrings.appChatListFilterUnread)
-                                    }
-                                }.padding(.vertical, 8).tag(entry.id)
-                            }
-                            if account.roomRows.count >= 100 {
-                                Button(BipeStrings.actionShowMore) { account.loadMoreRooms() }
-                            }
-                        }.overlay {
-                            if rows.isEmpty {
-                                Text(!search.isEmpty ? BipeStrings.appSearchNoResults(search)
-                                     : unreadOnly ? BipeStrings.appChatListNoUnread : BipeStrings.appChatListEmpty)
-                                    .foregroundStyle(BipeColor.inkSecondary).padding()
-                            }
-                        }
-                    }
-                    .searchable(text: $search, prompt: BipeStrings.appSearchPlaceholder)
-                    .navigationSplitViewColumnWidth(min: 240, ideal: 300, max: 380)
-                } detail: {
-                    if let entry = account.roomRows.first(where: { $0.id == selected }) {
-                        MacChatView(room: entry.room, name: entry.name, drafts: account.drafts).id(entry.id)
-                    } else {
-                        VStack(spacing: MacDesign.gap) {
-                            MacBrand()
-                            Text(rows.isEmpty ? BipeStrings.appChatListEmpty : destination.title).foregroundStyle(BipeColor.inkSecondary)
-                        }.frame(maxWidth: .infinity, maxHeight: .infinity).background(BipeColor.surfaceBase)
-                    }
-                }
+                VStack(spacing: MacDesign.gap) {
+                    MacBrand()
+                    Text(rows.isEmpty ? BipeStrings.appChatListEmpty : destination.title).foregroundStyle(BipeColor.inkSecondary)
+                }.frame(maxWidth: .infinity, maxHeight: .infinity).background(BipeColor.surfaceBase)
             }
         }
         .safeAreaInset(edge: .top) {
             if account.storageFailed { MacNotice(text: BipeStrings.errorGeneric, danger: true).padding() }
         }
+        .onChange(of: destination) { _, _ in selected = nil; search = "" }
         .onChange(of: account.isCompany) { _, _ in
             if !MacDestination.visible(isCompany: account.isCompany).contains(destination) { destination = .chats; selected = nil }
         }
+    }
+
+    private var accountMenu: some View {
+        Menu {
+            ForEach(workspace.accounts, id: \.userId) { entry in
+                Button { workspace.select(entry) } label: {
+                    MacAccountMenuLabel(account: entry, current: entry === account)
+                }
+            }
+            Divider()
+            Button(BipeStrings.appAccountNew) { workspace.addAccount() }
+        } label: {
+            HStack(spacing: 10) {
+                MacAvatar(name: account.displayName, isCompany: account.isCompany)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(account.displayName).font(.headline).lineLimit(1)
+                    if let handle = account.handle { Text("@" + handle).font(.caption).foregroundStyle(BipeColor.inkSecondary) }
+                }
+                Spacer(minLength: 0)
+            }.frame(maxWidth: .infinity, alignment: .leading)
+        }.menuStyle(.borderlessButton).accessibilityLabel(BipeStrings.a11ySwitchAccount)
     }
 }
 
@@ -142,6 +133,7 @@ private struct MacYouView: View {
     @ObservedObject var workspace: MacWorkspace
     @ObservedObject var account: MacAccount
     @AppStorage(MacReceiptPolicy.key) private var readReceipts = true
+    @AppStorage(BipeSettingsRow.chatsMediaQuality.rawValue) private var mediaQuality = "standard"
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: MacDesign.sectionGap) {
@@ -173,6 +165,10 @@ private struct MacYouView: View {
                         Text(BipeStrings.settingsPrivacy).font(.headline)
                         Toggle(BipeStrings.privacyReadReceipts, isOn: $readReceipts)
                         Text(BipeStrings.privacyReadReceiptsFooter).font(.callout).foregroundStyle(BipeColor.inkSecondary)
+                        Picker(BipeStrings.chatsMediaQuality, selection: $mediaQuality) {
+                            Text(BipeStrings.chatsMediaQualityStandard).tag("standard")
+                            Text(BipeStrings.chatsMediaQualityHigh).tag("high")
+                        }
                     }
                 }
             }.padding(MacDesign.pageInset).frame(maxWidth: 800, alignment: .leading)

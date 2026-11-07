@@ -7,11 +7,15 @@ import BipeKit
 import Combine
 import Foundation
 import MatrixRustSDK
+import UniformTypeIdentifiers
 
 struct MacMessage: Identifiable {
     let id: String
     let sender: String
     let body: String
+    let richText: BipeMessageText
+    let photo: MacPhoto?
+    let isEmote: Bool
     let timestamp: Date
     let isOwn: Bool
     let pending: Bool
@@ -21,7 +25,7 @@ struct MacMessage: Identifiable {
     let canReply: Bool
 }
 
-/// The spike renders text and undecryptable placeholders. Rich media and other product features follow in #1018.
+/// Native timeline using the same rich-text parser, image event and encrypted send queue as the phone clients.
 @MainActor
 final class MacTimeline: ObservableObject {
     @Published private(set) var messages: [MacMessage] = []
@@ -30,6 +34,12 @@ final class MacTimeline: ObservableObject {
     @Published private(set) var loadingHistory = false
     @Published private(set) var ready = false
     @Published private(set) var isEncrypted = true
+    @Published private(set) var isPrivateRoom = false
+    @Published private(set) var preparing = false
+    @Published private(set) var attachment: MacPreparedImage?
+    @Published var imageCaption = ""
+    @Published var imageDescription = ""
+    @Published private(set) var uploadError: String?
     @Published var draft = "" { didSet { persistDraft() } }
     @Published private(set) var replyID: String? { didSet { persistDraft() } }
     var replyTarget: MacMessage? { messages.first { $0.eventID == replyID } }
@@ -40,6 +50,9 @@ final class MacTimeline: ObservableObject {
     private var lastReadID: String?
     private var listener: TaskHandle?
     private var items: [TimelineItem] = []
+    private var moneyPause = BipeMoneyPause()
+    private var attachmentSend: SendAttachmentJoinHandle?
+    private var attachmentCancelled = false
 
     init(drafts: MacDrafts) { self.drafts = drafts }
 
@@ -59,7 +72,9 @@ final class MacTimeline: ObservableObject {
             self.room = room
             if editedWhileLoading { persistDraft() }
             isEncrypted = await room.isEncrypted()
-            let isDm = (try? await room.roomInfo())?.isDm ?? true
+            let info = try? await room.roomInfo()
+            let isDm = info?.isDm ?? true
+            isPrivateRoom = info?.isDm == true || info?.isPublic == false
             let configuration = TimelineConfiguration(focus: .live(hideThreadedEvents: !isDm), filter: .all,
                                                        internalIdPrefix: nil, dateDividerMode: .daily,
                                                        trackReadReceipts: .messageLikeEvents, reportUtds: false)
@@ -109,6 +124,91 @@ final class MacTimeline: ObservableObject {
 
     func cancelReply() { replyID = nil }
 
+    func pasteImage(_ provider: NSItemProvider) {
+        guard !preparing, !sending, let type = provider.registeredTypeIdentifiers.first(where: {
+            UTType($0)?.conforms(to: .image) == true
+        }) else { return }
+        provider.loadDataRepresentation(forTypeIdentifier: type) { [weak self] data, _ in
+            Task { @MainActor in
+                guard let self else { return }
+                guard let data else { self.uploadError = BipeStrings.appUploadFailed; return }
+                let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+                do {
+                    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true,
+                                                           attributes: [.posixPermissions: 0o700])
+                    defer { try? FileManager.default.removeItem(at: folder) }
+                    let url = folder.appendingPathComponent("image")
+                    try data.write(to: url, options: .atomic)
+                    await self.prepareImage(url)
+                } catch { self.uploadError = BipeStrings.appUploadFailed }
+            }
+        }
+    }
+
+    func prepareImage(_ url: URL) async {
+        guard !preparing, !sending else { return }
+        preparing = true
+        uploadError = nil
+        defer { preparing = false }
+        let accessed = url.startAccessingSecurityScopedResource()
+        defer { if accessed { url.stopAccessingSecurityScopedResource() } }
+        do {
+            let highQuality = UserDefaults.standard.string(forKey: BipeSettingsRow.chatsMediaQuality.rawValue) == "high"
+            let image = try await Task.detached(priority: .userInitiated) { try MacImagePreparation.prepare(url, highQuality: highQuality) }.value
+            attachment?.remove()
+            attachment = image
+            imageCaption = ""
+            imageDescription = ""
+        } catch { uploadError = BipeStrings.appUploadFailed }
+    }
+
+    func cancelAttachment() {
+        if sending {
+            guard let attachmentSend else { return }
+            attachmentCancelled = true
+            attachmentSend.cancel()
+            return
+        }
+        attachment?.remove(); attachment = nil
+        imageCaption = ""; imageDescription = ""; uploadError = nil
+    }
+
+    func sendImage(maxUploadSize: UInt64?) async {
+        guard let timeline, let image = attachment, !sending else { return }
+        if let maxUploadSize, (image.info.size ?? 0) > maxUploadSize {
+            uploadError = BipeStrings.appUploadTooLarge(ByteCountFormatter.string(fromByteCount: Int64(clamping: maxUploadSize), countStyle: .file))
+            return
+        }
+        sending = true
+        attachmentCancelled = false
+        uploadError = nil
+        let reply = replyID
+        defer { sending = false; attachmentSend = nil }
+        do {
+            let caption = imageCaption.trimmingCharacters(in: .whitespacesAndNewlines)
+            let params = UploadParameters(source: .file(filename: image.file.path), caption: caption.isEmpty ? nil : caption,
+                                          formattedCaption: nil, mentions: nil, inReplyTo: reply,
+                                          extraContentJson: BipeImageDescription.extraContentJson(imageDescription))
+            let handle = try timeline.sendImage(params: params, thumbnailSource: .file(filename: image.thumbnail.path), imageInfo: image.info)
+            attachmentSend = handle
+            try await handle.join()
+            image.remove()
+            attachment = nil
+            imageCaption = ""; imageDescription = ""
+            if !attachmentCancelled, replyID == reply { replyID = nil }
+        } catch {
+            if attachmentCancelled {
+                image.remove(); attachment = nil; imageCaption = ""; imageDescription = ""
+            } else { uploadError = BipeStrings.appUploadFailed }
+        }
+    }
+
+    func startMoneyPause(_ message: MacMessage) {
+        if let warning = message.warning { moneyPause.start(id: message.id, kind: warning) }
+    }
+
+    func pauseSecondsLeft(_ id: String, now: Date = .now) -> Int { moneyPause.secondsLeft(id: id, now: now) }
+
     private func persistDraft() {
         draftRevision += 1
         guard let room else { return }
@@ -129,10 +229,12 @@ final class MacTimeline: ObservableObject {
     private func rebuild() {
         messages = items.compactMap { item in
             guard let event = item.asEvent(), case .msgLike(let content) = event.content else { return nil }
-            let body: String
+            let payload: MacMessagePayload
             switch content.kind {
-            case .message(let message): body = message.body
-            case .unableToDecrypt: body = BipeStrings.webTimelineUndecryptable
+            case .message(let message):
+                payload = MacMessagePayload(type: message.msgType, fallback: message.body,
+                                            eventJson: event.lazyProvider.debugInfo().originalJson)
+            case .unableToDecrypt: payload = MacMessagePayload(body: BipeStrings.webTimelineUndecryptable)
             default: return nil
             }
             var displayName: String?
@@ -147,10 +249,11 @@ final class MacTimeline: ObservableObject {
             }
             let eventID: String?
             if case .eventId(let id) = event.eventOrTransactionId { eventID = id } else { eventID = nil }
-            return MacMessage(id: item.uniqueId().id, sender: sender, body: body,
+            return MacMessage(id: item.uniqueId().id, sender: sender, body: payload.body,
+                              richText: payload.richText, photo: payload.photo, isEmote: payload.isEmote,
                               timestamp: Date(timeIntervalSince1970: Double(event.timestamp) / 1000),
                               isOwn: event.isOwn, pending: pending, failed: failed,
-                              warning: event.isOwn ? nil : ScamDetector.warningKind(for: body, eventID: item.uniqueId().id),
+                              warning: event.isOwn ? nil : ScamDetector.warningKind(for: payload.body + "\n" + payload.richText.safetyText, eventID: item.uniqueId().id),
                               eventID: eventID, canReply: event.canBeRepliedTo)
         }
     }

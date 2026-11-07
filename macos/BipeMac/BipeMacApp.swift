@@ -6,6 +6,7 @@ import AppKit
 import BipeKit
 import MatrixRustSDK
 import SwiftUI
+import UniformTypeIdentifiers
 
 @main
 struct BipeMacApp: App {
@@ -14,7 +15,7 @@ struct BipeMacApp: App {
     var body: some Scene {
         WindowGroup {
             MacRootView(workspace: workspace)
-                .frame(minWidth: 980, minHeight: 600)
+                .frame(minWidth: 820, minHeight: 600)
                 .fontDesign(.rounded)
                 .tint(BipeColor.accentFill)
                 .foregroundStyle(BipeColor.inkPrimary)
@@ -26,7 +27,7 @@ struct BipeMacApp: App {
                     workspace.start()
                 }
         }
-        .defaultSize(width: 1200, height: 780)
+        .defaultSize(width: 1040, height: 740)
     }
 }
 
@@ -133,13 +134,16 @@ struct MacLinkView: View {
 struct MacChatView: View {
     let room: Room
     let name: String
+    @ObservedObject var media: MacMedia
     @StateObject private var model: MacTimeline
     @Environment(\.scenePhase) private var scenePhase
     @FocusState private var composerFocused: Bool
+    @State private var pickingImage = false
 
-    init(room: Room, name: String, drafts: MacDrafts) {
+    init(room: Room, name: String, drafts: MacDrafts, media: MacMedia) {
         self.room = room
         self.name = name
+        self.media = media
         _model = StateObject(wrappedValue: MacTimeline(drafts: drafts))
     }
 
@@ -152,16 +156,11 @@ struct MacChatView: View {
                         Button(model.loadingHistory ? BipeStrings.appTimelineLoadingHistory : BipeStrings.actionShowMore) { Task { await model.loadHistory() } }
                             .disabled(model.loadingHistory)
                         ForEach(model.messages) { message in
-                            MacMessageView(message: message).id(message.id)
-                                .contextMenu {
-                                    Button(BipeStrings.appMessageActionReply) { model.startReply(message); composerFocused = true }
-                                        .disabled(!message.canReply || message.eventID == nil)
-                                    Button(BipeStrings.appCopy) {
-                                        NSPasteboard.general.clearContents()
-                                        NSPasteboard.general.setString(message.body, forType: .string)
-                                    }
-                                }
-                                .accessibilityAction(named: BipeStrings.appMessageActionReply) { model.startReply(message); composerFocused = true }
+                            MacMessageView(message: message, media: media, isPrivateRoom: model.isPrivateRoom,
+                                           fromRequest: (UserDefaults.standard.stringArray(forKey: "bipe.media.requestRooms") ?? []).contains(room.id()),
+                                           pauseSecondsLeft: { model.pauseSecondsLeft(message.id, now: $0) },
+                                           onReply: { model.startReply(message); composerFocused = true })
+                                .id(message.id).onAppear { model.startMoneyPause(message) }
                         }
                     }.padding()
                 }
@@ -170,6 +169,7 @@ struct MacChatView: View {
                 }
             }
             if model.failed { MacNotice(text: BipeStrings.errorGeneric, danger: true).padding() }
+            if let error = model.uploadError, model.attachment == nil { MacNotice(text: error, danger: true).padding() }
             Divider()
             if model.replyID != nil {
                 HStack {
@@ -184,6 +184,12 @@ struct MacChatView: View {
                 }.padding().background(BipeColor.accentWash)
             }
             HStack(alignment: .bottom) {
+                Button { pickingImage = true } label: {
+                    Image(decorative: "image").resizable().scaledToFit().frame(width: 24, height: 24)
+                        .frame(width: 44, height: 44)
+                }.buttonStyle(.plain).accessibilityLabel(BipeStrings.appAttachPhotos)
+                    .help(BipeStrings.appAttachPhotos).disabled(!model.ready || model.preparing || model.sending)
+                if model.preparing { ProgressView().accessibilityLabel(BipeStrings.appUploadPreparing) }
                 TextField(BipeStrings.appTimelineComposerPlaceholder, text: $model.draft, axis: .vertical)
                     .focused($composerFocused)
                     .lineLimit(1...6).onSubmit { Task { await model.send() } }
@@ -199,6 +205,23 @@ struct MacChatView: View {
         .navigationTitle(name)
         .background(BipeColor.surfaceBase)
         .task { await model.run(room: room) }
+        .dropDestination(for: URL.self) { urls, _ in
+            guard let url = urls.first, url.isFileURL, model.ready, !model.preparing, !model.sending else { return false }
+            Task { await model.prepareImage(url) }
+            return true
+        }
+        .onPasteCommand(of: [.image]) { providers in
+            if model.ready, let provider = providers.first { model.pasteImage(provider) }
+        }
+        .fileImporter(isPresented: $pickingImage, allowedContentTypes: [.image]) { result in
+            if case .success(let url) = result { Task { await model.prepareImage(url) } }
+        }
+        .sheet(isPresented: Binding(get: { model.attachment != nil }, set: { if !$0 { model.cancelAttachment() } })) {
+            if let image = model.attachment {
+                MacImageComposer(image: image, model: model, maxUploadSize: { await media.maxUploadSize() })
+                    .interactiveDismissDisabled(model.sending)
+            }
+        }
         .onChange(of: scenePhase) { _, phase in if phase == .active { Task { await model.markRead() } } }
     }
 }

@@ -41,6 +41,7 @@ final class MacAccount: ObservableObject {
     private var sync: SyncService?
     let api = BipeAPIClient(baseURL: URL(string: "https://api.bipe.net.br")!)
     let drafts = MacDrafts()
+    let media = MacMedia()
     private let vault: MacSessionVault
     private var savedUserID: String?
     private var openID: BipeOpenIDTokens?
@@ -81,6 +82,7 @@ final class MacAccount: ObservableObject {
     }
 
     func retry() {
+        media.reset()
         loginTask?.cancel()
         refreshTask?.cancel()
         listTask?.cancel()
@@ -265,6 +267,7 @@ final class MacAccount: ObservableObject {
     private func connected(_ client: Client, attempt current: UUID) async throws {
         guard attempt == current else { throw CancellationError() }
         self.client = client
+        media.attach(client)
         userId = try client.userId()
         displayName = BipeAccountLabels.label(for: userId)
         handle = BipeHandleCache.handle(for: userId)
@@ -346,6 +349,7 @@ final class MacAccount: ObservableObject {
     private func revoked() async {
         guard phase != .revoked else { return }
         phase = .revoked
+        media.reset()
         attempt = UUID()
         loginTask?.cancel()
         refreshTask?.cancel()
