@@ -16,6 +16,22 @@ public enum BipeStrings {
         String(format: NSLocalizedString("bipe_badge_verified_name", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
 
+    public static func badgeVerifiedVia(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_badge_verified_via", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func badgeVerifiedNameVia(_ p1: String, _ p2: String) -> String {
+        String(format: NSLocalizedString("bipe_badge_verified_name_via", tableName: "Bipe", bundle: .module, comment: ""), p1, p2)
+    }
+
+    public static var personSealScheme: String { NSLocalizedString("bipe_person_seal_scheme", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var personSealChecked: String { NSLocalizedString("bipe_person_seal_checked", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var personSealValidUntil: String { NSLocalizedString("bipe_person_seal_valid_until", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var personSealBody: String { NSLocalizedString("bipe_person_seal_body", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var badgeInstitution: String { NSLocalizedString("bipe_badge_institution", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var badgeSuspended: String { NSLocalizedString("bipe_badge_suspended", tableName: "Bipe", bundle: .module, comment: "") }

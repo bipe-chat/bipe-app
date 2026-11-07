@@ -19,6 +19,9 @@ enum class ReservedNameCategory(val id: String) {
 
 data class ScamPattern(val id: String, val regex: String)
 
+/** A person scheme (ADR 0272, ADR 0275). [mark] is regular or fill. A badge with a scheme outside this list shows no level. */
+data class PersonScheme(val id: String, val alias: String?, val assurance: String, val mark: String, val namePtBR: String, val nameEn: String)
+
 /** A network a public profile may link to (ADR 0228). [url] holds {handle} once. */
 data class SocialPlatform(val id: String, val name: String, val pattern: String, val url: String)
 
@@ -615,6 +618,12 @@ object BipeRegistries {
     const val PHOTO_MATCH_MAX_DISTANCE = 6
 
     /** Profile change facts (ADR 0049, registries/profile-facts.json). Lines: test-vectors/profile-facts.json. */
+    /** Person schemes, strongest first (ADR 0275, registries/schemes.json). Rule: test-vectors/person-proofs.json. */
+    val personSchemes: List<PersonScheme> = listOf(
+        PersonScheme("br.govbr", "govbr", "state", "fill", "gov.br", "gov.br"),
+        PersonScheme("br.pix", "pix", "bank", "regular", "Pix", "Pix"),
+    )
+
     const val PROFILE_FACTS_WINDOW_DAYS = 30
     const val PROFILE_FACTS_NEW_ACCOUNT_DAYS = 30
     const val PROFILE_FACTS_NOTICE_PAIR_HOURS = 24

@@ -328,6 +328,9 @@ enum class BipeScreen(val id: String) {
     /** A person's profile (flow people). Spec: bipe-shared/product/screens/person-profile.json */
     PERSON_PROFILE("person-profile"),
 
+    /** Person seal (flow people). Spec: bipe-shared/product/screens/person-seal.json */
+    PERSON_SEAL("person-seal"),
+
     /** Your number: link state and yearly confirmation (flow settings). Spec: bipe-shared/product/screens/phone-link-status.json */
     PHONE_LINK_STATUS("phone-link-status"),
 

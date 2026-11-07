@@ -216,6 +216,8 @@ export const BipeScreen = {
   orderOwner: "order-owner",
   /** A person's profile (flow people). Spec: bipe-shared/product/screens/person-profile.json */
   personProfile: "person-profile",
+  /** Person seal (flow people). Spec: bipe-shared/product/screens/person-seal.json */
+  personSeal: "person-seal",
   /** Your number: link state and yearly confirmation (flow settings). Spec: bipe-shared/product/screens/phone-link-status.json */
   phoneLinkStatus: "phone-link-status",
   /** Change PIN (flow settings). Spec: bipe-shared/product/screens/pin-change.json */
