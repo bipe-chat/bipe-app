@@ -1,7 +1,7 @@
 ---
 id: 2026-11-07-thread-list
 date: 2026-11-07
-kind: added
+kind: new
 platforms: [ios, android]
 refs: [bipe-app#522, bipe#667]
 ---
