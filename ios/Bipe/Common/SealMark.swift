@@ -15,34 +15,11 @@ struct SealMark: View {
 
     var body: some View {
         if let userId, let mark = seals?.mark(for: userId) {
-            icon(mark).image
+            (mark.isSuspended ? PhosphorIcon.sealWarning : .sealCheck).image
                 .resizable()
                 .frame(width: size, height: size)
-                .foregroundStyle(tint(mark))
-                .accessibilityLabel(Self.label(mark))
-        }
-    }
-
-    private func icon(_ mark: BipeSealMark) -> PhosphorIcon {
-        switch mark {
-        case .person, .company: .sealCheck
-        case .personSuspended, .companySuspended: .sealWarning
-        }
-    }
-
-    private func tint(_ mark: BipeSealMark) -> Color {
-        switch mark {
-        case .person, .company: BipeColor.trustVerifiedInk
-        case .personSuspended, .companySuspended: BipeColor.trustCautionInk
-        }
-    }
-
-    static func label(_ mark: BipeSealMark) -> String {
-        switch mark {
-        case .person: BipeStrings.badgeVerified
-        case .company: BipeStrings.badgeCompany
-        case .personSuspended: BipeStrings.badgeSuspended
-        case .companySuspended: BipeStrings.badgeCompanySuspended
+                .foregroundStyle(mark.tint)
+                .accessibilityLabel(mark.label)
         }
     }
 }

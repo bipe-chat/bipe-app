@@ -139,7 +139,7 @@ struct MuralTileRows<MenuContent: View>: View {
 
     private func sealLabel(_ chat: ChatSummary) -> String? {
         guard chat.isDm, let peer = chat.peerUserId, let mark = seals?.mark(for: peer) else { return nil }
-        return SealMark.label(mark)
+        return mark.label
     }
 }
 

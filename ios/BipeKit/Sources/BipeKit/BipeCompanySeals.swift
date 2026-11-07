@@ -34,6 +34,20 @@ public enum BipeSealMark: Equatable, Sendable {
     case company
     case personSuspended
     case companySuspended
+
+    /// What the mark says to a screen reader.
+    public var label: String {
+        switch self {
+        case .person: BipeStrings.badgeVerified
+        case .company: BipeStrings.badgeCompany
+        case .personSuspended: BipeStrings.badgeSuspended
+        case .companySuspended: BipeStrings.badgeCompanySuspended
+        }
+    }
+
+    public var isSuspended: Bool { self == .personSuspended || self == .companySuspended }
+
+    public var tint: Color { isSuspended ? BipeColor.trustCautionInk : BipeColor.trustVerifiedInk }
 }
 
 /// Fetches, verifies and caches company and person badges, and which accounts are companies. One instance per user session.

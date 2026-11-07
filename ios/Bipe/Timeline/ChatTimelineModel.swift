@@ -529,7 +529,7 @@ final class ChatTimelineModel: ObservableObject {
             canPost = powerLevels.canOwnUserSendMessage(message: .roomMessage)
             canPoll = !facts.isDm && powerLevels.canOwnUserSendMessage(message: .pollStart)
             canPin = !facts.isDm && powerLevels.canOwnUserPinUnpin()
-            facts.roles = facts.isDm ? [:] : GroupPeople.staffRoles(levels: powerLevels.userPowerLevels(), creators: creators)
+            facts.roles = facts.isDm ? [:] : GroupRole.staff(levels: powerLevels.userPowerLevels(), creators: creators)
         }
         isDm = facts.isDm
         isEncrypted = facts.isEncrypted

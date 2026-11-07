@@ -626,10 +626,10 @@ struct SenderNameText: View {
             : message.senderName
         HStack(spacing: 4) {
             // Spec chat-timeline senderRole (bipe-chat/bipe#733).
-            switch message.senderRole {
-            case .admin?: Text(label) + Text(" · " + BipeStrings.appRoleBadgeAdmin).foregroundColor(BipeColor.accentInk)
-            case .moderator?: Text(label) + Text(" · " + BipeStrings.appRoleBadgeModerator).foregroundColor(BipeColor.accentInk)
-            default: Text(label)
+            if let badge = message.senderRole?.senderBadge {
+                Text(label) + Text(" · " + badge).foregroundColor(BipeColor.accentInk)
+            } else {
+                Text(label)
             }
             if BipeOfficialAccounts.isOfficial(message.senderId) { OfficialBadge() }
             // Spec timeline-rows: the sender's seal (bipe-chat/bipe#596).
