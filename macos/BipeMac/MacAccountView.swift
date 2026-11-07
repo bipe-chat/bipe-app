@@ -29,15 +29,17 @@ struct MacAccountView: View {
             else {
                 // One window chrome for every destination: account at the leading edge, destinations in the middle.
                 switch account.destination {
-                case .chats: MacConversationsView(account: account, list: account.roomList, scope: .chats).id(MacDestination.chats)
-                case .groups: MacConversationsView(account: account, list: account.roomList, scope: .groups).id(MacDestination.groups)
+                case .chats: MacConversationsView(workspace: workspace, account: account, list: account.roomList, scope: .chats).id(MacDestination.chats)
+                case .groups: MacConversationsView(workspace: workspace, account: account, list: account.roomList, scope: .groups).id(MacDestination.groups)
                 case .work: MacWorkView(account: account)
                 case .you: MacYouView(account: account)
                 }
             }
         }
         .toolbar {
-            ToolbarItem(placement: .navigation) { MacAccountSwitcher(workspace: workspace, account: account) }
+            if account.phase != .signedIn || account.destination == .work || account.destination == .you {
+                ToolbarItem(placement: .navigation) { MacAccountSwitcher(workspace: workspace, account: account) }
+            }
             if account.phase == .signedIn {
                 ToolbarItem(placement: .principal) {
                     Picker(BipeStrings.settingsSection, selection: $account.destination) {
@@ -61,7 +63,7 @@ struct MacAccountView: View {
     }
 }
 
-private struct MacAccountSwitcher: View {
+struct MacAccountSwitcher: View {
     @ObservedObject var workspace: MacWorkspace
     @ObservedObject var account: MacAccount
     @State private var showsAccounts = false

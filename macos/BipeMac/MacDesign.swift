@@ -118,9 +118,16 @@ struct MacMessageView: View {
         .environment(\.openURL, OpenURLAction { url in pauseSecondsLeft(.now) > 0 ? .handled : .systemAction })
         .contextMenu {
             if message.canReact {
-                Picker(BipeStrings.a11yReact, selection: Binding<String?>(get: { nil }, set: { if let key = $0 { react(key) } })) {
-                    ForEach(BipeReactions.quickKeys, id: \.self) { key in Text(verbatim: key).tag(String?.some(key)) }
-                }.pickerStyle(.palette).paletteSelectionEffect(.custom)
+                ControlGroup {
+                    ForEach(BipeReactions.quickKeys, id: \.self) { key in
+                        Button { react(key) } label: {
+                            Label { Text(verbatim: key) } icon: {
+                                Image(nsImage: MacReactionArtwork.image(for: key)).renderingMode(.original)
+                            }
+                        }.accessibilityLabel(BipeStrings.a11yReact + " " + key)
+                            .disabled(reactionPending(key))
+                    }
+                }.controlGroupStyle(.palette)
                 Button { showingEmoji = true } label: { Label(BipeStrings.appMessageActionMoreReactions, systemImage: "face.smiling") }
                 Divider()
             }
