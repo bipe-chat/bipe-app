@@ -29,8 +29,8 @@ struct MacAccountView: View {
             else {
                 // One window chrome for every destination: account at the leading edge, destinations in the middle.
                 switch account.destination {
-                case .chats: MacConversationsView(workspace: workspace, account: account, list: account.roomList, scope: .chats).id(MacDestination.chats)
-                case .groups: MacConversationsView(workspace: workspace, account: account, list: account.roomList, scope: .groups).id(MacDestination.groups)
+                case .chats: MacConversationsView(workspace: workspace, account: account, list: account.roomList, scope: .chats, requests: account.requests).id(MacDestination.chats)
+                case .groups: MacConversationsView(workspace: workspace, account: account, list: account.roomList, scope: .groups, requests: account.requests).id(MacDestination.groups)
                 case .work: MacWorkView(account: account)
                 case .you: MacYouView(account: account)
                 }

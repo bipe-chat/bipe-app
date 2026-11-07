@@ -26,9 +26,13 @@ final class MacMedia: ObservableObject {
     private let accountTypes = NSCache<NSString, NSNumber>()
     private let api = BipeAPIClient(baseURL: URL(string: "https://api.bipe.net.br")!)
     private var generation = UUID()
-    /// Spec timeline-media fromStranger. The Mac has no chat-requests yet, so it reads the account's list.
+    /// Spec chat-requests hidePhotos: false until the account says InviteAvatars.on.
+    @Published private(set) var showsInvitePhotos = false
+    /// Spec timeline-media fromStranger: the account's list, with the rooms this Mac accepted and has not written yet.
     @Published private var requestRooms: Set<String> = []
     @Published private var requestRoomsChecked: Set<String> = []
+    private var unsavedRequestRooms: [String] = []
+    private var unsavedRequestRoomsKey = ""
 
     init() { images.totalCostLimit = 64 * 1024 * 1024 }
 
@@ -36,6 +40,8 @@ final class MacMedia: ObservableObject {
         reset()
         self.client = client
         let generation = generation
+        unsavedRequestRoomsKey = "bipe.mac.requestRooms.unsaved." + ((try? client.userId()) ?? "")
+        unsavedRequestRooms = UserDefaults.standard.stringArray(forKey: unsavedRequestRoomsKey) ?? []
         task = Task { [weak self] in
             let stream = MacMediaPreviewStream()
             let handle = try? await client.subscribeToMediaPreviewConfig(listener: stream)
@@ -45,6 +51,7 @@ final class MacMedia: ObservableObject {
                 let config = try await client.fetchMediaPreviewConfig()
                 guard !Task.isCancelled, self.generation == generation else { return }
                 self.policy = config?.mediaPreviews ?? .on
+                self.applyInviteAvatars(config?.inviteAvatars)
             } catch {
                 // Offline: wait for the account setting through sync before fetching someone else's images.
             }
@@ -53,6 +60,7 @@ final class MacMedia: ObservableObject {
             for await config in stream.updates {
                 guard !Task.isCancelled, self.generation == generation else { return }
                 if let previews = config?.mediaPreviews { self.policy = previews }
+                self.applyInviteAvatars(config?.inviteAvatars)
             }
         }
     }
@@ -63,6 +71,9 @@ final class MacMedia: ObservableObject {
         handle?.cancel(); handle = nil
         client = nil
         policy = nil
+        showsInvitePhotos = false
+        unsavedRequestRooms = []
+        unsavedRequestRoomsKey = ""
         images.removeAllObjects()
         accountTypes.removeAllObjects()
         requestRooms = []
@@ -79,13 +90,49 @@ final class MacMedia: ObservableObject {
         guard let client else { return }
         let generation = generation
         do {
-            let json = try await ServerAccountData.json(client: client, eventType: BipeRequestRooms.eventType)
+            let server = BipeRequestRooms.parse(try await ServerAccountData.json(client: client, eventType: BipeRequestRooms.eventType))
             guard self.generation == generation else { return }
-            requestRooms = Set(BipeRequestRooms.parse(json))
+            requestRooms = Set(server).union(unsavedRequestRooms)
             requestRoomsChecked.insert(roomID)
+            await saveRequestRooms(server: server, client: client)
         } catch {
             // The room keeps waiting for a tap. Opening it again reads the list again.
         }
+    }
+
+    /// A DM accepted from the box waits for a tap at once. The local copy survives a failed write, and the next read
+    /// of the list tries again. Registry request-rooms: read the server copy, add the room IDs, keep the newest max.
+    func rememberRequestRoom(_ roomID: String) async {
+        guard let client else { return }
+        let generation = generation
+        requestRooms.insert(roomID)
+        unsavedRequestRooms = BipeRequestRooms.merged(unsavedRequestRooms, adding: [roomID])
+        UserDefaults.standard.set(unsavedRequestRooms, forKey: unsavedRequestRoomsKey)
+        guard let json = try? await ServerAccountData.json(client: client, eventType: BipeRequestRooms.eventType),
+              self.generation == generation else { return }
+        await saveRequestRooms(server: BipeRequestRooms.parse(json), client: client)
+    }
+
+    private func saveRequestRooms(server: [String], client: Client) async {
+        let adding = unsavedRequestRooms
+        guard !adding.isEmpty else { return }
+        let generation = generation
+        let merged = BipeRequestRooms.merged(server, adding: adding)
+        do {
+            if merged != server {
+                try await client.setAccountData(eventType: BipeRequestRooms.eventType, content: BipeRequestRooms.content(merged))
+            }
+            guard self.generation == generation else { return }
+            unsavedRequestRooms.removeAll { adding.contains($0) }
+            UserDefaults.standard.set(unsavedRequestRooms, forKey: unsavedRequestRoomsKey)
+        } catch {
+            // The local copy stays and the next read tries again.
+        }
+    }
+
+    private func applyInviteAvatars(_ avatars: InviteAvatars?) {
+        guard let avatars else { return }
+        if case .on = avatars { showsInvitePhotos = true } else { showsInvitePhotos = false }
     }
 
     /// Spec timeline-media showMedia: stored in the account (MSC4278).

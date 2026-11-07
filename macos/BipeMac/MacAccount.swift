@@ -33,6 +33,7 @@ final class MacAccount: ObservableObject {
     @Published var destination = MacDestination.chats
     @Published private(set) var avatarURL: String?
     private var listChanges: AnyCancellable?
+    private var requestChanges: AnyCancellable?
     @Published private(set) var userId = ""
     @Published var selectedRooms: [MacDestination: String] = [:]
     @Published var roomSearches: [MacDestination: String] = [:]
@@ -45,6 +46,7 @@ final class MacAccount: ObservableObject {
     private(set) var client: Client?
     private var sync: SyncService?
     let api = BipeAPIClient(baseURL: URL(string: "https://api.bipe.net.br")!)
+    private(set) lazy var requests = MacChatRequests(api: api)
     let drafts = MacDrafts()
     let media = MacMedia()
     private let vault: MacSessionVault
@@ -67,6 +69,7 @@ final class MacAccount: ObservableObject {
     init(record: MacSessionVault.Record? = nil, vault: MacSessionVault = MacSessionVault(keychain: SystemMacKeychain())) {
         self.vault = vault
         listChanges = roomList.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
+        requestChanges = requests.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
         savedUserID = record?.userId
         if let record {
             userId = record.userId
@@ -93,6 +96,7 @@ final class MacAccount: ObservableObject {
         loginTask?.cancel()
         refreshTask?.cancel()
         roomList.reset()
+        requests.reset()
         authHandle?.cancel()
         authHandle = nil
         sessionSaver?.deactivate()
@@ -302,6 +306,31 @@ final class MacAccount: ObservableObject {
         onReady?()
         Task { await refreshProfile() }
         try await roomList.attach(client: client, service: sync.roomListService(), ownUserID: userId)
+        guard attempt == current else { return }
+        try await requests.attach(client: client, service: sync.roomListService(), userID: userId,
+                                  subscriptions: roomList.subscriptions) { [weak self] in
+            try? self?.client?.session().accessToken
+        }
+    }
+
+    enum StartChatError: Error { case notFound }
+
+    /// The DM with the person who holds the @: the newest existing room (ADR 0141), or a new one.
+    func openChat(handle: String) async throws -> String {
+        guard let client, let handles else { throw CancellationError() }
+        guard let peer = try await handles.userID(forHandle: handle), peer != userId else { throw StartChatError.notFound }
+        if let existing = try await MacDmSelection.roomID(with: peer, client: client) { return existing }
+        return try await NativeDm.create(with: peer, client: client)
+    }
+
+    /// Spec chat-request profileFacts: the formatted lines of a person. nil after a failed call.
+    func profileFactLines(_ userID: String) async -> [String]? {
+        guard let openID else { return nil }
+        let api = api
+        guard let list = try? await BipeAPIClient.withOpenIDRetry(openID, { (token: BipeOpenIDToken) async throws(BipeAPIError) -> [BipeProfileFacts] in
+            try await api.profileFacts(userIDs: [userID], openID: token)
+        }), let facts = list.first(where: { $0.userId == userID }) else { return nil }
+        return BipeProfileFactLines(facts: facts).texts()
     }
 
     func loadMoreRooms() { roomList.loadMore() }
@@ -348,6 +377,7 @@ final class MacAccount: ObservableObject {
         loginTask?.cancel()
         refreshTask?.cancel()
         roomList.reset()
+        requests.reset()
         authHandle?.cancel()
         authHandle = nil
         sessionSaver?.deactivate()

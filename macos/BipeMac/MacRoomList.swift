@@ -25,7 +25,7 @@ final class MacRoomList: ObservableObject {
     private var orderTask: Task<Void, Never>?
     private var orderReadTask: Task<Void, Never>?
     private var rooms: [[Room]] = [[], [], []]
-    private var subscriptions: BipeRoomSubscriptions?
+    private(set) var subscriptions: BipeRoomSubscriptions?
     private var known: [String: BipeRowActivity.Row] = [:]
     private var pendingFavourite: [String: Bool] = [:]
     private var orderUnsaved = false
@@ -186,9 +186,43 @@ final class MacRoomList: ObservableObject {
                 rows.append(MacRoomSummary(room: room, info: info, ownUserID: ownUserID,
                                            activity: activity, favourite: self.pendingFavourite[room.id()]))
             }
+            guard !Task.isCancelled, self.generation == generation, let client = self.client else { return }
+            let visible = await MacDmSelection.visible(rows, client: client)
             guard !Task.isCancelled, self.generation == generation else { return }
-            self.rows = rows
+            self.rows = visible
             await self.subscriptions?.update(owner: "lists", roomIDs: combined.map { $0.id() })
         }
+    }
+}
+
+/// SDK adapter for the generated ADR 0141 rule: one DM row per person, the newest room. Reads only local state.
+@MainActor
+enum MacDmSelection {
+    static func visible(_ rows: [MacRoomSummary], client: Client) async -> [MacRoomSummary] {
+        let peers = Set(rows.filter(\.isDm).compactMap(\.avatar.userID))
+        guard !peers.isEmpty else { return rows }
+        do {
+            let selected = BipeDmSelection.newestRooms(try await candidates(peers: peers, client: client))
+            return rows.filter { row in
+                guard row.isDm, let peer = row.avatar.userID else { return true }
+                return selected[peer] == row.id
+            }
+        } catch {
+            // A local read error must not make the list disappear. A later SDK update retries selection.
+            return rows
+        }
+    }
+
+    /// Start chat reuses an existing room even when every DM was cleared; clear markers still hide old events.
+    /// Errors propagate so unreadable local state can never be mistaken for permission to create another DM.
+    static func roomID(with peer: String, client: Client) async throws -> String? {
+        let candidates = try await candidates(peers: [peer], client: client)
+        return BipeDmSelection.newestRooms(candidates)[peer]
+            ?? BipeDmSelection.newestRooms(candidates, includingCleared: true)[peer]
+    }
+
+    private static func candidates(peers: Set<String>, client: Client) async throws -> [BipeDmCandidate] {
+        let cleared = ClearedChats(json: try await client.accountData(eventType: ClearedChats.eventType))
+        return try await NativeDm.candidates(peers: peers, client: client, cleared: cleared)
     }
 }

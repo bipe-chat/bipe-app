@@ -243,7 +243,8 @@ final class ChatRequestsModel: ObservableObject {
     /// it is false for every invite. The invite's own is_direct (RoomInfo.isDirect) and at most two people decide.
     /// After the join the SDK writes m.direct, and RoomInfo.isDm stays the one DM test (ADR 0141).
     static func isDirectInvite(_ info: RoomInfo) -> Bool {
-        info.isDirect && info.activeMembersCount - min(info.activeServiceMembersCount, info.activeMembersCount) <= 2
+        BipeInviteTrust.isDirectInvite(isDirect: info.isDirect, activeMembers: info.activeMembersCount,
+                                       serviceMembers: info.activeServiceMembersCount)
     }
 
     // MARK: - Actions (chat-request, and the invite rows of chat-list-filters)
