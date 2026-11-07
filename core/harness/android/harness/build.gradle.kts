@@ -35,6 +35,7 @@ dependencies {
     implementation(files("../bipecore/build/outputs/aar/bipecore-release.aar"))
     implementation(libs.matrix.rust.sdk)
     implementation(libs.kotlinx.coroutines.core)
+    androidTestImplementation(project(":bipe"))
     androidTestImplementation(libs.kotlinx.serialization.json)
     androidTestImplementation("androidx.test:runner:1.6.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")

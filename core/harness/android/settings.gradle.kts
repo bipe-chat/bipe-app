@@ -25,4 +25,6 @@ dependencyResolutionManagement {
     }
 }
 
-include(":bipecore", ":harness")
+include(":bipecore", ":harness", ":bipe")
+// The current verifier, for the time comparison on the same emulator.
+project(":bipe").projectDir = file("../../../android/libraries/bipe")

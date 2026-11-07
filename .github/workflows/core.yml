@@ -271,6 +271,7 @@ jobs:
             adb logcat -c
             ../../../android/gradlew --no-daemon :harness:connectedDebugAndroidTest --stacktrace
             adb logcat -d | grep BIPE_CORE_METRICS | head -1 | sed 's/.*BIPE_CORE_METRICS/BIPE_CORE_METRICS/' > /tmp/android.metrics
+            adb logcat -d | grep BIPE_BASELINE_METRICS | head -1 | sed 's/.*BIPE_BASELINE_METRICS/BIPE_BASELINE_METRICS/' > /tmp/android-emulator-base.metrics
       - name: Current verifier on the JVM
         working-directory: android
         env:
@@ -294,7 +295,8 @@ jobs:
             echo
             echo '| Run | Metrics |'
             echo '| --- | ------- |'
-            echo "| x86_64 emulator, API 34, bipe-core | $(cat /tmp/android.metrics) |"
+            echo "| x86_64 emulator, API 34, debug build, bipe-core | $(cat /tmp/android.metrics) |"
+            echo "| x86_64 emulator, API 34, debug build, BadgeVerifier.kt | $(cat /tmp/android-emulator-base.metrics) |"
             echo "| JVM on this runner, BadgeVerifier.kt | $(cat /tmp/android-base.metrics) |"
           } >> "$GITHUB_STEP_SUMMARY"
           cat "$GITHUB_STEP_SUMMARY"
