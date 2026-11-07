@@ -67,6 +67,14 @@ public enum BipePalette: String, CaseIterable, Sendable {
     }
 }
 
+/// The ring of the launch screen (spec account-start): one size on every surface.
+public enum BipeLaunchRing {
+    public static let diameter: CGFloat = 36
+    public static let stroke: CGFloat = 3
+    public static let arc: CGFloat = 0.75
+    public static let turnSeconds: Double = 0.9
+}
+
 /// The palette the app shows. A SwiftUI view that reads a themed colour in its body redraws when the palette
 /// changes (Observation). The app sets it at launch from its stored choice and when the user picks a palette.
 public final class BipeTheme: Observable, @unchecked Sendable {

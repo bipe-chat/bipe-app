@@ -759,3 +759,26 @@
   --bipe-chat-fruit-fill: #15132E;
 }
 }
+:root {
+  --bipe-launch-fill: #802F7C;
+  --bipe-launch-ring: #FFFFFF;
+  --bipe-launch-diameter: 36px;
+  --bipe-launch-stroke: 3px;
+  --bipe-launch-arc: 0.75;
+  --bipe-launch-turn: 900ms;
+}
+[data-palette="goiaba"] {
+  --bipe-launch-fill: #C52A7A;
+}
+[data-palette="pitanga"] {
+  --bipe-launch-fill: #BC4500;
+}
+[data-palette="maracuja"] {
+  --bipe-launch-fill: #7B6C00;
+}
+[data-palette="jenipapo"] {
+  --bipe-launch-fill: #005678;
+}
+[data-palette="jabuticaba"] {
+  --bipe-launch-fill: #4E4694;
+}
