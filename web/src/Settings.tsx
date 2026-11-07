@@ -6,15 +6,16 @@
 // The groups, sections and rows come from registries settings, in its order. The web shows only the
 // rows that work in a browser: url rows (pages on bipe.chat) and Sair deste aparelho. A group with no
 // such row is left out. The root rows are the iPhone Settings layout: a 29 px accent.fill tile with an
-// 18 px ink.onAccent glyph, the title and a chevron.
+// 18 px ink.onAccent glyph, the title, the current state as the subtitle and a chevron.
 
 import { Fragment, useEffect, useState } from 'react';
+import { apiFor } from './api';
 import { PALETTES, BACKGROUNDS, useSetting, writeSetting, type Appearance } from './appearance';
 import { useClient } from './media';
 import { useMuralEnabled, writeMural } from './mural-plan';
 import { syncedSettingChanged } from './settings-sync';
 import { openNotes } from './notes';
-import { caretRight, chatCircle, bell, check, info, lockSimple, notepad, userCircle } from './phosphor/icons';
+import { caretRight, chatCircle, bell, check, info, lockSimple, notepad, userCircle, warningCircle } from './phosphor/icons';
 import { Spinner } from './ui/Spinner';
 import { settings } from './registries';
 import { useAccounts } from './accounts-context';
@@ -153,6 +154,55 @@ function urlOf(name: string): string | undefined {
   return urls[name]?.[locale === 'en' ? 'en' : 'pt'];
 }
 
+type RootSummary = { text: string; needsAttention?: boolean };
+
+/**
+ * Spec settings-root, action appear: the subtitles of the root rows. Each fills in when it arrives, and a failed
+ * read shows no subtitle. The web has no recovery token, as Android (BipeWaysBack hasSyncedToken false). The help
+ * version waits for a web build version. Notifications shows On only: the Off string names the phone.
+ */
+function useRootSummaries(client: ReturnType<typeof useClient>): Record<string, RootSummary | undefined> {
+  const appearance = useSetting('appearance');
+  const palette = useSetting('palette');
+  const [privacy, setPrivacy] = useState<RootSummary>();
+  const [account, setAccount] = useState<RootSummary>();
+  useEffect(() => {
+    let stopped = false;
+    const api = apiFor(client);
+    api.whoCanMessage().then((value) => {
+      if (!stopped && value) setPrivacy({ text: s(key(`bipe_settings_privacy_summary_${value}`)) });
+    });
+    api.accountWays().then((ways) => {
+      if (stopped || !ways) return;
+      const hasRecoveryKey = client.encryption().recoveryState() === RecoveryState.Enabled;
+      const count = [ways.hasEmail, ways.hasLinkedAccount, hasRecoveryKey].filter(Boolean).length;
+      const text =
+        count === 0
+          ? s('bipe_settings_account_paths_none')
+          : count === 1
+            ? s('bipe_account_paths_warning')
+            : s('bipe_settings_account_paths', String(count));
+      setAccount({ text, needsAttention: count <= 1 });
+    });
+    return () => {
+      stopped = true;
+    };
+  }, [client]);
+  const theme =
+    appearance === 'light' || appearance === 'dark'
+      ? s(key(`bipe_chats_appearance_${appearance}`))
+      : s('bipe_web_appearance_system');
+  return {
+    privacy,
+    account,
+    notifications:
+      typeof Notification !== 'undefined' && Notification.permission === 'granted'
+        ? { text: s('bipe_settings_notifications_on') }
+        : undefined,
+    chats: { text: `${theme} · ${s(key(`bipe_colors_${palette}`))}` },
+  };
+}
+
 export function Settings({
   group,
   onGroup,
@@ -168,6 +218,7 @@ export function Settings({
   const client = useClient();
   const [openingNotes, setOpeningNotes] = useState(false);
   const [notesFailed, setNotesFailed] = useState(false);
+  const summaries = useRootSummaries(client);
   const startNotes = () => {
     if (openingNotes) return;
     setNotesFailed(false);
@@ -249,7 +300,9 @@ export function Settings({
           />
         )}
         <Section header={s('bipe_settings_section')}>
-          {groups.map((g) => (
+          {groups.map((g) => {
+            const summary = summaries[g.key];
+            return (
             <li key={g.key}>
               <button
                 type="button"
@@ -262,13 +315,24 @@ export function Settings({
                 >
                   {g.icon && ICONS[g.icon] && <Icon path={ICONS[g.icon]} size={18} />}
                 </span>
-                <span className="flex min-h-11 min-w-0 flex-1 items-center gap-2 pr-4 [li:not(:last-child)_&]:border-b-[0.5px] [li:not(:last-child)_&]:border-line-subtle">
-                  <span className="min-w-0 flex-1 truncate text-body text-ink-primary">{s(key(g.title))}</span>
+                <span className="flex min-h-11 min-w-0 flex-1 items-center gap-2 py-1 pr-4 [li:not(:last-child)_&]:border-b-[0.5px] [li:not(:last-child)_&]:border-line-subtle">
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      <span className="truncate text-body text-ink-primary">{s(key(g.title))}</span>
+                      {summary?.needsAttention && <Icon path={warningCircle} size={16} className="shrink-0 text-trust-caution-ink" />}
+                    </span>
+                    {summary && (
+                      <span className={`text-subheadline ${summary.needsAttention ? 'text-trust-caution-ink' : 'text-ink-secondary'}`}>
+                        {summary.text}
+                      </span>
+                    )}
+                  </span>
                   <Icon path={caretRight} size={16} className="text-glyph-secondary" />
                 </span>
               </button>
             </li>
-          ))}
+            );
+          })}
         </Section>
       </div>
     </div>

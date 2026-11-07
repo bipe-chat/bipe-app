@@ -129,6 +129,19 @@ export class BipeApi {
     return r?.facts.find((f) => f.user_id === userId);
   }
 
+  /** GET /v1/me/messaging: who can message the caller. Any other value counts as unknown. */
+  async whoCanMessage(): Promise<'everyone' | 'verified' | 'contacts' | undefined> {
+    const r = await this.authed<{ who_can_message: string }>('/v1/me/messaging');
+    const value = r?.who_can_message;
+    return value === 'everyone' || value === 'verified' || value === 'contacts' ? value : undefined;
+  }
+
+  /** GET /v1/me/account: the ways back that the server knows (a verified email, linked accounts, ADR 0096). */
+  async accountWays(): Promise<{ hasEmail: boolean; hasLinkedAccount: boolean } | undefined> {
+    const r = await this.authed<{ email?: string; links?: unknown[] }>('/v1/me/account');
+    return r && { hasEmail: Boolean(r.email), hasLinkedAccount: (r.links?.length ?? 0) > 0 };
+  }
+
   /** GET /v1/me/news: the account's news room, only while the account gets news (spec chat-list, news room mark). */
   async newsRoomId(): Promise<string | undefined> {
     const r = await this.authed<{ subscribed: boolean; room_id?: string }>('/v1/me/news');

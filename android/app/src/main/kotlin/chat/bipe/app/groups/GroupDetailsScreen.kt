@@ -65,7 +65,7 @@ import java.text.NumberFormat
 import kotlinx.coroutines.launch
 
 /** The screens behind group-details. */
-private enum class GroupSubScreen { NONE, MEMBERS, INVITE, NOTIFICATIONS, GALLERY, REPORT, POLLS, PRIVACY, GROUP_LINK }
+private enum class GroupSubScreen { NONE, MEMBERS, INVITE, NOTIFICATIONS, GALLERY, REPORT, POLLS, THREADS, PRIVACY, GROUP_LINK }
 
 /** Spec group-details, with group-members, group-invite-members, chat-notifications and group-leave behind it. */
 @Composable
@@ -116,6 +116,11 @@ fun GroupDetailsScreen(session: AccountSession, media: MediaLoader, roomId: Stri
                 },
                 onBack = back,
             )
+            return
+        }
+        // Spec thread-list (bipe-chat/bipe#667).
+        GroupSubScreen.THREADS -> {
+            ThreadListScreen(session, media, roomId, onBack = back)
             return
         }
         // Spec poll-history (bipe-chat/bipe#669).
@@ -287,6 +292,7 @@ fun GroupDetailsScreen(session: AccountSession, media: MediaLoader, roomId: Stri
                         GroupRow(PhosphorIcon.LINK, stringResource(R.string.bipe_group_link_title)) { sub = GroupSubScreen.GROUP_LINK }
                     }
                     GroupRow(PhosphorIcon.IMAGE, stringResource(R.string.bipe_gallery_title)) { sub = GroupSubScreen.GALLERY }
+                    GroupRow(PhosphorIcon.CHAT_TEXT, stringResource(R.string.bipe_thread_list_title)) { sub = GroupSubScreen.THREADS }
                     GroupRow(PhosphorIcon.CHART_BAR, stringResource(R.string.bipe_poll_history)) { sub = GroupSubScreen.POLLS }
                     GroupRow(
                         PhosphorIcon.BELL,

@@ -58,6 +58,9 @@ struct MacRoomSummary: Identifiable {
     let isFavourite: Bool
     let isArchived: Bool
     let isMuted: Bool
+    /// The room rule, or nil when the account default decides (spec chat-notifications).
+    let roomMode: RoomNotificationMode?
+    let isEncrypted: Bool
     let avatar: MacAvatarDescriptor
     let activity: BipeRowActivity.Row
     var id: String { room.id() }
@@ -72,6 +75,8 @@ struct MacRoomSummary: Identifiable {
         isFavourite = favourite ?? info.isFavourite
         isArchived = info.isLowPriority
         isMuted = info.cachedUserDefinedNotificationMode == .mute
+        roomMode = info.cachedUserDefinedNotificationMode
+        isEncrypted = info.encryptionState != .notEncrypted
         let peer = info.isDm ? info.heroes.first { $0.userId != ownUserID } : nil
         let heroes: [(userID: String, displayName: String?)]? = !info.isDm && info.rawName == nil
             ? info.heroes.filter { $0.userId != ownUserID }.map { ($0.userId, $0.displayName) } : nil

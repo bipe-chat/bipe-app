@@ -2,6 +2,7 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
+import AppKit
 import BipeKit
 import Combine
 import Foundation
@@ -18,6 +19,9 @@ final class MacWorkspace: ObservableObject {
     private let defaults: UserDefaults
     private var launched = false
     private var accountChanges: [ObjectIdentifier: AnyCancellable] = [:]
+    private var wakeObserver: NSObjectProtocol?
+    /// Opens the main window again after the last window closed. The root view supplies it.
+    var reopenWindow: (() -> Void)?
     var otherAccountUnread: Bool { accounts.contains { $0 !== current && $0.hasUnread } }
     private static let selectionKey = "bipe.mac.currentAccount"
 
@@ -29,7 +33,13 @@ final class MacWorkspace: ObservableObject {
     func start() {
         guard !launched else { return }
         launched = true
+        MacNotifications.shared.onOpen = { [weak self] route in self?.open(route) ?? false }
+        wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.accounts.forEach { $0.resumeSync() } }
+        }
         restore()
+        MacNotifications.shared.deliverPendingOpen()
     }
 
     func restore() {
@@ -49,8 +59,21 @@ final class MacWorkspace: ObservableObject {
     private func makeAccount(record: MacSessionVault.Record? = nil) -> MacAccount {
         let account = MacAccount(record: record, vault: vault)
         accountChanges[ObjectIdentifier(account)] = account.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
+        account.roomList.onRows = { [weak self, weak account] rows in
+            guard let self, let account else { return }
+            MacNotifications.shared.update(account: account, rows: rows) { [weak self, weak account] room in
+                guard let self, let account else { return false }
+                return self.isOpenInKeyWindow(room, account: account)
+            }
+            MacNotifications.setBadge(self.accounts.map { MacTabAttention($0.roomRows.map(\.attention)) })
+        }
+        account.requests.onRequests = { [weak account] requests in
+            guard let account else { return }
+            MacNotifications.shared.update(account: account, requests: requests)
+        }
         account.onReady = { [weak self, weak account] in
             guard let self, let account else { return }
+            MacNotifications.shared.requestAuthorization()
             if self.linking === account {
                 // Linking a revoked account again takes over its slot.
                 if let index = self.accounts.firstIndex(where: { $0.userId == account.userId }) {
@@ -86,12 +109,42 @@ final class MacWorkspace: ObservableObject {
         try await account.signOut()
         accounts.removeAll { $0 === account }
         accountChanges[ObjectIdentifier(account)] = nil
+        // A signed-out account leaves no message text in Notification Center and no count on the Dock.
+        await MacNotifications.shared.forget(userID: account.userId)
+        MacNotifications.setBadge(accounts.map { MacTabAttention($0.roomRows.map(\.attention)) })
         if current === account {
             current = nil
             defaults.removeObject(forKey: Self.selectionKey)
             if let next = accounts.first { select(next) }
         }
         if accounts.isEmpty { addAccount() }
+    }
+
+    /// Spec notification-service, Mac: an open chat in the key window of the active app has no notification.
+    private func isOpenInKeyWindow(_ room: String, account: MacAccount) -> Bool {
+        NSApp.isActive && NSApp.keyWindow != nil && current === account && !account.showingRequests
+            && account.selectedRooms[account.destination] == room
+    }
+
+    /// A tap selects the notification's own account. An unknown owner opens nothing. False keeps the route for restore.
+    private func open(_ route: MacNotificationRoute) -> Bool {
+        NSApp.activate()
+        if !NSApp.windows.contains(where: { $0.isVisible && $0.canBecomeMain }) { reopenWindow?() }
+        guard launched, !failed else { return false }
+        guard let account = accounts.first(where: { $0.userId == route.userID }) else { return !accounts.isEmpty }
+        select(account)
+        switch route.kind {
+        case .request:
+            account.destination = .chats
+            account.showingRequests = true
+        case .message:
+            let row = account.roomRows.first { $0.id == route.roomID }
+            let destination: MacDestination = (row?.isDm ?? true) || account.isCompany ? .chats : .groups
+            account.showingRequests = false
+            account.destination = destination
+            account.selectedRooms[destination] = route.roomID
+        }
+        return true
     }
 
     func addAccount() {
