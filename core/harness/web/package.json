@@ -2,6 +2,11 @@
   "name": "bipe-core-web-harness",
   "private": true,
   "license": "AGPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bipe-chat/bipe-app.git",
+    "directory": "web"
+  },
   "type": "module",
   "packageManager": "pnpm@10.26.2",
   "dependencies": {

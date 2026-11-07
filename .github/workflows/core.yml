@@ -321,7 +321,8 @@ jobs:
         working-directory: core
         run: |
           cargo build --locked -p bipe-core --profile "$PROFILE"
-          lib=$(ls target/$PROFILE/libbipe_core.so target/$PROFILE/bipe_core.dll 2>/dev/null | head -1)
+          lib="target/$PROFILE/libbipe_core.so"
+          [ -f "$lib" ] || lib="target/$PROFILE/bipe_core.dll"
           echo "library $lib"
           echo "BIPE_CORE_LIB=$PWD/$lib" >> "$GITHUB_ENV"
           echo "BIPE_CORE_LIB_DIR=$PWD/target/$PROFILE" >> "$GITHUB_ENV"
