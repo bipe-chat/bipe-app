@@ -197,9 +197,3 @@ enum MediaFormat {
         return Int(min(100, progress.progress.current * 100 / progress.progress.total))
     }
 }
-
-extension String {
-    var nilIfBlank: String? {
-        trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : self
-    }
-}

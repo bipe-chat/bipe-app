@@ -41,6 +41,9 @@ targets:
       - path: ../ios/Bipe/Common/BipeMessageLayouts.swift
       - path: ../ios/Bipe/Common/TapTarget.swift
       - path: ../ios/Bipe/Timeline/ChatBackgroundView.swift
+      - path: ../ios/Bipe/Timeline/CallLines.swift
+      - path: ../ios/Bipe/Timeline/StateLines.swift
+      - path: ../ios/Bipe/Timeline/TimelinePill.swift
       - path: ../ios/BipeKit/Sources/BipeKit/Generated/AppIcons.xcassets
       - path: ../ios/Phosphor/Sources/Phosphor/Resources/Phosphor.xcassets
       - path: ../ios/Phosphor/LICENSE

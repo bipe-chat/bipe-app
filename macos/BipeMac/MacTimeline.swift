@@ -40,9 +40,24 @@ struct MacMessage: Identifiable {
     var isSent: Bool { eventID != nil && !pending && !failed }
 }
 
+/// A row of spec timeline-rows on the Mac: a message, or a pill between the messages.
+enum MacTimelineRow: Identifiable {
+    case message(MacMessage)
+    case day(id: String, date: Date)
+    case line(id: String, text: String, kind: TimelinePillKind)
+
+    var id: String {
+        switch self {
+        case .message(let message): message.id
+        case .day(let id, _), .line(let id, _, _): id
+        }
+    }
+}
+
 /// Native timeline using the same rich-text parser, image event and encrypted send queue as the phone clients.
 @MainActor
 final class MacTimeline: ObservableObject {
+    @Published private(set) var rows: [MacTimelineRow] = []
     @Published private(set) var messages: [MacMessage] = []
     @Published private(set) var failed = false
     @Published private(set) var sending = false
@@ -71,6 +86,10 @@ final class MacTimeline: ObservableObject {
     @Published private(set) var uploadError: String?
     @Published var draft = "" { didSet { persistDraft() } }
     @Published private(set) var replyID: String? { didSet { persistDraft() } }
+    var lastRowIsOwnMessage: Bool {
+        if case .message(let message)? = rows.last { return message.isOwn }
+        return false
+    }
     var replyTarget: MacMessage? { messages.first { $0.eventID == replyID } }
     private var timeline: Timeline?
     private var room: Room?
@@ -85,6 +104,7 @@ final class MacTimeline: ObservableObject {
     private var attachmentCancelled = false
     private var lookalikeSenders: Set<String> = []
     private var senderRoles: [String: GroupRole] = [:]
+    private var memberNames: [String: String] = [:]
     private var knownMemberCount: UInt64?
 
     init(drafts: MacDrafts) { self.drafts = drafts }
@@ -147,6 +167,7 @@ final class MacTimeline: ObservableObject {
         guard !info.isDm else {
             senderRoles = [:]
             lookalikeSenders = []
+            memberNames = [:]
             knownMemberCount = nil
             return
         }
@@ -155,12 +176,16 @@ final class MacTimeline: ObservableObject {
         }
         guard knownMemberCount != info.joinedMembersCount, let iterator = try? await room.membersNoSync() else { return }
         var names: [String: String] = [:]
+        var joinedNames: [String: String] = [:]
         while let chunk = iterator.nextChunk(chunkSize: 200), !chunk.isEmpty {
-            for member in chunk where member.membership == .join {
-                names[member.userId] = BipeChatRowName.person(userID: member.userId, displayName: member.displayName, handle: nil)
+            for member in chunk {
+                let name = BipeChatRowName.person(userID: member.userId, displayName: member.displayName, handle: nil)
+                names[member.userId] = name
+                if member.membership == .join { joinedNames[member.userId] = name }
             }
         }
-        lookalikeSenders = MemberNames.ambiguous(names)
+        memberNames = names
+        lookalikeSenders = MemberNames.ambiguous(joinedNames)
         knownMemberCount = info.joinedMembersCount
     }
 
@@ -411,51 +436,110 @@ final class MacTimeline: ObservableObject {
     }
 
     private func rebuild() {
-        messages = items.compactMap { item in
-            guard let event = item.asEvent(), case .msgLike(let content) = event.content else { return nil }
-            let payload: MacMessagePayload
-            let decryptable: Bool
-            var forwardJson: String?
-            switch content.kind {
-            case .message(let message):
-                decryptable = true
-                let debugInfo = event.lazyProvider.debugInfo()
-                forwardJson = BipeForwardMark.forwardedContentJson(originalJson: debugInfo.originalJson, latestEditJson: debugInfo.latestEditJson)
-                payload = MacMessagePayload(type: message.msgType, fallback: message.body,
-                                            eventJson: event.lazyProvider.debugInfo().originalJson)
-            case .unableToDecrypt: payload = MacMessagePayload(body: BipeStrings.webTimelineUndecryptable); decryptable = false
-            default: return nil
-            }
-            let sender = MacRoomSummary.personName(event.senderProfile, userID: event.sender)
-            let pending: Bool
-            let failed: Bool
-            switch event.localSendState {
-            case .notSentYet: pending = true; failed = false
-            case .sendingFailed: pending = false; failed = true
-            default: pending = false; failed = false
-            }
-            let eventID: String?
-            if case .eventId(let id) = event.eventOrTransactionId { eventID = id } else { eventID = nil }
-            let inGroup = !event.isOwn && !isDm
-            var sdkAmbiguous = false
-            if case .ready(_, let ambiguous, _, _, _) = event.senderProfile { sdkAmbiguous = ambiguous }
-            return MacMessage(id: item.uniqueId().id, sender: sender, senderID: event.sender,
-                              senderNameAmbiguous: inGroup && (sdkAmbiguous || lookalikeSenders.contains(event.sender)),
-                              senderRole: inGroup ? senderRoles[event.sender] : nil, body: payload.body,
-                              richText: payload.richText, photo: payload.photo, isEmote: payload.isEmote,
-                              timestamp: Date(timeIntervalSince1970: Double(event.timestamp) / 1000),
-                              isOwn: event.isOwn, showsSender: !isDm || dmPeerID == nil || event.sender != dmPeerID,
-                              pending: pending, failed: failed,
-                              warning: event.isOwn ? nil : ScamDetector.warningKind(for: payload.safetyText, eventID: item.uniqueId().id),
-                              eventID: eventID, canReply: event.canBeRepliedTo,
-                              canReact: decryptable && eventID != nil && !pending && !failed,
-                              reactions: decryptable ? MacReaction.summaries(content.reactions, ownUserID: room?.ownUserId() ?? "") : [],
-                              canEdit: decryptable && event.isEditable,
-                              canDelete: event.isOwn ? (canRedactOwn || eventID == nil) : (!isDm && canRedactOther),
-                              isUndecryptable: !decryptable,
-                              isImage: payload.photo != nil,
-                              forwardJson: forwardJson)
+        var built: [MacTimelineRow] = []
+        var stateLine: StateLine?
+        let ownUserID = room?.ownUserId()
+        let name: (String) -> String = { [memberNames] userID in
+            if userID == ownUserID { return BipeStrings.appYou }
+            return memberNames[userID] ?? BipeChatRowName.person(userID: userID, displayName: nil, handle: nil)
         }
+        for (index, item) in items.enumerated() {
+            let id = item.uniqueId().id
+            if let virtual = item.asVirtual() {
+                switch virtual {
+                case .dateDivider(let ts): built.append(.day(id: id, date: Date(timeIntervalSince1970: Double(ts) / 1000)))
+                case .timelineStart: built.append(.line(id: id, text: BipeStrings.appTimelineStart, kind: .info))
+                case .readMarker: continue
+                }
+                stateLine = nil
+                continue
+            }
+            guard let event = item.asEvent() else { continue }
+            // Spec timeline-rows stateLine: group lines only; consecutive membership lines fold into one row.
+            if !isDm, let line = StateLines.line(event) {
+                if let previous = stateLine, let folded = StateLines.folded(line, into: previous), case .line(let rowID, _, _)? = built.last {
+                    stateLine = folded
+                    built[built.count - 1] = .line(id: rowID, text: StateLines.text(folded, name: name), kind: .action)
+                } else {
+                    stateLine = line
+                    built.append(.line(id: id, text: StateLines.text(line, name: name), kind: .action))
+                }
+                continue
+            }
+            if case .rtcNotification(let intent, let declinedBy, let activeMembers, _, _) = event.content {
+                let lines = CallLines.lines(id: id, event: event, video: intent == "video", declinedBy: declinedBy,
+                                            active: !activeMembers.isEmpty, items: items, from: index, isDm: isDm, name: name)
+                built += lines.map { MacTimelineRow.line(id: $0.id, text: $0.text, kind: .action) }
+                stateLine = nil
+                continue
+            }
+            if let message = messageRow(item) {
+                built.append(.message(message))
+                stateLine = nil
+            }
+        }
+        rows = Self.withoutEmptyDays(built)
+        messages = rows.compactMap { row in
+            if case .message(let message) = row { return message }
+            return nil
+        }
+    }
+
+    /// A date separator whose day has no row left (only hidden events) goes away.
+    private static func withoutEmptyDays(_ rows: [MacTimelineRow]) -> [MacTimelineRow] {
+        var result: [MacTimelineRow] = []
+        for row in rows {
+            if case .day = row, case .day? = result.last { result.removeLast() }
+            result.append(row)
+        }
+        if case .day? = result.last { result.removeLast() }
+        return result
+    }
+
+    private func messageRow(_ item: TimelineItem) -> MacMessage? {
+        guard let event = item.asEvent(), case .msgLike(let content) = event.content else { return nil }
+        let payload: MacMessagePayload
+        let decryptable: Bool
+        var forwardJson: String?
+        switch content.kind {
+        case .message(let message):
+            decryptable = true
+            let debugInfo = event.lazyProvider.debugInfo()
+            forwardJson = BipeForwardMark.forwardedContentJson(originalJson: debugInfo.originalJson, latestEditJson: debugInfo.latestEditJson)
+            payload = MacMessagePayload(type: message.msgType, fallback: message.body,
+                                        eventJson: event.lazyProvider.debugInfo().originalJson)
+        case .unableToDecrypt: payload = MacMessagePayload(body: BipeStrings.webTimelineUndecryptable); decryptable = false
+        default: return nil
+        }
+        let sender = MacRoomSummary.personName(event.senderProfile, userID: event.sender)
+        let pending: Bool
+        let failed: Bool
+        switch event.localSendState {
+        case .notSentYet: pending = true; failed = false
+        case .sendingFailed: pending = false; failed = true
+        default: pending = false; failed = false
+        }
+        let eventID: String?
+        if case .eventId(let id) = event.eventOrTransactionId { eventID = id } else { eventID = nil }
+        let inGroup = !event.isOwn && !isDm
+        var sdkAmbiguous = false
+        if case .ready(_, let ambiguous, _, _, _) = event.senderProfile { sdkAmbiguous = ambiguous }
+        return MacMessage(id: item.uniqueId().id, sender: sender, senderID: event.sender,
+                          senderNameAmbiguous: inGroup && (sdkAmbiguous || lookalikeSenders.contains(event.sender)),
+                          senderRole: inGroup ? senderRoles[event.sender] : nil, body: payload.body,
+                          richText: payload.richText, photo: payload.photo, isEmote: payload.isEmote,
+                          timestamp: Date(timeIntervalSince1970: Double(event.timestamp) / 1000),
+                          isOwn: event.isOwn, showsSender: !isDm || dmPeerID == nil || event.sender != dmPeerID,
+                          pending: pending, failed: failed,
+                          warning: event.isOwn ? nil : ScamDetector.warningKind(for: payload.safetyText, eventID: item.uniqueId().id),
+                          eventID: eventID, canReply: event.canBeRepliedTo,
+                          canReact: decryptable && eventID != nil && !pending && !failed,
+                          reactions: decryptable ? MacReaction.summaries(content.reactions, ownUserID: room?.ownUserId() ?? "") : [],
+                          canEdit: decryptable && event.isEditable,
+                          canDelete: event.isOwn ? (canRedactOwn || eventID == nil) : (!isDm && canRedactOther),
+                          isUndecryptable: !decryptable,
+                          isImage: payload.photo != nil,
+                          forwardJson: forwardJson)
     }
 }
 
