@@ -61,6 +61,7 @@ import { clearedChatKeepsEvent } from './bipe/generated/lib/registries.mjs';
 import { useClient } from './media';
 import { useIsNewsRoom } from './news-room';
 import { isOfficial } from './registries';
+import { useSenderFacts } from './sender-facts';
 import { ChatOfficialBadge } from './ui/ChatOfficialBadge';
 import { OfficialBadge } from './ui/List';
 import { applyDiffs, describe, type DiffVariants } from './util';
@@ -172,6 +173,7 @@ export function RoomTimeline({
   // Read ticks only in a DM (spec read-receipts); groups keep the sent tick.
   // With the read receipts switch off, DMs show no read ticks either (bipe_privacy_read_receipts_footer).
   const rows = face.isDirect && readReceiptsOn() ? markRead(itemRows) : itemRows;
+  const senders = useSenderFacts(room, isDm, rows);
   const typing = useTyping(room, ownUserId);
   // Spec message-pins: groups only, with RoomPowerLevels.canOwnUserPinUnpin.
   const isGroup = face.isDirect === false;
@@ -466,7 +468,7 @@ export function RoomTimeline({
               </li>
             )}
             {rows.map((r) => (
-              <TimelineRowView key={r.key} row={r} isDm={isDm} dmPeerId={face.peer?.userId} on={on} />
+              <TimelineRowView key={r.key} row={r} isDm={isDm} dmPeerId={face.peer?.userId} senders={senders} on={on} />
             ))}
           </ol>
         </div>
