@@ -174,7 +174,7 @@ final class ChatTimelineModel: ObservableObject {
     /// The pause after a failed load before the top of the list tries again.
     static let historyRetry: Duration = .seconds(10)
     /// Spec message-reactions notes: the quick reactions, in this order.
-    static let quickReactions = ["👍", "❤️", "😂", "😮", "😢", "🙏"]
+    static let quickReactions = BipeReactions.quickKeys
     /// Spec message-reply openOriginal: at most 5 pages back.
     static let originalSearchPages = 5
     /// Spec typing-indicator: typing on at most once every 4 seconds.

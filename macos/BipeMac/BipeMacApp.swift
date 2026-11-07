@@ -12,6 +12,8 @@ import UniformTypeIdentifiers
 struct BipeMacApp: App {
     @StateObject private var workspace = MacWorkspace()
 
+    init() { AppTheme.load() }
+
     var body: some Scene {
         WindowGroup {
             MacRootView(workspace: workspace)
@@ -166,10 +168,12 @@ struct MacChatView: View {
                         Button(model.loadingHistory ? BipeStrings.appTimelineLoadingHistory : BipeStrings.actionShowMore) { Task { await model.loadHistory() } }
                             .disabled(model.loadingHistory)
                         ForEach(model.messages) { message in
-                            MacMessageView(message: message, media: media, isPrivateRoom: model.isPrivateRoom,
+                            MacMessageView(message: message, room: room, media: media, isPrivateRoom: model.isPrivateRoom, isDm: model.isDm,
                                            fromRequest: media.isFromRequest(room.id()),
                                            pauseSecondsLeft: { model.pauseSecondsLeft(message.id, now: $0) },
-                                           onReply: { model.startReply(message); composerFocused = true })
+                                           onReply: { model.startReply(message); composerFocused = true },
+                                           react: { key in Task { await model.react(rowID: message.id, key: key) } },
+                                           reactionPending: { model.reactionPending(rowID: message.id, key: $0) })
                                 .id(message.id).onAppear { model.startMoneyPause(message) }
                         }
                     }.padding()
@@ -213,6 +217,9 @@ struct MacChatView: View {
             }.padding()
         }
         .navigationTitle(name)
+        .alert(BipeStrings.appReactionFailed, isPresented: $model.reactionFailed) {
+            Button(BipeStrings.appClose, role: .cancel) {}
+        }
         .background(ChatBackgroundView())
         .task { await model.run(room: room) }
         .task(id: room.id()) { await media.checkRequestRooms(for: room.id()) }

@@ -8,6 +8,17 @@ import Testing
 
 /// Every case in bipe-shared/test-vectors must pass (ADR 0031, rule 4). Android runs the same files.
 struct SharedVectorTests {
+    @Test
+    func messageReactions() throws {
+        let file = try SharedVectors.object("message-reactions.json")
+        #expect(file["quickKeys"] as? [String] == BipeReactions.quickKeys)
+        #expect((file["displayKeyMaxGraphemes"] as? NSNumber)?.intValue == BipeReactions.displayKeyMaxGraphemes)
+        for vector in try SharedVectors.array("message-reactions.json", key: "cases") {
+            let input = try #require(vector["input"] as? String)
+            #expect(BipeReactions.keyText(input) == vector["expected"] as? String)
+        }
+    }
+
     /// Spec chat-list, Mural score (ADR 0246). A score case is one chat alone in the plan.
     @Test
     func homeScore() throws {

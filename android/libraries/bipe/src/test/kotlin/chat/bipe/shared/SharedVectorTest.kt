@@ -12,6 +12,7 @@ import chat.bipe.shared.media.BipeForwardMark
 import chat.bipe.shared.drafts.BipeAssistantDrafts
 import chat.bipe.shared.drafts.BipeAssistantSend
 import chat.bipe.shared.generated.BipeRegistries
+import chat.bipe.shared.generated.BipeReactions
 import chat.bipe.shared.generated.BipeDmCandidate
 import chat.bipe.shared.generated.BipeRelationshipNames
 import chat.bipe.shared.generated.BipeDmSelection
@@ -43,6 +44,19 @@ import java.io.File
 
 /** Every case in bipe-shared/test-vectors must pass (ADR 0031, rule 4). iOS runs the same files. */
 class SharedVectorTest {
+    @Test
+    fun messageReactions() {
+        val file = load("message-reactions.json")
+        assertWithMessage("reaction presets").that(BipeReactions.quickKeys)
+            .containsExactlyElementsIn(file.getValue("quickKeys").jsonArray.map { it.jsonPrimitive.content }).inOrder()
+        assertWithMessage("reaction display limit").that(BipeReactions.displayKeyMaxGraphemes)
+            .isEqualTo(file.getValue("displayKeyMaxGraphemes").jsonPrimitive.int)
+        for (vector in vectors("message-reactions.json", "cases")) {
+            assertWithMessage("reaction grapheme boundary").that(BipeReactions.keyText(vector.string("input")!!))
+                .isEqualTo(vector.string("expected"))
+        }
+    }
+
     @Test
     fun govbrVerify() {
         assertWithMessage("govbr limit").that(load("govbr-verify.json").string("maxDocumentBytes")?.toInt())

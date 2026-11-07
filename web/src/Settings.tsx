@@ -9,7 +9,7 @@
 // 18 px ink.onAccent glyph, the title and a chevron.
 
 import { Fragment, useEffect, useState } from 'react';
-import { PALETTES, useSetting, writeSetting, type Appearance, type ChatBackgroundOption } from './appearance';
+import { PALETTES, BACKGROUNDS, useSetting, writeSetting, type Appearance } from './appearance';
 import { useClient } from './media';
 import { useMuralEnabled, writeMural } from './mural-plan';
 import { openNotes } from './notes';
@@ -456,11 +456,10 @@ function AppearanceRows() {
 }
 
 // Cores (spec app-colors; AppColorsView.swift): the palettes of tokens appThemes, each a swatch in its own
-// accent, then the chat backgrounds. Salada de frutas needs the fruit tile, which the web does not have.
+// accent, then every chat background in the shared catalogue.
 function ColorsScreen({ onBack }: { onBack: () => void }) {
   const palette = useSetting('palette');
   const background = useSetting('chatBackground');
-  const backgrounds: ChatBackgroundOption[] = ['marca', 'cor', 'liso'];
   return (
     <div className="flex h-full min-h-0 flex-col bg-grouped-screen">
       <NavBar title={s('bipe_chats_colors')} onBack={onBack} />
@@ -491,7 +490,7 @@ function ColorsScreen({ onBack }: { onBack: () => void }) {
           ))}
         </Section>
         <Section header={s('bipe_chats_background')} footer={s('bipe_chats_background_footer')}>
-          {backgrounds.map((b) => (
+          {BACKGROUNDS.map((b) => (
             <Row key={b}>
               <button
                 type="button"

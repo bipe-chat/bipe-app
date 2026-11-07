@@ -12,9 +12,11 @@ import { useEffect } from 'react';
 import type { Reaction } from './generated/matrix_sdk_ffi';
 import { s } from './ui/i18n';
 import { Icon } from './ui/Icon';
+import registry from './bipe/generated/registries.json';
+import { reactionKeyText } from './bipe/generated/lib/reactions.mjs';
 
 /** Spec message-reactions notes: the 6 keys in this order. */
-export const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
+export const QUICK_REACTIONS = registry.messageReactions.quickKeys;
 
 export type ReactionPill = { key: string; count: number; own: boolean; senders: { userId: string; at: number }[] };
 
@@ -29,10 +31,9 @@ export function pillsOf(reactions: Reaction[], ownUserId: string): ReactionPill[
     }));
 }
 
-/** Keys longer than 16 characters are cut (reactionKeyText). */
+/** Preserve extended grapheme clusters, as Swift Character and the generated Kotlin helper do. */
 function keyText(key: string): string {
-  const chars = Array.from(key);
-  return chars.length > 16 ? chars.slice(0, 16).join('') + '…' : key;
+  return reactionKeyText(key, registry.messageReactions);
 }
 
 // A right-click on a pill opens who reacted (the long press of the apps).

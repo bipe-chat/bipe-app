@@ -51,7 +51,7 @@ struct MacPhotoView: View {
 
     private var previewWidth: CGFloat {
         let width = CGFloat(photo.content.info?.width ?? 320), height = CGFloat(photo.content.info?.height ?? 240)
-        return min(420, 300 * max(0.2, min(5, width / max(1, height))))
+        return min(260, 300 * max(0.2, min(5, width / max(1, height))))
     }
     private var previewHeight: CGFloat {
         let width = CGFloat(photo.content.info?.width ?? 320), height = CGFloat(photo.content.info?.height ?? 240)

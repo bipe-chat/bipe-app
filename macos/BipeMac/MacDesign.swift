@@ -4,6 +4,7 @@
 
 import AppKit
 import BipeKit
+import MatrixRustSDK
 import SwiftUI
 
 /// Desktop layout values. Colors and rounded system type stay in Bipe's shared design system.
@@ -54,51 +55,75 @@ struct MacNotice: View {
 
 struct MacMessageView: View {
     let message: MacMessage
+    let room: Room
     @ScaledMetric(relativeTo: .body) private var bodySize: CGFloat = 17
     @ObservedObject var media: MacMedia
     let isPrivateRoom: Bool
+    let isDm: Bool
     let fromRequest: Bool
     let pauseSecondsLeft: (Date) -> Int
     let onReply: () -> Void
+    let react: (String) -> Void
+    let reactionPending: (String) -> Bool
+    @State private var showingEmoji = false
+    @State private var senders: MacReaction?
+
     var body: some View {
-        if let warning = message.warning, BipeMoneyPause.applies(to: warning) {
-            TimelineView(.periodic(from: .now, by: 1)) { context in content(secondsLeft: pauseSecondsLeft(context.date)) }
-        } else { content(secondsLeft: 0) }
+        Group {
+            if let warning = message.warning, BipeMoneyPause.applies(to: warning) {
+                TimelineView(.periodic(from: .now, by: 1)) { context in content(secondsLeft: pauseSecondsLeft(context.date)) }
+            } else { content(secondsLeft: 0) }
+        }
+        .sheet(isPresented: $showingEmoji) { MacReactionPicker(pick: react) }
+        .sheet(item: $senders) { MacReactionSenders(reaction: $0, room: room, media: media) }
     }
 
     private func content(secondsLeft: Int) -> some View {
         HStack(alignment: .bottom, spacing: 12) {
             if message.isOwn { Spacer(minLength: 48) }
-            VStack(alignment: .leading, spacing: 4) {
-                if !message.isOwn { Text(message.sender).macFont(.subheadline).fontWeight(.semibold).foregroundStyle(BipeColor.accentInk) }
-                if let photo = message.photo {
-                    MacPhotoView(photo: photo, eventID: message.id, isOwn: message.isOwn,
-                                 isPrivate: isPrivateRoom, fromRequest: fromRequest, richText: message.richText,
-                                 pauseSecondsLeft: pauseSecondsLeft, media: media)
+            VStack(alignment: message.isOwn ? .trailing : .leading, spacing: 4) {
+                BubbleStack(spacing: 4, trailingLast: true) {
+                    if !message.isOwn, !isDm {
+                        Text(message.sender).macFont(.subheadline).fontWeight(.semibold).foregroundStyle(BipeColor.accentInk)
+                    }
+                    if let photo = message.photo {
+                        MacPhotoView(photo: photo, eventID: message.id, isOwn: message.isOwn,
+                                     isPrivate: isPrivateRoom, fromRequest: fromRequest, richText: message.richText,
+                                     pauseSecondsLeft: pauseSecondsLeft, media: media)
+                    }
+                    if !message.richText.text.isEmpty {
+                        if secondsLeft > 0 { richText } else { richText.textSelection(.enabled) }
+                    }
+                    if let warning = message.warning { MacNotice(text: warning.message) }
+                    if secondsLeft > 0 {
+                        Text(BipeStrings.pauseCountdown(String(secondsLeft))).macFont(.caption).monospacedDigit()
+                            .foregroundStyle(BipeColor.trustCautionInk)
+                    }
+                    HStack(spacing: 8) {
+                        Text(message.timestamp, style: .time).macFont(.caption).foregroundStyle(BipeColor.inkSecondary)
+                        if message.pending { Text(BipeStrings.appTimelineSending).macFont(.caption).foregroundStyle(BipeColor.inkSecondary) }
+                        if message.failed { Text(BipeStrings.appTimelineFailed).macFont(.caption).foregroundStyle(BipeColor.trustDangerInk) }
+                    }
                 }
-                if !message.richText.text.isEmpty {
-                    if secondsLeft > 0 { richText } else { richText.textSelection(.enabled) }
+                .padding(.horizontal, 12).padding(.vertical, 8)
+                .foregroundStyle(BipeColor.inkPrimary)
+                .background(message.isOwn ? BipeColor.bubbleOwn : BipeColor.bubbleOther,
+                            in: RoundedRectangle(cornerRadius: MacDesign.corner))
+                if !message.reactions.isEmpty {
+                    MacReactionPills(reactions: message.reactions, pending: reactionPending, toggle: react, showSenders: { senders = $0 })
                 }
-                if let warning = message.warning { MacNotice(text: warning.message) }
-                if secondsLeft > 0 {
-                    Text(BipeStrings.pauseCountdown(String(secondsLeft))).macFont(.caption).monospacedDigit()
-                        .foregroundStyle(BipeColor.trustCautionInk)
-                }
-                HStack(spacing: 8) {
-                    Spacer(minLength: 0)
-                    Text(message.timestamp, style: .time).macFont(.caption).foregroundStyle(BipeColor.inkSecondary)
-                    if message.pending { Text(BipeStrings.appTimelineSending).macFont(.caption).foregroundStyle(BipeColor.inkSecondary) }
-                    if message.failed { Text(BipeStrings.appTimelineFailed).macFont(.caption).foregroundStyle(BipeColor.trustDangerInk) }
-                }
-            }
-            .padding(.horizontal, 12).padding(.vertical, 8).frame(maxWidth: 560, alignment: .leading)
-            .foregroundStyle(BipeColor.inkPrimary)
-            .background(message.isOwn ? BipeColor.bubbleOwn : BipeColor.bubbleOther,
-                        in: RoundedRectangle(cornerRadius: MacDesign.corner))
+            }.frame(maxWidth: 560, alignment: message.isOwn ? .trailing : .leading)
             if !message.isOwn { Spacer(minLength: 48) }
         }
         .environment(\.openURL, OpenURLAction { url in pauseSecondsLeft(.now) > 0 ? .handled : .systemAction })
         .contextMenu {
+            if message.canReact {
+                Picker(BipeStrings.a11yReact, selection: Binding<String?>(get: { nil }, set: { if let key = $0 { react(key) } })) {
+                    ForEach(BipeReactions.quickKeys, id: \.self) { key in Text(verbatim: key).tag(String?.some(key)) }
+                }.pickerStyle(.palette).paletteSelectionEffect(.custom)
+                Button { showingEmoji = true } label: { Label(BipeStrings.appMessageActionMoreReactions, systemImage: "face.smiling") }
+                Divider()
+            }
             Button(BipeStrings.appMessageActionReply, action: onReply).disabled(!message.canReply || message.eventID == nil)
             Button(BipeStrings.appCopy) {
                 guard pauseSecondsLeft(.now) == 0 else { return }
@@ -107,6 +132,9 @@ struct MacMessageView: View {
             }.disabled(secondsLeft > 0 || message.body.isEmpty)
         }
         .accessibilityAction(named: BipeStrings.appMessageActionReply) { onReply() }
+        .accessibilityActions {
+            if message.canReact { Button(BipeStrings.a11yReact) { showingEmoji = true } }
+        }
     }
 
     private var richText: some View {

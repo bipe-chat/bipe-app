@@ -23,6 +23,8 @@ struct MacMessage: Identifiable {
     let warning: ScamWarningKind?
     let eventID: String?
     let canReply: Bool
+    let canReact: Bool
+    let reactions: [MacReaction]
 }
 
 /// Native timeline using the same rich-text parser, image event and encrypted send queue as the phone clients.
@@ -35,6 +37,9 @@ final class MacTimeline: ObservableObject {
     @Published private(set) var ready = false
     @Published private(set) var isEncrypted = true
     @Published private(set) var isPrivateRoom = false
+    @Published private(set) var isDm = true
+    @Published var reactionFailed = false
+    @Published private(set) var reacting: Set<String> = []
     @Published private(set) var preparing = false
     @Published private(set) var attachment: MacPreparedImage?
     @Published var imageCaption = ""
@@ -73,7 +78,7 @@ final class MacTimeline: ObservableObject {
             if editedWhileLoading { persistDraft() }
             isEncrypted = await room.isEncrypted()
             let info = try? await room.roomInfo()
-            let isDm = info?.isDm ?? true
+            isDm = info?.isDm ?? true
             isPrivateRoom = info?.isDm == true || info?.isPublic == false
             let configuration = TimelineConfiguration(focus: .live(hideThreadedEvents: !isDm), filter: .all,
                                                        internalIdPrefix: nil, dateDividerMode: .daily,
@@ -123,6 +128,19 @@ final class MacTimeline: ObservableObject {
     }
 
     func cancelReply() { replyID = nil }
+
+    func reactionPending(rowID: String, key: String) -> Bool { reacting.contains(rowID + "|" + key) }
+
+    func react(rowID: String, key: String) async {
+        guard let timeline, let message = messages.first(where: { $0.id == rowID }), message.canReact,
+              let event = items.first(where: { $0.uniqueId().id == rowID })?.asEvent(),
+              !reactionPending(rowID: rowID, key: key), !key.isEmpty else { return }
+        let pendingID = rowID + "|" + key
+        reacting.insert(pendingID); reactionFailed = false
+        defer { reacting.remove(pendingID) }
+        do { _ = try await timeline.toggleReaction(itemId: event.eventOrTransactionId, key: key) }
+        catch { if !Task.isCancelled { reactionFailed = true } }
+    }
 
     func pasteImage(_ provider: NSItemProvider) {
         guard !preparing, !sending, let type = provider.registeredTypeIdentifiers.first(where: {
@@ -230,11 +248,13 @@ final class MacTimeline: ObservableObject {
         messages = items.compactMap { item in
             guard let event = item.asEvent(), case .msgLike(let content) = event.content else { return nil }
             let payload: MacMessagePayload
+            let decryptable: Bool
             switch content.kind {
             case .message(let message):
+                decryptable = true
                 payload = MacMessagePayload(type: message.msgType, fallback: message.body,
                                             eventJson: event.lazyProvider.debugInfo().originalJson)
-            case .unableToDecrypt: payload = MacMessagePayload(body: BipeStrings.webTimelineUndecryptable)
+            case .unableToDecrypt: payload = MacMessagePayload(body: BipeStrings.webTimelineUndecryptable); decryptable = false
             default: return nil
             }
             var displayName: String?
@@ -254,7 +274,9 @@ final class MacTimeline: ObservableObject {
                               timestamp: Date(timeIntervalSince1970: Double(event.timestamp) / 1000),
                               isOwn: event.isOwn, pending: pending, failed: failed,
                               warning: event.isOwn ? nil : ScamDetector.warningKind(for: payload.safetyText, eventID: item.uniqueId().id),
-                              eventID: eventID, canReply: event.canBeRepliedTo)
+                              eventID: eventID, canReply: event.canBeRepliedTo,
+                              canReact: decryptable && eventID != nil && !pending && !failed,
+                              reactions: decryptable ? MacReaction.summaries(content.reactions, ownUserID: room?.ownUserId() ?? "") : [])
         }
     }
 }
