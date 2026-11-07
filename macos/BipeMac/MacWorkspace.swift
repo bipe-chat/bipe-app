@@ -81,6 +81,19 @@ final class MacWorkspace: ObservableObject {
         if let client = account.client { SyncedSettings.attach(client: client, userId: account.userId) }
     }
 
+    /// Spec sign-out: this account only. The next account opens, or linking starts when none is left.
+    func signOut(_ account: MacAccount) async throws {
+        try await account.signOut()
+        accounts.removeAll { $0 === account }
+        accountChanges[ObjectIdentifier(account)] = nil
+        if current === account {
+            current = nil
+            defaults.removeObject(forKey: Self.selectionKey)
+            if let next = accounts.first { select(next) }
+        }
+        if accounts.isEmpty { addAccount() }
+    }
+
     func addAccount() {
         guard linking == nil else { return }
         let account = makeAccount()

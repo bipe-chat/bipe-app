@@ -7,51 +7,6 @@ import Foundation
 import MatrixRustSDK
 import UIKit
 
-/// Type NotificationMode of spec notification-settings.
-enum NotificationMode: Hashable {
-    case all
-    case mentions
-    case off
-
-    init(_ mode: RoomNotificationMode) {
-        switch mode {
-        case .allMessages: self = .all
-        case .mentionsAndKeywordsOnly: self = .mentions
-        case .mute: self = .off
-        }
-    }
-
-    var sdkMode: RoomNotificationMode {
-        switch self {
-        case .all: .allMessages
-        case .mentions: .mentionsAndKeywordsOnly
-        case .off: .mute
-        }
-    }
-
-    /// One name per mode on every screen: in a group, mentions is the quiet mode of chat-notifications.
-    func label(isDm: Bool) -> String {
-        switch self {
-        case .all: BipeStrings.appNotificationModeAll
-        case .mentions: isDm ? BipeStrings.appNotifyMentionsLegacy : BipeStrings.appNotifyQuiet
-        case .off: BipeStrings.appNotificationModeOff
-        }
-    }
-}
-
-/// Calls back when the push rules change, also on another device.
-final class NotificationSettingsListener: NotificationSettingsDelegate {
-    private let onChange: @Sendable () -> Void
-
-    init(onChange: @escaping @Sendable () -> Void) {
-        self.onChange = onChange
-    }
-
-    func settingsDidChange() {
-        onChange()
-    }
-}
-
 /// Spec notification-settings (bipe-shared product/screens/notification-settings.json).
 @MainActor
 final class NotificationSettingsModel: ObservableObject {
@@ -224,7 +179,7 @@ final class NotificationSettingsModel: ObservableObject {
         let old = chatsMode
         chatsMode = mode
         await write(restore: { $0.chatsMode = old }) { settings in
-            try await Self.setDefault(settings, isOneToOne: true, mode: mode)
+            try await NotificationRules.setDefault(settings, isOneToOne: true, mode: mode)
         }
     }
 
@@ -290,7 +245,7 @@ final class NotificationSettingsModel: ObservableObject {
         let old = groupsMode
         groupsMode = mode
         await write(restore: { $0.groupsMode = old }) { settings in
-            try await Self.setDefault(settings, isOneToOne: false, mode: mode)
+            try await NotificationRules.setDefault(settings, isOneToOne: false, mode: mode)
         }
     }
 
@@ -321,12 +276,5 @@ final class NotificationSettingsModel: ObservableObject {
             restore(self)
             showsError = true
         }
-    }
-
-    private static func setDefault(_ settings: NotificationSettings, isOneToOne: Bool, mode: NotificationMode) async throws {
-        // Mentions in a group: the encrypted rule stays on all messages, so a mention still reaches the phone (ADR 0254).
-        let encrypted: NotificationMode = !isOneToOne && mode == .mentions ? .all : mode
-        try await settings.setDefaultRoomNotificationMode(isEncrypted: true, isOneToOne: isOneToOne, mode: encrypted.sdkMode)
-        try await settings.setDefaultRoomNotificationMode(isEncrypted: false, isOneToOne: isOneToOne, mode: mode.sdkMode)
     }
 }
