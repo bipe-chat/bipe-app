@@ -490,6 +490,9 @@ enum class BipeScreen(val id: String) {
     /** Theft protection (flow settings). Spec: bipe-shared/product/screens/theft-protection.json */
     THEFT_PROTECTION("theft-protection"),
 
+    /** Threads of a group (flow groups). Spec: bipe-shared/product/screens/thread-list.json */
+    THREAD_LIST("thread-list"),
+
     /** Threads in groups (flow chat). Spec: bipe-shared/product/screens/threads.json */
     THREADS("threads"),
 

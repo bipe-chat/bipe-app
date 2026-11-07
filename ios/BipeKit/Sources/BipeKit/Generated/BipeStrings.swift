@@ -5390,6 +5390,10 @@ public enum BipeStrings {
         String(format: NSLocalizedString("bipe_thread_replies", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
 
+    public static var threadListTitle: String { NSLocalizedString("bipe_thread_list_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var threadListEmpty: String { NSLocalizedString("bipe_thread_list_empty", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var selectAction: String { NSLocalizedString("bipe_select_action", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static func selectCount(_ p1: String) -> String {
