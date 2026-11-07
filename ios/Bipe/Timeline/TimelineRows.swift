@@ -444,29 +444,9 @@ enum TimelineRowBuilder {
     private static func callRows(id: String, event: EventTimelineItem, video: Bool, declinedBy: [String], active: Bool,
                                  items: [TimelineItem], from index: Int, facts: RoomFacts,
                                  name: (String) -> String) -> [TimelineRow] {
-        var memberEvents: [(userId: String, ts: Int64)] = []
-        for item in items.dropFirst(index + 1) {
-            guard let other = item.asEvent() else { continue }
-            if case .rtcNotification = other.content { break }
-            if case .state(_, .custom(let eventType)) = other.content, eventType == BipeCall.memberEventType {
-                memberEvents.append((other.sender, Int64(other.timestamp)))
-            }
-        }
-        let line = BipeCallRing.line(isDm: facts.isDm, sender: event.sender, ringTs: Int64(event.timestamp), active: active,
-                                     declinedBy: declinedBy, memberEvents: memberEvents)
-        let label = video ? BipeStrings.callVideo : BipeStrings.callVoice
-        let text: String
-        switch line.outcome {
-        case .ongoing: text = BipeStrings.callOngoing
-        case .missed: text = BipeStrings.callMissed
-        case .declined: text = BipeStrings.callDeclined
-        case .ended: text = "\(label), \(BipeStrings.callDuration(String(line.minutes ?? 1)))"
-        }
-        var rows = [TimelineRow(id: id, kind: .call, callText: text)]
-        for userId in line.joined {
-            rows.append(TimelineRow(id: "\(id)-joined-\(userId)", kind: .call, callText: BipeStrings.callJoined(name(userId))))
-        }
-        return rows
+        CallLines.lines(id: id, event: event, video: video, declinedBy: declinedBy, active: active, items: items, from: index,
+                        isDm: facts.isDm, name: name)
+            .map { TimelineRow(id: $0.id, kind: .call, callText: $0.text) }
     }
 
     /// A date separator whose day has no row left (only hidden events) goes away.

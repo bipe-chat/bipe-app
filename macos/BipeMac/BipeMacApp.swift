@@ -174,18 +174,26 @@ struct MacChatView: View {
                     LazyVStack(alignment: .leading, spacing: MacDesign.gap) {
                         Button(model.loadingHistory ? BipeStrings.appTimelineLoadingHistory : BipeStrings.actionShowMore) { Task { await model.loadHistory() } }
                             .disabled(model.loadingHistory)
-                        ForEach(model.messages) { message in
-                            MacMessageView(message: message, room: room, media: media, isPrivateRoom: model.isPrivateRoom,
-                                           fromRequest: media.isFromRequest(room.id()),
-                                           pauseSecondsLeft: { model.pauseSecondsLeft(message.id, now: $0) },
-                                           menuItems: model.menuItems(for: message),
-                                           choose: { item in
-                                               model.choose(item, message)
-                                               if item == .reply || item == .edit { composerFocused = true }
-                                           },
-                                           react: { key in Task { await model.react(rowID: message.id, key: key) } },
-                                           reactionPending: { model.reactionPending(rowID: message.id, key: $0) })
-                                .id(message.id).onAppear { model.startMoneyPause(message) }
+                        ForEach(model.rows) { row in
+                            switch row {
+                            case .message(let message):
+                                MacMessageView(message: message, room: room, media: media, isPrivateRoom: model.isPrivateRoom,
+                                               fromRequest: media.isFromRequest(room.id()),
+                                               pauseSecondsLeft: { model.pauseSecondsLeft(message.id, now: $0) },
+                                               menuItems: model.menuItems(for: message),
+                                               choose: { item in
+                                                   model.choose(item, message)
+                                                   if item == .reply || item == .edit { composerFocused = true }
+                                               },
+                                               react: { key in Task { await model.react(rowID: message.id, key: key) } },
+                                               reactionPending: { model.reactionPending(rowID: message.id, key: $0) })
+                                    .id(message.id).onAppear { model.startMoneyPause(message) }
+                            case .day(let id, let date):
+                                SystemLine(text: daySeparatorText(date)).id(id)
+                                    .accessibilityAddTraits(.isHeader)
+                            case .line(let id, let text, let kind):
+                                SystemLine(text: text, kind: kind).id(id)
+                            }
                         }
                     }.padding()
                 }
@@ -195,9 +203,9 @@ struct MacChatView: View {
                     model.readingLatest = atBottom
                     if atBottom { Task { await model.markRead() } }
                 }
-                .onChange(of: model.messages.last?.id) { _, id in
+                .onChange(of: model.rows.last?.id) { _, id in
                     // Reading older messages stays where it is. An own message always shows.
-                    if let id, model.readingLatest || model.messages.last?.isOwn == true { scroll.scrollTo(id, anchor: .bottom) }
+                    if let id, model.readingLatest || model.lastRowIsOwnMessage { scroll.scrollTo(id, anchor: .bottom) }
                 }
             }
             if model.failed { MacNotice(text: BipeStrings.errorGeneric, danger: true).padding() }
