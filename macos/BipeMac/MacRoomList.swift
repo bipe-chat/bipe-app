@@ -113,6 +113,24 @@ final class MacRoomList: ObservableObject {
         } catch { if self.generation == generation { actionFailed = true } }
     }
 
+    /// Spec chat-row-actions markRead and markUnread: the receipt first, then the manual flag.
+    func setUnread(_ row: MacRoomSummary, value: Bool) async {
+        busy.insert(row.id); actionFailed = false
+        defer { busy.remove(row.id) }
+        do {
+            if !value { try await row.room.markAsRead(receiptType: MacReceiptPolicy.type(isDm: row.isDm)) }
+            try await row.room.setUnreadFlag(newValue: value)
+        } catch { actionFailed = true }
+    }
+
+    /// Spec chat-row-actions archive. The SDK tag is the archive on every client.
+    func setArchived(_ row: MacRoomSummary, value: Bool) async {
+        busy.insert(row.id); actionFailed = false
+        defer { busy.remove(row.id) }
+        do { try await row.room.setIsLowPriority(isLowPriority: value, tagOrder: nil) }
+        catch { actionFailed = true }
+    }
+
     func moveFavourite(_ id: String, to index: Int, shown: [String]) async {
         await saveOrder(BipeFavouritesOrder.moving(id, to: index, shown: shown, order: favouritesOrder))
     }
