@@ -53,6 +53,29 @@ struct MacNotice: View {
     }
 }
 
+/// The sender line of a group row (spec timeline-rows, chat-timeline senderRole): the name, the @ when another member
+/// shows the same name, the role, and the seal from the signed badge. Never the Matrix ID.
+struct MacSenderLine: View {
+    let message: MacMessage
+    @Environment(\.bipeHandles) private var handles
+    @Environment(\.bipeCompanySeals) private var seals
+
+    var body: some View {
+        let name = message.senderNameAmbiguous
+            ? MemberNames.label(name: message.sender, userId: message.senderID, handles: handles)
+            : message.sender
+        HStack(spacing: 4) {
+            Text(message.senderRole?.senderBadge.map { name + " · " + $0 } ?? name)
+                .macFont(.subheadline).fontWeight(.semibold).foregroundStyle(BipeColor.accentInk)
+            if let mark = seals?.mark(for: message.senderID) {
+                Image(mark.isSuspended ? "seal-warning" : "seal-check")
+                    .renderingMode(.template).resizable().scaledToFit().frame(width: 14, height: 14)
+                    .foregroundStyle(mark.tint).accessibilityLabel(mark.label)
+            }
+        }
+    }
+}
+
 struct MacMessageView: View {
     let message: MacMessage
     let room: Room
@@ -84,7 +107,7 @@ struct MacMessageView: View {
             VStack(alignment: message.isOwn ? .trailing : .leading, spacing: 4) {
                 BubbleStack(spacing: 4, trailingLast: true) {
                     if !message.isOwn, message.showsSender {
-                        Text(message.sender).macFont(.subheadline).fontWeight(.semibold).foregroundStyle(BipeColor.accentInk)
+                        MacSenderLine(message: message)
                     }
                     if let photo = message.photo {
                         MacPhotoView(photo: photo, eventID: message.id, isOwn: message.isOwn,
