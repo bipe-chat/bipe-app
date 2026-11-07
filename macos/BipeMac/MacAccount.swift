@@ -35,6 +35,7 @@ final class MacAccount: ObservableObject {
     private var listChanges: AnyCancellable?
     @Published private(set) var userId = ""
     @Published var selectedRooms: [MacDestination: String] = [:]
+    @Published var roomSearches: [MacDestination: String] = [:]
     @Published private(set) var displayName = BipeStrings.tabYou
     @Published private(set) var handle: String?
     @Published private(set) var isCompany = false

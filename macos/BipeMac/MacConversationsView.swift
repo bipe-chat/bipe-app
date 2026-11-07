@@ -6,10 +6,14 @@ import BipeKit
 import SwiftUI
 
 struct MacConversationsView: View {
+    @ObservedObject var workspace: MacWorkspace
     @ObservedObject var account: MacAccount
     @ObservedObject var list: MacRoomList
     let scope: MacDestination
-    @State private var search = ""
+    private var search: String { account.roomSearches[scope] ?? "" }
+    private var searchBinding: Binding<String> {
+        Binding(get: { search }, set: { account.roomSearches[scope] = $0 })
+    }
     @State private var showingArchived = false
     @State private var reordering = false
     @State private var notificationsRoom: String?
@@ -76,9 +80,14 @@ struct MacConversationsView: View {
                         }
                     }
                 }
-            }.background(BipeColor.surfaceBase)
-                .navigationSplitViewColumnWidth(min: 300, ideal: 360, max: 440)
-                .searchable(text: $search, placement: .sidebar, prompt: BipeStrings.appSearchPlaceholder)
+            }
+            .frame(minWidth: MacSidebarLayout.minimum, idealWidth: MacSidebarLayout.ideal, maxWidth: MacSidebarLayout.maximum)
+            .background(BipeColor.surfaceBase)
+            .background(MacSidebarSizing())
+            .toolbar {
+                ToolbarItem(placement: .navigation) { MacAccountSwitcher(workspace: workspace, account: account) }
+            }
+            .navigationSplitViewColumnWidth(min: MacSidebarLayout.minimum, ideal: MacSidebarLayout.ideal, max: MacSidebarLayout.maximum)
         } detail: {
             if let row = list.rows.first(where: { $0.id == selected }) {
                 MacChatView(room: row.room, name: row.name, drafts: account.drafts, media: account.media, face: row.avatar,
@@ -90,6 +99,7 @@ struct MacConversationsView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity).background(BipeColor.surfaceBase)
             }
         }
+        .searchable(text: searchBinding, placement: .sidebar, prompt: BipeStrings.appSearchPlaceholder)
         .onChange(of: showingArchived) { _, _ in selectedRoom.wrappedValue = nil; reordering = false }
         .onChange(of: favourites.count) { _, count in if count < 2 { reordering = false } }
         .onDisappear { reordering = false }
@@ -156,6 +166,7 @@ private struct MacChatRow: View {
                     Spacer(minLength: 0)
                     if let date = row.date {
                         Text(time(date)).macFont(.caption).monospacedDigit().foregroundStyle(BipeColor.inkSecondary)
+                            .lineLimit(1).fixedSize(horizontal: true, vertical: false)
                     }
                 }
                 HStack(spacing: 8) {

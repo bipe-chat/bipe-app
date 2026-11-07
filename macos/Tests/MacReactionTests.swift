@@ -10,6 +10,26 @@ import XCTest
 @testable import BipeMac
 
 final class MacReactionTests: XCTestCase {
+    @MainActor
+    func testEveryQuickReactionHasDistinctVisibleNonTemplateMenuArtwork() throws {
+        var renderings: Set<Data> = []
+        for key in BipeReactions.quickKeys {
+            let image = MacReactionArtwork.image(for: key)
+            XCTAssertFalse(image.isTemplate, key)
+            let cgImage = try XCTUnwrap(image.cgImage(forProposedRect: nil, context: nil, hints: nil))
+            let bitmap = NSBitmapImageRep(cgImage: cgImage)
+            var visiblePixels = 0
+            for x in 0..<bitmap.pixelsWide {
+                for y in 0..<bitmap.pixelsHigh {
+                    if (bitmap.colorAt(x: x, y: y)?.alphaComponent ?? 0) > 0.1 { visiblePixels += 1 }
+                }
+            }
+            XCTAssertGreaterThan(visiblePixels, 20, key)
+            renderings.insert(try XCTUnwrap(bitmap.representation(using: .png, properties: [:])))
+        }
+        XCTAssertEqual(renderings.count, BipeReactions.quickKeys.count)
+    }
+
     func testReactionSummaryUsesAccountIdentityAndNewestSenderFirst() throws {
         let own = ReactionSenderData(senderId: "@own:example.invalid", timestamp: 10)
         let other = ReactionSenderData(senderId: "@other:example.invalid", timestamp: 20)

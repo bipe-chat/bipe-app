@@ -7,6 +7,24 @@ import BipeKit
 import MatrixRustSDK
 import SwiftUI
 
+/// Native palette menus extract each command's image. Text-only emoji labels produce empty cells on Mac.
+@MainActor enum MacReactionArtwork {
+    private static var cache: [String: NSImage] = [:]
+
+    static func image(for key: String) -> NSImage {
+        if let image = cache[key] { return image }
+        let image = NSImage(size: NSSize(width: 28, height: 28), flipped: false) { rect in
+            let text = NSAttributedString(string: key, attributes: [.font: NSFont.systemFont(ofSize: 22)])
+            let size = text.size()
+            text.draw(at: NSPoint(x: (rect.width - size.width) / 2, y: (rect.height - size.height) / 2))
+            return true
+        }
+        image.isTemplate = false
+        cache[key] = image
+        return image
+    }
+}
+
 struct MacReaction: Identifiable {
     let key: String
     let includesOwn: Bool

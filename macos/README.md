@@ -25,6 +25,8 @@ Reactions use the shared quick-emoji catalogue, the native character picker, SDK
 
 The complete functionality assessment is generated in bipe/docs/product.md from bipe-shared/product/client-assessment.json, parity.json and desktop-plan.json. It separates implementation from real-device acceptance. Video messages, voice messages, audio calls, video calls, group calls and screen sharing each have their own row. Old web exclusions require review; an SDK method or successful compile is not evidence of device parity.
 
+The conversation sidebar keeps a 300 to 440 pt width, with 360 pt preferred. Search attaches to the split view, and the account control belongs to the sidebar toolbar. A native sizing adapter repairs an already-restored narrow frame without clearing preferences, and keeps deliberate collapse available. Each account retains the search and selected chat separately for Chats and Groups. Quick reactions are native palette action buttons with explicit colour emoji images, avoiding empty text-only palette cells. CI checks restored geometry, native dragging/collapse and visible, distinct emoji artwork. The final app window still needs the visual acceptance in #1232.
+
 ## Remaining parity gaps
 
 The Mac is still a preview. The 174-capability ledger includes partial implementations as planned until their full behavior and evidence exist.
