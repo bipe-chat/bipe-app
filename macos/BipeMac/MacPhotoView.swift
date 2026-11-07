@@ -12,6 +12,8 @@ struct MacPhotoView: View {
     let isOwn: Bool
     let isPrivate: Bool
     let fromRequest: Bool
+    let richText: BipeMessageText
+    let pauseSecondsLeft: (Date) -> Int
     @ObservedObject var media: MacMedia
     @State private var revealed = false
     @State private var image: NSImage?
@@ -44,7 +46,7 @@ struct MacPhotoView: View {
             do { image = try await media.image(photo, eventID: eventID) }
             catch { if !Task.isCancelled { failed = true } }
         }
-        .sheet(isPresented: $viewer) { MacPhotoViewer(photo: photo, eventID: eventID, media: media) }
+        .sheet(isPresented: $viewer) { MacPhotoViewer(photo: photo, eventID: eventID, richText: richText, pauseSecondsLeft: pauseSecondsLeft, media: media) }
     }
 
     private var previewWidth: CGFloat {
@@ -60,6 +62,8 @@ struct MacPhotoView: View {
 private struct MacPhotoViewer: View {
     let photo: MacPhoto
     let eventID: String
+    let richText: BipeMessageText
+    let pauseSecondsLeft: (Date) -> Int
     @ObservedObject var media: MacMedia
     @Environment(\.dismiss) private var dismiss
     @State private var image: NSImage?
@@ -80,7 +84,7 @@ private struct MacPhotoViewer: View {
                         defer { saving = false }
                         do { try await media.save(photo) } catch { saveFailed = true }
                     }
-                }.disabled(saving)
+                }.disabled(saving || image == nil)
                 Button(BipeStrings.appClose) { dismiss() }.keyboardShortcut(.cancelAction)
             }
             if let image {
@@ -89,15 +93,25 @@ private struct MacPhotoViewer: View {
             } else if failed {
                 Button(BipeStrings.appMediaFailed) { failed = false; retry += 1 }.buttonStyle(.bipeBordered)
             } else { ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity) }
-            if let description = photo.description { Text(description).macFont(.callout).textSelection(.enabled) }
-            if let caption = photo.content.caption { Text(MacRichText.attributed(BipeMessageText(body: caption), bodySize: bodySize)).textSelection(.enabled) }
+            // The same money pause as the timeline: no copying and no links until it ends.
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                if pauseSecondsLeft(context.date) > 0 { captionText } else { captionText.textSelection(.enabled) }
+            }
             if saveFailed { MacNotice(text: BipeStrings.appMediaSaveFailed, danger: true) }
         }.padding(MacDesign.sectionGap).frame(minWidth: 640, idealWidth: 860, minHeight: 480, idealHeight: 680)
             .background(BipeColor.surfaceBase)
+            .environment(\.openURL, OpenURLAction { _ in pauseSecondsLeft(.now) > 0 ? .handled : .systemAction })
             .task(id: retry) {
                 do { image = try await media.image(photo, eventID: eventID, fullSize: true) }
                 catch { if !Task.isCancelled { failed = true } }
             }
+    }
+
+    private var captionText: some View {
+        VStack(spacing: MacDesign.gap) {
+            if let description = photo.description { Text(description).macFont(.callout) }
+            if !richText.text.isEmpty { Text(MacRichText.attributed(richText, bodySize: bodySize)) }
+        }
     }
 }
 

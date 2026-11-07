@@ -73,7 +73,8 @@ struct MacMessageView: View {
                 if !message.isOwn { Text(message.sender).macFont(.subheadline).fontWeight(.semibold).foregroundStyle(BipeColor.accentInk) }
                 if let photo = message.photo {
                     MacPhotoView(photo: photo, eventID: message.id, isOwn: message.isOwn,
-                                 isPrivate: isPrivateRoom, fromRequest: fromRequest, media: media)
+                                 isPrivate: isPrivateRoom, fromRequest: fromRequest, richText: message.richText,
+                                 pauseSecondsLeft: pauseSecondsLeft, media: media)
                 }
                 if !message.richText.text.isEmpty {
                     if secondsLeft > 0 { richText } else { richText.textSelection(.enabled) }

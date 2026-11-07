@@ -10,6 +10,8 @@ struct MacMessagePayload {
     let richText: BipeMessageText
     var photo: MacPhoto? = nil
     var isEmote = false
+    /// Everything the sender wrote that a person can read or copy, for the scam detector.
+    var safetyText: String { [body, richText.safetyText, photo?.description].compactMap { $0 }.joined(separator: "\n") }
 
     init(body: String, formatted: FormattedBody? = nil) {
         self.body = body

@@ -253,7 +253,7 @@ final class MacTimeline: ObservableObject {
                               richText: payload.richText, photo: payload.photo, isEmote: payload.isEmote,
                               timestamp: Date(timeIntervalSince1970: Double(event.timestamp) / 1000),
                               isOwn: event.isOwn, pending: pending, failed: failed,
-                              warning: event.isOwn ? nil : ScamDetector.warningKind(for: payload.body + "\n" + payload.richText.safetyText, eventID: item.uniqueId().id),
+                              warning: event.isOwn ? nil : ScamDetector.warningKind(for: payload.safetyText, eventID: item.uniqueId().id),
                               eventID: eventID, canReply: event.canBeRepliedTo)
         }
     }
