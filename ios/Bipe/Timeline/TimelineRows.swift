@@ -140,6 +140,8 @@ struct ReceiptReader: Equatable, Identifiable {
 struct RoomFacts {
     var ownUserId: String
     var isDm: Bool
+    /// DM only: the other person, when the SDK knows them.
+    var dmPeerId: String?
     var isEncrypted: Bool
     var joinedMembers: Int
     var canRedactOwn: Bool
@@ -261,6 +263,7 @@ enum TimelineRowBuilder {
             base.senderNameAmbiguous = !event.isOwn && !facts.isDm
                 && (event.senderProfile.isNameAmbiguous || ambiguousSenders.contains(event.sender))
             base.senderRole = event.isOwn || facts.isDm ? nil : facts.roles[event.sender]
+            base.showsSender = !facts.isDm || facts.dmPeerId == nil || event.sender != facts.dmPeerId
             // Media and voice rows (specs timeline-media, voice-message): message rows with their own content.
             var mediaContent = MediaContent(content.kind)
             if case .media(var media) = mediaContent {

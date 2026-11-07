@@ -169,7 +169,7 @@ struct MacChatView: View {
                         Button(model.loadingHistory ? BipeStrings.appTimelineLoadingHistory : BipeStrings.actionShowMore) { Task { await model.loadHistory() } }
                             .disabled(model.loadingHistory)
                         ForEach(model.messages) { message in
-                            MacMessageView(message: message, room: room, media: media, isPrivateRoom: model.isPrivateRoom, isDm: model.isDm,
+                            MacMessageView(message: message, room: room, media: media, isPrivateRoom: model.isPrivateRoom,
                                            fromRequest: media.isFromRequest(room.id()),
                                            pauseSecondsLeft: { model.pauseSecondsLeft(message.id, now: $0) },
                                            onReply: { model.startReply(message); composerFocused = true },

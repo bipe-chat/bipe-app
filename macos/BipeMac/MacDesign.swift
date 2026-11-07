@@ -59,7 +59,6 @@ struct MacMessageView: View {
     @ScaledMetric(relativeTo: .body) private var bodySize: CGFloat = 17
     @ObservedObject var media: MacMedia
     let isPrivateRoom: Bool
-    let isDm: Bool
     let fromRequest: Bool
     let pauseSecondsLeft: (Date) -> Int
     let onReply: () -> Void
@@ -83,7 +82,7 @@ struct MacMessageView: View {
             if message.isOwn { Spacer(minLength: 48) }
             VStack(alignment: message.isOwn ? .trailing : .leading, spacing: 4) {
                 BubbleStack(spacing: 4, trailingLast: true) {
-                    if !message.isOwn, !isDm {
+                    if !message.isOwn, message.showsSender {
                         Text(message.sender).macFont(.subheadline).fontWeight(.semibold).foregroundStyle(BipeColor.accentInk)
                     }
                     if let photo = message.photo {

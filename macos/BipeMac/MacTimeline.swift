@@ -18,6 +18,8 @@ struct MacMessage: Identifiable {
     let isEmote: Bool
     let timestamp: Date
     let isOwn: Bool
+    /// Spec timeline-rows: false only for the one other person of a DM. A room flagged direct can hold messages from people who left.
+    let showsSender: Bool
     let pending: Bool
     let failed: Bool
     let warning: ScamWarningKind?
@@ -38,7 +40,7 @@ final class MacTimeline: ObservableObject {
     @Published private(set) var isEncrypted = true
     @Published private(set) var isPrivateRoom = false
     var readingLatest = true
-    @Published private(set) var isDm = true
+    @Published private(set) var isDm = false
     @Published var reactionFailed = false
     @Published private(set) var reacting: Set<String> = []
     @Published private(set) var preparing = false
@@ -54,6 +56,7 @@ final class MacTimeline: ObservableObject {
     private var draftRevision = 0
     private let drafts: MacDrafts
     private var lastReadID: String?
+    private var dmPeerID: String?
     private var listener: TaskHandle?
     private var items: [TimelineItem] = []
     private var moneyPause = BipeMoneyPause()
@@ -78,9 +81,7 @@ final class MacTimeline: ObservableObject {
             self.room = room
             if editedWhileLoading { persistDraft() }
             isEncrypted = await room.isEncrypted()
-            let info = try? await room.roomInfo()
-            isDm = info?.isDm ?? true
-            isPrivateRoom = info?.isDm == true || info?.isPublic == false
+            await readRoomKind(room)
             let configuration = TimelineConfiguration(focus: .live(hideThreadedEvents: !isDm), filter: .all,
                                                        internalIdPrefix: nil, dateDividerMode: .daily,
                                                        trackReadReceipts: .messageLikeEvents, reportUtds: false)
@@ -93,10 +94,19 @@ final class MacTimeline: ObservableObject {
             for await updates in stream.updates {
                 guard !Task.isCancelled else { return }
                 for update in updates { items.apply(update.vectorDiff) }
+                await readRoomKind(room)
                 rebuild()
                 await markRead()
             }
         } catch { if !Task.isCancelled { failed = true } }
+    }
+
+    /// A DM turns into a group when a third person joins, and the sender line follows. Unknown stays a group, as on the phones.
+    private func readRoomKind(_ room: Room) async {
+        guard let info = try? await room.roomInfo() else { return }
+        isDm = info.isDm
+        dmPeerID = info.isDm ? info.heroes.first(where: { $0.userId != room.ownUserId() })?.userId : nil
+        isPrivateRoom = info.isDm || info.isPublic == false
     }
 
     func loadHistory() async {
@@ -259,9 +269,7 @@ final class MacTimeline: ObservableObject {
             case .unableToDecrypt: payload = MacMessagePayload(body: BipeStrings.webTimelineUndecryptable); decryptable = false
             default: return nil
             }
-            var displayName: String?
-            if case .ready(let name, _, _, _, _) = event.senderProfile { displayName = name }
-            let sender = BipeChatRowName.person(userID: event.sender, displayName: displayName, handle: nil)
+            let sender = MacRoomSummary.personName(event.senderProfile, userID: event.sender)
             let pending: Bool
             let failed: Bool
             switch event.localSendState {
@@ -274,7 +282,8 @@ final class MacTimeline: ObservableObject {
             return MacMessage(id: item.uniqueId().id, sender: sender, body: payload.body,
                               richText: payload.richText, photo: payload.photo, isEmote: payload.isEmote,
                               timestamp: Date(timeIntervalSince1970: Double(event.timestamp) / 1000),
-                              isOwn: event.isOwn, pending: pending, failed: failed,
+                              isOwn: event.isOwn, showsSender: !isDm || dmPeerID == nil || event.sender != dmPeerID,
+                              pending: pending, failed: failed,
                               warning: event.isOwn ? nil : ScamDetector.warningKind(for: payload.safetyText, eventID: item.uniqueId().id),
                               eventID: eventID, canReply: event.canBeRepliedTo,
                               canReact: decryptable && eventID != nil && !pending && !failed,

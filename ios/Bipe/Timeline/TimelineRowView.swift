@@ -62,7 +62,7 @@ struct TimelineRowView: View {
                     openPoll(poll.eventId)
                 } label: {
                     Bubble(isOwn: message.isOwn, trailingLast: true) {
-                        if !message.isOwn && !isDm {
+                        if !message.isOwn && message.showsSender {
                             SenderNameText(message: message)
                                 .font(.caption.bold())
                                 .foregroundStyle(BipeColor.accentInk)
@@ -204,7 +204,7 @@ private struct MessageBubbleRow: View {
                     .accessibilityHidden(true)
                 Bubble(isOwn: message.isOwn, isHighlighted: isHighlighted, trailingLast: true,
                        isPlain: message.media?.kind == .sticker) {
-                    if !message.isOwn && !isDm {
+                    if !message.isOwn && message.showsSender {
                         SenderNameText(message: message)
                             .font(.caption.bold())
                             .foregroundStyle(BipeColor.accentInk)
@@ -595,6 +595,11 @@ private struct DeletedRow: View {
 
     var body: some View {
         Bubble(isOwn: message.isOwn, trailingLast: true) {
+            if !message.isOwn && message.showsSender {
+                SenderNameText(message: message)
+                    .font(.caption.bold())
+                    .foregroundStyle(BipeColor.accentInk)
+            }
             HStack(spacing: 6) {
                 PhosphorIcon.trash.image
                     .resizable()

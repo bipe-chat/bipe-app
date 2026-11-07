@@ -45,8 +45,8 @@ final class MacListTests: XCTestCase {
 
     func testMissingLatestEventPreservesKnownDateAndPreviewWithoutInventingNow() {
         let known = BipeRowActivity.Row(timestampMs: 1234, previewText: "cached message", latestIncomingMs: 1234)
-        XCTAssertEqual(MacRoomSummary.activity(.none, known: known), known)
-        let empty = MacRoomSummary.activity(.none, known: nil)
+        XCTAssertEqual(MacRoomSummary.activity(.none, isDm: false, known: known), known)
+        let empty = MacRoomSummary.activity(.none, isDm: false, known: nil)
         XCTAssertNil(empty.timestampMs)
         XCTAssertNil(empty.previewText)
     }

@@ -143,6 +143,8 @@ data class MemberInfo(val name: String, val avatarUrl: String?)
 data class RoomFacts(
     val ownUserId: String,
     val isDm: Boolean = false,
+    /** DM only: the other person, when the SDK knows them. */
+    val dmPeerId: String? = null,
     val isEncrypted: Boolean = true,
     val joinedMembers: Int = 2,
     val canRedactOwn: Boolean = true,
@@ -274,6 +276,7 @@ object TimelineRowBuilder {
                         senderNameAmbiguous = !event.isOwn && !facts.isDm &&
                             (event.senderProfile.isNameAmbiguous || event.sender in ambiguousSenders),
                         senderRole = if (event.isOwn || facts.isDm) null else facts.roles[event.sender],
+                        showsSender = !facts.isDm || facts.dmPeerId == null || event.sender != facts.dmPeerId,
                     )
                     // Media and voice rows (specs timeline-media, voice-message): message rows with their own content.
                     // Specs chat-timeline and voice-message forwardCount: the SDK types have no field for the forward mark

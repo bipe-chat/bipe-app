@@ -207,7 +207,7 @@ fun TimelineRowItem(
             }
             Box(Modifier.clickable { onOpenPoll(poll.eventId) }) {
                 Bubble(message.isOwn) {
-                    if (!message.isOwn && !isDm) {
+                    if (!message.isOwn && message.showsSender) {
                         SenderLine(message, colors.accentInk)
                     }
                     PollCard(poll)
@@ -367,7 +367,7 @@ private fun MessageBubbleRow(
                         }
                     },
             ) {
-                if (!message.isOwn && !isDm) {
+                if (!message.isOwn && message.showsSender) {
                     SenderLine(message, colors.accentInk)
                 }
                 // Spec chat-timeline notes (bipe-chat/bipe#933): voice rows keep their own source line.
@@ -666,6 +666,9 @@ private fun undecryptableText(message: TimelineMessage): String = when (message.
 private fun DeletedRow(message: TimelineMessage) {
     val colors = BipeTheme.colors
     Bubble(message.isOwn) {
+        if (!message.isOwn && message.showsSender) {
+            SenderLine(message, colors.accentInk)
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(painterResource(PhosphorIcon.TRASH.drawable), contentDescription = null, tint = colors.glyphSecondary, modifier = Modifier.size(14.dp))
             Text(

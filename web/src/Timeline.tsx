@@ -157,7 +157,7 @@ export function RoomTimeline({
   const ownUserId = room.ownUserId();
   const face = useRoomFace(room);
   // Group rows show the sender's name; DM rows do not. Until RoomInfo comes, no names.
-  const isDm = face.isDirect ?? true;
+  const isDm = face.isDm ?? true;
   const client = useClient();
   const business = useBusinessChat(client, face.isDirect ? face.peer?.userId : undefined, face.name);
   const clearedMarker = useClearedChats(client);
@@ -466,7 +466,7 @@ export function RoomTimeline({
               </li>
             )}
             {rows.map((r) => (
-              <TimelineRowView key={r.key} row={r} isDm={isDm} on={on} />
+              <TimelineRowView key={r.key} row={r} isDm={isDm} dmPeerId={face.peer?.userId} on={on} />
             ))}
           </ol>
         </div>

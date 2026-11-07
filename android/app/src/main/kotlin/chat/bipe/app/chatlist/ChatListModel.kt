@@ -463,7 +463,7 @@ class ChatListModel(
 
     /**
      * The row text of an event (spec chat-list, row text): "missed call" for an incoming call this account missed, a line
-     * for a join, leave or room creation, else the preview, with "You: " before an own one.
+     * for a join, leave or room creation, else the preview, with "You: " before an own one and the sender's name before another member's in a group.
      */
     private fun rowPreview(content: TimelineItemContent, isOwn: Boolean, senderName: String, roomId: String, isDm: Boolean): String? {
         if (content is TimelineItemContent.RtcNotification && !isOwn && chat.bipe.app.calls.MissedCalls.isMissed(session.userId, roomId)) {
@@ -471,7 +471,8 @@ class ChatListModel(
         }
         membershipLine(content, senderName, isOwn, isDm)?.let { return it }
         val preview = content.previewText(undecryptableText, label) ?: return null
-        return if (isOwn) label(R.string.bipe_chat_list_own_preview).format(preview) else preview
+        if (isOwn) return label(R.string.bipe_chat_list_own_preview).format(preview)
+        return if (isDm) preview else "$senderName: $preview"
     }
 
     /** A join (an accepted invite or knock included), a leave or the room creation. null for other events. */

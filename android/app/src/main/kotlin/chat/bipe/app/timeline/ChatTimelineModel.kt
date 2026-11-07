@@ -110,6 +110,8 @@ data class TimelineMessage(
     val forwardCount: Int = 0,
     /** Spec timeline-rows nameAmbiguous: another member of the room shows the same name (bipe-chat/bipe#825). */
     val senderNameAmbiguous: Boolean = false,
+    /** Spec timeline-rows: false only for the one other person of a DM. A room flagged direct can hold messages from people who left. */
+    val showsSender: Boolean = true,
     /** Spec chat-timeline senderRole: admin or moderator, groups only (bipe-chat/bipe#733). */
     val senderRole: chat.bipe.app.groups.GroupRole? = null,
 ) {
@@ -496,6 +498,7 @@ class ChatTimelineModel(
             facts = facts.copy(isDm = info.isDm, joinedMembers = info.joinedMembersCount.toInt())
             _isGroup.value = !info.isDm && !info.isSpace
             val peer = if (info.isDm) info.heroes.firstOrNull { it.userId != session.userId } else null
+            facts = facts.copy(dmPeerId = peer?.userId)
             val peerHandle = peer?.takeIf { chat.bipe.shared.BipeChatRowName.realName(it.displayName, it.userId) == null }
                 ?.let { handles?.resolve(it.userId) }
             _roomName.value = chat.bipe.shared.BipeChatRowName.resolve(

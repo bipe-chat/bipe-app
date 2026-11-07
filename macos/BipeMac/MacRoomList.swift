@@ -162,7 +162,7 @@ final class MacRoomList: ObservableObject {
             for room in combined {
                 guard !Task.isCancelled, self.generation == generation else { return }
                 guard let info = try? await room.roomInfo(), info.membership == .joined, !info.isSpace else { continue }
-                let activity = MacRoomSummary.activity(await room.latestEvent(), known: self.known[room.id()])
+                let activity = MacRoomSummary.activity(await room.latestEvent(), isDm: info.isDm, known: self.known[room.id()])
                 self.known[room.id()] = activity
                 if self.pendingFavourite[room.id()] == info.isFavourite { self.pendingFavourite[room.id()] = nil }
                 rows.append(MacRoomSummary(room: room, info: info, ownUserID: ownUserID,
