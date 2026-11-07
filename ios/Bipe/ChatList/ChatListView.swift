@@ -267,6 +267,23 @@ struct ChatListView: View {
             case .groupLink(let link): openingGroupLink = link
             }
         }
+        // Spec app-tabs, action homeQuickAction: the actions that open a screen, in the Conversas list.
+        .onReceive(HomeQuickActions.shared.$pending.compactMap { $0 }) { action in
+            Task { @MainActor in
+                let quickActions = HomeQuickActions.shared
+                guard scope != .grupos, quickActions.pending == action else { return }
+                switch action {
+                case .newChat:
+                    quickActions.pending = nil
+                    show(.people(.contacts))
+                case .myQrCode:
+                    quickActions.pending = nil
+                    show(.people(.profileQr))
+                case .search, .switchAccount:
+                    break
+                }
+            }
+        }
         .onOpenURL { url in
             // Both tabs show a chat list; the Conversas one takes profile links.
             guard scope != .grupos else { return }

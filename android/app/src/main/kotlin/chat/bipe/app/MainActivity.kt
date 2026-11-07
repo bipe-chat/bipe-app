@@ -24,6 +24,9 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import chat.bipe.app.account.AccountStartModel
 import chat.bipe.app.people.PeopleLinks
+import chat.bipe.app.people.PeopleRoute
+import chat.bipe.app.tabs.AppTabsModel
+import chat.bipe.app.tabs.HomeQuickActions
 import chat.bipe.app.recovery.LinkWebFlow
 import chat.bipe.app.account.AccountStartScreen
 import chat.bipe.app.notifications.PhoneNotifications
@@ -51,7 +54,10 @@ class MainActivity : ComponentActivity() {
         readPixPreview(intent)
         // A recreated activity keeps its intent: read a share only once.
         if (savedInstanceState == null) readShare(intent)
+        // A recreated activity keeps its intent: run a quick action only once.
+        if (savedInstanceState == null) readQuickAction(intent)
         (application as BipeApplication).watchAccountsForPixCheck()
+        (application as BipeApplication).watchAccountsForQuickActions()
         accountStart.start()
         setContent {
             // Android keeps this theme for the next launch, so the system screen shows the palette from Android 13.
@@ -78,6 +84,24 @@ class MainActivity : ComponentActivity() {
         readOpenChat(intent)
         readPixPreview(intent)
         readShare(intent)
+        readQuickAction(intent)
+    }
+
+    /** Spec app-tabs, action homeQuickAction: runs after account-start. With no account on the phone, nothing happens. */
+    private fun readQuickAction(intent: Intent?) {
+        val action = HomeQuickActions.from(intent) ?: return
+        val app = application as BipeApplication
+        app.scope.launch {
+            accountStart.start()
+            val phase = accountStart.phase.first { it != AccountStartModel.Phase.OPENING }
+            if (phase != AccountStartModel.Phase.READY) return@launch
+            when (action) {
+                HomeQuickActions.Action.NEW_CHAT -> PeopleLinks.open(PeopleRoute.Contacts)
+                HomeQuickActions.Action.SEARCH -> app.appTabs.selectTab(AppTabsModel.Tab.SEARCH)
+                HomeQuickActions.Action.MY_QR_CODE -> PeopleLinks.open(PeopleRoute.ProfileQr)
+                HomeQuickActions.Action.SWITCH_ACCOUNT -> app.appTabs.openAccountSwitcher()
+            }
+        }
     }
 
     /**
