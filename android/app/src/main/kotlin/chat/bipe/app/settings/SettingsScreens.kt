@@ -43,7 +43,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -839,14 +839,14 @@ fun SettingsRowItem(
 }
 
 /**
- * The icon tile of a settings root row (spec settings-root): the glyph in ink.onAccent on accent.fill, in a circle as
- * the Android Settings app. Decorative: the row title says what the row is.
+ * The icon tile of a settings root row (spec settings-root): the glyph in ink.onAccent on accent.fill, in a rounded
+ * square, the same on every client. Decorative: the row title says what the row is.
  */
 @Composable
 fun SettingsIconTile(icon: PhosphorIcon) {
     val colors = BipeTheme.colors
-    Box(Modifier.size(40.dp).background(colors.accentFill, CircleShape), contentAlignment = Alignment.Center) {
-        Icon(painterResource(icon.drawable), contentDescription = null, tint = colors.inkOnAccent, modifier = Modifier.size(22.dp))
+    Box(Modifier.size(29.dp).background(colors.accentFill, RoundedCornerShape(7.dp)), contentAlignment = Alignment.Center) {
+        Icon(painterResource(icon.drawable), contentDescription = null, tint = colors.inkOnAccent, modifier = Modifier.size(18.dp))
     }
 }
 

@@ -42,6 +42,7 @@ final class MacChatRequests: ObservableObject {
     @Published private(set) var pending: Set<String> = []
     @Published private(set) var failed = false
     var visible: [MacChatRequest] { requests.filter { !pending.contains($0.roomID) } }
+    var onRequests: (([MacChatRequest]) -> Void)?
 
     private let api: BipeAPIClient
     private var client: Client?
@@ -94,6 +95,7 @@ final class MacChatRequests: ObservableObject {
         pairsTask?.cancel(); pairsTask = nil
         client = nil; subscriptions = nil; accessToken = { nil }
         rooms = []; requests = []; pending = []; pairs = []
+        onRequests?([])
         lastPairAttempt = .distantPast; failed = false
     }
 
@@ -156,6 +158,7 @@ final class MacChatRequests: ObservableObject {
             guard !Task.isCancelled, self.generation == generation else { return }
             summaries.sort { ($0.invitedAt ?? .distantPast) > ($1.invitedAt ?? .distantPast) }
             self.requests = summaries
+            self.onRequests?(summaries)
             // A room that left the invite list takes its finished action with it, so a later invite can show.
             self.pending.formIntersection(rooms.map { $0.id() })
             // A person who just joined with this account's invite: the API answer runs refresh again and joins.
