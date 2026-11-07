@@ -94,6 +94,12 @@ final class AppTabsModel: ObservableObject {
             .receive(on: RunLoop.main)
             .sink { [weak self] sessions, userId in self?.sessionsChanged(sessions, current: userId) }
             .store(in: &cancellables)
+        // Spec app-tabs, action homeQuickAction: the items follow the accounts on this phone.
+        start.$phase
+            .combineLatest($accounts)
+            .receive(on: RunLoop.main)
+            .sink { phase, accounts in HomeQuickActions.shared.update(phase: phase, accounts: accounts) }
+            .store(in: &cancellables)
     }
 
     /// The chat list of an account, started on first use.

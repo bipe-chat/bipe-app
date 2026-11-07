@@ -7,6 +7,7 @@ package chat.bipe.app
 import android.app.Application
 import chat.bipe.app.account.AccountStartModel
 import chat.bipe.app.tabs.AppTabsModel
+import chat.bipe.app.tabs.HomeQuickActions
 import chat.bipe.shared.R
 import chat.bipe.shared.BipeNotificationTarget
 import chat.bipe.shared.BipeNotificationOpen
@@ -17,6 +18,9 @@ import chat.bipe.app.notifications.PushTransports
 import kotlinx.coroutines.MainScope
 import chat.bipe.app.pixcheck.PixPreview
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import org.matrix.rustcomponents.sdk.LogLevel
 import org.matrix.rustcomponents.sdk.TracingConfiguration
@@ -62,6 +66,7 @@ class BipeApplication : Application() {
     val govbr = chat.bipe.app.voce.GovbrInbox()
 
     private var watchingAccounts = false
+    private var watchingQuickActions = false
 
     override fun onCreate() {
         super.onCreate()
@@ -122,6 +127,24 @@ class BipeApplication : Application() {
     }
 
     /** accountAvailable of spec pix-check-result, kept for PixCheckActivity, which starts no account. */
+    /** Spec app-tabs, action homeQuickAction: the shortcuts follow the accounts on this phone. */
+    fun watchAccountsForQuickActions() {
+        if (watchingQuickActions) return
+        watchingQuickActions = true
+        scope.launch {
+            accountStart.phase
+                .combine(appTabs.state.map { it.accounts.size > 1 }) { phase, severalAccounts -> phase to severalAccounts }
+                .distinctUntilChanged()
+                .collect { (phase, severalAccounts) ->
+                    when (phase) {
+                        AccountStartModel.Phase.READY -> HomeQuickActions.update(this@BipeApplication, severalAccounts)
+                        AccountStartModel.Phase.NO_ACCOUNT -> HomeQuickActions.clear(this@BipeApplication)
+                        else -> Unit
+                    }
+                }
+        }
+    }
+
     fun watchAccountsForPixCheck() {
         if (watchingAccounts) return
         watchingAccounts = true

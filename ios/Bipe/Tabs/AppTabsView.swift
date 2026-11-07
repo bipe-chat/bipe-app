@@ -125,6 +125,24 @@ struct AppTabsView: View {
         }
         .environmentObject(model)
         .onChange(of: muralEnabled) { _, _ in model.muralChanged() }
+        // Spec app-tabs, action homeQuickAction. @Published emits before assignment, so handle it after this update.
+        .onReceive(HomeQuickActions.shared.$pending.compactMap { $0 }) { action in
+            Task { @MainActor in
+                let quickActions = HomeQuickActions.shared
+                guard quickActions.pending == action else { return }
+                switch action {
+                case .search:
+                    quickActions.pending = nil
+                    model.selectTab(.search)
+                case .switchAccount:
+                    quickActions.pending = nil
+                    model.openAccountSwitcher()
+                case .newChat, .myQrCode:
+                    // The Conversas chat list opens the screen.
+                    model.selectTab(.conversas)
+                }
+            }
+        }
         .environment(\.openURL, OpenURLAction { url in
             // Message links use the same signed-in destinations as links received from the system.
             if let code = BipeInviteLink.code(from: url) {
