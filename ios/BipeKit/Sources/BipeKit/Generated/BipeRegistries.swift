@@ -17,6 +17,15 @@ public struct ScamPattern: Sendable, Equatable {
 }
 
 /// A network a public profile may link to (ADR 0228). url holds {handle} once.
+public struct PersonScheme: Sendable, Equatable {
+    public let id: String
+    public let alias: String?
+    public let assurance: String
+    public let mark: String
+    public let namePtBR: String
+    public let nameEn: String
+}
+
 public struct SocialPlatform: Sendable, Equatable {
     public let id: String
     public let name: String
@@ -613,6 +622,12 @@ public enum BipeRegistries {
     public static let photoMatchMaxDistance = 6
 
     /// Profile change facts (ADR 0049, registries/profile-facts.json). Lines: test-vectors/profile-facts.json.
+    /// Person schemes, strongest first (ADR 0275, registries/schemes.json). Rule: test-vectors/person-proofs.json.
+    public static let personSchemes: [PersonScheme] = [
+        PersonScheme(id: "br.govbr", alias: "govbr", assurance: "state", mark: "fill", namePtBR: "gov.br", nameEn: "gov.br"),
+        PersonScheme(id: "br.pix", alias: "pix", assurance: "bank", mark: "regular", namePtBR: "Pix", nameEn: "Pix"),
+    ]
+
     public static let profileFactsWindowDays = 30
     public static let profileFactsNewAccountDays = 30
     public static let profileFactsNoticePairHours = 24

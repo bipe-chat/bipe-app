@@ -4,6 +4,12 @@
 <resources xmlns:tools="http://schemas.android.com/tools" tools:locale="en">
     <string name="bipe_badge_verified">Name verified</string>
     <string name="bipe_badge_verified_name">Name verified: %1$s</string>
+    <string name="bipe_badge_verified_via">Name verified via %1$s</string>
+    <string name="bipe_badge_verified_name_via">Name verified via %1$s: %2$s</string>
+    <string name="bipe_person_seal_scheme">Verified with</string>
+    <string name="bipe_person_seal_checked">Checked</string>
+    <string name="bipe_person_seal_valid_until">Valid until</string>
+    <string name="bipe_person_seal_body">The seal confirms the person\'s name. It does not promise that they are honest or that the message is safe.</string>
     <string name="bipe_badge_institution">Verified organisation</string>
     <string name="bipe_badge_suspended">Name verification suspended</string>
     <string name="bipe_profile_fact_created">Account created %1$s ago</string>
