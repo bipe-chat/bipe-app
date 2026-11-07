@@ -2,7 +2,7 @@
 id: 2026-11-07-mural-hides-grupos
 date: 2026-11-07
 kind: improved
-platforms: [ios, android, web]
+platforms: [ios, android]
 refs: [bipe-app#508]
 ---
 
