@@ -1,0 +1,13 @@
+{
+  "images": [
+    {
+      "filename": "icon.png",
+      "idiom": "universal",
+      "scale": "1x"
+    }
+  ],
+  "info": {
+    "author": "bipe-shared tools/gen.mjs",
+    "version": 1
+  }
+}

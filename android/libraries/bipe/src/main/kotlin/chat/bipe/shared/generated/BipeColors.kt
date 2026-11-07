@@ -302,6 +302,16 @@ enum class BipePalette(val id: String, val iconBackground: Color) {
     JABUTICABA("jabuticaba", Color(0xFF4E4694)),
     ;
 
+    val titleRes: Int
+        get() = when (this) {
+            ACAI -> chat.bipe.shared.R.string.bipe_colors_acai
+            GOIABA -> chat.bipe.shared.R.string.bipe_colors_goiaba
+            PITANGA -> chat.bipe.shared.R.string.bipe_colors_pitanga
+            MARACUJA -> chat.bipe.shared.R.string.bipe_colors_maracuja
+            JENIPAPO -> chat.bipe.shared.R.string.bipe_colors_jenipapo
+            JABUTICABA -> chat.bipe.shared.R.string.bipe_colors_jabuticaba
+        }
+
     companion object {
         /** The palette of a new install. */
         val DEFAULT: BipePalette = ACAI
@@ -367,6 +377,14 @@ enum class BipeChatBackground(val id: String) {
     COR("cor"),
     LISO("liso"),
     ;
+
+    val titleRes: Int
+        get() = when (this) {
+            MARCA -> chat.bipe.shared.R.string.bipe_chats_background_marca
+            FRUTAS -> chat.bipe.shared.R.string.bipe_chats_background_frutas
+            COR -> chat.bipe.shared.R.string.bipe_chats_background_cor
+            LISO -> chat.bipe.shared.R.string.bipe_chats_background_liso
+        }
 
     /** A colour of the composition: one of the themed chat tokens. */
     enum class Tone {
