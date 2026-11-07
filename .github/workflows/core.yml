@@ -83,10 +83,16 @@ jobs:
         env:
           BIPE_SHARED: ${{ github.workspace }}/bipe-shared
         run: cargo test --locked
-      - name: Licences of the shipped dependency graph
+      - name: Shipped graph and licences
         working-directory: core
         run: |
           {
+            echo '### Shipped graph (no build, dev or proc-macro dependencies)'
+            echo
+            echo '```'
+            cargo tree --locked -p bipe-core -e normal,no-proc-macro --prefix none --no-dedupe | sort -u
+            echo '```'
+            echo
             echo '### Cargo licences'
             echo
             echo '| Package | Version | Licence |'
