@@ -160,7 +160,7 @@ data class BadgePayload(
     val exp: Long,
 ) {
     /** The required fields of [lvl] (badge-attestation.md, step 4). */
-    internal fun isWellFormed(): Boolean = !msk.isNullOrEmpty() && when (lvl) {
+    internal fun isWellFormed(): Boolean = !msk.isNullOrEmpty() && iat in BADGE_TIME_RANGE && exp in BADGE_TIME_RANGE && when (lvl) {
         BadgeLevel.CNPJ -> cnpj != null && CNPJ_PATTERN.matches(cnpj) && !legalName.isNullOrEmpty() &&
             method != null && checkedMonth != null && MONTH_PATTERN.matches(checkedMonth)
         BadgeLevel.INSTITUTION -> cnpj != null && CNPJ_PATTERN.matches(cnpj) && domainList() != null
@@ -181,6 +181,9 @@ data class BadgePayload(
     /** `institution` only: the verified link domains. Empty: no link in a notice is clickable. */
     val domains: List<String> get() = if (lvl == BadgeLevel.INSTITUTION) domainList().orEmpty() else emptyList()
 }
+
+/** badge-attestation.md "Parser rules". [BadgeVerifier] multiplies these times by 1000, so a larger value overflows. */
+private val BADGE_TIME_RANGE = 0L..253_402_300_799L
 
 private val CNPJ_PATTERN = Regex("[0-9A-Z]{12}[0-9]{2}")
 private val MONTH_PATTERN = Regex("[0-9]{4}-(0[1-9]|1[0-2])")

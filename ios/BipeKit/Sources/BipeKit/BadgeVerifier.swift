@@ -184,6 +184,10 @@ public nonisolated struct BadgePayload: Sendable, Equatable, Decodable {
         cnpj = try container.decodeIfPresent(String.self, forKey: .cnpj)
         iat = try container.decode(Int64.self, forKey: .iat)
         exp = try container.decode(Int64.self, forKey: .exp)
+        // badge-attestation.md "Parser rules".
+        guard (0...253_402_300_799).contains(iat), (0...253_402_300_799).contains(exp) else {
+            throw DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: "time out of range"))
+        }
         msk = try container.decode(String.self, forKey: .msk)
         guard !msk.isEmpty else {
             throw DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: "empty msk"))
