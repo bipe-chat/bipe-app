@@ -28,8 +28,11 @@ final class MacAccount: ObservableObject {
     enum Phase { case starting, qr, checkCode, approving, keys, signedIn, failed, revoked }
     @Published private(set) var phase: Phase = .starting
     @Published private(set) var qrBytes: Data?
-    @Published private(set) var rooms: [Room] = []
-    @Published private(set) var roomRows: [MacRoomSummary] = []
+    let roomList = MacRoomList()
+    var roomRows: [MacRoomSummary] { roomList.rows }
+    @Published var destination = MacDestination.chats
+    @Published private(set) var avatarURL: String?
+    private var listChanges: AnyCancellable?
     @Published private(set) var userId = ""
     @Published private(set) var displayName = BipeStrings.tabYou
     @Published private(set) var handle: String?
@@ -49,8 +52,6 @@ final class MacAccount: ObservableObject {
     var onAlreadyLinked: ((String) -> Void)?
     private var loginTask: Task<Void, Never>?
     private var refreshTask: Task<Void, Never>?
-    private var listTask: Task<Void, Never>?
-    private var entries: RoomListEntriesWithDynamicAdaptersResult?
     private var authDelegate: MacAuthDelegate?
     private var sessionSaver: MacSessionDelegate?
     private var authHandle: TaskHandle?
@@ -60,6 +61,7 @@ final class MacAccount: ObservableObject {
 
     init(record: MacSessionVault.Record? = nil, vault: MacSessionVault = MacSessionVault(keychain: SystemMacKeychain())) {
         self.vault = vault
+        listChanges = roomList.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
         savedUserID = record?.userId
         if let record {
             userId = record.userId
@@ -85,17 +87,13 @@ final class MacAccount: ObservableObject {
         media.reset()
         loginTask?.cancel()
         refreshTask?.cancel()
-        listTask?.cancel()
-        entries?.entriesStream().cancel()
-        entries = nil
+        roomList.reset()
         authHandle?.cancel()
         authHandle = nil
         sessionSaver?.deactivate()
         let oldSync = sync
         sync = nil
         client = nil
-        rooms = []
-        roomRows = []
         attempt = UUID()
         let current = attempt
         phase = .starting
@@ -292,33 +290,15 @@ final class MacAccount: ObservableObject {
         phase = .signedIn
         onReady?()
         Task { await refreshProfile() }
-        let service = sync.roomListService()
-        let list = try await service.allRooms()
-        let stream = RoomListEntriesStream()
-        let entries = list.entriesWithDynamicAdapters(pageSize: 100, listener: stream)
-        _ = entries.controller().setFilter(kind: .all(filters: [.joined, .nonSpace, .deduplicateVersions]))
-        self.entries = entries
-        listTask = Task {
-            for await updates in stream.updates {
-                guard !Task.isCancelled, attempt == current else { return }
-                for update in updates { rooms.apply(update.vectorDiff) }
-                var rows: [MacRoomSummary] = []
-                for room in rooms {
-                    guard let info = try? await room.roomInfo() else { continue }
-                    rows.append(MacRoomSummary(room: room, info: info, ownUserID: userId))
-                }
-                guard !Task.isCancelled, attempt == current else { return }
-                roomRows = rows
-                try? await service.subscribeToRooms(roomIds: rooms.map { $0.id() })
-            }
-        }
+        try await roomList.attach(client: client, service: sync.roomListService(), ownUserID: userId)
     }
 
-    func loadMoreRooms() { entries?.controller().addOnePage() }
+    func loadMoreRooms() { roomList.loadMore() }
 
     func refreshProfile() async {
         guard let client, phase == .signedIn else { return }
         let current = attempt
+        async let avatar = try? client.avatarUrl()
         if let name = try? await client.displayName(), attempt == current {
             BipeAccountLabels.remember(displayName: name, for: userId)
             displayName = BipeAccountLabels.label(for: userId)
@@ -334,6 +314,9 @@ final class MacAccount: ObservableObject {
             BipeHandleCache.store(handle: record.handle, for: userId)
             displayName = BipeAccountLabels.label(for: userId)
         }
+        let loadedAvatar = await avatar
+        guard attempt == current else { return }
+        avatarURL = loadedAvatar
     }
 
     /// Cancel a QR attempt without changing any other account's saved session.
@@ -353,17 +336,13 @@ final class MacAccount: ObservableObject {
         attempt = UUID()
         loginTask?.cancel()
         refreshTask?.cancel()
-        listTask?.cancel()
-        entries?.entriesStream().cancel()
-        entries = nil
+        roomList.reset()
         authHandle?.cancel()
         authHandle = nil
         sessionSaver?.deactivate()
         await sync?.stop()
         sync = nil
         client = nil
-        rooms = []
-        roomRows = []
         openID = nil
         do { try vault.clear(userID: userId); savedUserID = nil } catch { storageFailed = true }
     }

@@ -15,9 +15,25 @@ Started 6 November 2026. Tracking: [bipe#1018](https://github.com/bipe-chat/bipe
 
 The Mac holds multiple linked personal and company accounts. Each account keeps its own SDK client, sync and encrypted store. The first update copies the installed single-account Keychain record into an ordered account list without changing its device ID, tokens, store folder or encryption key. A failed migration preserves the old record. Refresh and revocation change only the affected account; linking an existing account twice cannot overwrite its working device.
 
-One sidebar holds Chats, Groups and You for personal accounts, or Chats, Work and You for company accounts. Company Chats includes groups. RoomInfo.isDm is the DM rule, including groups with two members. Local room-name search and the unread filter work in both lists. Account rows show names and handles; Matrix IDs stay internal. Company account avatars are rounded squares. The Work overview reads live today counts, tool states, catalog items and people. It does not infer an owner role or expose phone-authorized operations. Work editors, videos/files/voice, global search, notifications and calls remain in #1018. Windows follows the Mac evidence.
+Native SwiftUI tabs hold Chats, Groups and You for personal accounts, or Chats, Work and You for company accounts. The account photo opens the switcher at the upper left, as in the web toolbar; there is no account footer or extra navigation rail. Each mode keeps its own navigation state. Company Chats includes groups. RoomInfo.isDm is the DM rule, including groups with two members. Room-name search works in both lists. Unread status is shown with badges, without an Unread chip. Account rows show names and handles; Matrix IDs stay internal. Company account avatars are rounded squares. The Work overview reads live today counts, tool states, catalog items and people. It does not infer an owner role or expose phone-authorized operations. Work editors, videos/files/voice, global search, notifications and calls remain in #1018. Windows follows the Mac evidence.
 
-The app is named Bipe in Finder, the menu bar and About. It uses Bipe's generated icon, shared rounded typography, adaptive colors for light/dark/Increase Contrast, Phosphor glyphs and large native buttons. Desktop cards, message bubbles, account rows and the composer use the shared tokens.
+The app is named Bipe in Finder, the menu bar and About. It uses Bipe's generated icon, shared rounded typography, adaptive colors for light/dark/Increase Contrast, Phosphor glyphs and large native buttons. Desktop cards, message bubbles, account rows and the composer use the shared tokens. Rounded text follows the existing iOS/web type scale (body 17, subheadline 15, footnote 13), with accessibility scaling.
+
+Favourites use the synced m.favourite tag and BipeFavouritesOrder account data, a three-column avatar grid, and the existing per-scope reorder rules. A separate favourite stream finds rooms outside the first loaded page; joined, favourite and archived streams share one SDK subscription union. Favourites do not appear again in the list. The account menu, list, favourites and timeline header load avatar thumbnails through the SDK. A DM uses its peer's photo, never the room avatar. A group uses its own photo or up to three other members as a cluster, with the same geometry as iOS and web. Unknown/company/official avatar rules follow the existing clients. Rows show names, available previews/dates, unread/mention indicators and mute state.
+
+## Remaining parity gaps
+
+The Mac is still a preview. The 159-capability ledger includes partial implementations as planned until their full behavior and evidence exist.
+
+| Area | Still missing or incomplete | Tracking |
+| --- | --- | --- |
+| Desktop and account lifecycle | Complete settings/navigation destinations, account removal/sign-out, app lock, full key/recovery/device surfaces, theme controls, updater and notarized distribution; cross-device/offline/revocation acceptance | #1161, #1165 |
+| Conversations | Start chat and requests, full search, newest-DM selection/clearing, archive synchronization/actions, reply quotes, editing/deleting/forwarding, reactions, pins, receipts/ticks, profile/invite/Matrix routing, Mural and assistant drafts | #1162 |
+| Groups | Creation/details/membership, roles/moderation, group links/privacy, threads, polls and communities | #1163 |
+| Media | Videos/files/voice, gallery, captions after sending, full media settings/invite photos, stickers, location and share integrations | #1164 |
+| Identity and safety | Complete profiles, verification/attestation/marks, invites/contacts, account/device/privacy settings, support/report/export/delete flows and all safety surfaces | #1165 |
+| Work | The current screen is a read-only overview; operational tool screens/actions, roles/people/devices, catalog/order/quote/agenda/queue/payment editors remain. The inbox/key-model merge retains #1066 as its own prerequisite | #1166 |
+| Desktop attention | Calls, notifications, badges/notification sender photos and work focus/time behavior | #1167 |
 
 Text replies use the SDK's reply relation. Composer text and reply targets live in the room's encrypted SDK store. Each account has an ordered draft-write queue, so reopening a room waits for edits from its dismissed view. Visible conversations send read receipts only while Bipe is active. The privacy switch keeps DM receipts private when off; group receipts keep the shared public-receipt rule.
 

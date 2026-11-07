@@ -6,7 +6,7 @@
 // to VoiceOver and TalkBack. A static check of the source; nothing runs on a simulator or a device.
 // Usage: node tools/a11y.mjs [repo-root]
 //
-// Swift (ios/):
+// Swift (ios/, macos/):
 // - icon-only: a Button, Menu, NavigationLink, ShareLink or Link whose label shows an icon
 //   (PhosphorIcon, .image, Image, AvatarView) and no Text or Label, with no title argument, needs
 //   .accessibilityLabel(...) on the control or on its label (or .accessibilityHidden(true)).
@@ -168,7 +168,7 @@ export function callExtent(text, start, nameLength, { chain = false } = {}) {
 
 const lineOf = (text, index) => text.slice(0, index).split('\n').length;
 
-const SWIFT_ICON = /PhosphorIcon\.|\.image\b|\bImage\(|\bAvatarView\(/;
+const SWIFT_ICON = /PhosphorIcon\.|\.image\b|\bImage\(|\bAvatarView\(|\bMac(?:Avatar|AnimatedImage)\(/;
 // Text, Label and the Bipe views whose name ends in Text or Label (IconLabel, SettingsRowLabel, MessageText).
 const SWIFT_TEXT = /(?:Text|Label)\(/;
 const SWIFT_LABELLED = /\.accessibilityLabel\(|\.accessibilityHidden\(\s*true\s*\)/;
@@ -304,7 +304,7 @@ const ADVICE = {
 };
 
 export function checkA11y(root) {
-  const files = sourceFiles(root).filter((f) => f.startsWith('ios/') || f.startsWith('android/'));
+  const files = sourceFiles(root).filter((f) => /^(ios|android|macos)\//.test(f));
   const errors = [];
   for (const file of files) {
     const source = readFileSync(join(root, file), 'utf8');

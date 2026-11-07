@@ -5,10 +5,10 @@
 name: macos
 on:
   pull_request:
-    paths: ["macos/**", "ios/BipeKit/**", "ios/Bipe/Common/Listeners.swift", "ios/Bipe/Common/ButtonSize.swift", "ios/Phosphor/**", "ios/Package.resolved", "sdk-version", ".github/workflows/macos.yml"]
+    paths: ["macos/**", "ios/BipeKit/**", "ios/Bipe/Common/Listeners.swift", "ios/Bipe/Common/ButtonSize.swift", "ios/Bipe/Common/BipeMark.swift", "ios/Bipe/Common/ServerAccountData.swift", "ios/Bipe/Common/TapTarget.swift", "ios/Phosphor/**", "ios/Package.resolved", "sdk-version", ".github/workflows/macos.yml"]
   push:
     branches: [main]
-    paths: ["macos/**", "ios/BipeKit/**", "ios/Bipe/Common/Listeners.swift", "ios/Bipe/Common/ButtonSize.swift", "ios/Phosphor/**", "ios/Package.resolved", "sdk-version", ".github/workflows/macos.yml"]
+    paths: ["macos/**", "ios/BipeKit/**", "ios/Bipe/Common/Listeners.swift", "ios/Bipe/Common/ButtonSize.swift", "ios/Bipe/Common/BipeMark.swift", "ios/Bipe/Common/ServerAccountData.swift", "ios/Bipe/Common/TapTarget.swift", "ios/Phosphor/**", "ios/Package.resolved", "sdk-version", ".github/workflows/macos.yml"]
 permissions:
   contents: read
 concurrency:
