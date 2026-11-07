@@ -10,6 +10,7 @@ import UniformTypeIdentifiers
 
 @main
 struct BipeMacApp: App {
+    @NSApplicationDelegateAdaptor(MacAppDelegate.self) private var appDelegate
     @StateObject private var workspace = MacWorkspace()
     @AppStorage(BipeSettingsRow.chatsAppearance.rawValue) private var appearance = "system"
 
@@ -19,7 +20,7 @@ struct BipeMacApp: App {
     }
 
     var body: some Scene {
-        WindowGroup {
+        WindowGroup(id: MacAppDelegate.mainWindowID) {
             MacRootView(workspace: workspace)
                 .frame(minWidth: 820, minHeight: 600)
                 .preferredColorScheme(appearance == "light" ? .light : appearance == "dark" ? .dark : nil)
@@ -44,6 +45,7 @@ struct BipeMacApp: App {
 
 struct MacRootView: View {
     @ObservedObject var workspace: MacWorkspace
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         Group {
@@ -74,6 +76,7 @@ struct MacRootView: View {
                 }.frame(width: 820, height: 580).interactiveDismissDisabled()
             }
         }
+        .onAppear { workspace.reopenWindow = { openWindow(id: MacAppDelegate.mainWindowID) } }
     }
 }
 

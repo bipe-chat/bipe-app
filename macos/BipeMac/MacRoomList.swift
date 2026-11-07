@@ -26,6 +26,7 @@ final class MacRoomList: ObservableObject {
     private var orderReadTask: Task<Void, Never>?
     private var rooms: [[Room]] = [[], [], []]
     private(set) var subscriptions: BipeRoomSubscriptions?
+    var onRows: (([MacRoomSummary]) -> Void)?
     private var known: [String: BipeRowActivity.Row] = [:]
     private var pendingFavourite: [String: Bool] = [:]
     private var orderUnsaved = false
@@ -81,6 +82,7 @@ final class MacRoomList: ObservableObject {
         rooms = [[], [], []]; rows = []; known = [:]; pendingFavourite = [:]
         loaded = false; failed = false; actionFailed = false; busy = []
         favouritesOrder = []; orderUnsaved = false
+        onRows?([])
     }
 
     func loadMore() { entries.forEach { $0.controller().addOnePage() } }
@@ -190,6 +192,7 @@ final class MacRoomList: ObservableObject {
             let visible = await MacDmSelection.visible(rows, client: client)
             guard !Task.isCancelled, self.generation == generation else { return }
             self.rows = visible
+            self.onRows?(visible)
             await self.subscriptions?.update(owner: "lists", roomIDs: combined.map { $0.id() })
         }
     }

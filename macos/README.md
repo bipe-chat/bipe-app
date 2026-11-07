@@ -47,6 +47,8 @@ Images use SDK-authenticated encrypted media retrieval, with account-scoped memo
 
 Chat requests follow the chat-requests and chat-request specs: the Pedidos row, the box, and accept, decline, decline and block, and report. Accepting writes the room to `chat.bipe.request_rooms`, so its images wait for a tap on every device. Invites from an official account or an invite pair join by themselves. Photos stay hidden until the account's invite avatar setting allows them. The Mac has no address book, so contacts here are joined DMs, and the saved-name check of chat-request does not apply. The pencil in the sidebar starts a DM by @. The DM list shows one row per person through the same ADR 0141 rule as the phones.
 
+Notifications follow the Mac rule in the notification-service spec. While the app runs and the Mac is awake, sync drives local notifications with the room's mode. An open chat in the key window has none. After quit or during sleep nothing shows, because the Mac has no push. After wake each room with new messages shows one notification. The Dock badge adds the tab counts of every account. A click opens the right account and chat. A preview build has an ad hoc signature, and macOS can refuse its notifications; the Dock badge does not depend on them.
+
 QR codes use one binary byte segment, as the web does, so released phone scanners can read them. Apple's Core Image encoder mixed an alphanumeric MATRIX header with byte segments; the released iPhone scanner ignored that result. The native MIT-licensed Nayuki encoder is vendored unchanged, with source hashes and its notice in macos/QRCode. The regression test decodes the final bitmap with the released phone's byte-only rules. No phone update is needed for this compatibility fix.
 
 ## CI evidence

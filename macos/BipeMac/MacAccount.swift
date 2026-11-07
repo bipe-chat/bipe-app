@@ -31,6 +31,8 @@ final class MacAccount: ObservableObject {
     let roomList = MacRoomList()
     var roomRows: [MacRoomSummary] { roomList.rows }
     @Published var destination = MacDestination.chats
+    /// The requests box replaces the chat list in the sidebar. A notification can open it.
+    @Published var showingRequests = false
     @Published private(set) var avatarURL: String?
     private var listChanges: AnyCancellable?
     private var requestChanges: AnyCancellable?
@@ -334,6 +336,12 @@ final class MacAccount: ObservableObject {
     }
 
     func loadMoreRooms() { roomList.loadMore() }
+
+    /// After wake the sync service may have stopped. Starting a running service changes nothing.
+    func resumeSync() {
+        guard let sync else { return }
+        Task { await sync.start() }
+    }
 
     func refreshProfile() async {
         guard let client, phase == .signedIn else { return }
