@@ -1793,7 +1793,7 @@
  },
  "settings": {
   "version": 1,
-  "$comment": "Settings structure (ADR 0112 in bipe/docs/adr). One source for the order of groups, sections and rows on iOS and Android. `root` is the order of the group rows under Configurações in the Você tab; `profile` opens from the Você header; since 3 Nov 2026 it is one screen (product/screens/profile-edit) and lists no rows here. `icon` is the Phosphor icon (bipe-app tools/phosphor.json) of a root group row: a glyph in ink.onAccent on an accent.fill tile, as in the iPhone Settings app. A group with `screen: \"element\"` keeps the Element screen and lists no rows here. Row kinds: link (opens a screen), choice (opens a picker), switch, info (a value, no action), url (opens a page from `urls`), action (runs something), destructive. `gate`: absent = always shown; `ios` or `android` = that platform only; `flag:<name>` = behind that app feature flag; `planned:<issue>` = hidden until bipe-chat/bipe#<issue> ships. Titles are bipe_* string keys; a row without its own string has no place here. A new top-level group needs a new ADR.",
+  "$comment": "Settings structure (ADR 0112 in bipe/docs/adr). One source for the order of groups, sections and rows on iOS and Android. `root` is the order of the group rows under Configurações in the Você tab; `profile` opens from the Você header; since 3 Nov 2026 it is one screen (product/screens/profile-edit) and lists no rows here. `icon` is the Phosphor icon (bipe-app tools/phosphor.json) of a root group row: a glyph in ink.onAccent on an accent.fill tile, as in the iPhone Settings app. A group with `screen: \"element\"` keeps the Element screen and lists no rows here. `scope` says where a setting lives (bipe-chat/bipe#1161): account (every device of the account reads it), device (each device keeps its own), platform (only some clients have it). Every switch and choice row has one. Row kinds: link (opens a screen), choice (opens a picker), switch, info (a value, no action), url (opens a page from `urls`), action (runs something), destructive. `gate`: absent = always shown; `ios` or `android` = that platform only; `flag:<name>` = behind that app feature flag; `planned:<issue>` = hidden until bipe-chat/bipe#<issue> ships. Titles are bipe_* string keys; a row without its own string has no place here. A new top-level group needs a new ADR.",
   "root": [
    "privacy",
    "account",
@@ -1852,12 +1852,14 @@
       "rows": [
        {
         "key": "messaging",
+        "scope": "account",
         "title": "bipe_settings_messaging",
         "kind": "choice",
         "adr": "0016"
        },
        {
         "key": "requestPhotos",
+        "scope": "account",
         "title": "bipe_privacy_requests_hide_photos",
         "footer": "bipe_privacy_requests_hide_photos_footer",
         "kind": "switch"
@@ -1881,6 +1883,7 @@
        },
        {
         "key": "discovery",
+        "scope": "account",
         "title": "bipe_settings_discovery",
         "footer": "bipe_discovery_footer",
         "kind": "switch",
@@ -1900,6 +1903,7 @@
       "rows": [
        {
         "key": "presence",
+        "scope": "device",
         "title": "bipe_privacy_presence",
         "footer": "bipe_privacy_presence_footer",
         "kind": "switch",
@@ -1907,6 +1911,7 @@
        },
        {
         "key": "readReceipts",
+        "scope": "account",
         "title": "bipe_privacy_read_receipts",
         "footer": "bipe_privacy_read_receipts_footer",
         "kind": "switch",
@@ -1947,6 +1952,7 @@
       "rows": [
        {
         "key": "assistantSend",
+        "scope": "account",
         "title": "bipe_privacy_assistant_send",
         "footer": "bipe_privacy_assistant_send_footer",
         "kind": "switch",
@@ -2011,12 +2017,14 @@
        },
        {
         "key": "appLock",
+        "scope": "device",
         "title": "bipe_account_app_lock",
         "kind": "switch",
         "adr": "0137"
        },
        {
         "key": "biometricUnlock",
+        "scope": "device",
         "title": "bipe_account_biometric_unlock",
         "kind": "switch",
         "adr": "0057"
@@ -2084,22 +2092,26 @@
       "rows": [
        {
         "key": "appearance",
+        "scope": "device",
         "title": "bipe_chats_theme",
         "kind": "choice"
        },
        {
         "key": "colors",
+        "scope": "account",
         "title": "bipe_chats_colors",
         "footer": "bipe_chats_colors_footer",
         "kind": "link"
        },
        {
         "key": "accessibility",
+        "scope": "device",
         "title": "bipe_chats_accessibility",
         "kind": "link"
        },
        {
         "key": "language",
+        "scope": "platform",
         "title": "bipe_settings_language",
         "footer": "bipe_settings_language_footer",
         "kind": "action",
@@ -2113,16 +2125,19 @@
       "rows": [
        {
         "key": "showMedia",
+        "scope": "account",
         "title": "bipe_chats_show_media",
         "kind": "choice"
        },
        {
         "key": "mediaQuality",
+        "scope": "device",
         "title": "bipe_chats_media_quality",
         "kind": "link"
        },
        {
         "key": "dataUse",
+        "scope": "device",
         "title": "bipe_chats_data_use",
         "kind": "link"
        }
@@ -2133,6 +2148,7 @@
       "rows": [
        {
         "key": "mural",
+        "scope": "account",
         "title": "bipe_chats_mural",
         "footer": "bipe_chats_mural_footer",
         "kind": "switch",
@@ -2140,6 +2156,7 @@
        },
        {
         "key": "stickerSuggestions",
+        "scope": "device",
         "title": "bipe_chats_sticker_suggestions",
         "footer": "bipe_chats_sticker_suggestions_footer",
         "kind": "switch",
@@ -2147,6 +2164,7 @@
        },
        {
         "key": "liveLocation",
+        "scope": "device",
         "title": "bipe_chats_live_location",
         "footer": "bipe_chats_live_location_footer",
         "kind": "link"
@@ -2850,6 +2868,17 @@
   "version": 1,
   "eventType": "chat.bipe.request_rooms",
   "max": 500
+ },
+ "syncedSettings": {
+  "$comment": "Settings that follow the account (bipe-chat/bipe#1161). The global account data event below holds { \"readReceipts\": bool, \"palette\": id, \"chatBackground\": id, \"mural\": bool }. A device keeps a copy, and the copy of the current account applies to the whole app. Reference: syncedSettingsReconcile in tools/lib/registries.mjs. At a device's first read for an account, a value only the device has goes to the account, and readReceipts takes the more private value: off wins. After that the account's value wins, except a value the person changed on this device that has not reached the server yet. A write reads the server copy and keeps every other key, including keys this client does not know. A malformed event counts as empty.",
+  "version": 1,
+  "eventType": "chat.bipe.settings",
+  "keys": [
+   "readReceipts",
+   "palette",
+   "chatBackground",
+   "mural"
+  ]
  },
  "imageDescriptions": {
   "$comment": "Image descriptions (alt text, bipe-chat/bipe#501). The sender writes an optional description of a photo in upload-preview. It travels in the content of the m.image event as the top-level string field below, next to body and filename, inside the encrypted event. Readers take it only from an m.image event: a non-string or blank value counts as none, and text after maxLength characters is dropped. VoiceOver and TalkBack read it before the caption (timeline-media, media-viewer). Matrix has no stable alt-text field yet; when one lands, apps send both and read the stable one first.",

@@ -464,6 +464,7 @@ function validate(reg, phosphor) {
   if (!Number.isSafeInteger(reg.chatFavourites.orderMax) || reg.chatFavourites.orderMax < 1) fail("chat-favourites: orderMax must be a positive integer");
   if (reg.requestRooms.version !== 1 || reg.requestRooms.eventType !== "chat.bipe.request_rooms") fail("request-rooms: eventType must be chat.bipe.request_rooms");
   if (!Number.isSafeInteger(reg.requestRooms.max) || reg.requestRooms.max < 1) fail("request-rooms: max must be a positive integer");
+  if (reg.syncedSettings.version !== 1 || reg.syncedSettings.eventType !== "chat.bipe.settings") fail("synced-settings: eventType must be chat.bipe.settings");
   validateHomeScore(reg.homeScore);
   const du = reg.dataUse;
   if (!Number.isInteger(du.budgetMegabytesPerDay) || du.budgetMegabytesPerDay < 1 || typeof du.dataSaverDefault !== "boolean") fail("data-use: budgetMegabytesPerDay must be a positive integer and dataSaverDefault a boolean");
@@ -1200,6 +1201,23 @@ export function remoteBannerProblem(banner, now) {
   if (typeof banner.expires_at !== "string" || Number.isNaN(Date.parse(banner.expires_at))) return "expires_at";
   if (Date.parse(banner.expires_at) <= Date.parse(now)) return "expires_at";
   return null;
+}
+
+// --- Settings that follow the account (bipe-chat/bipe#1161; registries/synced-settings.json) ---
+
+/**
+ * The account's settings after one device reads them. `server`: the event content. `local`: the values this device
+ * has, explicit values only. `pending`: keys the person changed here that have not reached the server. `first`: this
+ * device has never read the event for this account. Other keys stay. Swift and Kotlin ports: BipeSyncedSettings.
+ */
+export function syncedSettingsReconcile(server, local, pending, first) {
+  const result = { ...server };
+  if (first) {
+    for (const [key, value] of Object.entries(local)) if (!(key in result)) result[key] = value;
+    if (local.readReceipts === false) result.readReceipts = false;
+  }
+  for (const key of pending) if (key in local) result[key] = local[key];
+  return result;
 }
 
 // --- Cleared DMs (bipe-chat/bipe#464; registries/cleared-chats.json) ---------
