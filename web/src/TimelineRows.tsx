@@ -59,6 +59,7 @@ import { mediaOf, TimelineMediaRow, type MediaInfo } from './TimelineMedia';
 import { dayText, s, timeText } from './ui/i18n';
 import { Icon } from './ui/Icon';
 import { OfficialBadge } from './ui/List';
+import { ROLE_BADGE, senderLabel, type SenderFacts } from './sender-facts';
 
 type Body = 'text' | 'media' | 'sticker' | 'poll' | 'location' | 'deleted' | 'undecryptable' | 'other';
 export type Send = 'sending' | 'failed' | 'sent' | 'read';
@@ -73,6 +74,8 @@ export type MessageRow = {
   key: string;
   who: string;
   whoId: string;
+  /** EventTimelineItem.senderProfile displayNameAmbiguous (spec timeline-rows). */
+  whoAmbiguous: boolean;
   own: boolean;
   at: number;
   body: Body;
@@ -122,8 +125,11 @@ export function withoutEmptyDays(rows: Row[]): Row[] {
   });
 }
 
+/** The display name, or bipe_person_no_name. Never the Matrix ID or its localpart (People names). */
 function nameOf(profile: ProfileDetails, userId: string): string {
-  return ProfileDetails.Ready.instanceOf(profile) ? (profile.inner.displayName ?? userId) : userId;
+  const name = ProfileDetails.Ready.instanceOf(profile) ? profile.inner.displayName?.trim() : undefined;
+  const hidden = !name || name === userId || name === userId.slice(1).split(':')[0] || /^@[^\s:]+:\S+$/.test(name);
+  return hidden ? s('bipe_person_no_name') : name;
 }
 
 // Rows are made once per SDK item: the timeline hands over a new item when it changes.
@@ -243,6 +249,7 @@ function makeRow(item: TimelineItem, ownUserId: string): Row | undefined {
     key,
     who,
     whoId: event.sender,
+    whoAmbiguous: ProfileDetails.Ready.instanceOf(event.senderProfile) && event.senderProfile.inner.displayNameAmbiguous,
     own: event.isOwn,
     at: Number(event.timestamp),
     body,
@@ -314,7 +321,19 @@ export type RowHandlers = {
   cancelUpload: (row: MessageRow) => void;
 };
 
-export function TimelineRowView({ row, isDm, dmPeerId, on }: { row: Row; isDm: boolean; dmPeerId?: string; on: RowHandlers }) {
+export function TimelineRowView({
+  row,
+  isDm,
+  dmPeerId,
+  senders,
+  on,
+}: {
+  row: Row;
+  isDm: boolean;
+  dmPeerId?: string;
+  senders: SenderFacts;
+  on: RowHandlers;
+}) {
   switch (row.kind) {
     case 'day':
       return (
@@ -337,13 +356,26 @@ export function TimelineRowView({ row, isDm, dmPeerId, on }: { row: Row; isDm: b
         </li>
       );
     case 'message':
-      return <MessageBubble row={row} isDm={isDm} dmPeerId={dmPeerId} on={on} />;
+      return <MessageBubble row={row} isDm={isDm} dmPeerId={dmPeerId} senders={senders} on={on} />;
   }
 }
 
-function MessageBubble({ row, isDm, dmPeerId, on }: { row: MessageRow; isDm: boolean; dmPeerId?: string; on: RowHandlers }) {
+function MessageBubble({
+  row,
+  isDm,
+  dmPeerId,
+  senders,
+  on,
+}: {
+  row: MessageRow;
+  isDm: boolean;
+  dmPeerId?: string;
+  senders: SenderFacts;
+  on: RowHandlers;
+}) {
   // Only the one other person of a DM goes without a name. A room flagged direct can hold messages from people who left.
   const showsSender = !isDm || dmPeerId === undefined || row.whoId !== dmPeerId || row.body === 'undecryptable';
+  const role = isDm ? undefined : senders.roles.get(row.whoId);
   const actions: MessageAction[] = [];
   if (row.canReply)
     actions.push({ label: s('bipe_app_message_action_reply'), icon: arrowBendUpLeft, run: () => on.reply(row) });
@@ -391,7 +423,8 @@ function MessageBubble({ row, isDm, dmPeerId, on }: { row: MessageRow; isDm: boo
         <span
           className={`flex items-center gap-1 text-caption font-bold ${row.body === 'undecryptable' ? 'text-ink-secondary' : 'text-accent-ink'}`}
         >
-          {row.who}
+          {isDm ? row.who : senderLabel(row.who, row.whoId, row.whoAmbiguous, senders)}
+          {role && <span className="text-accent-ink">· {s(ROLE_BADGE[role])}</span>}
           {isOfficial(row.whoId) && <OfficialBadge />}
         </span>
       )}

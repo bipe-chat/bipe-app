@@ -12,6 +12,11 @@ import UniformTypeIdentifiers
 struct MacMessage: Identifiable {
     let id: String
     let sender: String
+    let senderID: String
+    /// Spec timeline-rows nameAmbiguous: another member of the group shows the same name.
+    let senderNameAmbiguous: Bool
+    /// Spec chat-timeline senderRole: admin or moderator, groups only.
+    let senderRole: GroupRole?
     let body: String
     let richText: BipeMessageText
     let photo: MacPhoto?
@@ -78,6 +83,9 @@ final class MacTimeline: ObservableObject {
     private var moneyPause = BipeMoneyPause()
     private var attachmentSend: SendAttachmentJoinHandle?
     private var attachmentCancelled = false
+    private var lookalikeSenders: Set<String> = []
+    private var senderRoles: [String: GroupRole] = [:]
+    private var knownMemberCount: UInt64?
 
     init(drafts: MacDrafts) { self.drafts = drafts }
 
@@ -130,6 +138,30 @@ final class MacTimeline: ObservableObject {
         isDm = info.isDm
         dmPeerID = info.isDm ? info.heroes.first(where: { $0.userId != room.ownUserId() })?.userId : nil
         isPrivateRoom = info.isDm || info.isPublic == false
+        await readSenderFacts(room, info: info)
+    }
+
+    /// The roles (spec chat-timeline senderRole) and the look-alike names (spec timeline-rows nameAmbiguous) of a group.
+    /// The roles follow each update. The names change with the members, so a read of the list waits for a new count.
+    private func readSenderFacts(_ room: Room, info: RoomInfo) async {
+        guard !info.isDm else {
+            senderRoles = [:]
+            lookalikeSenders = []
+            knownMemberCount = nil
+            return
+        }
+        if let levels = try? await room.getPowerLevels() {
+            senderRoles = GroupRole.staff(levels: levels.userPowerLevels(), creators: info.creators ?? [])
+        }
+        guard knownMemberCount != info.joinedMembersCount, let iterator = try? await room.membersNoSync() else { return }
+        var names: [String: String] = [:]
+        while let chunk = iterator.nextChunk(chunkSize: 200), !chunk.isEmpty {
+            for member in chunk where member.membership == .join {
+                names[member.userId] = BipeChatRowName.person(userID: member.userId, displayName: member.displayName, handle: nil)
+            }
+        }
+        lookalikeSenders = MemberNames.ambiguous(names)
+        knownMemberCount = info.joinedMembersCount
     }
 
     func loadHistory() async {
@@ -404,7 +436,12 @@ final class MacTimeline: ObservableObject {
             }
             let eventID: String?
             if case .eventId(let id) = event.eventOrTransactionId { eventID = id } else { eventID = nil }
-            return MacMessage(id: item.uniqueId().id, sender: sender, body: payload.body,
+            let inGroup = !event.isOwn && !isDm
+            var sdkAmbiguous = false
+            if case .ready(_, let ambiguous, _, _, _) = event.senderProfile { sdkAmbiguous = ambiguous }
+            return MacMessage(id: item.uniqueId().id, sender: sender, senderID: event.sender,
+                              senderNameAmbiguous: inGroup && (sdkAmbiguous || lookalikeSenders.contains(event.sender)),
+                              senderRole: inGroup ? senderRoles[event.sender] : nil, body: payload.body,
                               richText: payload.richText, photo: payload.photo, isEmote: payload.isEmote,
                               timestamp: Date(timeIntervalSince1970: Double(event.timestamp) / 1000),
                               isOwn: event.isOwn, showsSender: !isDm || dmPeerID == nil || event.sender != dmPeerID,

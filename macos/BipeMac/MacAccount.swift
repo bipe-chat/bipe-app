@@ -49,6 +49,9 @@ final class MacAccount: ObservableObject {
     private let vault: MacSessionVault
     private var savedUserID: String?
     private var openID: BipeOpenIDTokens?
+    /// The session's @ lookup and verified seals, for the sender line of a group row.
+    @Published private(set) var handles: BipeHandleResolver?
+    @Published private(set) var seals: BipeCompanySeals?
     var onReady: (() -> Void)?
     var onAlreadyLinked: ((String) -> Void)?
     private var loginTask: Task<Void, Never>?
@@ -271,8 +274,14 @@ final class MacAccount: ObservableObject {
         displayName = BipeAccountLabels.label(for: userId)
         handle = BipeHandleCache.handle(for: userId)
         isCompany = BipeAccountLabels.isCompany(userId)
-        openID = BipeOpenIDTokens(homeserverURL: try client.session().homeserverUrl, userID: userId) { [weak self] in
+        let tokens = BipeOpenIDTokens(homeserverURL: try client.session().homeserverUrl, userID: userId) { [weak self] in
             try? self?.client?.session().accessToken
+        }
+        openID = tokens
+        handles = BipeHandleResolver(apiClient: api, openID: tokens)
+        // The account's cross-signing master key from the SDK (UserIdentity.masterKey) binds a badge.
+        seals = BipeCompanySeals(apiClient: api, sessionUserID: userId) { [weak self] userId in
+            try await self?.client?.encryption().userIdentity(userId: userId, fallbackToServer: true)?.masterKey()
         }
         let delegate = MacAuthDelegate { [weak self] in
             Task { @MainActor in
@@ -345,6 +354,8 @@ final class MacAccount: ObservableObject {
         sync = nil
         client = nil
         openID = nil
+        handles = nil
+        seals = nil
         do { try vault.clear(userID: userId); savedUserID = nil } catch { storageFailed = true }
     }
 }

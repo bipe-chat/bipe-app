@@ -83,6 +83,8 @@ struct MacConversationsView: View {
             if let row = list.rows.first(where: { $0.id == selected }) {
                 MacChatView(room: row.room, name: row.name, drafts: account.drafts, media: account.media, face: row.avatar,
                             forwardTargets: list.rows, opensPhotoPicker: photoPickerRoom == row.id).id(row.id)
+                    .environment(\.bipeHandles, account.handles)
+                    .environment(\.bipeCompanySeals, account.seals)
             } else {
                 Text(scope.title).macFont(.largeTitle).foregroundStyle(BipeColor.inkSecondary)
                     .frame(maxWidth: .infinity, maxHeight: .infinity).background(BipeColor.surfaceBase)
