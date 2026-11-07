@@ -205,6 +205,14 @@ struct MacChatView: View {
         .navigationTitle(name)
         .background(BipeColor.surfaceBase)
         .task { await model.run(room: room) }
+        .dropDestination(for: URL.self) { urls, _ in
+            guard let url = urls.first, url.isFileURL, model.ready, !model.preparing, !model.sending else { return false }
+            Task { await model.prepareImage(url) }
+            return true
+        }
+        .onPasteCommand(of: [.image]) { providers in
+            if model.ready, let provider = providers.first { model.pasteImage(provider) }
+        }
         .fileImporter(isPresented: $pickingImage, allowedContentTypes: [.image]) { result in
             if case .success(let url) = result { Task { await model.prepareImage(url) } }
         }

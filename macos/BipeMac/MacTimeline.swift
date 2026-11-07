@@ -7,6 +7,7 @@ import BipeKit
 import Combine
 import Foundation
 import MatrixRustSDK
+import UniformTypeIdentifiers
 
 struct MacMessage: Identifiable {
     let id: String
@@ -121,6 +122,27 @@ final class MacTimeline: ObservableObject {
 
     func cancelReply() { replyID = nil }
 
+    func pasteImage(_ provider: NSItemProvider) {
+        guard !preparing, !sending, let type = provider.registeredTypeIdentifiers.first(where: {
+            UTType($0)?.conforms(to: .image) == true
+        }) else { return }
+        provider.loadDataRepresentation(forTypeIdentifier: type) { [weak self] data, _ in
+            Task { @MainActor in
+                guard let self else { return }
+                guard let data else { self.uploadError = BipeStrings.appUploadFailed; return }
+                let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+                do {
+                    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true,
+                                                           attributes: [.posixPermissions: 0o700])
+                    defer { try? FileManager.default.removeItem(at: folder) }
+                    let url = folder.appendingPathComponent("image")
+                    try data.write(to: url, options: .atomic)
+                    await self.prepareImage(url)
+                } catch { self.uploadError = BipeStrings.appUploadFailed }
+            }
+        }
+    }
+
     func prepareImage(_ url: URL) async {
         guard !preparing, !sending else { return }
         preparing = true
@@ -220,7 +242,7 @@ final class MacTimeline: ObservableObject {
                               richText: payload.richText, photo: payload.photo, isEmote: payload.isEmote,
                               timestamp: Date(timeIntervalSince1970: Double(event.timestamp) / 1000),
                               isOwn: event.isOwn, pending: pending, failed: failed,
-                              warning: event.isOwn ? nil : ScamDetector.warningKind(for: payload.richText.safetyText, eventID: item.uniqueId().id),
+                              warning: event.isOwn ? nil : ScamDetector.warningKind(for: payload.body + "\n" + payload.richText.safetyText, eventID: item.uniqueId().id),
                               eventID: eventID, canReply: event.canBeRepliedTo)
         }
     }

@@ -114,8 +114,8 @@ struct MacMessageView: View {
             Button(BipeStrings.appCopy) {
                 guard pauseSecondsLeft(.now) == 0 else { return }
                 NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(message.richText.text, forType: .string)
-            }.disabled(secondsLeft > 0 || message.richText.text.isEmpty)
+                NSPasteboard.general.setString(message.body, forType: .string)
+            }.disabled(secondsLeft > 0 || message.body.isEmpty)
         }
         .accessibilityAction(named: BipeStrings.appMessageActionReply) { onReply() }
     }
