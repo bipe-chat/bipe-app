@@ -11,6 +11,7 @@ import UniformTypeIdentifiers
 @main
 struct BipeMacApp: App {
     @StateObject private var workspace = MacWorkspace()
+    @AppStorage(BipeSettingsRow.chatsAppearance.rawValue) private var appearance = "system"
 
     init() {
         MacLocalCache.clean()
@@ -21,6 +22,10 @@ struct BipeMacApp: App {
         WindowGroup {
             MacRootView(workspace: workspace)
                 .frame(minWidth: 820, minHeight: 600)
+                .preferredColorScheme(appearance == "light" ? .light : appearance == "dark" ? .dark : nil)
+                .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+                    SyncedSettings.refresh()
+                }
                 .macFont(.body)
                 .tint(BipeColor.accentFill)
                 .foregroundStyle(BipeColor.inkPrimary)

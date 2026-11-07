@@ -62,6 +62,8 @@ final class MediaPreviewSync {
         let client = session.client
         self.client = client
         Task { await RequestRooms.sync(client: client) }
+        let userId = session.userId
+        Task { @MainActor in SyncedSettings.attach(client: client, userId: userId) }
         let stream = MediaPreviewConfigStream()
         task = Task { [weak self] in
             let handle = try? await client.subscribeToMediaPreviewConfig(listener: stream)

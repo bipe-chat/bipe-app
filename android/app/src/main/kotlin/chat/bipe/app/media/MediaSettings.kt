@@ -73,6 +73,7 @@ object MediaPreviewSync {
         val client = session.client
         this.client = client
         syncRequestRooms(appContext, client)
+        chat.bipe.app.common.SyncedSettings.attach(appContext, client, session.userId)
         job = scope.launch {
             val listener = object : MediaPreviewConfigListener {
                 override fun onChange(mediaPreviewConfig: MediaPreviewConfig?) {

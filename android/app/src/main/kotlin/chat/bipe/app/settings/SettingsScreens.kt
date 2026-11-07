@@ -508,6 +508,7 @@ fun SettingsGroupScreen(
                     BipeSettingsRow.PRIVACY_READ_RECEIPTS -> SettingsSwitchItem(title, footer, readReceipts) {
                         readReceipts = it
                         prefs.edit().putBoolean(SettingsKeys.READ_RECEIPTS, it).apply()
+                        chat.bipe.app.common.SyncedSettings.changed(context, chat.bipe.shared.BipeSyncedSettings.READ_RECEIPTS)
                     }
                     BipeSettingsRow.ACCOUNT_APP_LOCK -> SettingsSwitchItem(title, footer, lockOn) { isOn ->
                         if (isOn) {
@@ -568,6 +569,7 @@ fun SettingsGroupScreen(
                         val muralAccounts by setting.accounts.collectAsState()
                         SettingsSwitchItem(title, footer, isOn = model.session.userId in muralAccounts) { isOn ->
                             setting.set(model.session.userId, isOn)
+                            chat.bipe.app.common.SyncedSettings.changed(context, chat.bipe.shared.BipeSyncedSettings.MURAL)
                             view.bipeHaptic(BipeHaptic.Tick)
                         }
                     }

@@ -23,7 +23,7 @@ const listeners = new Set<() => void>();
 // Private windows can refuse storage; the choice then lasts for this page.
 const unsaved = new Map<string, boolean>();
 
-function readMural(userId: string): boolean {
+export function readMural(userId: string): boolean {
   const kept = unsaved.get(userId);
   if (kept !== undefined) return kept;
   try {

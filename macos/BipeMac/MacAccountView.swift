@@ -3,6 +3,7 @@
 // Copyright 2026 Bipe contributors
 
 import BipeKit
+import MatrixRustSDK
 import SwiftUI
 
 struct MacAccountView: View {
@@ -127,8 +128,6 @@ private struct MacAccountRow: View {
 
 private struct MacYouView: View {
     @ObservedObject var account: MacAccount
-    @AppStorage(MacReceiptPolicy.key) private var readReceipts = true
-    @AppStorage(BipeSettingsRow.chatsMediaQuality.rawValue) private var mediaQuality = "standard"
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -146,28 +145,84 @@ private struct MacYouView: View {
                             Button(BipeStrings.macRefresh) { Task { await account.refreshProfile() } }.buttonStyle(.bipeBordered)
                         }
                     }
-                    MacCard {
-                        NavigationLink { MacColorsView() } label: {
-                            HStack {
-                                Text(BipeSettingsRow.chatsColors.title)
-                                Spacer()
-                                Image(systemName: "chevron.right").accessibilityHidden(true)
-                            }.padding(.vertical, 8)
-                        }.buttonStyle(.plain)
-                    }
-                    MacCard {
-                        VStack(alignment: .leading, spacing: MacDesign.gap) {
-                            Text(BipeStrings.settingsPrivacy).macFont(.headline)
-                            Toggle(BipeStrings.privacyReadReceipts, isOn: $readReceipts)
-                            Text(BipeStrings.privacyReadReceiptsFooter).macFont(.callout).foregroundStyle(BipeColor.inkSecondary)
-                            Picker(BipeStrings.chatsMediaQuality, selection: $mediaQuality) {
-                                Text(BipeStrings.chatsMediaQualityStandard).tag("standard")
-                                Text(BipeStrings.chatsMediaQualityHigh).tag("high")
-                            }
-                        }
-                    }
+                    MacSettingsGroups(media: account.media)
                 }.padding(MacDesign.pageInset).frame(maxWidth: 800, alignment: .leading).frame(maxWidth: .infinity, alignment: .leading)
             }.background(BipeColor.surfaceBase)
+        }
+    }
+}
+
+/// The rows of registries/settings.json the Mac has, in the shared order. A row the Mac has no handler for stays hidden.
+private struct MacSettingsGroups: View {
+    @ObservedObject var media: MacMedia
+    @AppStorage(MacReceiptPolicy.key) private var readReceipts = true
+    @AppStorage(BipeSettingsRow.chatsMediaQuality.rawValue) private var mediaQuality = "standard"
+    @AppStorage(BipeSettingsRow.chatsAppearance.rawValue) private var appearance = "system"
+    private var language: String { Locale.current.language.languageCode?.identifier == "pt" ? "pt" : "en" }
+
+    private func hasHandler(_ row: BipeSettingsRow) -> Bool {
+        if row.kind == .url { return row.url(language: language) != nil }
+        switch row {
+        case .privacyReadReceipts, .chatsAppearance, .chatsColors, .chatsShowMedia, .chatsMediaQuality: return true
+        default: return false
+        }
+    }
+
+    var body: some View {
+        ForEach(BipeSettingsGroup.root, id: \.self) { group in
+            let sections = group.sections.compactMap { section -> (BipeSettingsSection, [BipeSettingsRow])? in
+                let rows = section.rows.filter(hasHandler)
+                return rows.isEmpty ? nil : (section, rows)
+            }
+            if !sections.isEmpty {
+                MacCard {
+                    VStack(alignment: .leading, spacing: MacDesign.gap) {
+                        Text(group.title).macFont(.headline)
+                        ForEach(sections, id: \.0.key) { section, rows in
+                            if let title = section.title { Text(title).macFont(.subheadline).foregroundStyle(BipeColor.inkSecondary) }
+                            ForEach(rows, id: \.self) { row($0) }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder private func row(_ row: BipeSettingsRow) -> some View {
+        switch row {
+        case .privacyReadReceipts:
+            Toggle(row.title, isOn: Binding(get: { readReceipts }, set: {
+                readReceipts = $0
+                SyncedSettings.changed(BipeSyncedSettings.readReceipts)
+            }))
+            if let footer = row.footer { Text(footer).macFont(.callout).foregroundStyle(BipeColor.inkSecondary) }
+        case .chatsAppearance:
+            Picker(row.title, selection: $appearance) {
+                Text(BipeStrings.chatsAppearanceSystem).tag("system")
+                Text(BipeStrings.chatsAppearanceLight).tag("light")
+                Text(BipeStrings.chatsAppearanceDark).tag("dark")
+            }
+        case .chatsColors:
+            NavigationLink { MacColorsView() } label: {
+                HStack {
+                    Text(row.title)
+                    Spacer()
+                    Image(systemName: "chevron.right").accessibilityHidden(true)
+                }.padding(.vertical, 8)
+            }.buttonStyle(.plain)
+        case .chatsShowMedia:
+            Picker(row.title, selection: Binding(get: { media.policy ?? .off }, set: { media.setPolicy($0) })) {
+                Text(BipeStrings.chatsShowMediaAlways).tag(MediaPreviews.on)
+                Text(BipeStrings.chatsShowMediaPrivate).tag(MediaPreviews.private)
+                Text(BipeStrings.chatsShowMediaNever).tag(MediaPreviews.off)
+            }.disabled(media.policy == nil)
+        case .chatsMediaQuality:
+            Picker(row.title, selection: $mediaQuality) {
+                Text(BipeStrings.chatsMediaQualityStandard).tag("standard")
+                Text(BipeStrings.chatsMediaQualityHigh).tag("high")
+            }
+        default:
+            if let url = row.url(language: language) { Link(row.title, destination: url) }
         }
     }
 }

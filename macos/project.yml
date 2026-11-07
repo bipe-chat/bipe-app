@@ -36,6 +36,7 @@ targets:
       - path: ../ios/Bipe/Common/ButtonSize.swift
       - path: ../ios/Bipe/Common/BipeMark.swift
       - path: ../ios/Bipe/Common/ServerAccountData.swift
+      - path: ../ios/Bipe/Common/SyncedSettings.swift
       - path: ../ios/Bipe/Common/BipeMessageLayouts.swift
       - path: ../ios/Bipe/Common/TapTarget.swift
       - path: ../ios/Bipe/Timeline/ChatBackgroundView.swift
