@@ -2526,6 +2526,14 @@ export const ptBR = {
   bipe_mac_accounts_title: "Contas neste Mac",
   bipe_mac_work_overview: "Resumo do trabalho",
   bipe_mac_refresh: "Atualizar",
+  bipe_mac_notifications_off: "Desligadas neste Mac",
+  bipe_mac_notifications_enable: "Ligar neste Mac",
+  bipe_mac_notifications_permission_body: "Você pode mudar isso nos Ajustes do Sistema.",
+  bipe_mac_account_change_on_phone: "Para mudar, use o Bipe no celular.",
+  bipe_mac_linked_devices_footer: "Para desconectar um aparelho, use o Bipe no celular.",
+  bipe_mac_sign_out_title: "Sair do Bipe neste Mac?",
+  bipe_mac_sign_out_body: "Para voltar, conecte este Mac de novo pelo celular.",
+  bipe_mac_sign_out_history: "Suas mensagens antigas estão só neste Mac. Sem a chave de recuperação, elas não voltam.",
 } as const;
 
 export type StringKey = keyof typeof ptBR;
@@ -5050,6 +5058,14 @@ export const en: Record<StringKey, string> = {
   bipe_mac_accounts_title: "Accounts on this Mac",
   bipe_mac_work_overview: "Work overview",
   bipe_mac_refresh: "Refresh",
+  bipe_mac_notifications_off: "Off on this Mac",
+  bipe_mac_notifications_enable: "Turn on for this Mac",
+  bipe_mac_notifications_permission_body: "You can change this in System Settings.",
+  bipe_mac_account_change_on_phone: "To change these, use Bipe on your phone.",
+  bipe_mac_linked_devices_footer: "To sign out a device, use Bipe on your phone.",
+  bipe_mac_sign_out_title: "Sign out of Bipe on this Mac?",
+  bipe_mac_sign_out_body: "To come back, link this Mac again from your phone.",
+  bipe_mac_sign_out_history: "Your old messages are only on this Mac. Without a recovery key, they don't come back.",
 };
 
 export type Locale = "pt-BR" | "en";
