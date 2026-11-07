@@ -9,7 +9,7 @@ import MatrixRustSDK
 /// The Mural setting (spec chat-list, settings-group row chats.mural): per account, on this device, default off. It does
 /// not sync and it is not in account data.
 enum MuralSetting {
-    static func key(userId: String) -> String { "bipe.chats.mural.\(userId)" }
+    static func key(userId: String) -> String { BipeSyncedSettings.muralDefaultsKey(userId: userId) }
 }
 
 /// One tile of the plan (spec chat-list, type MuralTile). The chat and its texts are read live, so they change in place.

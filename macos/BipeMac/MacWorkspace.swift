@@ -78,6 +78,7 @@ final class MacWorkspace: ObservableObject {
         guard accounts.contains(where: { $0 === account }) else { return }
         current = account
         defaults.set(account.userId, forKey: Self.selectionKey)
+        if let client = account.client { SyncedSettings.attach(client: client, userId: account.userId) }
     }
 
     func addAccount() {

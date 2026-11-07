@@ -88,6 +88,13 @@ final class MacMedia: ObservableObject {
         }
     }
 
+    /// Spec timeline-media showMedia: stored in the account (MSC4278).
+    func setPolicy(_ value: MediaPreviews) {
+        policy = value
+        guard let client else { return }
+        Task { try? await client.setMediaPreviewDisplayPolicy(policy: value) }
+    }
+
     func maxUploadSize() async -> UInt64? { try? await client?.getMaxMediaUploadSize() }
 
     func avatar(url: String?, userID: String?, size: Int) async -> NSImage? {

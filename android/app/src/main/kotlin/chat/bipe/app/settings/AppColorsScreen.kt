@@ -74,6 +74,7 @@ fun AppColorsScreen(onBack: () -> Unit) {
                 modifier = Modifier.selectable(selected = selected, role = Role.RadioButton, onClick = {
                     if (!selected) {
                         AppTheme.save(context, palette)
+                        chat.bipe.app.common.SyncedSettings.changed(context, chat.bipe.shared.BipeSyncedSettings.PALETTE)
                         view.bipeHaptic(BipeHaptic.Tick)
                     }
                 }),
@@ -109,6 +110,7 @@ fun AppColorsScreen(onBack: () -> Unit) {
                 modifier = Modifier.selectable(selected = selected, role = Role.RadioButton, onClick = {
                     if (!selected) {
                         AppTheme.saveChatBackground(context, background)
+                        chat.bipe.app.common.SyncedSettings.changed(context, chat.bipe.shared.BipeSyncedSettings.CHAT_BACKGROUND)
                         view.bipeHaptic(BipeHaptic.Tick)
                     }
                 }),

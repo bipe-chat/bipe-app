@@ -58,6 +58,7 @@ import { NavBar } from './ui/List';
 import { ChatOfficialBadge } from './ui/ChatOfficialBadge';
 import { RequestScreen, RequestsList, requesterOf } from './Requests';
 import { ClientContext } from './media';
+import { useSyncedSettings } from './settings-sync';
 import { useNotesRoomId } from './notes';
 import { Settings } from './Settings';
 import { businessClientFor } from './work/business-client';
@@ -85,6 +86,7 @@ type Detail =
   | { kind: 'newGroup' };
 
 export function Chats({ client }: { client: Client }) {
+  useSyncedSettings(client);
   const [rooms, setRooms] = useState<Room[]>([]);
   // The favourites stream: favourites beyond the loaded pages of the main list (ChatListModel tagStream).
   const [favouriteRooms, setFavouriteRooms] = useState<Room[]>([]);

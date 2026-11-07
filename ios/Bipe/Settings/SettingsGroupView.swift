@@ -210,7 +210,9 @@ struct SettingsGroupView: View {
             Toggle(isOn: $sharePresence) { SettingsRowLabel(title: row.title, footer: row.footer) }
         case .privacyReadReceipts:
             // Spec read-receipts readReceiptsEnabled (ADR 0222): DMs only; groups always send and show receipts.
-            Toggle(isOn: $readReceipts) { SettingsRowLabel(title: row.title, footer: row.footer) }
+            Toggle(isOn: Binding(get: { readReceipts }, set: { readReceipts = $0; SyncedSettings.changed(BipeSyncedSettings.readReceipts) })) {
+                SettingsRowLabel(title: row.title, footer: row.footer)
+            }
         case .privacyDiscovery:
             // Spec contacts notes: the switch needs a linked number; without one the row says bipe_phone_not_linked.
             Toggle(isOn: Binding(get: { model.discoverableByPhone ?? false }, set: { isOn in
@@ -332,7 +334,9 @@ struct SettingsGroupView: View {
                 SettingsRowLabel(title: row.title, value: Self.distanceLabel(LiveLocationRule.distance), footer: row.footer)
             }
         case .chatsMural:
-            Toggle(isOn: $muralEnabled) { SettingsRowLabel(title: row.title, footer: row.footer) }
+            Toggle(isOn: Binding(get: { muralEnabled }, set: { muralEnabled = $0; SyncedSettings.changed(BipeSyncedSettings.mural) })) {
+                SettingsRowLabel(title: row.title, footer: row.footer)
+            }
         case .chatsDataUse:
             NavigationLink {
                 DataUseView(session: model.session)

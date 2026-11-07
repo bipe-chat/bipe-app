@@ -12,6 +12,7 @@ import { Fragment, useEffect, useState } from 'react';
 import { PALETTES, BACKGROUNDS, useSetting, writeSetting, type Appearance } from './appearance';
 import { useClient } from './media';
 import { useMuralEnabled, writeMural } from './mural-plan';
+import { syncedSettingChanged } from './settings-sync';
 import { openNotes } from './notes';
 import { caretRight, chatCircle, bell, check, info, lockSimple, notepad, userCircle } from './phosphor/icons';
 import { Spinner } from './ui/Spinner';
@@ -91,6 +92,7 @@ function SwitchRow({ title, storageKey }: { title: string; storageKey: string })
         } catch {
           // Private windows can refuse storage; the switch then lasts for this page only.
         }
+        if (storageKey === LOCAL_SWITCHES.readReceipts) syncedSettingChanged('readReceipts');
       }}
     />
   );
@@ -100,7 +102,10 @@ function SwitchRow({ title, storageKey }: { title: string; storageKey: string })
 function MuralSwitchRow({ title }: { title: string }) {
   const userId = useClient().userId();
   const on = useMuralEnabled(userId);
-  return <SwitchControl title={title} on={on} onChange={(next) => writeMural(userId, next)} />;
+  return <SwitchControl title={title} on={on} onChange={(next) => {
+        writeMural(userId, next);
+        syncedSettingChanged('mural');
+      }} />;
 }
 
 function SwitchControl({ title, on, onChange }: { title: string; on: boolean; onChange: (on: boolean) => void }) {
@@ -481,7 +486,10 @@ function ColorsScreen({ onBack }: { onBack: () => void }) {
                 role="radio"
                 aria-checked={palette === p}
                 className="flex min-w-0 flex-1 items-center gap-2 py-1 text-left"
-                onClick={() => writeSetting('palette', p)}
+                onClick={() => {
+                  writeSetting('palette', p);
+                  syncedSettingChanged('palette');
+                }}
               >
                 <span className="flex-1 text-body text-ink-primary">{s(key(`bipe_colors_${p}`))}</span>
                 {palette === p && <Icon path={check} size={18} className="text-accent-ink" />}
@@ -497,7 +505,10 @@ function ColorsScreen({ onBack }: { onBack: () => void }) {
                 role="radio"
                 aria-checked={background === b}
                 className="flex min-w-0 flex-1 items-center gap-2 py-1 text-left"
-                onClick={() => writeSetting('chatBackground', b)}
+                onClick={() => {
+                  writeSetting('chatBackground', b);
+                  syncedSettingChanged('chatBackground');
+                }}
               >
                 <span className="flex-1 text-body text-ink-primary">{s(key(`bipe_chats_background_${b}`))}</span>
                 {background === b && <Icon path={check} size={18} className="text-accent-ink" />}

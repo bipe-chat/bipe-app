@@ -42,7 +42,7 @@ struct MacColorsView: View {
         Form {
             Section {
                 ForEach(BipePalette.allCases, id: \.self) { choice in
-                    Button { AppTheme.save(choice) } label: {
+                    Button { AppTheme.save(choice); SyncedSettings.changed(BipeSyncedSettings.palette) } label: {
                         HStack(spacing: 16) {
                             Image("BipePalette-" + choice.rawValue).resizable().scaledToFit()
                                 .frame(width: previewSize, height: previewSize).accessibilityHidden(true)
@@ -55,7 +55,7 @@ struct MacColorsView: View {
             } header: { Text(BipeStrings.chatsColors) } footer: { Text(BipeStrings.chatsColorsFooter) }
             Section {
                 ForEach(BipeChatBackground.allCases, id: \.self) { choice in
-                    Button { AppTheme.save(choice) } label: {
+                    Button { AppTheme.save(choice); SyncedSettings.changed(BipeSyncedSettings.chatBackground) } label: {
                         HStack(spacing: 16) {
                             ChatBackgroundView(option: choice).frame(width: previewSize * 0.7, height: previewSize)
                                 .clipShape(RoundedRectangle(cornerRadius: previewSize * 0.18))

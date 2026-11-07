@@ -79,6 +79,7 @@ struct AppColorsView: View {
         guard background != selectedBackground else { return }
         selectedBackground = background
         AppTheme.save(background)
+        SyncedSettings.changed(BipeSyncedSettings.chatBackground)
         BipeHaptics.play(.tick)
     }
 
@@ -86,6 +87,7 @@ struct AppColorsView: View {
         guard palette != selected else { return }
         selected = palette
         AppTheme.save(palette)
+        SyncedSettings.changed(BipeSyncedSettings.palette)
         BipeHaptics.play(.tick)
         // iOS shows its own alert after the change. A failed change keeps the theme and the old icon (spec notes).
         guard UIApplication.shared.supportsAlternateIcons,
