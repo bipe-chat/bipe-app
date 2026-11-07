@@ -68,8 +68,8 @@ struct MacMessageView: View {
 
     private func content(secondsLeft: Int) -> some View {
         HStack(alignment: .bottom, spacing: 12) {
-            if message.isOwn { Spacer(minLength: 64) }
-            VStack(alignment: .leading, spacing: 8) {
+            if message.isOwn { Spacer(minLength: 48) }
+            VStack(alignment: .leading, spacing: 4) {
                 if !message.isOwn { Text(message.sender).macFont(.subheadline).fontWeight(.semibold).foregroundStyle(BipeColor.accentInk) }
                 if let photo = message.photo {
                     MacPhotoView(photo: photo, eventID: message.id, isOwn: message.isOwn,
@@ -90,12 +90,11 @@ struct MacMessageView: View {
                     if message.failed { Text(BipeStrings.appTimelineFailed).macFont(.caption).foregroundStyle(BipeColor.trustDangerInk) }
                 }
             }
-            .padding(14).frame(maxWidth: 560, alignment: .leading)
+            .padding(.horizontal, 12).padding(.vertical, 8).frame(maxWidth: 560, alignment: .leading)
             .foregroundStyle(BipeColor.inkPrimary)
             .background(message.isOwn ? BipeColor.bubbleOwn : BipeColor.bubbleOther,
                         in: RoundedRectangle(cornerRadius: MacDesign.corner))
-            .overlay(RoundedRectangle(cornerRadius: MacDesign.corner).strokeBorder(BipeColor.lineSubtle))
-            if !message.isOwn { Spacer(minLength: 64) }
+            if !message.isOwn { Spacer(minLength: 48) }
         }
         .environment(\.openURL, OpenURLAction { url in pauseSecondsLeft(.now) > 0 ? .handled : .systemAction })
         .contextMenu {

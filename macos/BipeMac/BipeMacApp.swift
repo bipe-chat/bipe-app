@@ -203,9 +203,9 @@ struct MacChatView: View {
                 TextField(BipeStrings.appTimelineComposerPlaceholder, text: $model.draft, axis: .vertical)
                     .focused($composerFocused)
                     .lineLimit(1...6).onSubmit { Task { await model.send() } }
-                    .textFieldStyle(.plain).padding(12)
-                    .background(BipeColor.surfaceRaised, in: RoundedRectangle(cornerRadius: 12))
-                    .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(BipeColor.lineSubtle))
+                    .textFieldStyle(.plain).padding(.horizontal, 16).padding(.vertical, 11)
+                    .background(BipeColor.surfaceRaised, in: RoundedRectangle(cornerRadius: 22))
+                    .overlay(RoundedRectangle(cornerRadius: 22).strokeBorder(BipeColor.lineSubtle))
                 Button(BipeStrings.appTimelineSend) { Task { await model.send() } }
                     .buttonStyle(.bipeProminent)
                     .keyboardShortcut(.return, modifiers: .command)
@@ -213,7 +213,7 @@ struct MacChatView: View {
             }.padding()
         }
         .navigationTitle(name)
-        .background(BipeColor.surfaceBase)
+        .background(ChatBackgroundView())
         .task { await model.run(room: room) }
         .dropDestination(for: URL.self) { urls, _ in
             guard let url = urls.first, url.isFileURL, model.ready, !model.preparing, !model.sending else { return false }

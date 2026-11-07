@@ -10,4 +10,4 @@ refs: [bipe#1018, bipe#1161, bipe#1162]
 
 Favorites appear as a three-column avatar grid above the list, using your synced tags and saved order. Add or remove a favorite from its context menu, or reorder the grid by dragging or using its accessibility actions. Favorites outside the first loaded page are included.
 
-Chat rows now show photos, message previews, dates and unread indicators. Groups without a photo show up to three members, including their photos when available. The list, favorites and chat header use the same avatar rules. Text uses Bipe's rounded phone and web scale, and the extra Unread chip is removed.
+Chat rows now show photos, message previews, dates and unread indicators. Groups without a photo show up to three members, including their photos when available. The list, favorites and chat header use the same avatar rules. Text uses Bipe's rounded phone and web scale, and the extra Unread chip is removed. The chat background reuses the phone client's SwiftUI view, and message/composer spacing follows the existing components.
