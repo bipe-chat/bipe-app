@@ -173,7 +173,7 @@ export function FloatingDate({
       {at !== undefined && (
         <button
           type="button"
-          className={`pointer-events-auto rounded-full bg-surface-sunken px-2.5 py-1 text-caption text-ink-secondary shadow-sm motion-safe:transition-opacity motion-safe:duration-300 ${visible ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+          className={`pointer-events-auto rounded-full border border-accent-fill bg-accent-wash px-2.5 py-1 text-caption font-semibold text-accent-ink shadow-sm motion-safe:transition-opacity motion-safe:duration-300 ${visible ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
           aria-label={`${dayText(at)}, ${s('bipe_jump_to_date_title')}`}
           onClick={() => field.current?.showPicker?.() ?? field.current?.focus()}
         >

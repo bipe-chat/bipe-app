@@ -89,7 +89,7 @@ struct TimelineRowView: View {
             .padding(.vertical, 6)
         case .handleChange:
             if let line = row.handleChange, let text = line.change.line(name: line.name) {
-                SystemLine(text: text)
+                SystemLine(text: text, kind: .action)
                     .accessibilityIdentifier(BipeScreen.handleChangeLine.rawValue)
             }
         case .notEncrypted:
@@ -97,9 +97,9 @@ struct TimelineRowView: View {
         case .chatStart:
             SystemLine(text: BipeStrings.appTimelineStart)
         case .call:
-            if let text = row.callText { SystemLine(text: text) }
+            if let text = row.callText { SystemLine(text: text, kind: .action) }
         case .stateLine:
-            if let text = row.stateText { SystemLine(text: text) }
+            if let text = row.stateText { SystemLine(text: text, kind: .action) }
         }
     }
 }
@@ -116,18 +116,36 @@ func daySeparatorText(_ day: Date) -> String {
     return formatter.string(from: day)
 }
 
-/// A quiet centred line: date separators, the chat start and the not-encrypted notice.
-private struct SystemLine: View {
-    let text: String
+/// The two pills of the timeline (spec timeline-rows). Both follow the app theme, and the outline and weight tell them apart without colour.
+enum TimelinePillKind {
+    /// Information or grouping: date separators, the chat start and the not-encrypted notice.
+    case info
+    /// Something that happened or can be done: calls, state lines, handle changes and the floating date button.
+    case action
+}
 
-    var body: some View {
-        Text(text)
-            .font(.caption)
-            .foregroundStyle(BipeColor.inkSecondary)
+extension View {
+    func timelinePill(_ kind: TimelinePillKind) -> some View {
+        font(kind == .action ? .caption.weight(.semibold) : .caption)
+            .foregroundStyle(BipeColor.accentInk)
             .multilineTextAlignment(.center)
             .padding(.horizontal, 10)
             .padding(.vertical, 4)
-            .background(Capsule().fill(BipeColor.surfaceSunken))
+            .background(Capsule().fill(kind == .action ? BipeColor.accentWash : BipeColor.bubbleOwn))
+            .overlay {
+                if kind == .action { Capsule().stroke(BipeColor.accentFill) }
+            }
+    }
+}
+
+/// A centred pill between the messages of the timeline.
+private struct SystemLine: View {
+    let text: String
+    var kind: TimelinePillKind = .info
+
+    var body: some View {
+        Text(text)
+            .timelinePill(kind)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 6)
     }
