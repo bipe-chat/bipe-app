@@ -21,19 +21,23 @@ The app is named Bipe in Finder, the menu bar and About. It uses Bipe's generate
 
 Favourites use the synced m.favourite tag and BipeFavouritesOrder account data, a three-column avatar grid, and the existing per-scope reorder rules. A separate favourite stream finds rooms outside the first loaded page; joined, favourite and archived streams share one SDK subscription union. Favourites do not appear again in the list. The account menu, list, favourites and timeline header load avatar thumbnails through the SDK. A DM uses its peer's photo, never the room avatar. A group uses its own photo or up to three other members as a cluster, with the same geometry as iOS and web. Unknown/company/official avatar rules follow the existing clients. Rows show names, available previews/dates, unread/mention indicators and mute state.
 
+Reactions use the shared quick-emoji catalogue, the native character picker, SDK toggles, selected count pills and a sender list. Palette and background choices use the generated phone catalogue (six palettes, four backgrounds), with the same labels/order/defaults. The phone background renderer runs unchanged on Mac. The running Dock icon follows the palette; Finder keeps the signed bundle icon. Web uses the same generated catalogue and fruit artwork. These preferences remain local to each device.
+
+The complete functionality assessment is generated in bipe/docs/product.md from bipe-shared/product/client-assessment.json, parity.json and desktop-plan.json. It separates implementation from real-device acceptance. Video messages, voice messages, audio calls, video calls, group calls and screen sharing each have their own row. Old web exclusions require review; an SDK method or successful compile is not evidence of device parity.
+
 ## Remaining parity gaps
 
-The Mac is still a preview. The 159-capability ledger includes partial implementations as planned until their full behavior and evidence exist.
+The Mac is still a preview. The 174-capability ledger includes partial implementations as planned until their full behavior and evidence exist.
 
 | Area | Still missing or incomplete | Tracking |
 | --- | --- | --- |
-| Desktop and account lifecycle | Complete settings/navigation destinations, account removal/sign-out, app lock, full key/recovery/device surfaces, theme controls, updater and notarized distribution; cross-device/offline/revocation acceptance | #1161, #1165 |
-| Conversations | Start chat and requests, full search, newest-DM selection/clearing, archive synchronization/actions, reply quotes, editing/deleting/forwarding, reactions, pins, receipts/ticks, profile/invite/Matrix routing, Mural and assistant drafts | #1162 |
+| Desktop and account lifecycle | Complete settings/navigation destinations, account removal/sign-out, app lock, full key/recovery/device surfaces, updater and notarized distribution; cross-device/offline/revocation acceptance | #1161, #1165 |
+| Conversations | Start chat and requests, full search, newest-DM selection/clearing, archive synchronization/actions, reply quotes, editing/deleting/forwarding, pins, receipts/ticks, profile/invite/Matrix routing, Mural and assistant drafts | #1162 |
 | Groups | Creation/details/membership, roles/moderation, group links/privacy, threads, polls and communities | #1163 |
 | Media | Videos/files/voice, gallery, captions after sending, full media settings/invite photos, stickers, location and share integrations | #1164 |
 | Identity and safety | Complete profiles, verification/attestation/marks, invites/contacts, account/device/privacy settings, support/report/export/delete flows and all safety surfaces | #1165 |
 | Work | The current screen is a read-only overview; operational tool screens/actions, roles/people/devices, catalog/order/quote/agenda/queue/payment editors remain. The inbox/key-model merge retains #1066 as its own prerequisite | #1166 |
-| Desktop attention | Calls, notifications, badges/notification sender photos and work focus/time behavior | #1167 |
+| Desktop attention | Audio/video/group calls, screen sharing, incoming attention across background/locked/asleep/quit states, notifications, badges/notification sender photos and work focus/time behavior | #1167 |
 
 Text replies use the SDK's reply relation. Composer text and reply targets live in the room's encrypted SDK store. Each account has an ordered draft-write queue, so reopening a room waits for edits from its dismissed view. Visible conversations send read receipts only while Bipe is active. The privacy switch keeps DM receipts private when off; group receipts keep the shared public-receipt rule.
 

@@ -7,13 +7,14 @@
 // or dark. The token CSS follows the system with media queries; to force a scheme, the page copies the
 // generated token rules of that scheme, as they are, into one style element after the others. No colour is
 // typed here. Palette (spec app-colors): data-palette on the root element selects the generated palette
-// tokens. Chat background (ADR 0213): marca, cor or liso.
+// tokens. The choices and defaults come from the same catalogue as Swift and Kotlin.
 
 import { useSyncExternalStore } from 'react';
+import { PALETTES, BACKGROUNDS, DEFAULT_PALETTE, DEFAULT_BACKGROUND } from './bipe/generated/appearance';
+export { PALETTES, BACKGROUNDS };
 
 export type Appearance = 'system' | 'light' | 'dark';
-export type ChatBackgroundOption = 'marca' | 'cor' | 'liso';
-export const PALETTES = ['acai', 'goiaba', 'pitanga', 'maracuja', 'jenipapo', 'jabuticaba'] as const;
+export type ChatBackgroundOption = (typeof BACKGROUNDS)[number];
 export type Palette = (typeof PALETTES)[number];
 
 const KEYS = {
@@ -25,13 +26,16 @@ const KEYS = {
 } as const;
 type Key = keyof typeof KEYS;
 
-const DEFAULTS = { appearance: 'system', palette: 'acai', chatBackground: 'marca', sound: 'true', preview: 'true' };
+const DEFAULTS = { appearance: 'system', palette: DEFAULT_PALETTE, chatBackground: DEFAULT_BACKGROUND, sound: 'true', preview: 'true' };
 
 const listeners = new Set<() => void>();
 
 export function readSetting(key: Key): string {
   try {
-    return localStorage.getItem(KEYS[key]) ?? DEFAULTS[key];
+    const value = localStorage.getItem(KEYS[key]) ?? DEFAULTS[key];
+    if (key === 'palette' && !PALETTES.some((p) => p === value)) return DEFAULT_PALETTE;
+    if (key === 'chatBackground' && !BACKGROUNDS.some((b) => b === value)) return DEFAULT_BACKGROUND;
+    return value;
   } catch {
     return DEFAULTS[key];
   }
@@ -92,7 +96,7 @@ function tokenRules(scheme: 'light' | 'dark'): string {
 export function applyLook() {
   const root = document.documentElement;
   const palette = readSetting('palette');
-  if (palette === 'acai') delete root.dataset.palette;
+  if (palette === DEFAULT_PALETTE) delete root.dataset.palette;
   else root.dataset.palette = palette;
   const appearance = readSetting('appearance') as Appearance;
   document.getElementById('bipe-theme')?.remove();

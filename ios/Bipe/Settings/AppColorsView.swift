@@ -127,20 +127,6 @@ struct ChatBackgroundPreview: View {
     }
 }
 
-extension BipePalette {
-    /// The palette name, bipe_colors_<palette>.
-    var title: String {
-        switch self {
-        case .acai: BipeStrings.colorsAcai
-        case .goiaba: BipeStrings.colorsGoiaba
-        case .pitanga: BipeStrings.colorsPitanga
-        case .maracuja: BipeStrings.colorsMaracuja
-        case .jenipapo: BipeStrings.colorsJenipapo
-        case .jabuticaba: BipeStrings.colorsJabuticaba
-        }
-    }
-}
-
 private extension Color {
     /// A generated 0xRRGGBB value (BipePalette), not a literal.
     init(rgb: UInt32) {

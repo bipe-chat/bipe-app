@@ -27,6 +27,18 @@ public enum BipePalette: String, CaseIterable, Sendable {
     /// The palette of a new install.
     public static let standard: BipePalette = .acai
 
+    /// Localized label generated from the palette catalogue.
+    public var title: String {
+        switch self {
+        case .acai: BipeStrings.colorsAcai
+        case .goiaba: BipeStrings.colorsGoiaba
+        case .pitanga: BipeStrings.colorsPitanga
+        case .maracuja: BipeStrings.colorsMaracuja
+        case .jenipapo: BipeStrings.colorsJenipapo
+        case .jabuticaba: BipeStrings.colorsJabuticaba
+        }
+    }
+
     /// Background of the app icon (a white mark on it), as 0xRRGGBB.
     public var iconBackground: UInt32 {
         switch self {
@@ -457,6 +469,16 @@ public enum BipeChatBackground: String, CaseIterable, Sendable {
 
     /// The option of a new install.
     public static let standard: BipeChatBackground = .marca
+
+    /// Localized label generated from the background catalogue.
+    public var title: String {
+        switch self {
+        case .marca: BipeStrings.chatsBackgroundMarca
+        case .frutas: BipeStrings.chatsBackgroundFrutas
+        case .cor: BipeStrings.chatsBackgroundCor
+        case .liso: BipeStrings.chatsBackgroundLiso
+        }
+    }
 
     /// A colour of the composition: one of the themed chat tokens.
     public enum Tone: Sendable {

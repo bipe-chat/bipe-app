@@ -10,6 +10,7 @@ import { evaluateTrustFacts, validateTrustRegistry } from "./trust.mjs";
 import { validateAgendaTemplates } from "./agenda-templates.mjs";
 import { validateSettings } from "./gen-settings.mjs";
 import { validateOnboarding } from "./gen-onboarding.mjs";
+import { validateMessageReactions } from "./reactions.mjs";
 import { validateHaptics } from "./gen-haptics.mjs";
 
 function fail(msg) {
@@ -448,6 +449,7 @@ export function validateBusinessTools(reg) {
 function validate(reg, phosphor) {
   validateReportCategories(reg);
   validateMessageFormatting(reg.messageFormatting);
+  validateMessageReactions(reg.messageReactions);
   validateTrustRegistry(reg.trust);
   validateAgendaTemplates(reg);
   validateSettings(reg, phosphor);

@@ -128,33 +128,44 @@ private struct MacYouView: View {
     @AppStorage(MacReceiptPolicy.key) private var readReceipts = true
     @AppStorage(BipeSettingsRow.chatsMediaQuality.rawValue) private var mediaQuality = "standard"
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: MacDesign.sectionGap) {
-                Text(BipeStrings.tabYou).macFont(.largeTitle).fontWeight(.bold)
-                MacCard {
-                    HStack(spacing: MacDesign.gap) {
-                        MacAvatar(name: account.displayName, isCompany: account.isCompany, media: account.media,
-                                  url: account.avatarURL, userID: account.userId, size: 64)
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text(account.displayName).macFont(.title2).fontWeight(.semibold)
-                            if let handle = account.handle { Text("@" + handle).foregroundStyle(BipeColor.inkSecondary).textSelection(.enabled) }
-                        }
-                        Spacer()
-                        Button(BipeStrings.macRefresh) { Task { await account.refreshProfile() } }.buttonStyle(.bipeBordered)
-                    }
-                }
-                MacCard {
-                    VStack(alignment: .leading, spacing: MacDesign.gap) {
-                        Text(BipeStrings.settingsPrivacy).macFont(.headline)
-                        Toggle(BipeStrings.privacyReadReceipts, isOn: $readReceipts)
-                        Text(BipeStrings.privacyReadReceiptsFooter).macFont(.callout).foregroundStyle(BipeColor.inkSecondary)
-                        Picker(BipeStrings.chatsMediaQuality, selection: $mediaQuality) {
-                            Text(BipeStrings.chatsMediaQualityStandard).tag("standard")
-                            Text(BipeStrings.chatsMediaQualityHigh).tag("high")
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: MacDesign.sectionGap) {
+                    Text(BipeStrings.tabYou).macFont(.largeTitle).fontWeight(.bold)
+                    MacCard {
+                        HStack(spacing: MacDesign.gap) {
+                            MacAvatar(name: account.displayName, isCompany: account.isCompany, media: account.media,
+                                      url: account.avatarURL, userID: account.userId, size: 64)
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text(account.displayName).macFont(.title2).fontWeight(.semibold)
+                                if let handle = account.handle { Text("@" + handle).foregroundStyle(BipeColor.inkSecondary).textSelection(.enabled) }
+                            }
+                            Spacer()
+                            Button(BipeStrings.macRefresh) { Task { await account.refreshProfile() } }.buttonStyle(.bipeBordered)
                         }
                     }
-                }
-            }.padding(MacDesign.pageInset).frame(maxWidth: 800, alignment: .leading).frame(maxWidth: .infinity, alignment: .leading)
-        }.background(BipeColor.surfaceBase)
+                    MacCard {
+                        NavigationLink { MacColorsView() } label: {
+                            HStack {
+                                Text(BipeSettingsRow.chatsColors.title)
+                                Spacer()
+                                Image(systemName: "chevron.right").accessibilityHidden(true)
+                            }.padding(.vertical, 8)
+                        }.buttonStyle(.plain)
+                    }
+                    MacCard {
+                        VStack(alignment: .leading, spacing: MacDesign.gap) {
+                            Text(BipeStrings.settingsPrivacy).macFont(.headline)
+                            Toggle(BipeStrings.privacyReadReceipts, isOn: $readReceipts)
+                            Text(BipeStrings.privacyReadReceiptsFooter).macFont(.callout).foregroundStyle(BipeColor.inkSecondary)
+                            Picker(BipeStrings.chatsMediaQuality, selection: $mediaQuality) {
+                                Text(BipeStrings.chatsMediaQualityStandard).tag("standard")
+                                Text(BipeStrings.chatsMediaQualityHigh).tag("high")
+                            }
+                        }
+                    }
+                }.padding(MacDesign.pageInset).frame(maxWidth: 800, alignment: .leading).frame(maxWidth: .infinity, alignment: .leading)
+            }.background(BipeColor.surfaceBase)
+        }
     }
 }

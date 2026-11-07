@@ -152,11 +152,4 @@ private fun ChatBackgroundPreview(background: BipeChatBackground, height: Dp = 4
 
 /** The palette name, bipe_colors_<palette>. */
 val BipePalette.title: Int
-    get() = when (this) {
-        BipePalette.ACAI -> R.string.bipe_colors_acai
-        BipePalette.GOIABA -> R.string.bipe_colors_goiaba
-        BipePalette.PITANGA -> R.string.bipe_colors_pitanga
-        BipePalette.MARACUJA -> R.string.bipe_colors_maracuja
-        BipePalette.JENIPAPO -> R.string.bipe_colors_jenipapo
-        BipePalette.JABUTICABA -> R.string.bipe_colors_jabuticaba
-    }
+    get() = titleRes

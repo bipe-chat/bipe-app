@@ -127,15 +127,3 @@ private struct FruitPaths: Sendable {
         return path
     }
 }
-
-extension BipeChatBackground {
-    /// The option name, bipe_chats_background_<option>.
-    var title: String {
-        switch self {
-        case .marca: BipeStrings.chatsBackgroundMarca
-        case .frutas: BipeStrings.chatsBackgroundFrutas
-        case .cor: BipeStrings.chatsBackgroundCor
-        case .liso: BipeStrings.chatsBackgroundLiso
-        }
-    }
-}

@@ -16,6 +16,7 @@ import { cvmLines } from "./generated/lib/cvm.mjs";
 import { homePlan, homeScore } from "./generated/lib/home-score.mjs";
 import { noticeLinkClickable } from "./generated/lib/notice.mjs";
 import { pixCheck } from "./generated/lib/pix.mjs";
+import { reactionKeyText } from "./generated/lib/reactions.mjs";
 import { ptBR, en, t } from "./generated/strings.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -25,6 +26,13 @@ const vectors = (file) =>
 const reg = JSON.parse(
   readFileSync(join(here, "generated/registries.json"), "utf8"),
 );
+
+test('message-reactions.json', () => {
+  const file = vectors('message-reactions.json');
+  assert.deepEqual(reg.messageReactions.quickKeys, file.quickKeys);
+  assert.equal(reg.messageReactions.displayKeyMaxGraphemes, file.displayKeyMaxGraphemes);
+  for (const vector of file.cases) assert.equal(reactionKeyText(vector.input, reg.messageReactions), vector.expected);
+});
 
 const reservedCategory = new Map(
   Object.entries(reg.reserved.categories).flatMap(([cat, names]) =>

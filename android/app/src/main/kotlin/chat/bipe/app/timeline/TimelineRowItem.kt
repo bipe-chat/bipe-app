@@ -4,6 +4,8 @@
 
 package chat.bipe.app.timeline
 
+import chat.bipe.shared.generated.BipeReactions
+
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
@@ -599,7 +601,7 @@ private fun ReactionPills(reactions: List<MessageReaction>, onToggle: (String) -
 }
 
 /** Spec message-reactions notes: keys longer than one grapheme show in full up to 16 characters, then cut. */
-fun reactionKeyText(key: String): String = if (key.length > 16) key.take(16) + "…" else key
+fun reactionKeyText(key: String): String = BipeReactions.keyText(key)
 
 /** Original event time on every message, with the full date exposed to TalkBack. */
 @Composable

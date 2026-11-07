@@ -55,6 +55,7 @@ import chat.bipe.app.common.memberLabel
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 import chat.bipe.shared.generated.BipeHaptic
+import chat.bipe.shared.generated.BipeReactions
 import chat.bipe.shared.generated.BipeScreen
 import java.text.BreakIterator
 import java.text.DateFormat
@@ -140,7 +141,7 @@ fun MessageActionsSheet(model: ChatTimelineModel, row: TimelineRow, onCopy: (Str
 }
 
 /** Spec message-reactions notes: the quick reactions, in this order. */
-internal val QUICK_REACTIONS = listOf("👍", "❤️", "😂", "😮", "😢", "🙏")
+internal val QUICK_REACTIONS = BipeReactions.quickKeys
 
 internal fun actionIcon(action: MessageAction): PhosphorIcon = when (action) {
     MessageAction.REPLY -> PhosphorIcon.ARROW_BEND_UP_LEFT

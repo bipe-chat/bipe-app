@@ -86,12 +86,7 @@ fun Modifier.chatBackground(option: BipeChatBackground, colors: BipeColors): Mod
 
 /** The option name, bipe_chats_background_<option>. */
 val BipeChatBackground.title: Int
-    get() = when (this) {
-        BipeChatBackground.MARCA -> R.string.bipe_chats_background_marca
-        BipeChatBackground.FRUTAS -> R.string.bipe_chats_background_frutas
-        BipeChatBackground.COR -> R.string.bipe_chats_background_cor
-        BipeChatBackground.LISO -> R.string.bipe_chats_background_liso
-    }
+    get() = titleRes
 
 /**
  * ADR 0215: one glyph of the Salada de frutas tile. Bodies are filled with chatFruitFill and outlined, lines are
