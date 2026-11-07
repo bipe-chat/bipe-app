@@ -564,7 +564,7 @@ struct ChatTimelineView: View {
                         OfficialBadge()
                     }
                     if model.isDm {
-                        SealMark(userId: model.peerUserId)
+                        PersonSealButton(userId: model.peerUserId)
                             .environment(\.bipeCompanySeals, people?.seals)
                     }
                 }

@@ -16,6 +16,7 @@ import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.api.BipeBadgeGoneReason
 import chat.bipe.shared.api.BipeBadgeLookup
 import chat.bipe.shared.api.badge
+import chat.bipe.shared.api.badgeProofs
 import chat.bipe.shared.runCatchingExceptions
 import kotlin.time.Duration.Companion.minutes
 import kotlinx.coroutines.CoroutineScope
@@ -55,7 +56,16 @@ sealed interface BipePersonSealState {
 }
 
 /** The compact mark next to a name (spec person-profile notes). The same in every place. */
-enum class BipeSealMark { PERSON, COMPANY, PERSON_SUSPENDED, COMPANY_SUSPENDED }
+enum class BipeSealMark {
+    /** Assurance bank: `sealCheck` regular (ADR 0275). */
+    PERSON_BANK,
+
+    /** Assurance state: `sealCheck` fill (ADR 0275). */
+    PERSON_STATE,
+    COMPANY,
+    PERSON_SUSPENDED,
+    COMPANY_SUSPENDED,
+}
 
 /**
  * Company and person seals for one user session.
@@ -127,14 +137,45 @@ class BipeCompanySeals(
         (personSeal(userId) as? BipePersonSealState.Verified)?.payload ?: (seal(userId) as? BipeCompanySealState.Verified)?.payload
 
     /** The compact mark next to a name, or null. A revoked company seal has no mark. */
-    fun mark(userId: String): BipeSealMark? = when (personSeal(userId)) {
-        is BipePersonSealState.Verified -> BipeSealMark.PERSON
+    fun mark(userId: String): BipeSealMark? = when (val person = personSeal(userId)) {
+        // The strongest proof only (ADR 0275 point 15). The server answers the strongest; the mark comes from the badge.
+        is BipePersonSealState.Verified -> BipePersonProofs.proofs(listOf(person.payload)).firstOrNull()?.let {
+            if (it.isFill) BipeSealMark.PERSON_STATE else BipeSealMark.PERSON_BANK
+        }
         BipePersonSealState.Suspended -> BipeSealMark.PERSON_SUSPENDED
         BipePersonSealState.None -> when (seal(userId)) {
             is BipeCompanySealState.Verified -> BipeSealMark.COMPANY
             BipeCompanySealState.Suspended -> BipeSealMark.COMPANY_SUSPENDED
             else -> null
         }
+    }
+
+    /** The strongest proof that verified on this device, or null. */
+    fun strongestProof(userId: String): BipePersonProof? =
+        (personSeal(userId) as? BipePersonSealState.Verified)?.let { BipePersonProofs.proofs(listOf(it.payload)).firstOrNull() }
+
+    /** The store has an answer for the account, so "no seal" is a fact and not a fetch that still runs. */
+    fun hasAnswer(userId: String): Boolean {
+        seal(userId)
+        return entries.value.containsKey(userId)
+    }
+
+    /**
+     * Every person proof of the account that verifies on this device, strongest first (ADR 0275).
+     * A failed call, no master key or a badge that fails gives no proof for it (fail closed).
+     */
+    suspend fun proofs(userId: String): List<BipePersonProof> {
+        if (!BipeServers.isBipeUserId(userId)) return emptyList()
+        return runCatchingExceptions {
+            val envelopes = apiClient.badgeProofs(userId)
+            val key = masterKey(userId) ?: return@runCatchingExceptions emptyList()
+            val now = clock()
+            BipePersonProofs.proofs(
+                envelopes.mapNotNull { json ->
+                    (verifier.value.verify(envelopeJson = json, sender = userId, senderMasterKey = key, nowMillis = now) as? BadgeVerificationResult.Valid)?.payload
+                },
+            )
+        }.getOrDefault(emptyList())
     }
 
     private fun fetch(userId: String) {

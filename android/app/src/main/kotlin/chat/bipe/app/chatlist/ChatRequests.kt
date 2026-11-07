@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import chat.bipe.shared.BipeOfficialAccounts
+import chat.bipe.app.common.LocalBipeCompanySeals
 import chat.bipe.app.common.OfficialBadge
 import chat.bipe.app.common.BipeButton
 import androidx.compose.material3.Icon
@@ -52,6 +53,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -409,14 +411,18 @@ fun ListEntryRow(icon: PhosphorIcon, title: String, detail: String? = null, coun
 
 /** The trust line of a request: verified seal, unverified or external. */
 @Composable
-fun TrustLine(trust: ChatRequestSummary.Trust) {
+fun TrustLine(trust: ChatRequestSummary.Trust, userId: String? = null) {
     val colors = BipeTheme.colors
+    val context = LocalContext.current
+    val seals = LocalBipeCompanySeals.current
     val (text, color) = when (trust) {
-        ChatRequestSummary.Trust.VERIFIED -> R.string.bipe_badge_verified to colors.trustVerifiedInk
-        ChatRequestSummary.Trust.UNVERIFIED -> R.string.bipe_banner_unverified_title to colors.trustCautionInk
-        ChatRequestSummary.Trust.EXTERNAL -> R.string.bipe_banner_external to colors.trustNeutralInk
+        // The strongest proof, as the compact mark says it (ADR 0275). A company has no person proof.
+        ChatRequestSummary.Trust.VERIFIED ->
+            (userId?.let { seals?.strongestProof(it)?.line(context) } ?: stringResource(R.string.bipe_badge_verified)) to colors.trustVerifiedInk
+        ChatRequestSummary.Trust.UNVERIFIED -> stringResource(R.string.bipe_banner_unverified_title) to colors.trustCautionInk
+        ChatRequestSummary.Trust.EXTERNAL -> stringResource(R.string.bipe_banner_external) to colors.trustNeutralInk
     }
-    Text(stringResource(text), style = MaterialTheme.typography.bodyMedium, color = color)
+    Text(text, style = MaterialTheme.typography.bodyMedium, color = color)
 }
 
 /** Spec chat-requests: the box of chat requests. */
@@ -493,7 +499,7 @@ fun ChatRequestsList(
                                     Text(request.name, style = MaterialTheme.typography.titleMedium, color = colors.inkPrimary, maxLines = 1, modifier = Modifier.weight(1f, fill = false))
                                     if (request.isDm && BipeOfficialAccounts.isOfficial(request.inviterId)) OfficialBadge()
                                 }
-                                TrustLine(trustOf(request))
+                                TrustLine(trustOf(request), request.inviterId)
                             }
                         }
                     }
@@ -606,11 +612,12 @@ fun ChatRequestScreen(
     }
 }
 
-private data class RequestTrust(val kind: ChatRequestSummary.Trust, val verifiedName: String? = null, val identityKey: String? = null)
+private data class RequestTrust(val kind: ChatRequestSummary.Trust, val verifiedName: String? = null, val identityKey: String? = null, val schemeName: String? = null)
 
 /** Observe verified payload changes, and recheck expiry while this request stays visible. */
 @Composable
 private fun requestTrust(model: ChatRequestsModel, request: ChatRequestSummary): RequestTrust {
+    val context = LocalContext.current
     val seals by model.people.seals.states.collectAsState()
     val persons by model.people.seals.personSeals.collectAsState()
     val tick by produceState(0L, model, request.inviterId) {
@@ -621,7 +628,12 @@ private fun requestTrust(model: ChatRequestsModel, request: ChatRequestSummary):
         else {
             val badge = model.people.seals.verifiedBadge(request.inviterId)
             if (badge != null && badge.name.isNotBlank()) {
-                RequestTrust(ChatRequestSummary.Trust.VERIFIED, badge.name, badge.msk?.let { "master:$it" })
+                RequestTrust(
+                    ChatRequestSummary.Trust.VERIFIED,
+                    badge.name,
+                    badge.msk?.let { "master:$it" },
+                    model.people.seals.strongestProof(request.inviterId)?.schemeName(context),
+                )
             } else RequestTrust(ChatRequestSummary.Trust.UNVERIFIED)
         }
     }
@@ -640,7 +652,8 @@ private fun TrustBlock(trust: RequestTrust) {
     ) {
         when (trust.kind) {
             ChatRequestSummary.Trust.VERIFIED ->
-                Text(stringResource(R.string.bipe_badge_verified_name, requireNotNull(trust.verifiedName)), color = colors.trustVerifiedInk, textAlign = TextAlign.Center)
+                // Spec chat-request: the scheme of the strongest proof (ADR 0275). A company has no person proof.
+                Text(trust.schemeName?.let { stringResource(R.string.bipe_badge_verified_name_via, it, requireNotNull(trust.verifiedName)) } ?: stringResource(R.string.bipe_badge_verified_name, requireNotNull(trust.verifiedName)), color = colors.trustVerifiedInk, textAlign = TextAlign.Center)
             ChatRequestSummary.Trust.UNVERIFIED -> {
                 Text(stringResource(R.string.bipe_banner_unverified_title), style = MaterialTheme.typography.titleSmall, color = colors.trustCautionInk)
                 Text(stringResource(R.string.bipe_request_unverified_body), color = colors.inkSecondary, textAlign = TextAlign.Center)

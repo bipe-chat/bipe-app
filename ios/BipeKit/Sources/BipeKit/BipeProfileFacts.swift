@@ -83,7 +83,8 @@ public nonisolated struct BipeProfileFactLines: Sendable, Equatable {
     private static let dayMs: Int64 = 86_400_000
     private static let hourMs: Int64 = 3_600_000
 
-    public init(facts: BipeProfileFacts, now: Date = Date()) {
+    /// `alwaysCreated`: person-profile keeps the account age at any age (ADR 0275 point 13).
+    public init(facts: BipeProfileFacts, now: Date = Date(), alwaysCreated: Bool = false) {
         let nowMs = Self.milliseconds(now)
         let windowMs = Int64(BipeRegistries.profileFactsWindowDays) * Self.dayMs
         func inWindow(_ list: [String]) -> [Int64] {
@@ -95,7 +96,7 @@ public nonisolated struct BipeProfileFactLines: Sendable, Equatable {
         let photos = inWindow(facts.photoChanges)
         var lines: [Line] = []
         if let created = facts.createdAt.flatMap(Self.parse).map(Self.milliseconds),
-           created <= nowMs, nowMs - created < Int64(BipeRegistries.profileFactsNewAccountDays) * Self.dayMs {
+           created <= nowMs, alwaysCreated || nowMs - created < Int64(BipeRegistries.profileFactsNewAccountDays) * Self.dayMs {
             lines.append(Line(fact: .created, count: nil, at: Self.date(created)))
         }
         if let last = photos.last {

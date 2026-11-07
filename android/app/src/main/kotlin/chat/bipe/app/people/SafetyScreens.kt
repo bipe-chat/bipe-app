@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.AlertDialog
@@ -56,6 +58,7 @@ import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 import android.content.Context
 import chat.bipe.shared.api.BipeBadgeGoneReason
+import chat.bipe.shared.company.BipePersonProof
 import chat.bipe.shared.company.BipeCnpj
 import chat.bipe.shared.company.BipeCompanySealState
 import chat.bipe.shared.company.BipeCvmLines
@@ -143,6 +146,42 @@ fun CompanySealDialog(state: BipeCompanySealState, onClose: () -> Unit) {
                         )
                         Text(stringResource(R.string.bipe_badge_company_body), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary)
                     }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onClose) { Text(stringResource(R.string.bipe_app_close)) } },
+        containerColor = colors.surfaceRaised,
+    )
+}
+
+/** Spec person-seal: how a person's name was checked, and what the seal does not promise (ADR 0275). */
+@Composable
+fun PersonSealDialog(proof: BipePersonProof, onClose: () -> Unit) {
+    val colors = BipeTheme.colors
+    val context = LocalContext.current
+    // Spec checkedAt and validUntil: the month and the year, never the day.
+    val month = { seconds: Long ->
+        Instant.ofEpochSecond(seconds).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("LLLL yyyy", Locale.getDefault()))
+    }
+    AlertDialog(
+        onDismissRequest = onClose,
+        icon = {
+            Icon(
+                painterResource((if (proof.isFill) PhosphorIcon.SEAL_CHECK_FILL else PhosphorIcon.SEAL_CHECK).drawable),
+                contentDescription = null,
+                tint = colors.trustVerifiedInk,
+                modifier = Modifier.size(40.dp),
+            )
+        },
+        title = { Text(proof.line(context), textAlign = TextAlign.Center) },
+        text = {
+            SelectionContainer {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    Fact(stringResource(R.string.bipe_badge_verified), proof.payload.name)
+                    Fact(stringResource(R.string.bipe_person_seal_scheme), proof.schemeName(context))
+                    Fact(stringResource(R.string.bipe_person_seal_checked), month(proof.payload.iat))
+                    Fact(stringResource(R.string.bipe_person_seal_valid_until), month(proof.payload.exp))
+                    Text(stringResource(R.string.bipe_person_seal_body), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary)
                 }
             }
         },

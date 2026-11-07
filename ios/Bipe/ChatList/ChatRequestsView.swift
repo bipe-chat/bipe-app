@@ -112,7 +112,7 @@ private struct RequestRow: View {
                         .lineLimit(1)
                     if request.isDm, BipeOfficialAccounts.isOfficial(request.inviterId) { OfficialBadge() }
                 }
-                TrustLine(trust: trust)
+                TrustLine(trust: trust, userId: request.inviterId)
             }
         }
         .padding(.vertical, 4)
@@ -122,11 +122,14 @@ private struct RequestRow: View {
 /// The trust line of a request: verified seal, unverified or external.
 struct TrustLine: View {
     let trust: ChatRequestSummary.Trust
+    var userId: String?
+    @Environment(\.bipeCompanySeals) private var seals
 
     var body: some View {
         switch trust {
         case .verified:
-            Text(BipeStrings.badgeVerified)
+            // The strongest proof, as the compact mark says it (ADR 0275). A company has no person proof.
+            Text(userId.flatMap { seals?.strongestProof(for: $0)?.line } ?? BipeStrings.badgeVerified)
                 .font(.subheadline)
                 .foregroundStyle(BipeColor.trustVerifiedInk)
         case .unverified:

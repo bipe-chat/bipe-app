@@ -38,12 +38,12 @@ private const val NOTICE_MAX_AGE_MS = 3_600_000L
  * Reads POST /v1/profile-facts once when it shows. No lines or a failed call: nothing shows.
  */
 @Composable
-fun ProfileFactsLines(people: PeopleService, userId: String, textAlign: TextAlign = TextAlign.Center) {
+fun ProfileFactsLines(people: PeopleService, userId: String, textAlign: TextAlign = TextAlign.Center, alwaysCreated: Boolean = false) {
     val context = LocalContext.current
     val texts by produceState(emptyList<String>(), userId) {
         if (userId.isEmpty()) return@produceState
         val facts = people.profileFacts(userId) ?: return@produceState
-        value = BipeProfileFactLines.of(facts).texts(context)
+        value = BipeProfileFactLines.of(facts, alwaysCreated = alwaysCreated).texts(context)
     }
     if (texts.isEmpty()) return
     Column(

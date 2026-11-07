@@ -12,6 +12,8 @@ struct ProfileFactsLines: View {
     let people: PeopleService
     let userId: String
     var alignment: TextAlignment = .center
+    /// person-profile keeps the account age at any age (ADR 0275 point 13).
+    var alwaysCreated = false
     @State private var texts: [String] = []
 
     var body: some View {
@@ -26,7 +28,7 @@ struct ProfileFactsLines: View {
         .accessibilityElement(children: .combine)
         .task(id: userId) {
             guard !userId.isEmpty, let facts = await people.profileFacts(userId) else { return }
-            texts = BipeProfileFactLines(facts: facts).texts()
+            texts = BipeProfileFactLines(facts: facts, alwaysCreated: alwaysCreated).texts()
         }
     }
 }

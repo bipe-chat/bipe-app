@@ -51,7 +51,7 @@ import chat.bipe.app.BipeTheme
 import chat.bipe.app.business.BusinessProfileButtons
 import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.OfficialBadge
-import chat.bipe.app.common.SealMark
+import chat.bipe.app.common.PersonSealButton
 import chat.bipe.app.common.bipeTapTarget
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.BipeOfficialAccounts
@@ -64,6 +64,7 @@ import chat.bipe.shared.api.publicProfile
 import chat.bipe.shared.generated.BipeRegistries
 import chat.bipe.shared.generated.SocialPlatform
 import chat.bipe.shared.company.BipeCompanySealState
+import chat.bipe.shared.company.BipePersonProof
 import chat.bipe.shared.company.BipePersonSealState
 import chat.bipe.shared.generated.BipeScreen
 import chat.bipe.shared.generated.BipeTrustFacts
@@ -116,6 +117,10 @@ class PersonProfileModel(
         val seal: BipeCompanySealState = BipeCompanySealState.None,
         /** The person seal (bipe#596). */
         val personSeal: BipePersonSealState = BipePersonSealState.None,
+        /** proofs of the spec, strongest first (ADR 0275). */
+        val proofs: List<BipePersonProof> = emptyList(),
+        /** bipe_banner_unverified_title: no proof and no company mark, once the store answered. */
+        val showsUnverifiedLine: Boolean = false,
         /** The SDK's identity of the person (spec facts). null while not read, or when the SDK could not read it. */
         val trustIdentity: BipeTrustSources.Identity? = null,
         /** The identity read has run at least once: a null trustIdentity then means lifecycle unknown. */
@@ -152,6 +157,10 @@ class PersonProfileModel(
             // Spec savedNumbers: may run one address-book lookup first, so it fills in on its own.
             scope.launch { _state.value = _state.value.copy(savedNumbers = people.savedNumbers(userId)) }
             readIdentityNow()
+            scope.launch {
+                loadedProofs = people.seals.proofs(userId)
+                applySeal(people.seals.seal(userId))
+            }
             // The seal store answers later and emits; it fails closed.
             scope.launch { people.seals.states.collect { applySeal(people.seals.seal(userId)) } }
             scope.launch { people.seals.personSeals.collect { applySeal(people.seals.seal(userId)) } }
@@ -173,6 +182,8 @@ class PersonProfileModel(
     }
 
     /** facts, marks and reservedNameWarning of the spec. */
+    private var loadedProofs: List<BipePersonProof> = emptyList()
+
     private fun applySeal(seal: BipeCompanySealState) {
         val current = _state.value
         val personSeal = people.seals.personSeal(userId)
@@ -183,10 +194,22 @@ class PersonProfileModel(
             else -> BipeTrustSources.Seal.None
         }
         val facts = BipeTrustSources.profileFacts(userId, current.trustIdentity, sealSource)
+        // A failed proofs call falls back on the compact seal. A suspended or a missing seal gives none (ADR 0275 points 2 and 14).
+        val strongest = people.seals.strongestProof(userId)
+        val proofs = when {
+            facts.identity != "verified" || strongest == null -> emptyList()
+            loadedProofs.isEmpty() -> listOf(strongest)
+            else -> loadedProofs
+        }
         val marks = mutableListOf<TrustMark>()
         when {
             personSeal is BipePersonSealState.Verified ->
-                facts.verifiedName?.let { marks += TrustMark(TrustMark.Kind.VERIFIED_NAME, context.getString(R.string.bipe_badge_verified_name, it)) }
+                // Only when the badge name differs from the display name: else the header already shows it (spec notes).
+                facts.verifiedName
+                    ?.takeIf { NameNormalizer.normalize(it) != NameNormalizer.normalize(current.person.displayName) }
+                    ?.let { name ->
+                        proofs.firstOrNull()?.let { marks += TrustMark(TrustMark.Kind.VERIFIED_NAME, context.getString(R.string.bipe_badge_verified_name_via, it.schemeName(context), name)) }
+                    }
             personSeal == BipePersonSealState.Suspended -> marks += TrustMark(TrustMark.Kind.NAME_SUSPENDED, context.getString(R.string.bipe_badge_suspended))
             seal is BipeCompanySealState.Revoked -> marks += TrustMark(TrustMark.Kind.COMPANY_REVOKED, seal.notice(context).orEmpty())
             facts.identity == "verified" -> marks += TrustMark(TrustMark.Kind.COMPANY, context.getString(R.string.bipe_badge_company))
@@ -199,7 +222,13 @@ class PersonProfileModel(
         // An official account, or a company whose verified seal names it, does not get the warning.
         val reserved = NameNormalizer.reservedCategory(current.person.displayName) != null &&
             !current.isOfficial && seal !is BipeCompanySealState.Verified
-        _state.value = current.copy(seal = seal, personSeal = personSeal, facts = facts, marks = marks, reservedNameWarning = reserved)
+        // An official account has its own badge, and the own profile shows no facts.
+        val unverified = people.seals.hasAnswer(userId) && userId != people.session.userId && !current.isOfficial &&
+            proofs.isEmpty() && marks.none { it.kind != TrustMark.Kind.CONFIRMED_IN_PERSON }
+        _state.value = current.copy(
+            seal = seal, personSeal = personSeal, proofs = proofs, showsUnverifiedLine = unverified,
+            facts = facts, marks = marks, reservedNameWarning = reserved,
+        )
     }
 
     /** Action message: the DM, created when missing. */
@@ -293,6 +322,7 @@ fun PersonProfileScreen(people: PeopleService, userId: String, fromDm: Boolean, 
     val colors = BipeTheme.colors
     var showsBlock by remember { mutableStateOf(false) }
     var showsSeal by remember { mutableStateOf(false) }
+    var openedProof by remember { mutableStateOf<BipePersonProof?>(null) }
     var showsGallery by remember { mutableStateOf(false) }
     var targets by remember { mutableStateOf<List<InviteTarget>?>(null) }
 
@@ -314,7 +344,7 @@ fun PersonProfileScreen(people: PeopleService, userId: String, fromDm: Boolean, 
                 BipeButton(onClick = model::appear) { Text(stringResource(R.string.bipe_app_retry)) }
             }
             PersonProfileModel.Phase.LOADED -> {
-                Header(model, state, isBlocked, onOpenSeal = { showsSeal = true })
+                Header(model, state, isBlocked, onOpenSeal = { showsSeal = true }, onOpenProof = { openedProof = it })
                 // Spec business-chat-bar: a company's tools under its name (ADR 0103: Agendar).
                 if (state.isCompany) BusinessProfileButtons(people.session, people.media, userId)
                 SocialLinks(state.socials)
@@ -371,13 +401,15 @@ fun PersonProfileScreen(people: PeopleService, userId: String, fromDm: Boolean, 
     if (showsSeal) {
         CompanySealDialog(state.seal, onClose = { showsSeal = false })
     }
+    // Fail closed: the sheet closes when the badge stops verifying.
+    openedProof?.takeIf { state.proofs.isNotEmpty() }?.let { PersonSealDialog(it, onClose = { openedProof = null }) }
     targets?.let { list ->
         InviteTargetDialog(list, onPick = { targets = null; model.invite(it) }, onClose = { targets = null })
     }
 }
 
 @Composable
-private fun Header(model: PersonProfileModel, state: PersonProfileModel.State, isBlocked: Boolean, onOpenSeal: () -> Unit) {
+private fun Header(model: PersonProfileModel, state: PersonProfileModel.State, isBlocked: Boolean, onOpenSeal: () -> Unit, onOpenProof: (BipePersonProof) -> Unit) {
     val colors = BipeTheme.colors
     Column(
         modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
@@ -395,8 +427,8 @@ private fun Header(model: PersonProfileModel, state: PersonProfileModel.State, i
             )
             if (state.isOfficial) OfficialBadge(style = MaterialTheme.typography.labelMedium)
             if (state.facts.identity == "verified" && state.seal !is BipeCompanySealState.Verified) {
-                // Spec person-profile: a person's seal has no sheet. The verified-name line says what it means.
-                SealMark(state.person.userId, seals = model.people.seals, size = 22.dp)
+                // Spec person-seal: a tap opens the strongest proof (ADR 0275 point 4).
+                PersonSealButton(state.person.userId, seals = model.people.seals, size = 22.dp)
             } else if (state.facts.identity == "verified") {
                 Icon(
                     painterResource(PhosphorIcon.SEAL_CHECK.drawable),
@@ -412,12 +444,14 @@ private fun Header(model: PersonProfileModel, state: PersonProfileModel.State, i
         if (model.userId == BipeRegistries.groupsAccountId) {
             Text(stringResource(R.string.bipe_groups_service_about), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary, textAlign = TextAlign.Center)
         }
-        // Spec person-profile profileFacts (ADR 0049): below the header, apart from the trust facts. Not on the own profile.
-        if (model.userId != model.people.session.userId) ProfileFactsLines(model.people, model.userId)
         if (state.reservedNameWarning) {
             MarkLine(PhosphorIcon.WARNING, stringResource(R.string.bipe_warning_reserved_name), colors.trustCautionInk)
         }
-        state.marks.forEach { mark ->
+        // Spec person-profile, list of facts (ADR 0275 points 12 to 16): identity, then the facts, then the confirmation.
+        val context = LocalContext.current
+        val orderedMarks = state.marks.partition { it.kind != TrustMark.Kind.CONFIRMED_IN_PERSON }
+        @Composable
+        fun line(mark: TrustMark) {
             when (mark.kind) {
                 TrustMark.Kind.COMPANY -> MarkLine(PhosphorIcon.SEAL_CHECK, mark.text, colors.trustVerifiedInk, onClick = onOpenSeal)
                 TrustMark.Kind.VERIFIED_NAME -> MarkLine(PhosphorIcon.SEAL_CHECK, mark.text, colors.trustVerifiedInk)
@@ -425,6 +459,21 @@ private fun Header(model: PersonProfileModel, state: PersonProfileModel.State, i
                 else -> MarkLine(PhosphorIcon.SEAL_WARNING, mark.text, colors.trustCautionInk)
             }
         }
+        orderedMarks.first.forEach { line(it) }
+        state.proofs.forEach { proof ->
+            MarkLine(
+                if (proof.isFill) PhosphorIcon.SEAL_CHECK_FILL else PhosphorIcon.SEAL_CHECK,
+                proof.line(context),
+                colors.trustVerifiedInk,
+                onClick = { onOpenProof(proof) },
+            )
+        }
+        if (state.showsUnverifiedLine) {
+            MarkLine(PhosphorIcon.USER_CIRCLE, stringResource(R.string.bipe_banner_unverified_title), colors.trustNeutralInk)
+        }
+        // Not on the own profile.
+        if (model.userId != model.people.session.userId) ProfileFactsLines(model.people, model.userId, alwaysCreated = true)
+        orderedMarks.second.forEach { line(it) }
         FactLines(state, onRetry = model::readIdentity)
         if (isBlocked) {
             MarkLine(PhosphorIcon.PROHIBIT, stringResource(R.string.bipe_app_person_blocked), colors.trustDangerInk)

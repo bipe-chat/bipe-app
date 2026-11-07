@@ -355,19 +355,35 @@ class SharedVectorTest {
     fun profileFacts() {
         val now = BipeProfileFactLines.parse(load("profile-facts.json").string("now")!!)!!
         val cases = vectors("profile-facts.json", "vectors")
+        val profileCases = vectors("profile-facts.json", "profile_vectors")
         assertWithMessage("profile facts vectors").that(cases).isNotEmpty()
-        for (vector in cases) {
+        assertWithMessage("profile facts profile vectors").that(profileCases).isNotEmpty()
+        for ((vector, alwaysCreated) in cases.map { it to false } + profileCases.map { it to true }) {
             val name = vector.string("name")
             val raw = vector.getValue("facts").jsonObject
             fun dates(key: String) = raw[key]?.jsonArray?.map { it.jsonPrimitive.content } ?: emptyList()
             val facts = BipeProfileFacts("@a:bipe.net.br", raw.string("created_at"), dates("name_changes"), dates("photo_changes"), dates("number_moved_out"), dates("number_moved_in"))
-            val result = BipeProfileFactLines.of(facts, now)
+            val result = BipeProfileFactLines.of(facts, now, alwaysCreated)
             val expected = vector.getValue("expected").jsonObject
             val lines = expected.getValue("lines").jsonArray.map { it.jsonObject }
             assertWithMessage("profile facts notice $name").that(result.notice).isEqualTo(expected.getValue("notice").jsonPrimitive.boolean)
             assertWithMessage("profile facts number notice $name").that(result.numberNotice?.id).isEqualTo(expected.string("numberNotice"))
             assertWithMessage("profile facts lines $name").that(result.lines.map { listOf(it.fact.id, it.count, it.at) })
                 .isEqualTo(lines.map { listOf(it.string("fact"), it.string("count")?.toInt(), BipeProfileFactLines.parse(it.string("at")!!)) })
+        }
+    }
+
+    @Test
+    fun personProofs() {
+        val cases = vectors("person-proofs.json", "vectors")
+        assertWithMessage("person proofs vectors").that(cases).isNotEmpty()
+        for (vector in cases) {
+            val name = vector.string("name")
+            val badges = vector.getValue("payloads").jsonArray.map { it.jsonObject }.map { chat.bipe.shared.company.BipePersonProofs.Badge(it.string("lvl")!!, it.string("scheme")) }
+            val expected = vector.getValue("expected").jsonArray.map { it.jsonObject }
+            val result = chat.bipe.shared.company.BipePersonProofs.schemes(badges)
+            assertWithMessage("person proofs $name").that(result.map { listOf(it.id, it.assurance, it.mark) })
+                .isEqualTo(expected.map { listOf(it.string("scheme"), it.string("assurance"), it.string("mark")) })
         }
     }
 

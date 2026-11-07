@@ -3,7 +3,7 @@
 // Copyright 2026 Bipe contributors
 
 // Phosphor icons (MIT, ADR 0145) for both apps, from the @phosphor-icons/core npm package.
-// tools/phosphor.json names the version, the weight and the icons the apps use.
+// tools/phosphor.json names the version, the weight, the icons the apps use and the few icons of the fill weight.
 // Usage: node tools/phosphor.mjs <folder of an unpacked @phosphor-icons/core package>
 //   (npm pack @phosphor-icons/core@<version> && tar -xzf phosphor-icons-core-<version>.tgz: the folder is "package")
 //
@@ -133,9 +133,11 @@ export function writeIcons(pkg, root = REPO_ROOT) {
     throw new Error(`phosphor: ${pkg} is ${meta.name}@${meta.version}, tools/phosphor.json wants @phosphor-icons/core@${config.version}`);
   }
   if (meta.license !== 'MIT') throw new Error(`phosphor: licence is ${meta.license}, not MIT`);
-  const names = [...config.icons].sort();
+  const fill = config.fill ?? [];
+  const names = [...config.icons, ...fill].sort();
+  const weightOf = (n) => (fill.includes(n) ? 'fill' : config.weight);
   const paths = Object.fromEntries(
-    names.map((n) => [n, parseIcon(readFileSync(join(pkg, 'assets', config.weight, `${n}.svg`), 'utf8'), n)]),
+    names.map((n) => [n, parseIcon(readFileSync(join(pkg, 'assets', weightOf(n), `${n}.svg`), 'utf8'), n)]),
   );
 
   const ios = join(root, 'ios/Phosphor');

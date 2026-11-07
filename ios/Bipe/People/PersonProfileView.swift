@@ -26,6 +26,7 @@ struct PersonProfileView: View {
     @State private var showsGallery = false
     @State private var showsReport = false
     @State private var showsSeal = false
+    @State private var openedProof: BipePersonProof?
     @State private var inviteTargets: [InviteTarget]?
     @State private var isOpeningChat = false
     /// Spec business-chat-bar: Agendar and Ver catálogo under the name of a company account.
@@ -62,6 +63,11 @@ struct PersonProfileView: View {
             }
             .sheet(isPresented: $showsSeal) {
                 CompanySealSheet(userId: model.userId, state: model.seal)
+            }
+            .sheet(item: $openedProof) { PersonSealSheet(proof: $0) }
+            // Fail closed: the sheet closes when the badge stops verifying.
+            .onChange(of: model.proofLines.isEmpty) { _, gone in
+                if gone { openedProof = nil }
             }
             .sheet(item: Binding(get: { inviteTargets.map(InviteTargetList.init) }, set: { if $0 == nil { inviteTargets = nil } })) { list in
                 InviteTargetPicker(targets: list.targets) { target in
@@ -121,8 +127,8 @@ struct PersonProfileView: View {
                     OfficialBadge(font: .footnote)
                 }
                 if model.facts.identity == "verified", !model.seal.isVerified {
-                    // Spec person-profile: a person's seal has no sheet. The verified-name line says what it means.
-                    SealMark(userId: model.userId, size: 22)
+                    // Spec person-seal: a tap opens the strongest proof (ADR 0275 point 4).
+                    PersonSealButton(userId: model.userId, size: 22)
                         .environment(\.bipeCompanySeals, people.seals)
                 } else if model.facts.identity == "verified" {
                     Button {
@@ -154,14 +160,29 @@ struct PersonProfileView: View {
             }
             BusinessProfileButtons(model: business)
                 .padding(.top, 4)
-            // Spec person-profile profileFacts (ADR 0049): below the header, apart from the trust facts. Not on the own profile.
-            if model.userId != people.session.userId {
-                ProfileFactsLines(people: people, userId: model.userId)
-            }
             if model.reservedNameWarning {
                 MarkLine(icon: .warning, text: BipeStrings.warningReservedName, tint: BipeColor.trustCautionInk)
             }
-            ForEach(model.marks) { mark in
+            // Spec person-profile, list of facts (ADR 0275 points 12 to 16): identity, then the facts, then the confirmation.
+            ForEach(model.marks.filter { $0.kind != .confirmedInPerson }) { mark in
+                markLine(mark)
+            }
+            ForEach(model.proofLines) { proof in
+                Button {
+                    openedProof = proof
+                } label: {
+                    MarkLine(icon: proof.isFill ? .sealCheckFill : .sealCheck, text: proof.line, tint: BipeColor.trustVerifiedInk)
+                }
+                .buttonStyle(.plain)
+            }
+            if model.showsUnverifiedLine {
+                MarkLine(icon: .userCircle, text: BipeStrings.bannerUnverifiedTitle, tint: BipeColor.trustNeutralInk)
+            }
+            // Not on the own profile.
+            if model.userId != people.session.userId {
+                ProfileFactsLines(people: people, userId: model.userId, alwaysCreated: true)
+            }
+            ForEach(model.marks.filter { $0.kind == .confirmedInPerson }) { mark in
                 markLine(mark)
             }
             factLines

@@ -62,6 +62,15 @@ suspend fun BipeApiClient.badge(userId: String): BipeBadgeLookup {
     }
 }
 
+/** `GET /v1/badges/{userId}/proofs` (ADR 0275). No auth. Each envelope's JSON, not yet verified, strongest first. */
+suspend fun BipeApiClient.badgeProofs(userId: String): List<String> {
+    val (status, text) = exchange("GET", listOf("v1", "badges", userId, "proofs"))
+    if (status != 200) throw BipeApiException.UnexpectedResponse(status)
+    val badges = runCatching { peopleJson.parseToJsonElement(text).jsonObject["badges"]?.jsonArray }.getOrNull()
+        ?: throw BipeApiException.UnexpectedResponse(status)
+    return badges.map { it.toString() }
+}
+
 /**
  * `GET /v1/brand-marks/{userId}` (ADR 0162). No auth. Each envelope's JSON, not yet verified, in the server's order.
  */
