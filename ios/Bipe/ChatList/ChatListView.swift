@@ -426,11 +426,9 @@ struct ChatListView: View {
         }
     }
 
-    /// Mural is on for this list. The Grupos tab does not change (spec chat-list, Mural scope).
-    private var muralOn: Bool { muralEnabled && scope != .grupos }
-
-    /// The chats of this list: with Mural on, Conversas shows DMs and groups, as the company todas scope does.
-    private var listScope: ChatScope { muralOn ? .todas : scope }
+    /// Mural is on for this list. With Mural on, Conversas has the todas scope, as for a company, and no Grupos tab shows
+    /// (spec chat-list, Mural scope).
+    private var muralOn: Bool { muralEnabled && scope == .todas }
 
     private var content: some View {
         VStack(spacing: 0) {
@@ -512,7 +510,7 @@ struct ChatListView: View {
 
     @ViewBuilder
     private var list: some View {
-        switch model.phase(in: listScope, archived: showingArchived) {
+        switch model.phase(in: scope, archived: showingArchived) {
         case .loading:
             ProgressView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -535,7 +533,7 @@ struct ChatListView: View {
         case .loaded:
             // Spec chat-list favourites: a favourite shows in the row at the top, not again below it. In Mural there is no
             // favourites row, so the plain list has every chat.
-            let chats = model.chats(in: listScope, archived: showingArchived).filter { showingArchived || muralOn || !$0.isFavourite }
+            let chats = model.chats(in: scope, archived: showingArchived).filter { showingArchived || muralOn || !$0.isFavourite }
             let favourites = showingArchived || muralOn ? [] : model.favourites(in: scope)
                 .filter { !cleared.hidden(roomId: $0.roomId, latest: $0.lastActivity) }
             List {

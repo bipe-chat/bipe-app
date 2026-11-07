@@ -118,14 +118,24 @@ final class AppTabsModel: ObservableObject {
     }
 
     /// Action selectTab. A tap on Você always opens Você.
-    /// A company account has no Grupos tab and a personal account no Trabalho tab: those go to Conversas.
+    /// A company account or an account with Mural on has no Grupos tab, and a personal account no Trabalho tab: those go to Conversas.
     func selectTab(_ tab: Tab) {
-        selectedTab = Self.available(tab, isCompany: currentIsCompany)
+        selectedTab = Self.available(tab, isCompany: currentIsCompany, muralOn: currentMuralOn)
     }
 
-    private static func available(_ tab: Tab, isCompany: Bool) -> Tab {
+    /// The Mural setting of the current account changed: Grupos can leave the tab bar (spec app-tabs).
+    func muralChanged() {
+        refresh()
+    }
+
+    /// Spec chat-list muralEnabled of the current account.
+    private var currentMuralOn: Bool {
+        currentId.map { UserDefaults.standard.bool(forKey: MuralSetting.key(userId: $0)) } ?? false
+    }
+
+    private static func available(_ tab: Tab, isCompany: Bool, muralOn: Bool) -> Tab {
         switch tab {
-        case .grupos where isCompany, .trabalho where !isCompany: .conversas
+        case .grupos where isCompany || muralOn, .trabalho where !isCompany: .conversas
         default: tab
         }
     }
@@ -321,7 +331,7 @@ final class AppTabsModel: ObservableObject {
         otherAccountUnread = accounts.contains { !$0.isCurrent && $0.hasUnread }
         voceIcon = accounts.first(where: \.isCurrent).map(tabIcon(of:))
         currentIsCompany = currentId.flatMap { profiles[$0]?.isCompany } ?? false
-        let tab = Self.available(selectedTab, isCompany: currentIsCompany)
+        let tab = Self.available(selectedTab, isCompany: currentIsCompany, muralOn: currentMuralOn)
         if tab != selectedTab { selectedTab = tab }
         let limit = currentId.flatMap { profiles[$0]?.maxAccounts } ?? BipeRegistries.maxPersonalAccounts
         maxPersonalAccounts = limit

@@ -81,7 +81,8 @@ internal fun BipeTabBar(
                 state, AppTabsModel.Tab.TRABALHO, Icons.Outlined.Work, Icons.Filled.Work,
                 R.string.bipe_tab_work, 0, onSelect,
             )
-        } else {
+        } else if (!state.muralEnabled) {
+            // With Mural on, the groups are in Conversas and there is no Grupos tab (spec app-tabs, ADR 0246).
             TabItem(
                 state, AppTabsModel.Tab.GRUPOS, Icons.Outlined.Groups, Icons.Filled.Groups,
                 R.string.bipe_tab_groups, state.gruposAttention, onSelect,

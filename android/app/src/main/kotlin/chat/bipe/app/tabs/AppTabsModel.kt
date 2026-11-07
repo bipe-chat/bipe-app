@@ -123,13 +123,13 @@ class AppTabsModel(
     }
 
     /** Action selectTab. A tap on Você always opens Você. */
-    /** A company account has no Grupos tab and a personal account no Trabalho tab: those go to Conversas. */
+    /** A company account or an account with Mural on has no Grupos tab, and a personal account no Trabalho tab: those go to Conversas. */
     fun selectTab(tab: Tab) {
-        _state.value = _state.value.copy(selectedTab = available(tab, _state.value.isCompany))
+        _state.value = _state.value.copy(selectedTab = available(tab, _state.value.isCompany, _state.value.muralEnabled))
     }
 
-    private fun available(tab: Tab, isCompany: Boolean): Tab = when {
-        (tab == Tab.GRUPOS && isCompany) || (tab == Tab.TRABALHO && !isCompany) -> Tab.CONVERSAS
+    private fun available(tab: Tab, isCompany: Boolean, muralEnabled: Boolean): Tab = when {
+        (tab == Tab.GRUPOS && (isCompany || muralEnabled)) || (tab == Tab.TRABALHO && !isCompany) -> Tab.CONVERSAS
         else -> tab
     }
 
@@ -248,11 +248,12 @@ class AppTabsModel(
         val chats = currentId?.let { latestChats[it] }.orEmpty()
         val limit = currentId?.let { profiles[it]?.limit } ?: BipeRegistries.MAX_PERSONAL_ACCOUNTS
         val isCompany = accounts.firstOrNull { it.isCurrent }?.isCompany == true
-        val selected = available(_state.value.selectedTab, isCompany)
+        val muralEnabled = currentId in muralSetting.accounts.value
+        val selected = available(_state.value.selectedTab, isCompany, muralEnabled)
         _state.value = _state.value.copy(
             selectedTab = selected,
             isCompany = isCompany,
-            muralEnabled = currentId in muralSetting.accounts.value,
+            muralEnabled = muralEnabled,
             accounts = accounts,
             conversasUnread = chats.count { it.scope == ChatScope.CONVERSAS && it.isUnread },
             gruposAttention = chats.filter { it.scope == ChatScope.GRUPOS }.sumOf { it.mentionCount },

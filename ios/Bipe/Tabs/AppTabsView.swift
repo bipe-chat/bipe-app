@@ -8,7 +8,8 @@ import SwiftUI
 /// Spec app-tabs: Conversas · Grupos · Você, then Buscar apart at the trailing end (ADR 0053, MZ decision 25 Oct 2026).
 /// Keep it the last tab. iOS 27 draws a tab apart only with the `.prominent` role; there a `.search` tab only "may" get
 /// that treatment, and on MZ's iPhone it did not. iOS 18 to 26 draw the `.search` role apart.
-/// A company account has Trabalho in place of Grupos, and its groups in Conversas.
+/// A company account has Trabalho in place of Grupos, and its groups in Conversas. An account with Mural on has its
+/// groups in Conversas and no Grupos tab.
 /// The standard tab bar with SF Symbols: the system sets their size, weight and selected state (ADR 0149).
 struct AppTabsView: View {
     @ObservedObject var model: AppTabsModel
@@ -24,7 +25,7 @@ struct AppTabsView: View {
     @StateObject private var encryption: EncryptionStatusModel
     /// Spec govbr-verify, action receiveDocument: a signed PDF from the share sheet or open with.
     @ObservedObject private var govbr = GovbrInbox.shared
-    /// Spec chat-list muralEnabled: Conversas shows the groups too, so its badge counts them (spec app-tabs).
+    /// Spec chat-list muralEnabled: Conversas shows the groups too, so its badge counts them and no Grupos tab shows (spec app-tabs).
     @AppStorage private var muralEnabled: Bool
     private struct InviteCode: Identifiable {
         let code: String
@@ -70,7 +71,7 @@ struct AppTabsView: View {
         let chatList = model.chatList(for: session)
         TabView(selection: Binding(get: { model.selectedTab }, set: { model.selectTab($0) })) {
             Tab(value: AppTabsModel.Tab.conversas) {
-                ChatListView(model: chatList, scope: model.currentIsCompany ? .todas : .conversas, api: api,
+                ChatListView(model: chatList, scope: model.currentIsCompany || muralEnabled ? .todas : .conversas, api: api,
                              encryption: encryption, initialRoomId: initialRoomId)
             } label: {
                 Label(BipeStrings.tabChats, systemImage: "bubble.left.and.bubble.right")
@@ -90,7 +91,7 @@ struct AppTabsView: View {
                 } label: {
                     Label(BipeStrings.tabWork, systemImage: "briefcase")
                 }
-            } else {
+            } else if !muralEnabled {
                 Tab(value: AppTabsModel.Tab.grupos) {
                     ChatListView(model: chatList, scope: .grupos, api: api, encryption: encryption)
                 } label: {
@@ -123,6 +124,7 @@ struct AppTabsView: View {
             }
         }
         .environmentObject(model)
+        .onChange(of: muralEnabled) { _, _ in model.muralChanged() }
         .environment(\.openURL, OpenURLAction { url in
             // Message links use the same signed-in destinations as links received from the system.
             if let code = BipeInviteLink.code(from: url) {
