@@ -46,7 +46,7 @@ enum MacImagePreparation {
             try excluded.setResourceValues(values)
             let stem = url.deletingPathExtension().lastPathComponent
             let file = folder.appendingPathComponent(stem).appendingPathExtension(animated ? "gif" : highQuality ? "png" : "jpg")
-            let thumbnail = folder.appendingPathComponent("thumbnail.jpg")
+            let thumbnail = folder.appendingPathComponent(UUID().uuidString + ".jpg")
             var width = image.width, height = image.height
             if animated {
                 guard count <= 500, let first = CGImageSourceCreateImageAtIndex(source, 0, nil) else { throw CocoaError(.fileReadCorruptFile) }

@@ -18,6 +18,8 @@ struct MacMessage: Identifiable {
     let isEmote: Bool
     let timestamp: Date
     let isOwn: Bool
+    /// Spec timeline-rows: false only for the one other person of a DM. A room flagged direct can hold messages from people who left.
+    let showsSender: Bool
     let pending: Bool
     let failed: Bool
     let warning: ScamWarningKind?
@@ -37,6 +39,7 @@ final class MacTimeline: ObservableObject {
     @Published private(set) var ready = false
     @Published private(set) var isEncrypted = true
     @Published private(set) var isPrivateRoom = false
+    var readingLatest = true
     @Published private(set) var isDm = false
     @Published var reactionFailed = false
     @Published private(set) var reacting: Set<String> = []
@@ -53,6 +56,7 @@ final class MacTimeline: ObservableObject {
     private var draftRevision = 0
     private let drafts: MacDrafts
     private var lastReadID: String?
+    private var dmPeerID: String?
     private var listener: TaskHandle?
     private var items: [TimelineItem] = []
     private var moneyPause = BipeMoneyPause()
@@ -101,6 +105,7 @@ final class MacTimeline: ObservableObject {
     private func readRoomKind(_ room: Room) async {
         guard let info = try? await room.roomInfo() else { return }
         isDm = info.isDm
+        dmPeerID = info.isDm ? info.heroes.first(where: { $0.userId != room.ownUserId() })?.userId : nil
         isPrivateRoom = info.isDm || info.isPublic == false
     }
 
@@ -240,7 +245,8 @@ final class MacTimeline: ObservableObject {
     }
 
     func markRead() async {
-        guard NSApplication.shared.isActive, let room, let timeline,
+        // The latest message is on screen: the window has focus and the person is at the bottom of the chat.
+        guard NSApplication.shared.isActive, NSApplication.shared.keyWindow != nil, readingLatest, let room, let timeline,
               let latest = messages.last?.id, latest != lastReadID else { return }
         let isDm = (try? await room.roomInfo())?.isDm ?? true
         guard NSApplication.shared.isActive else { return }
@@ -276,7 +282,8 @@ final class MacTimeline: ObservableObject {
             return MacMessage(id: item.uniqueId().id, sender: sender, body: payload.body,
                               richText: payload.richText, photo: payload.photo, isEmote: payload.isEmote,
                               timestamp: Date(timeIntervalSince1970: Double(event.timestamp) / 1000),
-                              isOwn: event.isOwn, pending: pending, failed: failed,
+                              isOwn: event.isOwn, showsSender: !isDm || dmPeerID == nil || event.sender != dmPeerID,
+                              pending: pending, failed: failed,
                               warning: event.isOwn ? nil : ScamDetector.warningKind(for: payload.safetyText, eventID: item.uniqueId().id),
                               eventID: eventID, canReply: event.canBeRepliedTo,
                               canReact: decryptable && eventID != nil && !pending && !failed,

@@ -46,7 +46,7 @@ struct TimelineRowView: View {
             }
         case .deleted:
             if let message = row.message {
-                DeletedRow(message: message, isDm: isDm)
+                DeletedRow(message: message)
             }
         case .poll:
             if let message = row.message, let poll = message.poll,
@@ -62,7 +62,7 @@ struct TimelineRowView: View {
                     openPoll(poll.eventId)
                 } label: {
                     Bubble(isOwn: message.isOwn, trailingLast: true) {
-                        if !message.isOwn && !isDm {
+                        if !message.isOwn && message.showsSender {
                             SenderNameText(message: message)
                                 .font(.caption.bold())
                                 .foregroundStyle(BipeColor.accentInk)
@@ -204,7 +204,7 @@ private struct MessageBubbleRow: View {
                     .accessibilityHidden(true)
                 Bubble(isOwn: message.isOwn, isHighlighted: isHighlighted, trailingLast: true,
                        isPlain: message.media?.kind == .sticker) {
-                    if !message.isOwn && !isDm {
+                    if !message.isOwn && message.showsSender {
                         SenderNameText(message: message)
                             .font(.caption.bold())
                             .foregroundStyle(BipeColor.accentInk)
@@ -592,11 +592,10 @@ private struct UndecryptableRow: View {
 /// Spec timeline-rows kind deleted: no reactions, quote, receipt or actions.
 private struct DeletedRow: View {
     let message: TimelineMessage
-    let isDm: Bool
 
     var body: some View {
         Bubble(isOwn: message.isOwn, trailingLast: true) {
-            if !message.isOwn && !isDm {
+            if !message.isOwn && message.showsSender {
                 SenderNameText(message: message)
                     .font(.caption.bold())
                     .foregroundStyle(BipeColor.accentInk)

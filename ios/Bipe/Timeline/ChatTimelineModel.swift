@@ -55,6 +55,8 @@ struct TimelineMessage: Identifiable, Equatable {
     var senderName: String
     /// Spec timeline-rows nameAmbiguous: another member of the room shows the same name (bipe-chat/bipe#825).
     var senderNameAmbiguous = false
+    /// Spec timeline-rows: false only for the one other person of a DM. A room flagged direct can hold messages from people who left.
+    var showsSender = true
     /// Spec chat-timeline senderRole: admin or moderator, groups only.
     var senderRole: GroupRole? = nil
     var isOwn: Bool
@@ -495,6 +497,7 @@ final class ChatTimelineModel: ObservableObject {
             facts.joinedMembers = Int(info.joinedMembersCount)
             isGroup = !info.isDm && !info.isSpace
             let peer = info.isDm ? info.heroes.first(where: { $0.userId != session.userId }) : nil
+            facts.dmPeerId = peer?.userId
             var peerHandle: String?
             if let peer, BipeChatRowName.realName(peer.displayName, userID: peer.userId) == nil {
                 peerHandle = await handles?.resolve(peer.userId)

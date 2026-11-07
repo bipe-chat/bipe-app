@@ -105,6 +105,8 @@ final class MacRoomList: ObservableObject {
             try await row.room.setIsFavourite(isFavourite: value, tagOrder: nil)
             guard self.generation == generation else { return }
             pendingFavourite[row.id] = value
+            // A first write before the first read would drop the order synced from other devices.
+            if !orderRead { await refreshFavouritesOrder() }
             await saveOrder(value ? BipeFavouritesOrder.adding(row.id, to: favouritesOrder)
                                   : BipeFavouritesOrder.removing(row.id, from: favouritesOrder))
             rebuild()
@@ -125,8 +127,11 @@ final class MacRoomList: ObservableObject {
             let json = try await ServerAccountData.json(client: client, eventType: BipeFavouritesOrder.eventType)
             guard !Task.isCancelled, self.generation == generation, !orderUnsaved else { return }
             favouritesOrder = BipeFavouritesOrder.parse(json)
+            orderRead = true
         } catch { /* Offline lists keep the local account-data order. */ }
     }
+
+    private var orderRead = false
 
     private func saveOrder(_ order: [String]) async {
         guard let client else { return }

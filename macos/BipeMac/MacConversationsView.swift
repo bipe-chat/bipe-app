@@ -9,11 +9,15 @@ struct MacConversationsView: View {
     @ObservedObject var account: MacAccount
     @ObservedObject var list: MacRoomList
     let scope: MacDestination
-    @State private var selected: String?
     @State private var search = ""
     @State private var showingArchived = false
     @State private var reordering = false
 
+    /// The account keeps the open chat of each destination, so switching destinations comes back to it.
+    private var selectedRoom: Binding<String?> {
+        Binding(get: { account.selectedRooms[scope] }, set: { account.selectedRooms[scope] = $0 })
+    }
+    private var selected: String? { account.selectedRooms[scope] }
     private var scoped: [MacRoomSummary] { list.scoped(scope, isCompany: account.isCompany, archived: showingArchived) }
     private var favourites: [MacRoomSummary] {
         showingArchived || !search.isEmpty ? [] : list.favourites(scope, isCompany: account.isCompany)
@@ -28,24 +32,18 @@ struct MacConversationsView: View {
     var body: some View {
         NavigationSplitView {
             VStack(alignment: .leading, spacing: 0) {
-                HStack {
-                    if showingArchived {
-                        Button { showingArchived = false } label: {
-                            Image(decorative: "caret-left").resizable().scaledToFit().frame(width: 20, height: 20).bipeTapTarget()
-                        }.buttonStyle(.plain).accessibilityLabel(scope.title)
-                    }
-                    Text(showingArchived ? BipeStrings.archivedTitle : scope.title).macFont(.largeTitle).fontWeight(.bold)
-                    Spacer()
-                }.padding(.horizontal, 16).padding(.top, 12).padding(.bottom, 8)
-                HStack(spacing: 8) {
-                    Image(decorative: "magnifying-glass").resizable().scaledToFit().frame(width: 18, height: 18)
-                    TextField(BipeStrings.appSearchPlaceholder, text: $search).textFieldStyle(.plain).macFont(.body)
-                }.padding(8).background(BipeColor.surfaceSunken, in: RoundedRectangle(cornerRadius: 10))
-                    .padding(.horizontal, 16).padding(.bottom, 8)
+                if showingArchived {
+                    Button { showingArchived = false } label: {
+                        HStack(spacing: 6) {
+                            Image(decorative: "caret-left").resizable().scaledToFit().frame(width: 16, height: 16)
+                            Text(BipeStrings.archivedTitle).macFont(.headline)
+                        }.contentShape(Rectangle())
+                    }.buttonStyle(.plain).accessibilityLabel(scope.title).padding(.horizontal, 16).padding(.vertical, 8)
+                }
                 if list.actionFailed { MacNotice(text: BipeStrings.errorGeneric, danger: true).padding(.horizontal, 16) }
-                List(selection: $selected) {
+                List(selection: selectedRoom) {
                     if !favourites.isEmpty {
-                        MacFavouritesGrid(rows: favourites, media: account.media, reordering: $reordering, selected: $selected,
+                        MacFavouritesGrid(rows: favourites, media: account.media, reordering: $reordering, selected: selectedRoom,
                                           move: { id, index in Task { await list.moveFavourite(id, to: index, shown: favourites.map(\.id)) } },
                                           menu: { row in rowMenu(row) })
                             .listRowSeparator(.hidden).listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
@@ -78,6 +76,7 @@ struct MacConversationsView: View {
                 }
             }.background(BipeColor.surfaceBase)
                 .navigationSplitViewColumnWidth(min: 300, ideal: 360, max: 440)
+                .searchable(text: $search, placement: .sidebar, prompt: BipeStrings.appSearchPlaceholder)
         } detail: {
             if let row = list.rows.first(where: { $0.id == selected }) {
                 MacChatView(room: row.room, name: row.name, drafts: account.drafts, media: account.media, face: row.avatar).id(row.id)
@@ -86,7 +85,7 @@ struct MacConversationsView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity).background(BipeColor.surfaceBase)
             }
         }
-        .onChange(of: showingArchived) { _, _ in selected = nil; reordering = false }
+        .onChange(of: showingArchived) { _, _ in selectedRoom.wrappedValue = nil; reordering = false }
         .onChange(of: favourites.count) { _, count in if count < 2 { reordering = false } }
         .onDisappear { reordering = false }
     }
@@ -184,7 +183,8 @@ private struct MacFavouritesGrid<MenuContent: View>: View {
     }
 
     private func cell(_ row: MacRoomSummary) -> some View {
-        VStack(spacing: 6) {
+        let isSelected = selected == row.id
+        return VStack(spacing: 6) {
             MacAvatar(name: row.name, media: media, url: row.avatar.url, userID: row.avatar.userID, members: row.avatar.members, size: 72)
                 .overlay(alignment: .topTrailing) {
                     if row.attention.isUnread {
@@ -193,6 +193,9 @@ private struct MacFavouritesGrid<MenuContent: View>: View {
                     }
                 }
             Text(row.name).macFont(.subheadline).lineLimit(1).frame(maxWidth: .infinity)
-        }.padding(.vertical, 4).frame(maxWidth: .infinity).contentShape(Rectangle())
+        }.padding(.vertical, 6).frame(maxWidth: .infinity)
+            .background(isSelected ? BipeColor.accentWash : .clear, in: RoundedRectangle(cornerRadius: MacDesign.corner))
+            .contentShape(Rectangle())
+            .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }

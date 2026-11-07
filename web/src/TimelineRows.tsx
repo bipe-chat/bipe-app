@@ -314,7 +314,7 @@ export type RowHandlers = {
   cancelUpload: (row: MessageRow) => void;
 };
 
-export function TimelineRowView({ row, isDm, on }: { row: Row; isDm: boolean; on: RowHandlers }) {
+export function TimelineRowView({ row, isDm, dmPeerId, on }: { row: Row; isDm: boolean; dmPeerId?: string; on: RowHandlers }) {
   switch (row.kind) {
     case 'day':
       return (
@@ -337,11 +337,13 @@ export function TimelineRowView({ row, isDm, on }: { row: Row; isDm: boolean; on
         </li>
       );
     case 'message':
-      return <MessageBubble row={row} isDm={isDm} on={on} />;
+      return <MessageBubble row={row} isDm={isDm} dmPeerId={dmPeerId} on={on} />;
   }
 }
 
-function MessageBubble({ row, isDm, on }: { row: MessageRow; isDm: boolean; on: RowHandlers }) {
+function MessageBubble({ row, isDm, dmPeerId, on }: { row: MessageRow; isDm: boolean; dmPeerId?: string; on: RowHandlers }) {
+  // Only the one other person of a DM goes without a name. A room flagged direct can hold messages from people who left.
+  const showsSender = !isDm || dmPeerId === undefined || row.whoId !== dmPeerId || row.body === 'undecryptable';
   const actions: MessageAction[] = [];
   if (row.canReply)
     actions.push({ label: s('bipe_app_message_action_reply'), icon: arrowBendUpLeft, run: () => on.reply(row) });
@@ -385,7 +387,7 @@ function MessageBubble({ row, isDm, on }: { row: MessageRow; isDm: boolean; on: 
       actions={actions}
       plain={row.body === 'sticker'}
     >
-      {!row.own && (!isDm || row.body === 'undecryptable') && (
+      {!row.own && showsSender && (
         <span
           className={`flex items-center gap-1 text-caption font-bold ${row.body === 'undecryptable' ? 'text-ink-secondary' : 'text-accent-ink'}`}
         >

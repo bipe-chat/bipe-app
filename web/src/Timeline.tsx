@@ -466,7 +466,7 @@ export function RoomTimeline({
               </li>
             )}
             {rows.map((r) => (
-              <TimelineRowView key={r.key} row={r} isDm={isDm} on={on} />
+              <TimelineRowView key={r.key} row={r} isDm={isDm} dmPeerId={face.peer?.userId} on={on} />
             ))}
           </ol>
         </div>
