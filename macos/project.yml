@@ -32,6 +32,7 @@ targets:
       - path: QRCode/qrcodegen.c
       - path: QRCode/Nayuki-LICENSE.txt
         buildPhase: resources
+      - path: ../ios/Bipe/ChatList/NativeDm.swift
       - path: ../ios/Bipe/Common/Listeners.swift
       - path: ../ios/Bipe/Common/ButtonSize.swift
       - path: ../ios/Bipe/Common/BipeMark.swift

@@ -10,11 +10,15 @@ struct MacConversationsView: View {
     @ObservedObject var account: MacAccount
     @ObservedObject var list: MacRoomList
     let scope: MacDestination
+    @ObservedObject var requests: MacChatRequests
     private var search: String { account.roomSearches[scope] ?? "" }
     private var searchBinding: Binding<String> {
         Binding(get: { search }, set: { account.roomSearches[scope] = $0 })
     }
     @State private var showingArchived = false
+    @State private var showingRequests = false
+    @State private var startingChat = false
+    @State private var selectedRequest: String?
     @State private var reordering = false
     @State private var notificationsRoom: String?
     @State private var photoPickerRoom: String?
@@ -38,47 +42,10 @@ struct MacConversationsView: View {
     var body: some View {
         NavigationSplitView {
             VStack(alignment: .leading, spacing: 0) {
-                if showingArchived {
-                    Button { showingArchived = false } label: {
-                        HStack(spacing: 6) {
-                            Image(decorative: "caret-left").resizable().scaledToFit().frame(width: 16, height: 16)
-                            Text(BipeStrings.archivedTitle).macFont(.headline)
-                        }.contentShape(Rectangle())
-                    }.buttonStyle(.plain).accessibilityLabel(scope.title).padding(.horizontal, 16).padding(.vertical, 8)
-                }
-                if list.actionFailed { MacNotice(text: BipeStrings.errorGeneric, danger: true).padding(.horizontal, 16) }
-                List(selection: selectedRoom) {
-                    if !favourites.isEmpty {
-                        MacFavouritesGrid(rows: favourites, media: account.media, reordering: $reordering, selected: selectedRoom,
-                                          move: { id, index in Task { await list.moveFavourite(id, to: index, shown: favourites.map(\.id)) } },
-                                          menu: { row in rowMenu(row) })
-                            .listRowSeparator(.hidden).listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
-                    }
-                    ForEach(rows) { row in
-                        MacChatRow(row: row, media: account.media).tag(row.id)
-                            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
-                            .contextMenu { rowMenu(row) }
-                            .accessibilityActions { rowMenu(row) }
-                    }
-                    if !showingArchived {
-                        Button(BipeStrings.archivedTitle) { showingArchived = true }
-                            .listRowSeparator(.hidden)
-                    }
-                    if list.rows.count >= 100 {
-                        Button(BipeStrings.actionShowMore) { list.loadMore() }.listRowSeparator(.hidden)
-                    }
-                }
-                .listStyle(.plain).scrollContentBackground(.hidden)
-                .overlay {
-                    if rows.isEmpty, favourites.isEmpty {
-                        if !list.loaded { ProgressView() }
-                        else {
-                            Text(!search.isEmpty ? BipeStrings.appSearchNoResults(search)
-                                 : showingArchived ? BipeStrings.archivedEmpty
-                                 : scope == .groups ? BipeStrings.appGroupsEmpty : BipeStrings.appChatListEmpty)
-                                .macFont(.body).foregroundStyle(BipeColor.inkSecondary).padding(24).allowsHitTesting(false)
-                        }
-                    }
+                if showingRequests {
+                    requestsBox
+                } else {
+                    chatList
                 }
             }
             .frame(minWidth: MacSidebarLayout.minimum, idealWidth: MacSidebarLayout.ideal, maxWidth: MacSidebarLayout.maximum)
@@ -86,26 +53,135 @@ struct MacConversationsView: View {
             .background(MacSidebarSizing())
             .toolbar {
                 ToolbarItem(placement: .navigation) { MacAccountSwitcher(workspace: workspace, account: account) }
+                if scope == .chats {
+                    ToolbarItem(placement: .automatic) {
+                        Button { startingChat = true } label: {
+                            Image(decorative: "pencil-simple").resizable().scaledToFit().frame(width: 18, height: 18)
+                        }.help(BipeStrings.actionStartChat).accessibilityLabel(BipeStrings.actionStartChat)
+                    }
+                }
             }
             .navigationSplitViewColumnWidth(min: MacSidebarLayout.minimum, ideal: MacSidebarLayout.ideal, max: MacSidebarLayout.maximum)
         } detail: {
-            if let row = list.rows.first(where: { $0.id == selected }) {
+            if showingRequests {
+                if let request = requests.visible.first(where: { $0.id == selectedRequest }) {
+                    MacChatRequestView(request: request, requests: requests, account: account, opened: openChat, closed: { selectedRequest = nil })
+                        .id(request.id).environment(\.bipeCompanySeals, account.seals)
+                } else {
+                    placeholder(BipeStrings.requestsTitle)
+                }
+            } else if let row = list.rows.first(where: { $0.id == selected }) {
                 MacChatView(room: row.room, name: row.name, drafts: account.drafts, media: account.media, face: row.avatar,
                             forwardTargets: list.rows, opensPhotoPicker: photoPickerRoom == row.id).id(row.id)
                     .environment(\.bipeHandles, account.handles)
                     .environment(\.bipeCompanySeals, account.seals)
             } else {
-                Text(scope.title).macFont(.largeTitle).foregroundStyle(BipeColor.inkSecondary)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity).background(BipeColor.surfaceBase)
+                placeholder(scope.title)
             }
         }
         .searchable(text: searchBinding, placement: .sidebar, prompt: BipeStrings.appSearchPlaceholder)
-        .onChange(of: showingArchived) { _, _ in selectedRoom.wrappedValue = nil; reordering = false }
+        .onChange(of: showingArchived) { _, archived in
+            // A chat that start chat just opened has no row yet, and stays selected.
+            if list.rows.first(where: { $0.id == selected })?.isArchived != archived, list.rows.contains(where: { $0.id == selected }) {
+                selectedRoom.wrappedValue = nil
+            }
+            reordering = false
+        }
         .onChange(of: favourites.count) { _, count in if count < 2 { reordering = false } }
         .onDisappear { reordering = false }
+        .sheet(isPresented: $startingChat) {
+            MacStartChatSheet(account: account, opened: { room in startingChat = false; openChat(room) }, close: { startingChat = false })
+        }
         .sheet(isPresented: Binding(get: { notificationsRoom != nil }, set: { if !$0 { notificationsRoom = nil } })) {
             if let row = list.rows.first(where: { $0.id == notificationsRoom }) {
                 MacChatNotificationsSheet(row: row, client: account.client) { notificationsRoom = nil }
+            }
+        }
+    }
+
+    private func placeholder(_ title: String) -> some View {
+        Text(title).macFont(.largeTitle).foregroundStyle(BipeColor.inkSecondary)
+            .frame(maxWidth: .infinity, maxHeight: .infinity).background(BipeColor.surfaceBase)
+    }
+
+    /// The room opens as soon as sync lists it. The selection waits for its row.
+    private func openChat(_ room: String) {
+        showingRequests = false
+        selectedRequest = nil
+        showingArchived = false
+        selectedRoom.wrappedValue = room
+    }
+
+    /// Spec chat-requests: the box. Nothing in it joins the chat list until accepted.
+    @ViewBuilder private var requestsBox: some View {
+        Button { showingRequests = false; selectedRequest = nil } label: {
+            HStack(spacing: 6) {
+                Image(decorative: "caret-left").resizable().scaledToFit().frame(width: 16, height: 16)
+                Text(BipeStrings.requestsTitle).macFont(.headline)
+            }.contentShape(Rectangle())
+        }.buttonStyle(.plain).accessibilityLabel(scope.title).padding(.horizontal, 16).padding(.vertical, 8)
+        List(selection: $selectedRequest) {
+            ForEach(requests.visible) { request in
+                MacRequestRow(request: request, media: account.media, seals: account.seals).tag(request.id)
+                    .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+            }
+        }
+        .listStyle(.plain).scrollContentBackground(.hidden)
+        .overlay {
+            if requests.visible.isEmpty {
+                Text(BipeStrings.appRequestsEmpty).macFont(.body).foregroundStyle(BipeColor.inkSecondary)
+                    .padding(24).allowsHitTesting(false)
+            }
+        }
+    }
+
+    @ViewBuilder private var chatList: some View {
+        if showingArchived {
+            Button { showingArchived = false } label: {
+                HStack(spacing: 6) {
+                    Image(decorative: "caret-left").resizable().scaledToFit().frame(width: 16, height: 16)
+                    Text(BipeStrings.archivedTitle).macFont(.headline)
+                }.contentShape(Rectangle())
+            }.buttonStyle(.plain).accessibilityLabel(scope.title).padding(.horizontal, 16).padding(.vertical, 8)
+        }
+        if list.actionFailed { MacNotice(text: BipeStrings.errorGeneric, danger: true).padding(.horizontal, 16) }
+        List(selection: selectedRoom) {
+            // Spec chat-requests rowCount: 0 hides the row. The row stays at the top of Conversas.
+            if scope == .chats, !showingArchived, search.isEmpty, !requests.visible.isEmpty {
+                Button { showingRequests = true } label: { MacRequestsEntry(count: requests.visible.count) }
+                    .buttonStyle(.plain).listRowSeparator(.hidden)
+                    .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+            }
+            if !favourites.isEmpty {
+                MacFavouritesGrid(rows: favourites, media: account.media, reordering: $reordering, selected: selectedRoom,
+                                  move: { id, index in Task { await list.moveFavourite(id, to: index, shown: favourites.map(\.id)) } },
+                                  menu: { row in rowMenu(row) })
+                    .listRowSeparator(.hidden).listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+            }
+            ForEach(rows) { row in
+                MacChatRow(row: row, media: account.media).tag(row.id)
+                    .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                    .contextMenu { rowMenu(row) }
+                    .accessibilityActions { rowMenu(row) }
+            }
+            if !showingArchived {
+                Button(BipeStrings.archivedTitle) { showingArchived = true }
+                    .listRowSeparator(.hidden)
+            }
+            if list.rows.count >= 100 {
+                Button(BipeStrings.actionShowMore) { list.loadMore() }.listRowSeparator(.hidden)
+            }
+        }
+        .listStyle(.plain).scrollContentBackground(.hidden)
+        .overlay {
+            if rows.isEmpty, favourites.isEmpty {
+                if !list.loaded { ProgressView() }
+                else {
+                    Text(!search.isEmpty ? BipeStrings.appSearchNoResults(search)
+                         : showingArchived ? BipeStrings.archivedEmpty
+                         : scope == .groups ? BipeStrings.appGroupsEmpty : BipeStrings.appChatListEmpty)
+                        .macFont(.body).foregroundStyle(BipeColor.inkSecondary).padding(24).allowsHitTesting(false)
+                }
             }
         }
     }

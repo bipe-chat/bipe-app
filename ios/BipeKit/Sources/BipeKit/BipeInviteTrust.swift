@@ -11,4 +11,10 @@ public nonisolated enum BipeInviteTrust {
         guard !isIgnored, !inviterID.isEmpty else { return false }
         return BipeOfficialAccounts.isOfficial(inviterID) || (isDm && pairs.contains(inviterID))
     }
+
+    /// Spec chat-requests: a DM invite. RoomInfo.isDm reads m.direct, which the invitee writes only when joining. The
+    /// invite's own is_direct and at most two people decide, service members not counted.
+    public static func isDirectInvite<Count: BinaryInteger>(isDirect: Bool, activeMembers: Count, serviceMembers: Count) -> Bool {
+        isDirect && activeMembers - min(serviceMembers, activeMembers) <= 2
+    }
 }

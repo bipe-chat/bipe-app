@@ -35,23 +35,6 @@ enum NativeDmSelection {
     private static func candidates(peers: Set<String>, session: AccountSession) async throws -> [BipeDmCandidate] {
         let stored = ClearedChats(json: try await session.client.accountData(eventType: ClearedChats.eventType))
         let cleared = ClearedChatsStore.shared.overlay(stored, userId: session.userId)
-        var result: [BipeDmCandidate] = []
-        for peer in peers.sorted() {
-            // getDmRooms is local and includes every joined DM for the peer, beyond the loaded/unread/search page.
-            for room in try session.client.getDmRooms(userId: peer) {
-                try Task.checkCancellation()
-                let info = try await room.roomInfo()
-                guard info.isDm, !info.isSpace, info.membership == .joined else { continue }
-                let timestamp: UInt64?
-                switch await room.latestEvent() {
-                case .remote(let ts, _, _, _, _), .local(let ts, _, _, _, _), .remoteInvite(let ts, _, _): timestamp = ts
-                case .none: timestamp = nil
-                }
-                result.append(BipeDmCandidate(roomId: info.id, peerUserId: peer,
-                    latestActivityMs: timestamp.map { Int64(clamping: $0) }, eligible: true,
-                    cleared: ClearedChats.isHidden(marker: cleared.marker(for: info.id), latestTs: timestamp)))
-            }
-        }
-        return result
+        return try await NativeDm.candidates(peers: peers, client: session.client, cleared: cleared)
     }
 }
