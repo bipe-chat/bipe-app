@@ -186,6 +186,12 @@ struct GroupDetailsView: View {
                 }
             }
             galleryRow
+            // Spec thread-list (bipe#667).
+            NavigationLink {
+                ThreadListView(session: model.session, media: media, roomId: model.roomId)
+            } label: {
+                row(icon: .chatText, title: BipeStrings.threadListTitle, chevron: false)
+            }
             // Spec poll-history (bipe#669).
             NavigationLink {
                 PollHistoryView(session: model.session, roomId: model.roomId)
