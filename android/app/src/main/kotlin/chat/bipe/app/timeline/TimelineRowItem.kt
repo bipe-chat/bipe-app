@@ -229,12 +229,12 @@ fun TimelineRowItem(
         }
         TimelineRow.Kind.HANDLE_CHANGE -> row.handleChange?.let { line ->
             val context = LocalContext.current
-            line.change.line(context, line.name)?.let { SystemLine(it, Modifier.testTag(BipeScreen.HANDLE_CHANGE_LINE.id)) }
+            line.change.line(context, line.name)?.let { SystemLine(it, Modifier.testTag(BipeScreen.HANDLE_CHANGE_LINE.id), TimelinePillKind.ACTION) }
         }
         TimelineRow.Kind.NOT_ENCRYPTED -> SystemLine(stringResource(R.string.bipe_app_timeline_not_encrypted))
         TimelineRow.Kind.CHAT_START -> SystemLine(stringResource(R.string.bipe_app_timeline_start))
-        TimelineRow.Kind.CALL -> row.callText?.let { SystemLine(it) }
-        TimelineRow.Kind.STATE_LINE -> row.stateText?.let { SystemLine(it) }
+        TimelineRow.Kind.CALL -> row.callText?.let { SystemLine(it, kind = TimelinePillKind.ACTION) }
+        TimelineRow.Kind.STATE_LINE -> row.stateText?.let { SystemLine(it, kind = TimelinePillKind.ACTION) }
     }
 }
 
@@ -253,18 +253,37 @@ internal fun daySeparatorText(day: Long): String {
     return SimpleDateFormat(pattern, locale).format(then.time)
 }
 
-/** A quiet centred line: date separators, the chat start and the not-encrypted notice. */
+/** The two pills of the timeline (spec timeline-rows). Both follow the app theme, and the outline and weight tell them apart without colour. */
+internal enum class TimelinePillKind {
+    /** Information or grouping: date separators, the chat start and the not-encrypted notice. */
+    INFO,
+
+    /** Something that happened or can be done: calls, state lines, handle changes and the floating date button. */
+    ACTION,
+}
+
 @Composable
-private fun SystemLine(text: String, modifier: Modifier = Modifier) {
+internal fun TimelinePill(text: String, kind: TimelinePillKind, modifier: Modifier = Modifier) {
     val colors = BipeTheme.colors
+    val action = kind == TimelinePillKind.ACTION
+    Text(
+        text,
+        style = MaterialTheme.typography.labelMedium,
+        fontWeight = if (action) FontWeight.SemiBold else null,
+        color = colors.accentInk,
+        textAlign = TextAlign.Center,
+        modifier = modifier
+            .background(if (action) colors.accentWash else colors.bubbleOwn, CircleShape)
+            .then(if (action) Modifier.border(1.dp, colors.accentFill, CircleShape) else Modifier)
+            .padding(horizontal = 10.dp, vertical = 4.dp),
+    )
+}
+
+/** A centred pill between the messages of the timeline. */
+@Composable
+private fun SystemLine(text: String, modifier: Modifier = Modifier, kind: TimelinePillKind = TimelinePillKind.INFO) {
     Box(modifier = modifier.fillMaxWidth().padding(vertical = 6.dp), contentAlignment = Alignment.Center) {
-        Text(
-            text,
-            style = MaterialTheme.typography.labelMedium,
-            color = colors.inkSecondary,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.background(colors.surfaceSunken, CircleShape).padding(horizontal = 10.dp, vertical = 4.dp),
-        )
+        TimelinePill(text, kind)
     }
 }
 

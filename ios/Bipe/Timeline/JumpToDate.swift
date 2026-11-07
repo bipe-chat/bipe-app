@@ -108,12 +108,7 @@ struct FloatingDatePill: View {
 
     private var label: some View {
         Text(daySeparatorText(day))
-            .font(.caption.bold())
-            .foregroundStyle(BipeColor.inkPrimary)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(Capsule().fill(BipeColor.surfaceRaised))
-            .overlay(Capsule().stroke(BipeColor.lineSubtle))
+            .timelinePill(pick == nil ? .info : .action)
             .frame(minHeight: BipeTapTarget.minimum)
             .contentShape(Rectangle())
     }

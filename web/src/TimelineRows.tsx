@@ -510,11 +510,11 @@ function ReplyQuote({ reply, onLoad }: { reply: ReplyQuoteData; onLoad: (eventId
   );
 }
 
-// A quiet centred line: date separators and the chat start (SystemLine, TimelineRowView.swift).
+// The information pill: date separators and the chat start (SystemLine, TimelineRowView.swift). The web has no action rows yet.
 function SystemLine({ text }: { text: string }) {
   return (
     <div className="flex justify-center py-1.5">
-      <span className="rounded-full bg-surface-sunken px-2.5 py-1 text-center text-caption text-ink-secondary">
+      <span className="rounded-full bg-bubble-own px-2.5 py-1 text-center text-caption text-accent-ink">
         {text}
       </span>
     </div>

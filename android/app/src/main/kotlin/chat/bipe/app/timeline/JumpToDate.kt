@@ -7,8 +7,6 @@ package chat.bipe.app.timeline
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
@@ -27,7 +25,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.common.LocalReduceMotion
@@ -115,7 +112,6 @@ suspend fun timestampToEvent(client: Client, roomId: String, millis: Long): Time
 /** Spec chat-timeline floatingDate: the day of the top row while the list scrolls. A button in the main timeline. */
 @Composable
 fun FloatingDatePill(day: Long, onPick: (() -> Unit)?, modifier: Modifier = Modifier) {
-    val colors = BipeTheme.colors
     val pickLabel = stringResource(R.string.bipe_jump_to_date_title)
     val tap = if (onPick != null) {
         Modifier.bipeTapTarget().clip(CircleShape).clickable(onClickLabel = pickLabel, onClick = onPick)
@@ -123,16 +119,7 @@ fun FloatingDatePill(day: Long, onPick: (() -> Unit)?, modifier: Modifier = Modi
         Modifier
     }
     Box(modifier = modifier.then(tap), contentAlignment = Alignment.Center) {
-        Text(
-            daySeparatorText(day),
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.Bold,
-            color = colors.inkPrimary,
-            modifier = Modifier
-                .background(colors.surfaceRaised, CircleShape)
-                .border(1.dp, colors.lineSubtle, CircleShape)
-                .padding(horizontal = 12.dp, vertical = 6.dp),
-        )
+        TimelinePill(daySeparatorText(day), if (onPick != null) TimelinePillKind.ACTION else TimelinePillKind.INFO)
     }
 }
 
