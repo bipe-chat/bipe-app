@@ -66,6 +66,11 @@ object PeopleLinks {
         return true
     }
 
+    /** A home screen quick action that opens a people screen (spec app-tabs, action homeQuickAction). */
+    fun open(route: PeopleRoute) {
+        _pending.value = route
+    }
+
     fun take(): PeopleRoute? = _pending.value.also { _pending.value = null }
 }
 

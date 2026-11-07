@@ -14,6 +14,7 @@ import chat.bipe.app.MainActivity
 import chat.bipe.app.common.AppTheme
 import chat.bipe.app.common.launcherIcon
 import chat.bipe.app.chatlist.ChatSummary
+import chat.bipe.app.tabs.HomeQuickActions
 
 /**
  * Sharing shortcuts of spec share-to-chat: the most recent chats of the current account, so the system share sheet
@@ -48,7 +49,8 @@ object ShareShortcuts {
                 val shortcut = ShortcutInfoCompat.Builder(context, id(accountUserId, chat.roomId))
                     .setShortLabel(chat.name)
                     .setLongLived(true)
-                    .setRank(rank)
+                    // Below the home screen quick actions (spec app-tabs, action homeQuickAction).
+                    .setRank(HomeQuickActions.COUNT + rank)
                     .setIcon(IconCompat.createWithResource(context, AppTheme.palette.launcherIcon))
                     .setCategories(setOf(CATEGORY))
                     .setIntent(Intent(context, MainActivity::class.java).setAction(Intent.ACTION_MAIN))
@@ -68,6 +70,7 @@ object ShareShortcuts {
             val builder = ShortcutInfoCompat.Builder(context, id)
                 .setShortLabel(name)
                 .setLongLived(true)
+                .setRank(HomeQuickActions.COUNT + COUNT)
                 .setIcon(icon ?: IconCompat.createWithResource(context, AppTheme.palette.launcherIcon))
                 .setCategories(setOf(CATEGORY))
                 .setIntent(Intent(context, MainActivity::class.java).setAction(Intent.ACTION_MAIN))
