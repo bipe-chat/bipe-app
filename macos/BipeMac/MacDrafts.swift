@@ -19,7 +19,8 @@ final class MacDrafts {
     private var writes: [String: Task<Void, Error>] = [:]
 
     func load(room: any MacDraftRoom) async throws -> ComposerDraft? {
-        try await writes[room.id()]?.value
+        // Wait for the order only. A failed write was reported once and must not keep the room closed.
+        _ = await writes[room.id()]?.result
         return try await room.loadComposerDraft(threadRoot: nil)
     }
 

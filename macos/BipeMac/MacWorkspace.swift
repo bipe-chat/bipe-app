@@ -52,7 +52,12 @@ final class MacWorkspace: ObservableObject {
         account.onReady = { [weak self, weak account] in
             guard let self, let account else { return }
             if self.linking === account {
-                self.accounts.append(account)
+                // Linking a revoked account again takes over its slot.
+                if let index = self.accounts.firstIndex(where: { $0.userId == account.userId }) {
+                    self.accounts[index] = account
+                } else {
+                    self.accounts.append(account)
+                }
                 self.linking = nil
                 self.select(account)
             } else {

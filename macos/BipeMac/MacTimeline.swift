@@ -37,6 +37,7 @@ final class MacTimeline: ObservableObject {
     @Published private(set) var ready = false
     @Published private(set) var isEncrypted = true
     @Published private(set) var isPrivateRoom = false
+    var readingLatest = true
     @Published private(set) var isDm = true
     @Published var reactionFailed = false
     @Published private(set) var reacting: Set<String> = []
@@ -234,7 +235,8 @@ final class MacTimeline: ObservableObject {
     }
 
     func markRead() async {
-        guard NSApplication.shared.isActive, let room, let timeline,
+        // The latest message is on screen: the window has focus and the person is at the bottom of the chat.
+        guard NSApplication.shared.isActive, NSApplication.shared.keyWindow != nil, readingLatest, let room, let timeline,
               let latest = messages.last?.id, latest != lastReadID else { return }
         let isDm = (try? await room.roomInfo())?.isDm ?? true
         guard NSApplication.shared.isActive else { return }

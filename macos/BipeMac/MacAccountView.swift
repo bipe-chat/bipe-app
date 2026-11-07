@@ -11,38 +11,40 @@ struct MacAccountView: View {
     @Environment(\.scenePhase) private var scenePhase
     private var badges: MacTabAttention { MacTabAttention(account.roomRows.map(\.attention)) }
 
+    /// A segmented control has no badge, so the count follows the title.
+    private func title(_ destination: MacDestination) -> String {
+        let count: Int
+        switch destination {
+        case .chats: count = account.isCompany ? badges.chats + badges.groups : badges.chats
+        case .groups: count = badges.groups
+        case .work, .you: count = 0
+        }
+        return count > 0 ? "\(destination.title) \(count.formatted())" : destination.title
+    }
+
     var body: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 8) {
-                MacAccountSwitcher(workspace: workspace, account: account)
-                if account.isCompany { Text(account.displayName).macFont(.headline).lineLimit(1) }
-                Spacer()
-                Button { account.destination = .you } label: {
-                    Image(decorative: "gear").resizable().scaledToFit().frame(width: 22, height: 22).bipeTapTarget()
-                }.buttonStyle(.plain).accessibilityLabel(BipeStrings.settingsSection).help(BipeStrings.settingsSection)
-            }.padding(.horizontal, 8).frame(height: 44)
+        Group {
             if account.phase != .signedIn { MacLinkView(account: account) }
             else {
-                TabView(selection: $account.destination) {
-                    Tab(value: MacDestination.chats) {
-                        MacConversationsView(account: account, list: account.roomList, scope: .chats)
-                    } label: { Label(BipeStrings.tabChats, systemImage: MacDestination.chats.systemIcon) }
-                    .badge(account.isCompany ? badges.chats + badges.groups : badges.chats)
-                    if account.isCompany {
-                        Tab(value: MacDestination.work) { MacWorkView(account: account) }
-                        label: { Label(BipeStrings.tabWork, systemImage: MacDestination.work.systemIcon) }
-                    } else {
-                        Tab(value: MacDestination.groups) {
-                            MacConversationsView(account: account, list: account.roomList, scope: .groups)
-                        } label: { Label(BipeStrings.tabGroups, systemImage: MacDestination.groups.systemIcon) }
-                        .badge(badges.groups)
-                    }
-                    Tab(value: MacDestination.you) { MacYouView(account: account) }
-                    label: { Label(BipeStrings.tabYou, systemImage: MacDestination.you.systemIcon) }
-                    .badge(workspace.otherAccountUnread ? Text("•") : nil)
+                // One window chrome for every destination: account at the leading edge, destinations in the middle.
+                switch account.destination {
+                case .chats: MacConversationsView(account: account, list: account.roomList, scope: .chats).id(MacDestination.chats)
+                case .groups: MacConversationsView(account: account, list: account.roomList, scope: .groups).id(MacDestination.groups)
+                case .work: MacWorkView(account: account)
+                case .you: MacYouView(account: account)
                 }
-                // Native tabs keep three destinations without creating a second sidebar.
-                .tabViewStyle(.tabBarOnly)
+            }
+        }
+        .toolbar {
+            ToolbarItem(placement: .navigation) { MacAccountSwitcher(workspace: workspace, account: account) }
+            if account.phase == .signedIn {
+                ToolbarItem(placement: .principal) {
+                    Picker(BipeStrings.settingsSection, selection: $account.destination) {
+                        ForEach(MacDestination.visible(isCompany: account.isCompany)) { destination in
+                            Text(title(destination)).tag(destination)
+                        }
+                    }.pickerStyle(.segmented).labelsHidden().fixedSize()
+                }
             }
         }
         .background(BipeColor.surfaceBase)
