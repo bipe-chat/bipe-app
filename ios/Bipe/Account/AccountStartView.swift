@@ -38,7 +38,9 @@ struct AccountStartView: View {
                     }
                 }
             case .opening:
-                StartMessage(icon: nil, title: BipeStrings.appName, message: BipeStrings.appStartLoading, showsProgress: true)
+                // iOS draws the first frame in the default palette (Info.plist UILaunchScreen), so the view fades from it.
+                BipeLaunchView(label: BipeStrings.appStartLoading, fadesFromStandard: true)
+                    .statusBarHidden()
             case .noAccount:
                 if model.showsRecovery {
                     RecoveryFlowView(api: model.api,
@@ -186,26 +188,18 @@ private struct SoftLogoutTarget: Identifiable {
 }
 
 private struct StartMessage: View {
-    /// nil shows the Bipe mark.
-    let icon: PhosphorIcon?
+    let icon: PhosphorIcon
     let title: String
     let message: String
-    var showsProgress = false
     var retry: (() -> Void)?
 
     var body: some View {
         VStack(spacing: 16) {
-            Group {
-                if let icon {
-                    icon.image
-                        .resizable()
-                        .foregroundStyle(BipeColor.accentInk)
-                } else {
-                    BipeMark().fill(BipeColor.accentFill)
-                }
-            }
-            .frame(width: 56, height: 56)
-            .accessibilityHidden(true)
+            icon.image
+                .resizable()
+                .foregroundStyle(BipeColor.accentInk)
+                .frame(width: 56, height: 56)
+                .accessibilityHidden(true)
             Text(title)
                 .font(.title.bold())
                 .foregroundStyle(BipeColor.inkPrimary)
@@ -214,9 +208,6 @@ private struct StartMessage: View {
                 .font(.body)
                 .foregroundStyle(BipeColor.inkSecondary)
                 .multilineTextAlignment(.center)
-            if showsProgress {
-                ProgressView()
-            }
             if let retry {
                 Button(action: retry) {
                     Label {

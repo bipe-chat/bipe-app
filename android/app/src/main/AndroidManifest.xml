@@ -85,7 +85,8 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:launchMode="singleTop">
+            android:launchMode="singleTop"
+            android:theme="@style/Theme.Bipe.Launch">
             <!-- The launcher entry is one of the activity-aliases below (spec app-colors). -->
             <!-- Invite links (onboarding-welcome). Not verified: bipe.chat lists the fork's app only. -->
             <intent-filter>

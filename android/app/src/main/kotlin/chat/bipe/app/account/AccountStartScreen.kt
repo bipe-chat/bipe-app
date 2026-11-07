@@ -5,9 +5,7 @@
 package chat.bipe.app.account
 
 import chat.bipe.app.common.BipeToasts
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,7 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import chat.bipe.app.common.BipeButton
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -40,7 +37,6 @@ import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeApplication
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.chatlist.HomeScreen
-import chat.bipe.app.common.BipeMarkShape
 import chat.bipe.app.recovery.RecoveryFlowModel
 import chat.bipe.app.recovery.RecoveryFlowScreen
 import chat.bipe.app.signup.SignupDoneScreen
@@ -168,23 +164,16 @@ fun AccountStartScreen(model: AccountStartModel, tabs: AppTabsModel) {
                 message = stringResource(R.string.bipe_app_start_error),
                 onRetry = model::retry,
             )
-            else -> StartMessage(
-                icon = null,
-                title = stringResource(R.string.bipe_app_name),
-                message = stringResource(R.string.bipe_app_start_loading),
-                showsProgress = true,
-            )
+            else -> BipeLaunchScreen()
         }
     }
 }
 
 @Composable
 private fun StartMessage(
-    /** null shows the Bipe mark. */
-    icon: PhosphorIcon?,
+    icon: PhosphorIcon,
     title: String,
     message: String,
-    showsProgress: Boolean = false,
     onRetry: (() -> Unit)? = null,
 ) {
     val colors = BipeTheme.colors
@@ -193,16 +182,9 @@ private fun StartMessage(
         verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        if (icon != null) {
-            Icon(painterResource(icon.drawable), contentDescription = null, tint = colors.accentInk, modifier = Modifier.size(56.dp))
-        } else {
-            Box(Modifier.size(56.dp).background(colors.accentFill, BipeMarkShape))
-        }
+        Icon(painterResource(icon.drawable), contentDescription = null, tint = colors.accentInk, modifier = Modifier.size(56.dp))
         Text(title, style = MaterialTheme.typography.headlineMedium, color = colors.inkPrimary, textAlign = TextAlign.Center)
         Text(message, style = MaterialTheme.typography.bodyLarge, color = colors.inkSecondary, textAlign = TextAlign.Center)
-        if (showsProgress) {
-            CircularProgressIndicator(color = colors.accentFill)
-        }
         if (onRetry != null) {
             BipeButton(onClick = onRetry) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {

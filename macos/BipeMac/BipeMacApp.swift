@@ -57,7 +57,8 @@ struct MacRootView: View {
             } else if let linking = workspace.linking {
                 MacLinkView(account: linking)
             } else {
-                ProgressView()
+                BipeLaunchView(label: BipeStrings.appStartLoading)
+                    .toolbarBackground(.hidden, for: .windowToolbar)
             }
         }
         .sheet(isPresented: Binding(get: { workspace.current != nil && workspace.linking != nil }, set: { if !$0 { workspace.cancelLink() } })) {

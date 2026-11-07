@@ -312,6 +312,17 @@ enum class BipePalette(val id: String, val iconBackground: Color) {
             JABUTICABA -> chat.bipe.shared.R.string.bipe_colors_jabuticaba
         }
 
+    /** The system launch theme of this palette (Android 13 and later: Activity.getSplashScreen().setSplashScreenTheme). */
+    val launchThemeRes: Int
+        get() = when (this) {
+            ACAI -> chat.bipe.shared.R.style.Theme_Bipe_Launch_Acai
+            GOIABA -> chat.bipe.shared.R.style.Theme_Bipe_Launch_Goiaba
+            PITANGA -> chat.bipe.shared.R.style.Theme_Bipe_Launch_Pitanga
+            MARACUJA -> chat.bipe.shared.R.style.Theme_Bipe_Launch_Maracuja
+            JENIPAPO -> chat.bipe.shared.R.style.Theme_Bipe_Launch_Jenipapo
+            JABUTICABA -> chat.bipe.shared.R.style.Theme_Bipe_Launch_Jabuticaba
+        }
+
     companion object {
         /** The palette of a new install. */
         val DEFAULT: BipePalette = ACAI
@@ -322,6 +333,14 @@ enum class BipePalette(val id: String, val iconBackground: Color) {
         /** The stored palette id, or DEFAULT for a missing or unknown id. */
         fun fromId(id: String?): BipePalette = entries.firstOrNull { it.id == id } ?: DEFAULT
     }
+}
+
+/** The ring of the launch screen (spec account-start): one size on every surface. */
+object BipeLaunchRing {
+    const val DIAMETER_DP: Int = 36
+    const val STROKE_DP: Int = 3
+    const val ARC: Float = 0.75f
+    const val TURN_MS: Int = 900
 }
 
 /** The colour set of a palette for the system dark mode and the high contrast setting. */

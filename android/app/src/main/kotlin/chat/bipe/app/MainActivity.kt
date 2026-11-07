@@ -9,7 +9,10 @@ import chat.bipe.app.common.BipeToasts
 import chat.bipe.app.business.ShopClaims
 import android.content.Intent
 import android.content.pm.ApplicationInfo
+import android.os.Build
 import android.os.Bundle
+import androidx.compose.runtime.LaunchedEffect
+import chat.bipe.app.common.AppTheme
 import chat.bipe.app.share.ShareIntake
 import chat.bipe.app.voce.GovbrInbox
 import chat.bipe.shared.R
@@ -35,6 +38,8 @@ class MainActivity : ComponentActivity() {
         get() = (application as BipeApplication).accountStart
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // The manifest theme is the launch screen (spec account-start); the app itself draws on the plain theme.
+        setTheme(android.R.style.Theme_Material_Light_NoActionBar)
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         // A recreated activity keeps its intent: read a signed PDF only once. It clears the action, so the link and share
@@ -49,6 +54,12 @@ class MainActivity : ComponentActivity() {
         (application as BipeApplication).watchAccountsForPixCheck()
         accountStart.start()
         setContent {
+            // Android keeps this theme for the next launch, so the system screen shows the palette from Android 13.
+            LaunchedEffect(AppTheme.palette) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    splashScreen.setSplashScreenTheme(AppTheme.palette.launchThemeRes)
+                }
+            }
             BipeTheme {
                 BipeToastHost {
                     AppLockGate {

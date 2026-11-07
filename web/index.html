@@ -8,9 +8,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="robots" content="noindex" />
     <title>Bipe</title>
+    <!-- The site CSP has no inline scripts or styles: the launch screen comes from these same-origin files. -->
+    <script src="/launch-palette.js"></script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- Spec account-start: the same markup as ui/Launch.tsx, drawn before the script runs. -->
+      <div class="bipe-launch">
+        <svg class="bipe-launch-ring" aria-hidden="true"><circle pathLength="1" /></svg>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

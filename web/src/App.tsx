@@ -27,7 +27,7 @@ import {
   type Slot,
 } from './sdk';
 import { s } from './ui/i18n';
-import { Spinner } from './ui/Spinner';
+import { Launch } from './ui/Launch';
 import { describe } from './util';
 
 type Phase =
@@ -37,7 +37,7 @@ type Phase =
   | { kind: 'chats'; client: Client; slot: Slot };
 
 export function App() {
-  // Screen readers read the note; the page shows a spinner.
+  // Screen readers read the note; the page shows the launch screen.
   const [phase, setPhase] = useState<Phase>({ kind: 'loading', note: s('bipe_web_loading') });
   const [accounts, setAccounts] = useState<Accounts>({ list: [] });
   const accountsRef = useRef(accounts);
@@ -105,9 +105,7 @@ export function App() {
   return (
     <div className="h-dvh overflow-hidden bg-surface-base text-ink-primary">
       {phase.kind === 'loading' && (
-        <div className="grid h-full place-items-center">
-          <Spinner label={phase.note} />
-        </div>
+        <Launch label={phase.note} />
       )}
       {phase.kind === 'error' && (
         <div className="mx-auto flex h-full max-w-[560px] flex-col justify-center gap-2 p-4 text-center">
