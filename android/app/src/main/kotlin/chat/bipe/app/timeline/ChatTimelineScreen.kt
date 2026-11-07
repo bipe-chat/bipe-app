@@ -937,7 +937,7 @@ private fun ComposerBar(
     ) {
         if (!composer.canPost) {
             Text(
-                stringResource(R.string.bipe_dm_no_permission_to_post),
+                stringResource(if (composer.publicationClosed) R.string.bipe_group_publication_only_bar else R.string.bipe_dm_no_permission_to_post),
                 style = MaterialTheme.typography.bodyMedium,
                 color = colors.inkSecondary,
                 textAlign = TextAlign.Center,

@@ -709,7 +709,7 @@ private struct ComposerBar: View {
     var body: some View {
         VStack(spacing: 0) {
             if !model.canPost {
-                Text(BipeStrings.dmNoPermissionToPost)
+                Text(model.publicationClosed ? BipeStrings.groupPublicationOnlyBar : BipeStrings.dmNoPermissionToPost)
                     .font(.footnote)
                     .foregroundStyle(BipeColor.inkSecondary)
                     .multilineTextAlignment(.center)

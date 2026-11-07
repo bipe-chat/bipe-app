@@ -15,11 +15,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -33,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -42,8 +45,11 @@ import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.BipeButton
 import chat.bipe.app.common.BipeOutlinedButton
 import chat.bipe.app.common.MediaLoader
+import chat.bipe.app.common.serverRoomState
 import chat.bipe.phosphor.PhosphorIcon
+import chat.bipe.shared.BipeGroupPublication
 import chat.bipe.shared.R
+import chat.bipe.shared.generated.BipeGroupPowerLevels
 import chat.bipe.shared.generated.BipeScreen
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -78,6 +84,9 @@ class GroupPrivacyModel(private val session: AccountSession, private val roomId:
         val canChangeJoin: Boolean = false,
         val canChangeHistory: Boolean = false,
         val canInvite: Boolean = false,
+        /** Null until the room state is read. */
+        val publicationOnly: Boolean? = null,
+        val canChangePublicationOnly: Boolean = false,
         val failed: Boolean = false,
     )
 
@@ -110,9 +119,12 @@ class GroupPrivacyModel(private val session: AccountSession, private val roomId:
                         canChangeJoin = levels.canOwnUserSendState(StateEventType.RoomJoinRules),
                         canChangeHistory = levels.canOwnUserSendState(StateEventType.RoomHistoryVisibility),
                         canInvite = levels.canOwnUserInvite(),
+                        canChangePublicationOnly = levels.canOwnUserSendState(StateEventType.RoomPowerLevels),
                     )
                 }
             }
+            val roomState = runCatching { serverRoomState(session.client, roomId) }.getOrNull()
+            _state.update { it.copy(publicationOnly = BipeGroupPublication.isOn(roomState)) }
             if (handle == null) {
                 handle = runCatching {
                     room.subscribeToKnockRequests(object : KnockRequestsListener {
@@ -148,6 +160,17 @@ class GroupPrivacyModel(private val session: AccountSession, private val roomId:
         scope.launch {
             runCatching { room.updateHistoryVisibility(if (value == History.JOINED) RoomHistoryVisibility.Joined else RoomHistoryVisibility.Shared) }
                 .onSuccess { _state.update { it.copy(history = value) } }
+                .onFailure { _state.update { it.copy(failed = true) } }
+        }
+    }
+
+    /** Action setPublicationOnly. */
+    fun setPublicationOnly(enabled: Boolean) {
+        val room = room() ?: return
+        if (enabled == _state.value.publicationOnly) return
+        scope.launch {
+            runCatching { room.sendStateEventRaw(BipeGroupPowerLevels.PUBLICATION_ONLY_EVENT, "", BipeGroupPublication.content(enabled)) }
+                .onSuccess { _state.update { it.copy(publicationOnly = enabled) } }
                 .onFailure { _state.update { it.copy(failed = true) } }
         }
     }
@@ -189,6 +212,28 @@ fun GroupPrivacyScreen(session: AccountSession, media: MediaLoader, roomId: Stri
                 ChoiceRow(stringResource(value.title), state.history == value, state.canChangeHistory) { model.setHistory(value) }
             }
             GroupFooter(stringResource(R.string.bipe_group_privacy_history_footer))
+            state.publicationOnly?.let { publicationOnly ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .toggleable(
+                            value = publicationOnly,
+                            enabled = state.canChangePublicationOnly,
+                            role = Role.Switch,
+                            onValueChange = model::setPublicationOnly,
+                        )
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        stringResource(R.string.bipe_group_publication_only_title),
+                        color = if (state.canChangePublicationOnly) colors.inkPrimary else colors.inkDisabled,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Switch(checked = publicationOnly, onCheckedChange = null, enabled = state.canChangePublicationOnly)
+                }
+                GroupFooter(stringResource(R.string.bipe_group_publication_only_footer))
+            }
             if (state.requests.isNotEmpty()) {
                 GroupSectionHeader(stringResource(R.string.bipe_group_requests))
                 state.requests.forEach { request ->

@@ -28,6 +28,10 @@ object BipeGroupPowerLevels {
     const val BAN: Long = 50L
     const val REDACT: Long = 50L
     const val NOTIFICATIONS_ROOM: Long = 100L
+    /** The room state event of a publication-only group (bipe ADR 0280): content enabled exactly true turns it on. */
+    const val PUBLICATION_ONLY_EVENT: String = "chat.bipe.publication_only"
+    /** Below this level a member of a publication-only group sends only thread replies, edits, reactions and redactions. */
+    const val PUBLICATION_ONLY_MIN_POST_LEVEL: Long = 50L
     val EVENTS: Map<String, Long> = mapOf(
         "chat.bipe.assistant" to 0L,
         "m.call.member" to 0L,

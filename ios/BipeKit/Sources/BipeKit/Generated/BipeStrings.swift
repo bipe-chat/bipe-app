@@ -5376,6 +5376,12 @@ public enum BipeStrings {
 
     public static var groupPrivacyHistoryFooter: String { NSLocalizedString("bipe_group_privacy_history_footer", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var groupPublicationOnlyTitle: String { NSLocalizedString("bipe_group_publication_only_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var groupPublicationOnlyFooter: String { NSLocalizedString("bipe_group_publication_only_footer", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var groupPublicationOnlyBar: String { NSLocalizedString("bipe_group_publication_only_bar", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var groupRequests: String { NSLocalizedString("bipe_group_requests", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var groupRequestAccept: String { NSLocalizedString("bipe_group_request_accept", tableName: "Bipe", bundle: .module, comment: "") }
