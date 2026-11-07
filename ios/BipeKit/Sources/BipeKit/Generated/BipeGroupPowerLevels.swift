@@ -22,6 +22,10 @@ public enum BipeGroupPowerLevels {
     public static let ban: Int64 = 50
     public static let redact: Int64 = 50
     public static let notificationsRoom: Int64 = 100
+    /// The room state event of a publication-only group (bipe ADR 0280): content enabled exactly true turns it on.
+    public static let publicationOnlyEvent = "chat.bipe.publication_only"
+    /// Below this level a member of a publication-only group sends only thread replies, edits, reactions and redactions.
+    public static let publicationOnlyMinPostLevel: Int64 = 50
     public static let events: [String: Int64] = [
         "chat.bipe.assistant": 0,
         "m.call.member": 0,
