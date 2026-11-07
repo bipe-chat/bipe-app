@@ -5390,6 +5390,10 @@ public enum BipeStrings {
         String(format: NSLocalizedString("bipe_thread_replies", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
 
+    public static var threadListTitle: String { NSLocalizedString("bipe_thread_list_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var threadListEmpty: String { NSLocalizedString("bipe_thread_list_empty", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var selectAction: String { NSLocalizedString("bipe_select_action", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static func selectCount(_ p1: String) -> String {
@@ -5809,4 +5813,20 @@ public enum BipeStrings {
     public static var macWorkOverview: String { NSLocalizedString("bipe_mac_work_overview", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var macRefresh: String { NSLocalizedString("bipe_mac_refresh", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var macNotificationsOff: String { NSLocalizedString("bipe_mac_notifications_off", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var macNotificationsEnable: String { NSLocalizedString("bipe_mac_notifications_enable", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var macNotificationsPermissionBody: String { NSLocalizedString("bipe_mac_notifications_permission_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var macAccountChangeOnPhone: String { NSLocalizedString("bipe_mac_account_change_on_phone", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var macLinkedDevicesFooter: String { NSLocalizedString("bipe_mac_linked_devices_footer", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var macSignOutTitle: String { NSLocalizedString("bipe_mac_sign_out_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var macSignOutBody: String { NSLocalizedString("bipe_mac_sign_out_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var macSignOutHistory: String { NSLocalizedString("bipe_mac_sign_out_history", tableName: "Bipe", bundle: .module, comment: "") }
 }
