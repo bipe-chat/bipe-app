@@ -32,7 +32,7 @@ struct MacAccountView: View {
                 case .chats: MacConversationsView(workspace: workspace, account: account, list: account.roomList, scope: .chats, requests: account.requests).id(MacDestination.chats)
                 case .groups: MacConversationsView(workspace: workspace, account: account, list: account.roomList, scope: .groups, requests: account.requests).id(MacDestination.groups)
                 case .work: MacWorkView(account: account)
-                case .you: MacYouView(account: account)
+                case .you: MacYouView(workspace: workspace, account: account)
                 }
             }
         }
@@ -125,124 +125,5 @@ private struct MacAccountRow: View {
             }
             if current { Image(systemName: "checkmark").foregroundStyle(BipeColor.accentInk).accessibilityLabel(BipeStrings.appAccountCurrentA11y(account.displayName)) }
         }.padding(.vertical, 6).contentShape(Rectangle())
-    }
-}
-
-private struct MacYouView: View {
-    @ObservedObject var account: MacAccount
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: MacDesign.sectionGap) {
-                    Text(BipeStrings.tabYou).macFont(.largeTitle).fontWeight(.bold)
-                    MacCard {
-                        HStack(spacing: MacDesign.gap) {
-                            MacAvatar(name: account.displayName, isCompany: account.isCompany, media: account.media,
-                                      url: account.avatarURL, userID: account.userId, size: 64)
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text(account.displayName).macFont(.title2).fontWeight(.semibold)
-                                if let handle = account.handle { Text("@" + handle).foregroundStyle(BipeColor.inkSecondary).textSelection(.enabled) }
-                            }
-                            Spacer()
-                            Button(BipeStrings.macRefresh) { Task { await account.refreshProfile() } }.buttonStyle(.bipeBordered)
-                        }
-                    }
-                    MacSettingsGroups(media: account.media)
-                }.padding(MacDesign.pageInset).frame(maxWidth: 800, alignment: .leading).frame(maxWidth: .infinity, alignment: .leading)
-            }.background(BipeColor.surfaceBase)
-        }
-    }
-}
-
-/// The icon tile of a settings group (spec settings-root): a glyph in ink.onAccent on accent.fill, in a rounded square.
-/// Decorative: the group title says what the card is.
-private struct MacSettingsIconTile: View {
-    let icon: String
-
-    var body: some View {
-        Image(decorative: icon).renderingMode(.template).resizable().scaledToFit()
-            .frame(width: 18, height: 18)
-            .foregroundStyle(BipeColor.inkOnAccent)
-            .frame(width: 29, height: 29)
-            .background(BipeColor.accentFill, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
-            .accessibilityHidden(true)
-    }
-}
-
-/// The rows of registries/settings.json the Mac has, in the shared order. A row the Mac has no handler for stays hidden.
-private struct MacSettingsGroups: View {
-    @ObservedObject var media: MacMedia
-    @AppStorage(MacReceiptPolicy.key) private var readReceipts = true
-    @AppStorage(BipeSettingsRow.chatsMediaQuality.rawValue) private var mediaQuality = "standard"
-    @AppStorage(BipeSettingsRow.chatsAppearance.rawValue) private var appearance = "system"
-    private var language: String { Locale.current.language.languageCode?.identifier == "pt" ? "pt" : "en" }
-
-    private func hasHandler(_ row: BipeSettingsRow) -> Bool {
-        if row.kind == .url { return row.url(language: language) != nil }
-        switch row {
-        case .privacyReadReceipts, .chatsAppearance, .chatsColors, .chatsShowMedia, .chatsMediaQuality: return true
-        default: return false
-        }
-    }
-
-    var body: some View {
-        ForEach(BipeSettingsGroup.root, id: \.self) { group in
-            let sections = group.sections.compactMap { section -> (BipeSettingsSection, [BipeSettingsRow])? in
-                let rows = section.rows.filter(hasHandler)
-                return rows.isEmpty ? nil : (section, rows)
-            }
-            if !sections.isEmpty {
-                MacCard {
-                    VStack(alignment: .leading, spacing: MacDesign.gap) {
-                        HStack(spacing: 12) {
-                            if let icon = group.icon { MacSettingsIconTile(icon: icon) }
-                            Text(group.title).macFont(.headline)
-                        }
-                        ForEach(sections, id: \.0.key) { section, rows in
-                            if let title = section.title { Text(title).macFont(.subheadline).foregroundStyle(BipeColor.inkSecondary) }
-                            ForEach(rows, id: \.self) { row($0) }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    @ViewBuilder private func row(_ row: BipeSettingsRow) -> some View {
-        switch row {
-        case .privacyReadReceipts:
-            Toggle(row.title, isOn: Binding(get: { readReceipts }, set: {
-                readReceipts = $0
-                SyncedSettings.changed(BipeSyncedSettings.readReceipts)
-            }))
-            if let footer = row.footer { Text(footer).macFont(.callout).foregroundStyle(BipeColor.inkSecondary) }
-        case .chatsAppearance:
-            Picker(row.title, selection: $appearance) {
-                Text(BipeStrings.chatsAppearanceSystem).tag("system")
-                Text(BipeStrings.chatsAppearanceLight).tag("light")
-                Text(BipeStrings.chatsAppearanceDark).tag("dark")
-            }
-        case .chatsColors:
-            NavigationLink { MacColorsView() } label: {
-                HStack {
-                    Text(row.title)
-                    Spacer()
-                    Image(systemName: "chevron.right").accessibilityHidden(true)
-                }.padding(.vertical, 8)
-            }.buttonStyle(.plain)
-        case .chatsShowMedia:
-            Picker(row.title, selection: Binding(get: { media.policy ?? .off }, set: { media.setPolicy($0) })) {
-                Text(BipeStrings.chatsShowMediaAlways).tag(MediaPreviews.on)
-                Text(BipeStrings.chatsShowMediaPrivate).tag(MediaPreviews.private)
-                Text(BipeStrings.chatsShowMediaNever).tag(MediaPreviews.off)
-            }.disabled(media.policy == nil)
-        case .chatsMediaQuality:
-            Picker(row.title, selection: $mediaQuality) {
-                Text(BipeStrings.chatsMediaQualityStandard).tag("standard")
-                Text(BipeStrings.chatsMediaQualityHigh).tag("high")
-            }
-        default:
-            if let url = row.url(language: language) { Link(row.title, destination: url) }
-        }
     }
 }

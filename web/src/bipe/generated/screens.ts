@@ -324,6 +324,8 @@ export const BipeScreen = {
   termsReaccept: "terms-reaccept",
   /** Theft protection (flow settings). Spec: bipe-shared/product/screens/theft-protection.json */
   theftProtection: "theft-protection",
+  /** Threads of a group (flow groups). Spec: bipe-shared/product/screens/thread-list.json */
+  threadList: "thread-list",
   /** Threads in groups (flow chat). Spec: bipe-shared/product/screens/threads.json */
   threads: "threads",
   /** Photos, videos and files in the timeline (flow chat). Spec: bipe-shared/product/screens/timeline-media.json */
