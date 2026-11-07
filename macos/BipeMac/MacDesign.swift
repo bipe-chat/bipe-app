@@ -61,7 +61,8 @@ struct MacMessageView: View {
     let isPrivateRoom: Bool
     let fromRequest: Bool
     let pauseSecondsLeft: (Date) -> Int
-    let onReply: () -> Void
+    let menuItems: [BipeMessageMenuItem]
+    let choose: (BipeMessageMenuItem) -> Void
     let react: (String) -> Void
     let reactionPending: (String) -> Bool
     @State private var showingEmoji = false
@@ -123,16 +124,15 @@ struct MacMessageView: View {
                 Button { showingEmoji = true } label: { Label(BipeStrings.appMessageActionMoreReactions, systemImage: "face.smiling") }
                 Divider()
             }
-            Button(BipeStrings.appMessageActionReply, action: onReply).disabled(!message.canReply || message.eventID == nil)
-            Button(BipeStrings.appCopy) {
-                guard pauseSecondsLeft(.now) == 0 else { return }
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(message.body, forType: .string)
-            }.disabled(secondsLeft > 0 || message.body.isEmpty)
+            ForEach(menuItems, id: \.self) { item in
+                Button(role: item.isDestructive ? .destructive : nil) { choose(item) } label: {
+                    Label(item.title, systemImage: item.symbol)
+                }.disabled(item == .copy && secondsLeft > 0)
+            }
         }
-        .accessibilityAction(named: BipeStrings.appMessageActionReply) { onReply() }
         .accessibilityActions {
             if message.canReact { Button(BipeStrings.a11yReact) { showingEmoji = true } }
+            ForEach(menuItems, id: \.self) { item in Button(item.title) { choose(item) }.disabled(item == .copy && pauseSecondsLeft(.now) > 0) }
         }
     }
 

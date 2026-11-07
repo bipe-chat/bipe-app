@@ -12,6 +12,8 @@ struct MacConversationsView: View {
     @State private var search = ""
     @State private var showingArchived = false
     @State private var reordering = false
+    @State private var notificationsRoom: String?
+    @State private var photoPickerRoom: String?
 
     /// The account keeps the open chat of each destination, so switching destinations comes back to it.
     private var selectedRoom: Binding<String?> {
@@ -79,7 +81,8 @@ struct MacConversationsView: View {
                 .searchable(text: $search, placement: .sidebar, prompt: BipeStrings.appSearchPlaceholder)
         } detail: {
             if let row = list.rows.first(where: { $0.id == selected }) {
-                MacChatView(room: row.room, name: row.name, drafts: account.drafts, media: account.media, face: row.avatar).id(row.id)
+                MacChatView(room: row.room, name: row.name, drafts: account.drafts, media: account.media, face: row.avatar,
+                            forwardTargets: list.rows, opensPhotoPicker: photoPickerRoom == row.id).id(row.id)
             } else {
                 Text(scope.title).macFont(.largeTitle).foregroundStyle(BipeColor.inkSecondary)
                     .frame(maxWidth: .infinity, maxHeight: .infinity).background(BipeColor.surfaceBase)
@@ -88,16 +91,53 @@ struct MacConversationsView: View {
         .onChange(of: showingArchived) { _, _ in selectedRoom.wrappedValue = nil; reordering = false }
         .onChange(of: favourites.count) { _, count in if count < 2 { reordering = false } }
         .onDisappear { reordering = false }
+        .sheet(isPresented: Binding(get: { notificationsRoom != nil }, set: { if !$0 { notificationsRoom = nil } })) {
+            if let row = list.rows.first(where: { $0.id == notificationsRoom }) {
+                MacChatNotificationsSheet(row: row, client: account.client) { notificationsRoom = nil }
+            }
+        }
+    }
+
+    /// Spec chat-row-actions, in the shared order. A command the Mac has no handler for stays hidden.
+    private func menuItems(_ row: MacRoomSummary) -> [BipeChatMenuItem] {
+        BipeChatMenuItem.allCases.filter { item in
+            switch item {
+            case .sendMedia: !row.isArchived
+            case .favourite: !row.isArchived && !row.isFavourite
+            case .unfavourite: !row.isArchived && row.isFavourite
+            case .reorderFavourites: !row.isArchived && row.isFavourite && favourites.count > 1
+            case .markRead: row.attention.isUnread
+            case .markUnread: !row.attention.isUnread
+            case .notifications: true
+            case .archive: !row.isArchived
+            case .unarchive: row.isArchived
+            case .details, .deleteDm: false
+            }
+        }
+    }
+
+    private func choose(_ item: BipeChatMenuItem, _ row: MacRoomSummary) {
+        switch item {
+        case .sendMedia:
+            photoPickerRoom = row.id
+            selectedRoom.wrappedValue = row.id
+        case .favourite: Task { await list.setFavourite(row, value: true) }
+        case .unfavourite: Task { await list.setFavourite(row, value: false) }
+        case .reorderFavourites: reordering = true
+        case .markRead: Task { await list.setUnread(row, value: false) }
+        case .markUnread: Task { await list.setUnread(row, value: true) }
+        case .notifications: notificationsRoom = row.id
+        case .archive: Task { await list.setArchived(row, value: true) }
+        case .unarchive: Task { await list.setArchived(row, value: false) }
+        case .details, .deleteDm: break
+        }
     }
 
     @ViewBuilder private func rowMenu(_ row: MacRoomSummary) -> some View {
-        if !row.isArchived {
-            Button(row.isFavourite ? BipeStrings.chatUnfavouriteAction : BipeStrings.chatFavouriteAction) {
-                Task { await list.setFavourite(row, value: !row.isFavourite) }
-            }.disabled(list.busy.contains(row.id))
-            if row.isFavourite, favourites.count > 1 {
-                Button(BipeStrings.chatFavouritesReorderAction) { reordering = true }
-            }
+        ForEach(menuItems(row), id: \.self) { item in
+            Button(role: item.isDestructive ? .destructive : nil) { choose(item, row) } label: {
+                Label(item.title, systemImage: item.symbol)
+            }.disabled(list.busy.contains(row.id) && item != .notifications && item != .sendMedia)
         }
     }
 }

@@ -150,9 +150,14 @@ struct MacChatView: View {
     @StateObject private var model: MacTimeline
     @Environment(\.scenePhase) private var scenePhase
     @FocusState private var composerFocused: Bool
-    @State private var pickingImage = false
+    @State private var pickingImage: Bool
+    @State private var reportReason = ""
+    @State private var reportFailed = false
+    let forwardTargets: [MacRoomSummary]
 
-    init(room: Room, name: String, drafts: MacDrafts, media: MacMedia, face: MacAvatarDescriptor? = nil) {
+    init(room: Room, name: String, drafts: MacDrafts, media: MacMedia, face: MacAvatarDescriptor? = nil, forwardTargets: [MacRoomSummary] = [], opensPhotoPicker: Bool = false) {
+        self.forwardTargets = forwardTargets
+        _pickingImage = State(initialValue: opensPhotoPicker)
         self.room = room
         self.name = name
         self.face = face
@@ -172,7 +177,11 @@ struct MacChatView: View {
                             MacMessageView(message: message, room: room, media: media, isPrivateRoom: model.isPrivateRoom,
                                            fromRequest: media.isFromRequest(room.id()),
                                            pauseSecondsLeft: { model.pauseSecondsLeft(message.id, now: $0) },
-                                           onReply: { model.startReply(message); composerFocused = true },
+                                           menuItems: model.menuItems(for: message),
+                                           choose: { item in
+                                               model.choose(item, message)
+                                               if item == .reply || item == .edit { composerFocused = true }
+                                           },
                                            react: { key in Task { await model.react(rowID: message.id, key: key) } },
                                            reactionPending: { model.reactionPending(rowID: message.id, key: $0) })
                                 .id(message.id).onAppear { model.startMoneyPause(message) }
@@ -193,6 +202,13 @@ struct MacChatView: View {
             if model.failed { MacNotice(text: BipeStrings.errorGeneric, danger: true).padding() }
             if let error = model.uploadError, model.attachment == nil { MacNotice(text: error, danger: true).padding() }
             Divider()
+            if model.editingID != nil {
+                HStack {
+                    Text(BipeStrings.appMessageActionEdit).macFont(.callout).fontWeight(.semibold)
+                    Spacer()
+                    Button(BipeStrings.appCancel) { model.cancelEdit() }
+                }.padding().background(BipeColor.accentWash)
+            }
             if model.replyID != nil {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
@@ -237,6 +253,31 @@ struct MacChatView: View {
             Button(BipeStrings.appClose, role: .cancel) {}
         }
         .background(ChatBackgroundView())
+        .alert(BipeStrings.appMessageDeleteTitle, isPresented: Binding(get: { model.deleting != nil }, set: { if !$0 { model.deleting = nil } }), presenting: model.deleting) { message in
+            Button(BipeStrings.appMessageActionDelete, role: .destructive) { Task { await model.confirmDelete(message) } }
+            Button(BipeStrings.appCancel, role: .cancel) { model.deleting = nil }
+        } message: { _ in Text(BipeStrings.appMessageDeleteBody) }
+        .sheet(item: $model.reporting) { message in
+            Form {
+                TextField(BipeStrings.reportMessageReason, text: $reportReason, axis: .vertical).lineLimit(3...6)
+                Text(BipeStrings.reportMessageBody).macFont(.callout).foregroundStyle(BipeColor.inkSecondary)
+                if reportFailed { MacNotice(text: BipeStrings.appReportError, danger: true) }
+                HStack {
+                    Spacer()
+                    Button(BipeStrings.appCancel) { model.reporting = nil; reportReason = ""; reportFailed = false }.keyboardShortcut(.cancelAction)
+                    Button(BipeStrings.appReportSend) {
+                        Task {
+                            if await model.sendReport(message, reason: reportReason) {
+                                model.reporting = nil; reportReason = ""; reportFailed = false
+                            } else { reportFailed = true }
+                        }
+                    }.keyboardShortcut(.defaultAction)
+                }
+            }.formStyle(.grouped).frame(width: 460).navigationTitle(BipeStrings.appMessageActionReport)
+        }
+        .sheet(item: $model.forwarding) { message in
+            MacForwardSheet(message: message, targets: forwardTargets) { model.forwarding = nil }
+        }
         .task { await model.run(room: room) }
         .task(id: room.id()) { await media.checkRequestRooms(for: room.id()) }
         .dropDestination(for: URL.self) { urls, _ in

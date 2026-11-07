@@ -27,6 +27,12 @@ struct MacMessage: Identifiable {
     let canReply: Bool
     let canReact: Bool
     let reactions: [MacReaction]
+    var canEdit = false
+    var canDelete = false
+    var isUndecryptable = false
+    var isImage = false
+    var forwardJson: String? = nil
+    var isSent: Bool { eventID != nil && !pending && !failed }
 }
 
 /// Native timeline using the same rich-text parser, image event and encrypted send queue as the phone clients.
@@ -42,6 +48,16 @@ final class MacTimeline: ObservableObject {
     var readingLatest = true
     @Published private(set) var isDm = false
     @Published var reactionFailed = false
+    @Published private(set) var pinned: Set<String> = []
+    @Published private(set) var editingID: String?
+    @Published var deleting: MacMessage?
+    @Published var reporting: MacMessage?
+    @Published var forwarding: MacMessage?
+    @Published var copied = false
+    private var canPin = false
+    private var canRedactOwn = true
+    private var canRedactOther = false
+    private var draftBeforeEdit = ""
     @Published private(set) var reacting: Set<String> = []
     @Published private(set) var preparing = false
     @Published private(set) var attachment: MacPreparedImage?
@@ -82,6 +98,13 @@ final class MacTimeline: ObservableObject {
             if editedWhileLoading { persistDraft() }
             isEncrypted = await room.isEncrypted()
             await readRoomKind(room)
+            let info = try? await room.roomInfo()
+            pinned = Set(info?.pinnedEventIds ?? [])
+            if let levels = try? await room.getPowerLevels() {
+                canRedactOwn = levels.canOwnUserRedactOwn()
+                canRedactOther = levels.canOwnUserRedactOther()
+                canPin = !isDm && levels.canOwnUserPinUnpin()
+            }
             let configuration = TimelineConfiguration(focus: .live(hideThreadedEvents: !isDm), filter: .all,
                                                        internalIdPrefix: nil, dateDividerMode: .daily,
                                                        trackReadReceipts: .messageLikeEvents, reportUtds: false)
@@ -118,6 +141,7 @@ final class MacTimeline: ObservableObject {
 
     func send() async {
         guard let timeline, !sending, !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        if editingID != nil { await saveEdit(); return }
         let text = draft
         let reply = replyID
         sending = true
@@ -139,6 +163,104 @@ final class MacTimeline: ObservableObject {
     }
 
     func cancelReply() { replyID = nil }
+
+    // MARK: Spec message-actions
+
+    /// The commands that apply to this message and that the Mac has, in the shared order. See the spec notes.
+    func menuItems(for message: MacMessage) -> [BipeMessageMenuItem] {
+        if message.isUndecryptable { return !message.isOwn && message.isSent ? [.report] : [] }
+        let eventID = message.eventID ?? ""
+        return BipeMessageMenuItem.allCases.filter { item in
+            switch item {
+            case .reply: message.canReply && message.isSent
+            case .edit: message.canEdit
+            case .copy: !message.body.isEmpty
+            case .copyLink: !isDm && message.isSent
+            case .pin: canPin && message.isSent && !pinned.contains(eventID)
+            case .unpin: canPin && message.isSent && pinned.contains(eventID)
+            case .forward: message.isSent && message.forwardJson != nil
+            case .retry: message.isOwn && message.failed
+            case .delete: message.canDelete
+            case .report: !message.isOwn && message.isSent
+            default: false
+            }
+        }
+    }
+
+    func choose(_ item: BipeMessageMenuItem, _ message: MacMessage) {
+        switch item {
+        case .reply: startReply(message)
+        case .edit: startEdit(message)
+        case .copy:
+            guard pauseSecondsLeft(message.id) == 0 else { return }
+            copy(message.body)
+        case .copyLink:
+            guard let room, let eventID = message.eventID else { return }
+            Task { if let link = try? await room.matrixToEventPermalink(eventId: eventID) { copy(link) } }
+        case .pin, .unpin:
+            guard let timeline, let eventID = message.eventID else { return }
+            Task {
+                do {
+                    if item == .pin { _ = try await timeline.pinEvent(eventId: eventID); pinned.insert(eventID) }
+                    else { _ = try await timeline.unpinEvent(eventId: eventID); pinned.remove(eventID) }
+                } catch { failed = true }
+            }
+        case .forward: forwarding = message
+        case .retry:
+            guard let handle = items.first(where: { $0.uniqueId().id == message.id })?.asEvent()?.lazyProvider.getSendHandle() else { return }
+            Task { try? await handle.tryResend() }
+        case .delete: deleting = message
+        case .report: reporting = message
+        default: break
+        }
+    }
+
+    private func copy(_ text: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+    }
+
+    private func startEdit(_ message: MacMessage) {
+        if editingID == nil { draftBeforeEdit = draft }
+        replyID = nil
+        editingID = message.id
+        draft = message.body
+    }
+
+    func cancelEdit() {
+        guard editingID != nil else { return }
+        editingID = nil
+        draft = draftBeforeEdit
+        draftBeforeEdit = ""
+    }
+
+    private func saveEdit() async {
+        guard let timeline, let id = editingID, let message = messages.first(where: { $0.id == id }),
+              let event = items.first(where: { $0.uniqueId().id == id })?.asEvent() else { cancelEdit(); return }
+        let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard text != message.body else { cancelEdit(); return }
+        sending = true
+        defer { sending = false }
+        do {
+            let content: EditedContent = message.isImage
+                ? .mediaCaption(caption: text, formattedCaption: nil, mentions: nil)
+                : .roomMessage(content: try messageEventContentNew(msgtype: .text(content: TextMessageContent(body: text, formatted: nil))))
+            try await timeline.edit(eventOrTransactionId: event.eventOrTransactionId, newContent: content)
+            cancelEdit()
+        } catch { failed = true }
+    }
+
+    func confirmDelete(_ message: MacMessage) async {
+        guard let timeline, let event = items.first(where: { $0.uniqueId().id == message.id })?.asEvent() else { return }
+        do { try await timeline.redactEvent(eventOrTransactionId: event.eventOrTransactionId, reason: nil) }
+        catch { failed = true }
+    }
+
+    func sendReport(_ message: MacMessage, reason: String) async -> Bool {
+        guard let room, let eventID = message.eventID else { return false }
+        let text = reason.trimmingCharacters(in: .whitespacesAndNewlines)
+        return (try? await room.reportContent(eventId: eventID, reason: text.isEmpty ? nil : text)) != nil
+    }
 
     func reactionPending(rowID: String, key: String) -> Bool { reacting.contains(rowID + "|" + key) }
 
@@ -261,9 +383,12 @@ final class MacTimeline: ObservableObject {
             guard let event = item.asEvent(), case .msgLike(let content) = event.content else { return nil }
             let payload: MacMessagePayload
             let decryptable: Bool
+            var forwardJson: String?
             switch content.kind {
             case .message(let message):
                 decryptable = true
+                let debugInfo = event.lazyProvider.debugInfo()
+                forwardJson = BipeForwardMark.forwardedContentJson(originalJson: debugInfo.originalJson, latestEditJson: debugInfo.latestEditJson)
                 payload = MacMessagePayload(type: message.msgType, fallback: message.body,
                                             eventJson: event.lazyProvider.debugInfo().originalJson)
             case .unableToDecrypt: payload = MacMessagePayload(body: BipeStrings.webTimelineUndecryptable); decryptable = false
@@ -287,7 +412,12 @@ final class MacTimeline: ObservableObject {
                               warning: event.isOwn ? nil : ScamDetector.warningKind(for: payload.safetyText, eventID: item.uniqueId().id),
                               eventID: eventID, canReply: event.canBeRepliedTo,
                               canReact: decryptable && eventID != nil && !pending && !failed,
-                              reactions: decryptable ? MacReaction.summaries(content.reactions, ownUserID: room?.ownUserId() ?? "") : [])
+                              reactions: decryptable ? MacReaction.summaries(content.reactions, ownUserID: room?.ownUserId() ?? "") : [],
+                              canEdit: decryptable && event.isEditable,
+                              canDelete: event.isOwn ? (canRedactOwn || eventID == nil) : (!isDm && canRedactOther),
+                              isUndecryptable: !decryptable,
+                              isImage: payload.photo != nil,
+                              forwardJson: forwardJson)
         }
     }
 }
