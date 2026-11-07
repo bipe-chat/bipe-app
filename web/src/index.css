@@ -147,3 +147,36 @@
 li[data-highlight='true'] > div > div:first-child {
   outline: 2px solid var(--bipe-accent-fill);
 }
+
+/* Spec account-start: the launch screen. Sizes and colours come from design/tokens.json appThemes.launch. */
+.bipe-launch {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: var(--bipe-launch-fill);
+}
+.bipe-launch-ring {
+  width: var(--bipe-launch-diameter);
+  height: var(--bipe-launch-diameter);
+}
+.bipe-launch-ring circle {
+  cx: 50%;
+  cy: 50%;
+  r: calc((var(--bipe-launch-diameter) - var(--bipe-launch-stroke)) / 2);
+  fill: none;
+  stroke: var(--bipe-launch-ring);
+  stroke-width: var(--bipe-launch-stroke);
+  stroke-linecap: round;
+  stroke-dasharray: var(--bipe-launch-arc) 1;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .bipe-launch-ring {
+    animation: bipe-launch-turn var(--bipe-launch-turn) linear infinite;
+  }
+}
+@keyframes bipe-launch-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
