@@ -167,7 +167,7 @@ struct MacChatView: View {
                             .disabled(model.loadingHistory)
                         ForEach(model.messages) { message in
                             MacMessageView(message: message, media: media, isPrivateRoom: model.isPrivateRoom,
-                                           fromRequest: (UserDefaults.standard.stringArray(forKey: "bipe.media.requestRooms") ?? []).contains(room.id()),
+                                           fromRequest: media.isFromRequest(room.id()),
                                            pauseSecondsLeft: { model.pauseSecondsLeft(message.id, now: $0) },
                                            onReply: { model.startReply(message); composerFocused = true })
                                 .id(message.id).onAppear { model.startMoneyPause(message) }
@@ -215,6 +215,7 @@ struct MacChatView: View {
         .navigationTitle(name)
         .background(ChatBackgroundView())
         .task { await model.run(room: room) }
+        .task(id: room.id()) { await media.checkRequestRooms(for: room.id()) }
         .dropDestination(for: URL.self) { urls, _ in
             guard let url = urls.first, url.isFileURL, model.ready, !model.preparing, !model.sending else { return false }
             Task { await model.prepareImage(url) }

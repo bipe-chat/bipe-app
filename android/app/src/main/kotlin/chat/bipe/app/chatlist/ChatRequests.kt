@@ -334,7 +334,10 @@ class ChatRequestsModel(private val context: Context, val session: AccountSessio
         // Spec timeline-media fromStranger: media in a DM accepted from Pedidos waits for a tap.
         val isRequest = _requests.value.any { it.roomId == roomId }
         if (!run(roomId) { it.join() }) return null
-        if (isRequest) chat.bipe.app.media.RequestRooms.remember(context, roomId)
+        if (isRequest) {
+            chat.bipe.app.media.RequestRooms.remember(context, roomId)
+            chat.bipe.app.media.MediaPreviewSync.syncRequestRooms(context, session.client, listOf(roomId))
+        }
         return roomId
     }
 

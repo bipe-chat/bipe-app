@@ -2,6 +2,7 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
+import BipeKit
 import Foundation
 import MatrixRustSDK
 import OSLog
@@ -60,6 +61,7 @@ final class MediaPreviewSync {
         task?.cancel()
         let client = session.client
         self.client = client
+        Task { await RequestRooms.sync(client: client) }
         let stream = MediaPreviewConfigStream()
         task = Task { [weak self] in
             let handle = try? await client.subscribeToMediaPreviewConfig(listener: stream)
@@ -137,18 +139,32 @@ final class MediaPreviewConfigStream: MediaPreviewConfigListener {
     }
 }
 
-/// Spec timeline-media fromStranger (bipe-chat/bipe#827): the DMs the person accepted from chat-requests on this
-/// phone. Room IDs only, on the phone.
+/// Spec timeline-media fromStranger (bipe-chat/bipe#827, bipe-chat/bipe#1162): the DMs the person accepted from
+/// chat-requests on any device of the account. The phone keeps a copy of the room IDs for all its accounts.
 enum RequestRooms {
     private static let key = "bipe.media.requestRooms"
-    /// The newest this many rooms are kept.
-    private static let limit = 500
 
     static func remember(_ roomId: String) {
         var rooms = UserDefaults.standard.stringArray(forKey: key) ?? []
         rooms.removeAll { $0 == roomId }
         rooms.append(roomId)
-        UserDefaults.standard.set(Array(rooms.suffix(limit)), forKey: key)
+        UserDefaults.standard.set(BipeRequestRooms.merged(rooms, adding: []), forKey: key)
+    }
+
+    /// Read-merge-write of the server copy. Adds only rooms this client knows: the phone's copy can hold rooms of
+    /// another account. A failure changes nothing, and the next attach tries again.
+    static func sync(client: Client, adding: [String] = []) async {
+        let local = UserDefaults.standard.stringArray(forKey: key) ?? []
+        let known = local.filter { (try? client.getRoom(roomId: $0)) != nil }
+        do {
+            let server = BipeRequestRooms.parse(try await ServerAccountData.json(client: client, eventType: BipeRequestRooms.eventType))
+            let merged = BipeRequestRooms.merged(server, adding: known + adding)
+            if merged != server {
+                try await client.setAccountData(eventType: BipeRequestRooms.eventType, content: BipeRequestRooms.content(merged))
+            }
+            let current = UserDefaults.standard.stringArray(forKey: key) ?? []
+            UserDefaults.standard.set(BipeRequestRooms.merged(current, adding: server), forKey: key)
+        } catch {}
     }
 
     static func contains(_ roomId: String) -> Bool {
