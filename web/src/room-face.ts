@@ -14,6 +14,8 @@ export type RoomFace = {
   name: string;
   avatarUrl?: string;
   isDirect?: boolean;
+  /** RoomInfo.isDm: the test for the sender line, as in the chat list. A direct room with 3 people is a group. */
+  isDm?: boolean;
   peer?: RoomHero;
   /** The people of a group with no photo, for the member cluster of Avatar. */
   members?: RoomHero[];
@@ -29,6 +31,7 @@ export function faceOf(room: Room, info: RoomInfo | undefined): RoomFace {
     name: peer?.displayName ?? info.displayName ?? room.displayName() ?? room.id(),
     avatarUrl: peer ? peer.avatarUrl : (info.avatarUrl ?? room.avatarUrl()),
     isDirect: info.isDirect,
+    isDm: info.isDm,
     peer,
     members: members?.length ? members : undefined,
   };

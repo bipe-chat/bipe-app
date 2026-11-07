@@ -420,7 +420,7 @@ final class ChatListModel: ObservableObject {
     }
 
     /// The row text of an event (spec chat-list, row text): "missed call" for an incoming call this account missed, a
-    /// line for a join, leave or room creation, else the preview, with "You: " before an own one.
+    /// line for a join, leave or room creation, else the preview, with "You: " before an own one and the sender's name before another member's in a group.
     nonisolated static func rowPreview(of content: TimelineItemContent, isOwn: Bool, senderName: String, roomId: String,
                                        isDm: Bool, ownUserId: String) -> String? {
         if case .rtcNotification = content, !isOwn, MissedCalls.isMissed(accountUserId: ownUserId, roomId: roomId) {
@@ -430,7 +430,8 @@ final class ChatListModel: ObservableObject {
             return line
         }
         guard let preview = content.previewText else { return nil }
-        return isOwn ? BipeStrings.chatListOwnPreview(preview) : preview
+        if isOwn { return BipeStrings.chatListOwnPreview(preview) }
+        return isDm ? preview : "\(senderName): \(preview)"
     }
 
     /// A join (an accepted invite or knock included), a leave or the room creation. nil for other events.

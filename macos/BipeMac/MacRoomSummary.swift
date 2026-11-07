@@ -83,12 +83,22 @@ struct MacRoomSummary: Identifiable {
         }, ownUserID: ownUserID)
     }
 
-    static func activity(_ latest: LatestEventValue, known: BipeRowActivity.Row?) -> BipeRowActivity.Row {
+    static func personName(_ profile: ProfileDetails, userID: String) -> String {
+        var displayName: String?
+        if case .ready(let name, _, _, _, _) = profile { displayName = name }
+        return BipeChatRowName.person(userID: userID, displayName: displayName, handle: nil)
+    }
+
+    /// Spec chat-list, row text: "You: " before an own message, the sender's name before another member's in a group.
+    static func activity(_ latest: LatestEventValue, isDm: Bool, known: BipeRowActivity.Row?) -> BipeRowActivity.Row {
         let sdk: BipeRowActivity.SDKLatest?
         switch latest {
-        case .remote(let timestamp, _, let own, _, let content):
-            let text = preview(content)
-            sdk = .init(timestampMs: timestamp, previewText: text.map { own ? BipeStrings.chatListOwnPreview($0) : $0 }, isIncoming: !own)
+        case .remote(let timestamp, let sender, let own, let profile, let content):
+            let text = preview(content).map { text in
+                if own { return BipeStrings.chatListOwnPreview(text) }
+                return isDm ? text : "\(personName(profile, userID: sender)): \(text)"
+            }
+            sdk = .init(timestampMs: timestamp, previewText: text, isIncoming: !own)
         case .local(let timestamp, _, _, let content, _):
             sdk = .init(timestampMs: timestamp, previewText: preview(content).map(BipeStrings.chatListOwnPreview), isIncoming: false)
         case .remoteInvite(let timestamp, _, _): sdk = .init(timestampMs: timestamp, previewText: nil, isIncoming: false)

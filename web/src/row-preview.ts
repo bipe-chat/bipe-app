@@ -4,7 +4,8 @@
 
 // The text and date of a chat list row (spec chat-list; ChatListModel.rowPreview and
 // TimelineItemContent.previewText on iOS): the message text, a media kind label, Sticker or Localização,
-// a line for a join, a leave or the room creation, with "Você: " before an own message. The date is the
+// a line for a join, a leave or the room creation, with "Você: " before an own message and the
+// sender's name before another member's message in a group. The date is the
 // time today, else the day and the short month (ChatRow.timeFormat).
 
 import {
@@ -78,7 +79,8 @@ export function rowPreview(latest: Latest | undefined, isDm: boolean, ownUserId:
   if (line) return line;
   const text = previewText(latest.content);
   if (text === undefined) return undefined;
-  return latest.isOwn ? s('bipe_chat_list_own_preview', text) : text;
+  if (latest.isOwn) return s('bipe_chat_list_own_preview', text);
+  return !isDm && latest.senderName ? `${latest.senderName}: ${text}` : text;
 }
 
 const today = new Intl.DateTimeFormat(locale, { hour: 'numeric', minute: '2-digit' });

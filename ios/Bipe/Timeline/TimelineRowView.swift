@@ -46,7 +46,7 @@ struct TimelineRowView: View {
             }
         case .deleted:
             if let message = row.message {
-                DeletedRow(message: message)
+                DeletedRow(message: message, isDm: isDm)
             }
         case .poll:
             if let message = row.message, let poll = message.poll,
@@ -592,9 +592,15 @@ private struct UndecryptableRow: View {
 /// Spec timeline-rows kind deleted: no reactions, quote, receipt or actions.
 private struct DeletedRow: View {
     let message: TimelineMessage
+    let isDm: Bool
 
     var body: some View {
         Bubble(isOwn: message.isOwn, trailingLast: true) {
+            if !message.isOwn && !isDm {
+                SenderNameText(message: message)
+                    .font(.caption.bold())
+                    .foregroundStyle(BipeColor.accentInk)
+            }
             HStack(spacing: 6) {
                 PhosphorIcon.trash.image
                     .resizable()

@@ -192,7 +192,7 @@ fun TimelineRowItem(
                 MessageContextMenu(model, row.id, menu, onDismiss = { menu = false })
             }
         }
-        TimelineRow.Kind.DELETED -> row.message?.let { DeletedRow(it) }
+        TimelineRow.Kind.DELETED -> row.message?.let { DeletedRow(it, isDm) }
         TimelineRow.Kind.POLL -> row.message?.let { message ->
             val poll = message.poll ?: return@let
             // Spec question-card: a company's structured question (bipe#244). Fails closed to the poll card.
@@ -663,9 +663,12 @@ private fun undecryptableText(message: TimelineMessage): String = when (message.
 
 /** Spec timeline-rows kind deleted: no reactions, quote, receipt or actions. */
 @Composable
-private fun DeletedRow(message: TimelineMessage) {
+private fun DeletedRow(message: TimelineMessage, isDm: Boolean) {
     val colors = BipeTheme.colors
     Bubble(message.isOwn) {
+        if (!message.isOwn && !isDm) {
+            SenderLine(message, colors.accentInk)
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(painterResource(PhosphorIcon.TRASH.drawable), contentDescription = null, tint = colors.glyphSecondary, modifier = Modifier.size(14.dp))
             Text(

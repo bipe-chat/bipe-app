@@ -37,7 +37,7 @@ final class MacTimeline: ObservableObject {
     @Published private(set) var ready = false
     @Published private(set) var isEncrypted = true
     @Published private(set) var isPrivateRoom = false
-    @Published private(set) var isDm = true
+    @Published private(set) var isDm = false
     @Published var reactionFailed = false
     @Published private(set) var reacting: Set<String> = []
     @Published private(set) var preparing = false
@@ -77,9 +77,7 @@ final class MacTimeline: ObservableObject {
             self.room = room
             if editedWhileLoading { persistDraft() }
             isEncrypted = await room.isEncrypted()
-            let info = try? await room.roomInfo()
-            isDm = info?.isDm ?? true
-            isPrivateRoom = info?.isDm == true || info?.isPublic == false
+            await readRoomKind(room)
             let configuration = TimelineConfiguration(focus: .live(hideThreadedEvents: !isDm), filter: .all,
                                                        internalIdPrefix: nil, dateDividerMode: .daily,
                                                        trackReadReceipts: .messageLikeEvents, reportUtds: false)
@@ -92,10 +90,18 @@ final class MacTimeline: ObservableObject {
             for await updates in stream.updates {
                 guard !Task.isCancelled else { return }
                 for update in updates { items.apply(update.vectorDiff) }
+                await readRoomKind(room)
                 rebuild()
                 await markRead()
             }
         } catch { if !Task.isCancelled { failed = true } }
+    }
+
+    /// A DM turns into a group when a third person joins, and the sender line follows. Unknown stays a group, as on the phones.
+    private func readRoomKind(_ room: Room) async {
+        guard let info = try? await room.roomInfo() else { return }
+        isDm = info.isDm
+        isPrivateRoom = info.isDm || info.isPublic == false
     }
 
     func loadHistory() async {
@@ -257,9 +263,7 @@ final class MacTimeline: ObservableObject {
             case .unableToDecrypt: payload = MacMessagePayload(body: BipeStrings.webTimelineUndecryptable); decryptable = false
             default: return nil
             }
-            var displayName: String?
-            if case .ready(let name, _, _, _, _) = event.senderProfile { displayName = name }
-            let sender = BipeChatRowName.person(userID: event.sender, displayName: displayName, handle: nil)
+            let sender = MacRoomSummary.personName(event.senderProfile, userID: event.sender)
             let pending: Bool
             let failed: Bool
             switch event.localSendState {

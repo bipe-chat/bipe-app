@@ -56,8 +56,7 @@ export function useDesktopNotifications(
       if (!text) continue;
       // The web notification choices: the text or only that a message came; sound or silent.
       const preview = readSetting('preview') !== 'false';
-      const full = chat.kind === 'group' && latest.senderName ? `${latest.senderName}: ${text}` : text;
-      const body = preview ? full : s('bipe_app_notification_new_message');
+      const body = preview ? text : s('bipe_app_notification_new_message');
       const notification = new Notification(chat.face.name, {
         body,
         tag: chat.roomId,
