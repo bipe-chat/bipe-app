@@ -3891,6 +3891,19 @@
    "moderator": 50,
    "member": 0
   },
+  "publicationOnly": {
+   "$comment": "bipe ADR 0280, bipe-chat/bipe#1263. A group with this state event and enabled true: members below minPostLevel send only a thread reply, an edit, a reaction or a redaction. bipe-infra compose/synapse-modules/bipe_messaging.py enforces it with the same values: change both.",
+   "stateEvent": "chat.bipe.publication_only",
+   "minPostLevel": 50,
+   "memberRelations": [
+    "m.thread",
+    "m.replace"
+   ],
+   "memberEventTypes": [
+    "m.reaction",
+    "m.room.redaction"
+   ]
+  },
   "usersDefault": 0,
   "eventsDefault": 0,
   "stateDefault": 100,
