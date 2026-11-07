@@ -21,6 +21,8 @@ final class MacMedia: ObservableObject {
     private var task: Task<Void, Never>?
     private var handle: TaskHandle?
     private let images = NSCache<NSString, NSImage>()
+    private let accountTypes = NSCache<NSString, NSNumber>()
+    private let api = BipeAPIClient(baseURL: URL(string: "https://api.bipe.net.br")!)
     private var generation = UUID()
 
     init() { images.totalCostLimit = 64 * 1024 * 1024 }
@@ -55,9 +57,35 @@ final class MacMedia: ObservableObject {
         client = nil
         policy = nil
         images.removeAllObjects()
+        accountTypes.removeAllObjects()
     }
 
     func maxUploadSize() async -> UInt64? { try? await client?.getMaxMediaUploadSize() }
+
+    func avatar(url: String?, userID: String?, size: Int) async -> NSImage? {
+        guard let client else { return nil }
+        let generation = generation
+        var url = url
+        if url == nil, let userID { url = try? await client.getProfile(userId: userID).avatarUrl }
+        guard let url, let source = try? MediaSource.fromUrl(url: url) else { return nil }
+        let key = "avatar|\(url)|\(size)" as NSString
+        if let cached = images.object(forKey: key) { return cached }
+        guard let data = try? await client.getMediaThumbnail(mediaSource: source, width: UInt64(size), height: UInt64(size)),
+              let cgImage = try? MacImagePreparation.decode(data, maxPixel: size),
+              !Task.isCancelled, self.generation == generation else { return nil }
+        let image = NSImage(cgImage: cgImage, size: .zero)
+        images.setObject(image, forKey: key, cost: cgImage.bytesPerRow * cgImage.height)
+        return image
+    }
+
+    func isCompany(_ userID: String) async -> Bool {
+        if let cached = accountTypes.object(forKey: userID as NSString) { return cached.boolValue }
+        let generation = generation
+        guard let type = try? await api.accountType(userID: userID), self.generation == generation else { return false }
+        let company = type == .company
+        accountTypes.setObject(NSNumber(value: company), forKey: userID as NSString)
+        return company
+    }
 
     func showsAutomatically(isOwn: Bool, isPrivate: Bool, fromRequest: Bool) -> Bool {
         if isOwn { return true }

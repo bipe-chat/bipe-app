@@ -17,6 +17,8 @@ final class MacWorkspace: ObservableObject {
     private let vault: MacSessionVault
     private let defaults: UserDefaults
     private var launched = false
+    private var accountChanges: [ObjectIdentifier: AnyCancellable] = [:]
+    var otherAccountUnread: Bool { accounts.contains { $0 !== current && $0.hasUnread } }
     private static let selectionKey = "bipe.mac.currentAccount"
 
     init(vault: MacSessionVault = MacSessionVault(keychain: SystemMacKeychain()), defaults: UserDefaults = .standard) {
@@ -46,6 +48,7 @@ final class MacWorkspace: ObservableObject {
 
     private func makeAccount(record: MacSessionVault.Record? = nil) -> MacAccount {
         let account = MacAccount(record: record, vault: vault)
+        accountChanges[ObjectIdentifier(account)] = account.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
         account.onReady = { [weak self, weak account] in
             guard let self, let account else { return }
             if self.linking === account {
@@ -97,39 +100,17 @@ enum MacDestination: String, CaseIterable, Identifiable {
         case .you: BipeStrings.tabYou
         }
     }
-    var icon: String {
+    var systemIcon: String {
         switch self {
-        case .chats: "chat-circle"
-        case .groups: "users-three"
+        case .chats: "bubble.left.and.bubble.right"
+        case .groups: "person.3"
         case .work: "briefcase"
-        case .you: "user-circle"
+        case .you: "person.crop.circle"
         }
     }
     static func visible(isCompany: Bool) -> [Self] { [.chats, isCompany ? .work : .groups, .you] }
 
     func includes(isDm: Bool, isCompany: Bool) -> Bool {
         self == .chats ? (isCompany || isDm) : self == .groups && !isDm
-    }
-}
-
-struct MacRoomSummary: Identifiable {
-    let room: Room
-    let name: String
-    let isDm: Bool
-    let unread: UInt64
-    let markedUnread: Bool
-    var id: String { room.id() }
-
-    init(room: Room, info: RoomInfo, ownUserID: String) {
-        self.room = room
-        isDm = info.isDm // ADR 0141: a group of two remains a group.
-        unread = info.numUnreadMessages
-        markedUnread = info.isMarkedUnread
-        let peer = info.isDm ? info.heroes.first { $0.userId != ownUserID } : nil
-        let heroes: [(userID: String, displayName: String?)]? = !info.isDm && info.rawName == nil
-            ? info.heroes.filter { $0.userId != ownUserID }.map { ($0.userId, $0.displayName) } : nil
-        name = BipeChatRowName.resolve(roomID: info.id, sdkName: info.displayName, peerName: peer?.displayName,
-                                      peerID: peer?.userId, unnamed: BipeStrings.dmNoName,
-                                      dmRoomName: info.isDm ? info.rawName : nil, groupHeroes: heroes)
     }
 }

@@ -15,6 +15,7 @@ struct MacPhotoView: View {
     @ObservedObject var media: MacMedia
     @State private var revealed = false
     @State private var image: NSImage?
+    @ScaledMetric(relativeTo: .body) private var bodySize: CGFloat = 17
     @State private var failed = false
     @State private var viewer = false
     @State private var retry = 0
@@ -27,7 +28,7 @@ struct MacPhotoView: View {
             if shows {
                 if let image {
                     Button { viewer = true } label: {
-                        MacAnimatedImage(image: image).frame(width: previewWidth, height: previewHeight)
+                        MacAnimatedImage(image: image).frame(width: previewWidth, height: previewHeight).bipeTapTarget()
                     }.buttonStyle(.plain).accessibilityLabel(label)
                 } else if failed {
                     Button(BipeStrings.appMediaFailed) { failed = false; retry += 1 }.buttonStyle(.bipeBordered)
@@ -62,6 +63,7 @@ private struct MacPhotoViewer: View {
     @ObservedObject var media: MacMedia
     @Environment(\.dismiss) private var dismiss
     @State private var image: NSImage?
+    @ScaledMetric(relativeTo: .body) private var bodySize: CGFloat = 17
     @State private var failed = false
     @State private var saving = false
     @State private var saveFailed = false
@@ -70,7 +72,7 @@ private struct MacPhotoViewer: View {
     var body: some View {
         VStack(spacing: MacDesign.gap) {
             HStack {
-                Text(photo.content.filename).font(.headline).lineLimit(1)
+                Text(photo.content.filename).macFont(.headline).lineLimit(1)
                 Spacer()
                 Button(BipeStrings.appMediaSave) {
                     Task {
@@ -87,8 +89,8 @@ private struct MacPhotoViewer: View {
             } else if failed {
                 Button(BipeStrings.appMediaFailed) { failed = false; retry += 1 }.buttonStyle(.bipeBordered)
             } else { ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity) }
-            if let description = photo.description { Text(description).font(.callout).textSelection(.enabled) }
-            if let caption = photo.content.caption { Text(MacRichText.attributed(BipeMessageText(body: caption))).textSelection(.enabled) }
+            if let description = photo.description { Text(description).macFont(.callout).textSelection(.enabled) }
+            if let caption = photo.content.caption { Text(MacRichText.attributed(BipeMessageText(body: caption), bodySize: bodySize)).textSelection(.enabled) }
             if saveFailed { MacNotice(text: BipeStrings.appMediaSaveFailed, danger: true) }
         }.padding(MacDesign.sectionGap).frame(minWidth: 640, idealWidth: 860, minHeight: 480, idealHeight: 680)
             .background(BipeColor.surfaceBase)
@@ -117,11 +119,11 @@ private struct MacAnimatedImage: NSViewRepresentable {
 }
 
 enum MacRichText {
-    static func attributed(_ text: BipeMessageText, emoteSender: String? = nil) -> AttributedString {
+    static func attributed(_ text: BipeMessageText, emoteSender: String? = nil, bodySize: CGFloat = 17) -> AttributedString {
         var result = AttributedString(emoteSender.map { "* \($0) " } ?? "")
         for run in text.runs {
             var part = AttributedString(run.text)
-            var font = run.code ? Font.system(.body, design: .monospaced) : .body
+            var font = Font.system(size: bodySize, design: run.code ? .monospaced : .rounded)
             if run.bold { font = font.bold() }
             if run.italic { font = font.italic() }
             part.font = font

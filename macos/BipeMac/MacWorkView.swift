@@ -65,7 +65,7 @@ struct MacWorkView: View {
             VStack(alignment: .leading, spacing: MacDesign.sectionGap) {
                 HStack {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text(BipeStrings.tabWork).font(.largeTitle).fontWeight(.bold)
+                        Text(BipeStrings.tabWork).macFont(.largeTitle).fontWeight(.bold)
                         Text(BipeStrings.macWorkOverview).foregroundStyle(BipeColor.inkSecondary)
                     }
                     Spacer()
@@ -75,7 +75,7 @@ struct MacWorkView: View {
                 }
                 if !model.failed.isEmpty { MacNotice(text: BipeStrings.errorGeneric, danger: true) }
                 if let today = model.today {
-                    Text(BipeStrings.workToday).font(.title2).fontWeight(.semibold)
+                    Text(BipeStrings.workToday).macFont(.title2).fontWeight(.semibold)
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 200), spacing: MacDesign.gap)], spacing: MacDesign.gap) {
                         metric(BipeStrings.workTodayBookings, today.bookings.count.formatted())
                         metric(BipeStrings.workTodayOrders, today.orders.count.formatted())
@@ -86,13 +86,13 @@ struct MacWorkView: View {
                 if let tools = model.tools {
                     MacCard {
                         VStack(alignment: .leading, spacing: MacDesign.gap) {
-                            Text(BipeStrings.businessToolsTitle).font(.headline)
+                            Text(BipeStrings.businessToolsTitle).macFont(.headline)
                             ForEach(tools.tools) { tool in
                                 if let name = MacWorkModel.toolName(tool.id) {
                                     HStack {
                                         Text(name)
                                         Spacer()
-                                        Text(stateName(tool.state)).font(.callout).foregroundStyle(BipeColor.inkSecondary)
+                                        Text(stateName(tool.state)).macFont(.callout).foregroundStyle(BipeColor.inkSecondary)
                                     }
                                 }
                             }
@@ -102,15 +102,15 @@ struct MacWorkView: View {
                 if let catalog = model.catalog {
                     MacCard {
                         VStack(alignment: .leading, spacing: MacDesign.gap) {
-                            Text(BipeStrings.catalogTitle).font(.headline)
+                            Text(BipeStrings.catalogTitle).macFont(.headline)
                             if catalog.isEmpty { Text(BipeStrings.catalogOwnerEmpty).foregroundStyle(BipeColor.inkSecondary) }
                             ForEach(catalog) { item in
                                 HStack(alignment: .top, spacing: MacDesign.gap) {
                                     VStack(alignment: .leading, spacing: 6) {
                                         Text(item.name).fontWeight(.semibold)
-                                        if let description = item.description { Text(description).font(.callout).foregroundStyle(BipeColor.inkSecondary) }
-                                        if !item.active { Text(BipeStrings.accessibilityOff).font(.caption) }
-                                        if item.soldOutToday { Text(BipeStrings.catalogSoldOutToday).font(.caption) }
+                                        if let description = item.description { Text(description).macFont(.callout).foregroundStyle(BipeColor.inkSecondary) }
+                                        if !item.active { Text(BipeStrings.accessibilityOff).macFont(.caption) }
+                                        if item.soldOutToday { Text(BipeStrings.catalogSoldOutToday).macFont(.caption) }
                                     }
                                     Spacer()
                                     Text(item.price.displayText).foregroundStyle(BipeColor.inkSecondary)
@@ -123,14 +123,14 @@ struct MacWorkView: View {
                 if let people = model.people {
                     MacCard {
                         VStack(alignment: .leading, spacing: MacDesign.gap) {
-                            Text(BipeStrings.teamTitle).font(.headline)
+                            Text(BipeStrings.teamTitle).macFont(.headline)
                             ForEach(people.activeSeats) { seat in
                                 HStack {
                                     MacAvatar(name: seat.name)
                                     Text(seat.name)
                                     Spacer()
                                     Text(seat.role == "owner" ? BipeStrings.teamRoleOwner : BipeStrings.teamRoleAttendant)
-                                        .font(.callout).foregroundStyle(BipeColor.inkSecondary)
+                                        .macFont(.callout).foregroundStyle(BipeColor.inkSecondary)
                                 }
                             }
                         }
@@ -144,8 +144,8 @@ struct MacWorkView: View {
     private func metric(_ title: String, _ value: String) -> some View {
         MacCard {
             VStack(alignment: .leading, spacing: 12) {
-                Text(title).font(.callout).foregroundStyle(BipeColor.inkSecondary)
-                Text(value).font(.title2).fontWeight(.semibold)
+                Text(title).macFont(.callout).foregroundStyle(BipeColor.inkSecondary)
+                Text(value).macFont(.title2).fontWeight(.semibold)
             }.frame(maxWidth: .infinity, alignment: .leading)
         }
     }

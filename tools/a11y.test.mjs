@@ -8,6 +8,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { auditKotlin, auditSwift, blank, checkA11y } from './a11y.mjs';
 import { REPO_ROOT } from './lib.mjs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 const rules = (hits) => hits.map((h) => `${h.line}:${h.rule}`);
 const labels = (hits) => rules(hits.filter((h) => h.rule === 'icon-only'));
@@ -171,4 +174,18 @@ test('swift: a material needs a solid fallback', () => {
 
 test('the app passes the audit', () => {
   assert.deepEqual(checkA11y(REPO_ROOT).errors, []);
+});
+
+test('macOS avatars and image controls are covered by the repository audit', () => {
+  const root = mkdtempSync(join(tmpdir(), 'bipe-mac-a11y-'));
+  try {
+    mkdirSync(join(root, 'macos', 'BipeMac'), { recursive: true });
+    const file = join(root, 'macos', 'BipeMac', 'Control.swift');
+    writeFileSync(file, 'Button { open() } label: { MacAvatar(name: name) }');
+    assert.ok(checkA11y(root).errors.some((error) => error.startsWith('macos/') && error.includes('label')));
+    writeFileSync(file, 'Button { open() } label: { MacAnimatedImage(image: image).bipeTapTarget() }.accessibilityLabel(BipeStrings.appMediaImage)');
+    assert.deepEqual(checkA11y(root).errors, []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });

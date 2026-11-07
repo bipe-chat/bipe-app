@@ -16,7 +16,7 @@ struct BipeMacApp: App {
         WindowGroup {
             MacRootView(workspace: workspace)
                 .frame(minWidth: 820, minHeight: 600)
-                .fontDesign(.rounded)
+                .macFont(.body)
                 .tint(BipeColor.accentFill)
                 .foregroundStyle(BipeColor.inkPrimary)
                 .task {
@@ -71,7 +71,7 @@ struct MacLinkView: View {
     var body: some View {
         VStack(spacing: MacDesign.sectionGap) {
             MacBrand()
-            Text(title).font(.title2).fontWeight(.semibold).multilineTextAlignment(.center)
+            Text(title).macFont(.title2).fontWeight(.semibold).multilineTextAlignment(.center)
             if account.phase == .qr, let bytes = account.qrBytes, let image = Self.qrImage(bytes) {
                 HStack(alignment: .center, spacing: 40) {
                     VStack(alignment: .leading, spacing: 20) {
@@ -88,7 +88,7 @@ struct MacLinkView: View {
                 }
             } else if account.phase == .checkCode {
                 TextField(BipeStrings.webSigninCheckCodeTitle, text: $account.checkCode)
-                    .font(.largeTitle.monospacedDigit()).multilineTextAlignment(.center).frame(width: 150)
+                    .macFont(.largeTitle).monospacedDigit().multilineTextAlignment(.center).frame(width: 150)
                     .onChange(of: account.checkCode) { _, value in
                         account.checkCode = String(value.filter { $0.isASCII && $0.isNumber }.prefix(2))
                     }
@@ -108,10 +108,10 @@ struct MacLinkView: View {
 
     private func instruction(_ number: Int, _ text: String) -> some View {
         HStack(alignment: .top, spacing: 12) {
-            Text(number.formatted()).font(.subheadline).fontWeight(.semibold)
+            Text(number.formatted()).macFont(.subheadline).fontWeight(.semibold)
                 .foregroundStyle(BipeColor.inkOnAccent).frame(width: 28, height: 28)
                 .background(BipeColor.accentFill, in: Circle()).accessibilityHidden(true)
-            Text(text).font(.body).fixedSize(horizontal: false, vertical: true).padding(.top, 3)
+            Text(text).macFont(.body).fixedSize(horizontal: false, vertical: true).padding(.top, 3)
         }
     }
 
@@ -134,21 +134,31 @@ struct MacLinkView: View {
 struct MacChatView: View {
     let room: Room
     let name: String
+    let face: MacAvatarDescriptor?
     @ObservedObject var media: MacMedia
     @StateObject private var model: MacTimeline
     @Environment(\.scenePhase) private var scenePhase
     @FocusState private var composerFocused: Bool
     @State private var pickingImage = false
 
-    init(room: Room, name: String, drafts: MacDrafts, media: MacMedia) {
+    init(room: Room, name: String, drafts: MacDrafts, media: MacMedia, face: MacAvatarDescriptor? = nil) {
         self.room = room
         self.name = name
+        self.face = face
         self.media = media
         _model = StateObject(wrappedValue: MacTimeline(drafts: drafts))
     }
 
     var body: some View {
         VStack(spacing: 0) {
+            if let face {
+                HStack(spacing: 12) {
+                    MacAvatar(name: name, media: media, url: face.url, userID: face.userID, members: face.members, size: 40)
+                    Text(name).macFont(.headline).lineLimit(1)
+                    Spacer()
+                }.padding(.horizontal, 16).frame(height: 56).background(BipeColor.surfaceBase)
+                Divider()
+            }
             if !model.isEncrypted { MacNotice(text: BipeStrings.appTimelineNotEncrypted).padding() }
             ScrollViewReader { scroll in
                 ScrollView {
@@ -175,9 +185,9 @@ struct MacChatView: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(model.replyTarget.map { BipeStrings.appMessageReplyingTo($0.sender) } ?? BipeStrings.appMessageActionReply)
-                            .font(.callout).fontWeight(.semibold)
+                            .macFont(.callout).fontWeight(.semibold)
                         Text(model.replyTarget?.body ?? BipeStrings.appMessageReplyUnavailable)
-                            .font(.caption).lineLimit(2).foregroundStyle(BipeColor.inkSecondary)
+                            .macFont(.caption).lineLimit(2).foregroundStyle(BipeColor.inkSecondary)
                     }
                     Spacer()
                     Button(BipeStrings.appCancel) { model.cancelReply() }
@@ -186,16 +196,16 @@ struct MacChatView: View {
             HStack(alignment: .bottom) {
                 Button { pickingImage = true } label: {
                     Image(decorative: "image").resizable().scaledToFit().frame(width: 24, height: 24)
-                        .frame(width: 44, height: 44)
+                        .bipeTapTarget()
                 }.buttonStyle(.plain).accessibilityLabel(BipeStrings.appAttachPhotos)
                     .help(BipeStrings.appAttachPhotos).disabled(!model.ready || model.preparing || model.sending)
                 if model.preparing { ProgressView().accessibilityLabel(BipeStrings.appUploadPreparing) }
                 TextField(BipeStrings.appTimelineComposerPlaceholder, text: $model.draft, axis: .vertical)
                     .focused($composerFocused)
                     .lineLimit(1...6).onSubmit { Task { await model.send() } }
-                    .textFieldStyle(.plain).padding(12)
-                    .background(BipeColor.surfaceRaised, in: RoundedRectangle(cornerRadius: 12))
-                    .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(BipeColor.lineSubtle))
+                    .textFieldStyle(.plain).padding(.horizontal, 16).padding(.vertical, 11)
+                    .background(BipeColor.surfaceRaised, in: RoundedRectangle(cornerRadius: 22))
+                    .overlay(RoundedRectangle(cornerRadius: 22).strokeBorder(BipeColor.lineSubtle))
                 Button(BipeStrings.appTimelineSend) { Task { await model.send() } }
                     .buttonStyle(.bipeProminent)
                     .keyboardShortcut(.return, modifiers: .command)
@@ -203,7 +213,7 @@ struct MacChatView: View {
             }.padding()
         }
         .navigationTitle(name)
-        .background(BipeColor.surfaceBase)
+        .background(ChatBackgroundView())
         .task { await model.run(room: room) }
         .dropDestination(for: URL.self) { urls, _ in
             guard let url = urls.first, url.isFileURL, model.ready, !model.preparing, !model.sending else { return false }

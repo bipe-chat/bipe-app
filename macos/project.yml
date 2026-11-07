@@ -34,6 +34,10 @@ targets:
         buildPhase: resources
       - path: ../ios/Bipe/Common/Listeners.swift
       - path: ../ios/Bipe/Common/ButtonSize.swift
+      - path: ../ios/Bipe/Common/BipeMark.swift
+      - path: ../ios/Bipe/Common/ServerAccountData.swift
+      - path: ../ios/Bipe/Common/TapTarget.swift
+      - path: ../ios/Bipe/Timeline/ChatBackgroundView.swift
       - path: ../ios/BipeKit/Sources/BipeKit/Generated/AppIcons.xcassets
       - path: ../ios/Phosphor/Sources/Phosphor/Resources/Phosphor.xcassets
       - path: ../ios/Phosphor/LICENSE

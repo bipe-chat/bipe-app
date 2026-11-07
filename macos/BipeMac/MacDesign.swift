@@ -21,7 +21,7 @@ struct MacBrand: View {
             Image(nsImage: NSApplication.shared.applicationIconImage)
                 .resizable().scaledToFit().frame(width: compact ? 36 : 64, height: compact ? 36 : 64)
                 .accessibilityHidden(true)
-            Text(BipeStrings.appName).font(compact ? .headline : .largeTitle).fontWeight(.bold)
+            Text(BipeStrings.appName).macFont(compact ? .headline : .largeTitle).fontWeight(.bold)
         }
     }
 }
@@ -42,7 +42,7 @@ struct MacNotice: View {
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
             Image(decorative: danger ? "warning-circle" : "warning").resizable().frame(width: 20, height: 20)
-            Text(text).font(.callout).fixedSize(horizontal: false, vertical: true)
+            Text(text).macFont(.callout).fixedSize(horizontal: false, vertical: true)
         }
         .padding(12).frame(maxWidth: .infinity, alignment: .leading)
         .foregroundStyle(danger ? BipeColor.trustDangerInk : BipeColor.trustCautionInk)
@@ -52,20 +52,9 @@ struct MacNotice: View {
     }
 }
 
-struct MacAvatar: View {
-    let name: String
-    var isCompany = false
-    var body: some View {
-        Text(String(name.trimmingCharacters(in: CharacterSet(charactersIn: "@ ")).prefix(1)).uppercased())
-            .font(.headline).foregroundStyle(BipeColor.accentInk)
-            .frame(width: 36, height: 36)
-            .background(BipeColor.accentWash, in: RoundedRectangle(cornerRadius: isCompany ? 10 : 18))
-            .accessibilityHidden(true)
-    }
-}
-
 struct MacMessageView: View {
     let message: MacMessage
+    @ScaledMetric(relativeTo: .body) private var bodySize: CGFloat = 17
     @ObservedObject var media: MacMedia
     let isPrivateRoom: Bool
     let fromRequest: Bool
@@ -79,9 +68,9 @@ struct MacMessageView: View {
 
     private func content(secondsLeft: Int) -> some View {
         HStack(alignment: .bottom, spacing: 12) {
-            if message.isOwn { Spacer(minLength: 64) }
-            VStack(alignment: .leading, spacing: 8) {
-                if !message.isOwn { Text(message.sender).font(.subheadline).fontWeight(.semibold).foregroundStyle(BipeColor.accentInk) }
+            if message.isOwn { Spacer(minLength: 48) }
+            VStack(alignment: .leading, spacing: 4) {
+                if !message.isOwn { Text(message.sender).macFont(.subheadline).fontWeight(.semibold).foregroundStyle(BipeColor.accentInk) }
                 if let photo = message.photo {
                     MacPhotoView(photo: photo, eventID: message.id, isOwn: message.isOwn,
                                  isPrivate: isPrivateRoom, fromRequest: fromRequest, media: media)
@@ -91,22 +80,21 @@ struct MacMessageView: View {
                 }
                 if let warning = message.warning { MacNotice(text: warning.message) }
                 if secondsLeft > 0 {
-                    Text(BipeStrings.pauseCountdown(String(secondsLeft))).font(.caption.monospacedDigit())
+                    Text(BipeStrings.pauseCountdown(String(secondsLeft))).macFont(.caption).monospacedDigit()
                         .foregroundStyle(BipeColor.trustCautionInk)
                 }
                 HStack(spacing: 8) {
                     Spacer(minLength: 0)
-                    Text(message.timestamp, style: .time).font(.caption).foregroundStyle(BipeColor.inkSecondary)
-                    if message.pending { Text(BipeStrings.appTimelineSending).font(.caption).foregroundStyle(BipeColor.inkSecondary) }
-                    if message.failed { Text(BipeStrings.appTimelineFailed).font(.caption).foregroundStyle(BipeColor.trustDangerInk) }
+                    Text(message.timestamp, style: .time).macFont(.caption).foregroundStyle(BipeColor.inkSecondary)
+                    if message.pending { Text(BipeStrings.appTimelineSending).macFont(.caption).foregroundStyle(BipeColor.inkSecondary) }
+                    if message.failed { Text(BipeStrings.appTimelineFailed).macFont(.caption).foregroundStyle(BipeColor.trustDangerInk) }
                 }
             }
-            .padding(14).frame(maxWidth: 560, alignment: .leading)
+            .padding(.horizontal, 12).padding(.vertical, 8).frame(maxWidth: 560, alignment: .leading)
             .foregroundStyle(BipeColor.inkPrimary)
             .background(message.isOwn ? BipeColor.bubbleOwn : BipeColor.bubbleOther,
                         in: RoundedRectangle(cornerRadius: MacDesign.corner))
-            .overlay(RoundedRectangle(cornerRadius: MacDesign.corner).strokeBorder(BipeColor.lineSubtle))
-            if !message.isOwn { Spacer(minLength: 64) }
+            if !message.isOwn { Spacer(minLength: 48) }
         }
         .environment(\.openURL, OpenURLAction { url in pauseSecondsLeft(.now) > 0 ? .handled : .systemAction })
         .contextMenu {
@@ -121,7 +109,7 @@ struct MacMessageView: View {
     }
 
     private var richText: some View {
-        Text(MacRichText.attributed(message.richText, emoteSender: message.isEmote ? message.sender : nil))
-            .font(.body).tint(BipeColor.accentInk).fixedSize(horizontal: false, vertical: true)
+        Text(MacRichText.attributed(message.richText, emoteSender: message.isEmote ? message.sender : nil, bodySize: bodySize))
+            .macFont(.body).tint(BipeColor.accentInk).fixedSize(horizontal: false, vertical: true)
     }
 }

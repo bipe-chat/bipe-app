@@ -13,7 +13,7 @@ struct MacImageComposer: View {
     var body: some View {
         VStack(alignment: .leading, spacing: MacDesign.gap) {
             HStack {
-                Text(BipeStrings.appMediaImage).font(.title2).fontWeight(.semibold)
+                Text(BipeStrings.appMediaImage).macFont(.title2).fontWeight(.semibold)
                 Spacer()
                 Button(BipeStrings.appCancel) { model.cancelAttachment() }.keyboardShortcut(.cancelAction)
             }
@@ -25,7 +25,7 @@ struct MacImageComposer: View {
             TextField(BipeStrings.appUploadDescriptionPlaceholder, text: $model.imageDescription, axis: .vertical)
                 .lineLimit(2...4).accessibilityLabel(BipeStrings.appUploadDescription)
                 .disabled(model.sending)
-            Text(BipeStrings.appUploadDescriptionFooter).font(.callout).foregroundStyle(BipeColor.inkSecondary)
+            Text(BipeStrings.appUploadDescriptionFooter).macFont(.callout).foregroundStyle(BipeColor.inkSecondary)
             if let error = model.uploadError { MacNotice(text: error, danger: true) }
             HStack {
                 if model.sending { ProgressView() }
