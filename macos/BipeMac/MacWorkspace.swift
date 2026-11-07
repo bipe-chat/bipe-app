@@ -104,6 +104,22 @@ final class MacWorkspace: ObservableObject {
         if let client = account.client { SyncedSettings.attach(client: client, userId: account.userId) }
     }
 
+    /// Spec sign-out: this account only. The next account opens, or linking starts when none is left.
+    func signOut(_ account: MacAccount) async throws {
+        try await account.signOut()
+        accounts.removeAll { $0 === account }
+        accountChanges[ObjectIdentifier(account)] = nil
+        // A signed-out account leaves no message text in Notification Center and no count on the Dock.
+        await MacNotifications.shared.forget(userID: account.userId)
+        MacNotifications.setBadge(accounts.map { MacTabAttention($0.roomRows.map(\.attention)) })
+        if current === account {
+            current = nil
+            defaults.removeObject(forKey: Self.selectionKey)
+            if let next = accounts.first { select(next) }
+        }
+        if accounts.isEmpty { addAccount() }
+    }
+
     /// Spec notification-service, Mac: an open chat in the key window of the active app has no notification.
     private func isOpenInKeyWindow(_ room: String, account: MacAccount) -> Bool {
         NSApp.isActive && NSApp.keyWindow != nil && current === account && !account.showingRequests

@@ -29,9 +29,13 @@ struct MacBrand: View {
 
 struct MacCard<Content: View>: View {
     let content: Content
-    init(@ViewBuilder content: () -> Content) { self.content = content() }
+    let inset: CGFloat
+    init(inset: CGFloat = MacDesign.sectionGap, @ViewBuilder content: () -> Content) {
+        self.inset = inset
+        self.content = content()
+    }
     var body: some View {
-        content.padding(MacDesign.sectionGap)
+        content.padding(inset)
             .background(BipeColor.surfaceRaised, in: RoundedRectangle(cornerRadius: MacDesign.corner))
             .overlay(RoundedRectangle(cornerRadius: MacDesign.corner).strokeBorder(BipeColor.lineSubtle))
     }

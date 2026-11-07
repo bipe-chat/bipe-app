@@ -101,6 +101,17 @@ final class MacNotifications: NSObject, UNUserNotificationCenterDelegate {
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
     }
 
+    /// Sign-out: removes this account's delivered notifications, also those of an earlier app run, and its state.
+    func forget(userID: String) async {
+        states[userID] = nil
+        let center = UNUserNotificationCenter.current()
+        let delivered = await center.deliveredNotifications()
+        let identifiers = delivered.filter {
+            MacNotificationRoute(userInfo: $0.request.content.userInfo)?.userID == userID
+        }.map(\.request.identifier)
+        center.removeDeliveredNotifications(withIdentifiers: identifiers)
+    }
+
     static func setBadge(_ accounts: [MacTabAttention]) {
         let total = accounts.reduce(0) { $0 + $1.chats + $1.groups }
         NSApp.dockTile.badgeLabel = total > 0 ? total.formatted() : nil

@@ -85,6 +85,11 @@ final class MacAccount: ObservableObject {
         BipeBusinessAPI(api: api) { [weak self] in try? self?.client?.session().accessToken }
     }
 
+    /// Runs a bipe-api request with this account's access token, and once more with a fresh one.
+    func authorized<T>(_ request: (String) async throws(BipeAPIError) -> T) async throws(BipeAPIError) -> T {
+        try await BipeAPIClient.withTokenRetry(accessToken: { try? self.client?.session().accessToken }, request)
+    }
+
     var hasUnread: Bool { roomRows.contains { $0.unread > 0 || $0.markedUnread } }
 
     func start() {
@@ -380,6 +385,36 @@ final class MacAccount: ObservableObject {
     private func revoked() async {
         guard phase != .revoked else { return }
         phase = .revoked
+        await endSession()
+        do { try vault.clear(userID: userId); savedUserID = nil } catch { storageFailed = true }
+    }
+
+    /// Spec sign-out, Mac: a company account first ends its web sessions; a failure does not stop the sign-out. A failed
+    /// logout changes nothing and throws. After it, the account record and this account's store leave the Mac.
+    func signOut() async throws {
+        guard let client else { throw CancellationError() }
+        if isCompany {
+            let api = api
+            do {
+                try await authorized { (token: String) async throws(BipeAPIError) in
+                    try await api.signOutWebLinks(accessToken: token)
+                }
+            } catch {
+                NSLog("Bipe web-link sign-out failed")
+            }
+        }
+        // The folder is read first: the record goes with the session.
+        let folder = (try? vault.load(userID: userId))?.folder
+        try await client.logout()
+        phase = .revoked
+        await endSession()
+        do { try vault.clear(userID: userId); savedUserID = nil } catch { storageFailed = true }
+        if let folder, let paths = try? Self.paths(folder: folder) {
+            try? FileManager.default.removeItem(at: paths.data.deletingLastPathComponent())
+        }
+    }
+
+    private func endSession() async {
         media.reset()
         attempt = UUID()
         loginTask?.cancel()
@@ -395,6 +430,5 @@ final class MacAccount: ObservableObject {
         openID = nil
         handles = nil
         seals = nil
-        do { try vault.clear(userID: userId); savedUserID = nil } catch { storageFailed = true }
     }
 }
