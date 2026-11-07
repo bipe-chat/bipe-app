@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
+# Copyright 2026 Bipe contributors
+
+# The same route as ../../../web/ubrn.config.yaml, for bipe-core.
+rust:
+  directory: ../..
+  manifestPath: crates/bipe-core/Cargo.toml
+
+wasm2:
+  ts: generated

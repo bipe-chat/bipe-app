@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
+# Copyright 2026 Bipe contributors
+
+[bindings.kotlin]
+package_name = "chat.bipe.core"
+cdylib_name = "bipe_core"
+# The same setting as matrix-sdk-ffi: UniFFI checksums fail on some 32-bit devices (uniffi-rs#2740).
+omit_checksums = true

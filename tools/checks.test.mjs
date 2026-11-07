@@ -11,7 +11,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
 import { checkDenyList } from './deny-list.mjs';
-import { checkLicences, catalogLibraries, swiftPins, loadTable } from './licences.mjs';
+import { cargoPackages, checkLicences, catalogLibraries, swiftPins, loadTable } from './licences.mjs';
 import { checkHeaders, HEADER } from './headers.mjs';
 import { checkStrings, findLiterals, isUserText } from './strings.mjs';
 import { provenanceLine, issueLine } from './provenance.mjs';
@@ -712,4 +712,15 @@ test('asc external still submits when What to Test is rejected', async () => {
   const { result } = await quiet(() => external(call, '300', { enable: true, summary: null }));
   assert.ok(calls.includes('POST /v1/betaAppReviewSubmissions'));
   assert.equal(result.state, 'WAITING_FOR_BETA_REVIEW');
+});
+
+test('cargoPackages reads third-party packages once and skips workspace members', () => {
+  const lock = [
+    'version = 4',
+    '[[package]]\nname = "bipe-core"\nversion = "0.0.0"\ndependencies = [\n "serde_json",\n]',
+    '[[package]]\nname = "serde_json"\nversion = "1.0.0"\nsource = "registry+https://github.com/rust-lang/crates.io-index"',
+    '[[package]]\nname = "serde_json"\nversion = "2.0.0"\nsource = "registry+https://github.com/rust-lang/crates.io-index"',
+    '[[package]]\nname = "uniffi"\nversion = "0.31.0"\nsource = "git+https://github.com/mozilla/uniffi-rs.git?rev=e5f4821#e5f4821"',
+  ].join('\n\n');
+  assert.deepEqual(cargoPackages(lock), ['serde_json', 'uniffi']);
 });
