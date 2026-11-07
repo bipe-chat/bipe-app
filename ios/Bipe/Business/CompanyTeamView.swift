@@ -35,6 +35,9 @@ struct CompanyTeamView: View {
                 people(list)
                 if isOwner, !list.unassignedDevices.isEmpty { unassigned(list) }
                 if list.activeSeats.count > 1 { shared }
+                Section {
+                    Link(BipeStrings.identityChangeLearnMore, destination: URL(string: "https://bipe.chat/recursos/quem-atende/")!)
+                }
                 if list.me.role == "attendant" {
                     Section {
                         CompanyLeaveButton(accountName: accountName, api: home.api, onLeft: onLeft)
