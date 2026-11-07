@@ -15,6 +15,7 @@ import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonObject
 import java.security.GeneralSecurityException
 
 /**
@@ -72,7 +73,12 @@ class BadgeVerifier(trustedKeys: Map<String, ByteArray>) {
         } catch (_: GeneralSecurityException) {
             return invalid(BadgeVerificationFailure.INVALID_SIGNATURE)
         }
-        val payload = runCatchingExceptions { json.decodeFromString(BadgePayload.serializer(), payloadBytes.decodeToString(throwOnInvalidSequence = true)) }
+        val payload = runCatchingExceptions {
+            val fields = json.parseToJsonElement(payloadBytes.decodeToString(throwOnInvalidSequence = true)).jsonObject
+            // kotlinx reads a quoted number as a Long. The format says integer, and iOS and the website reject a string.
+            if (listOf("iat", "exp").any { (fields[it] as? JsonPrimitive)?.isString == true }) null
+            else json.decodeFromJsonElement(BadgePayload.serializer(), fields)
+        }
             .getOrNull()
             ?.takeIf { it.isWellFormed() }
             ?: return invalid(BadgeVerificationFailure.MALFORMED)
