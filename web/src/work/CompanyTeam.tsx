@@ -73,6 +73,9 @@ export function CompanyTeamScreen({ client, onBack }: { client: BusinessClient; 
             </Section>
           )}
           <p className="px-4 text-footnote text-ink-secondary">{s('bipe_web_work_phone_only')}</p>
+          <a className="px-4 text-footnote text-accent-ink" href="https://bipe.chat/recursos/quem-atende/" target="_blank" rel="noreferrer">
+            {s('bipe_identity_change_learn_more')}
+          </a>
         </div>
       )}
     </div>

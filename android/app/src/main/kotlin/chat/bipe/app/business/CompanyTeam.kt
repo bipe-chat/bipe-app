@@ -4,6 +4,8 @@
 
 package chat.bipe.app.business
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -151,6 +153,9 @@ fun CompanyTeamScreen(home: WorkHomeModel, session: AccountSession, run: (suspen
                     (context.applicationContext as BipeApplication).appTabs.start.completeSignOut(session.userId)
                 }
             }
+            TextButton(onClick = {
+                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://bipe.chat/recursos/quem-atende/")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            }, modifier = Modifier.padding(horizontal = 8.dp)) { Text(stringResource(R.string.bipe_identity_change_learn_more)) }
         }
     }
     editing?.let { seat ->
