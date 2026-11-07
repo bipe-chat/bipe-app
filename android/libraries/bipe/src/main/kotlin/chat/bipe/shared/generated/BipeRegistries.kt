@@ -869,6 +869,9 @@ object BipeRegistries {
     const val REQUEST_ROOMS_EVENT_TYPE = "chat.bipe.request_rooms"
     const val REQUEST_ROOMS_MAX = 500
 
+    /** Settings that follow the account (registries/synced-settings.json): the global account data event. */
+    const val SYNCED_SETTINGS_EVENT_TYPE = "chat.bipe.settings"
+
     /** Image descriptions (bipe-chat/bipe#501; registries/image-descriptions.json): the m.image content field and its length limit. */
     const val IMAGE_DESCRIPTION_FIELD = "chat.bipe.image_description"
     const val IMAGE_DESCRIPTION_MAX_LENGTH = 1000
