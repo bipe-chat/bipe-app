@@ -868,6 +868,10 @@ public enum BipeRegistries {
     public static let chatFavouritesOrderEventType = "chat.bipe.favourites_order"
     public static let chatFavouritesOrderMax = 200
 
+    /// Chats accepted from chat-requests (spec timeline-media fromStranger; registries/request-rooms.json): the global account data event with the room IDs.
+    public static let requestRoomsEventType = "chat.bipe.request_rooms"
+    public static let requestRoomsMax = 500
+
     /// Image descriptions (bipe-chat/bipe#501; registries/image-descriptions.json): the m.image content field and its length limit.
     public static let imageDescriptionField = "chat.bipe.image_description"
     public static let imageDescriptionMaxLength = 1000

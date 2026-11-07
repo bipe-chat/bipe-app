@@ -460,6 +460,8 @@ function validate(reg, phosphor) {
   if (reg.clearedChats.eventType !== "chat.bipe.cleared_chats") fail("cleared-chats: eventType must be chat.bipe.cleared_chats");
   if (reg.chatFavourites.version !== 1 || reg.chatFavourites.orderEventType !== "chat.bipe.favourites_order") fail("chat-favourites: orderEventType must be chat.bipe.favourites_order");
   if (!Number.isSafeInteger(reg.chatFavourites.orderMax) || reg.chatFavourites.orderMax < 1) fail("chat-favourites: orderMax must be a positive integer");
+  if (reg.requestRooms.version !== 1 || reg.requestRooms.eventType !== "chat.bipe.request_rooms") fail("request-rooms: eventType must be chat.bipe.request_rooms");
+  if (!Number.isSafeInteger(reg.requestRooms.max) || reg.requestRooms.max < 1) fail("request-rooms: max must be a positive integer");
   validateHomeScore(reg.homeScore);
   const du = reg.dataUse;
   if (!Number.isInteger(du.budgetMegabytesPerDay) || du.budgetMegabytesPerDay < 1 || typeof du.dataSaverDefault !== "boolean") fail("data-use: budgetMegabytesPerDay must be a positive integer and dataSaverDefault a boolean");
