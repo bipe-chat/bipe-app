@@ -3,6 +3,7 @@
 // Copyright 2026 Bipe contributors
 
 import BipeKit
+import MatrixRustSDK
 import SwiftUI
 
 struct MacAccountView: View {
