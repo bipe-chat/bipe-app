@@ -5,8 +5,10 @@
 import AppKit
 import BipeKit
 import Combine
+import CoreServices
 import ImageIO
 import MatrixRustSDK
+import UniformTypeIdentifiers
 
 struct MacPhoto {
     let content: ImageMessageContent
@@ -43,9 +45,11 @@ final class MacMedia: ObservableObject {
             } catch {
                 // Offline: wait for the account setting through sync before fetching someone else's images.
             }
+            // The SDK sends its stored value first, which is nil before the first sync. Only a real value changes the
+            // policy: a nil must not replace a fetched setting or end the wait after a failed fetch.
             for await config in stream.updates {
                 guard !Task.isCancelled, self.generation == generation else { return }
-                self.policy = config?.mediaPreviews ?? .on
+                if let previews = config?.mediaPreviews { self.policy = previews }
             }
         }
     }
@@ -133,12 +137,57 @@ final class MacMedia: ObservableObject {
     func save(_ photo: MacPhoto) async throws {
         guard let client else { throw CancellationError() }
         let generation = generation
-        let panel = NSSavePanel()
-        panel.nameFieldStringValue = URL(fileURLWithPath: photo.content.filename).lastPathComponent
-        guard await panel.begin() == .OK, let url = panel.url else { return }
         let data = try await client.getMediaContent(mediaSource: photo.content.source)
         guard self.generation == generation else { throw CancellationError() }
+        let saved = try MacSavedImage(data: data, filename: photo.content.filename)
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = saved.filename
+        panel.allowedContentTypes = [saved.type]
+        panel.allowsOtherFileTypes = false
+        guard await panel.begin() == .OK, let url = panel.url else { return }
+        guard self.generation == generation else { throw CancellationError() }
         try data.write(to: url, options: .atomic)
+        do { try MacSavedImage.quarantine(url) } catch {
+            try? FileManager.default.removeItem(at: url)
+            throw error
+        }
+    }
+}
+
+/// The sender chooses the filename and the bytes of an image event. A saved file gets the type its bytes prove,
+/// and the same quarantine as a downloaded file.
+struct MacSavedImage {
+    private static let types: [UTType] = [.jpeg, .png, .gif, .heic, .heif, .webP, .tiff, .bmp]
+    let filename: String
+    let type: UTType
+
+    init(data: Data, filename: String) throws {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+              CGImageSourceGetCount(source) > 0,
+              CGImageSourceCopyPropertiesAtIndex(source, 0, nil) != nil,
+              let identifier = CGImageSourceGetType(source),
+              let type = UTType(identifier as String), Self.types.contains(type),
+              let suffix = type.preferredFilenameExtension else { throw CocoaError(.fileReadCorruptFile) }
+        self.type = type
+        self.filename = Self.stem(filename) + "." + suffix
+    }
+
+    private static func stem(_ filename: String) -> String {
+        let last = filename.split(whereSeparator: { $0 == "/" || $0 == "\\" }).last.map(String.init) ?? ""
+        // Control and format characters include the bidi overrides that can hide an extension.
+        let scalars = (last as NSString).deletingPathExtension.unicodeScalars.filter {
+            $0.properties.generalCategory != .control && $0.properties.generalCategory != .format
+        }
+        let stem = String(String.UnicodeScalarView(scalars)).trimmingCharacters(in: CharacterSet(charactersIn: ". ").union(.whitespacesAndNewlines))
+        return stem.isEmpty ? BipeStrings.appMediaImage : stem
+    }
+
+    static func quarantine(_ url: URL) throws {
+        var saved = url
+        var values = URLResourceValues()
+        values.quarantineProperties = [kLSQuarantineTypeKey as String: kLSQuarantineTypeInstantMessageAttachment as String,
+                                       kLSQuarantineAgentNameKey as String: "Bipe"]
+        try saved.setResourceValues(values)
     }
 }
 
