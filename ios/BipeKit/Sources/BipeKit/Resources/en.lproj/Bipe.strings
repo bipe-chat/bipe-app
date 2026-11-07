@@ -2337,6 +2337,8 @@
 "bipe_thread_reply_action" = "Reply in thread";
 "bipe_thread_title" = "Thread";
 "bipe_thread_replies" = "Replies: %1$@";
+"bipe_thread_list_title" = "Group threads";
+"bipe_thread_list_empty" = "No threads in this group yet.";
 "bipe_select_action" = "Select";
 "bipe_select_count" = "Selected: %1$@";
 "bipe_select_limit" = "Pick up to %1$@ messages.";
