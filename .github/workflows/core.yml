@@ -99,6 +99,7 @@ jobs:
             echo '| ------- | ------- | ------- |'
             cargo metadata --locked --format-version 1 | jq -r '.packages[] | select(.source != null) | "| \(.name) | \(.version) | \(.license) |"' | sort
           } >> "$GITHUB_STEP_SUMMARY"
+          cat "$GITHUB_STEP_SUMMARY"
           cargo metadata --locked --format-version 1 | jq '[.packages[] | select(.source != null) | {name, version, license, repository}]' > "$RUNNER_TEMP/cargo-licences.json"
       - uses: actions/upload-artifact@v4
         with:
@@ -209,6 +210,7 @@ jobs:
             echo "| iOS simulator, bipe-core | $(cat "$RUNNER_TEMP/ios.metrics") |"
             echo "| macOS, BadgeVerifier.swift | $(cat "$RUNNER_TEMP/base.metrics") |"
           } >> "$GITHUB_STEP_SUMMARY"
+          cat "$GITHUB_STEP_SUMMARY"
 
   android:
     name: core-android
@@ -295,6 +297,7 @@ jobs:
             echo "| x86_64 emulator, API 34, bipe-core | $(cat /tmp/android.metrics) |"
             echo "| JVM on this runner, BadgeVerifier.kt | $(cat /tmp/android-base.metrics) |"
           } >> "$GITHUB_STEP_SUMMARY"
+          cat "$GITHUB_STEP_SUMMARY"
 
   jvm:
     name: core-jvm-${{ matrix.os }}
@@ -351,6 +354,7 @@ jobs:
             echo "- Library bytes: $(wc -c < "$BIPE_CORE_LIB")"
             echo "- $(cat "$RUNNER_TEMP/jvm.metrics")"
           } >> "$GITHUB_STEP_SUMMARY"
+          cat "$GITHUB_STEP_SUMMARY"
 
   web:
     name: core-web
@@ -450,6 +454,7 @@ jobs:
             echo "| Node 24, bipe-core | $(cat "$RUNNER_TEMP/web.metrics") |"
             echo "| Node 24, bipe-web src/badge.ts | $(cat "$RUNNER_TEMP/base.metrics") |"
           } >> "$GITHUB_STEP_SUMMARY"
+          cat "$GITHUB_STEP_SUMMARY"
 
   # bipe-chat/bipe#1172 step 4. The answer may be no, and that is a result of the spike, so a failure here does
   # not fail the workflow. The summary says what happened.
@@ -505,3 +510,4 @@ jobs:
             echo "- Exported functions: bipe-core $core, matrix-sdk-ffi $sdk"
             echo "- Bindings generated from it: $(find "$RUNNER_TEMP/combined-kotlin" -name '*.kt' | wc -l) Kotlin files"
           } >> "$GITHUB_STEP_SUMMARY"
+          cat "$GITHUB_STEP_SUMMARY"
