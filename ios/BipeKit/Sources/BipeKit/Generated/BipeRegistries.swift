@@ -872,6 +872,9 @@ public enum BipeRegistries {
     public static let requestRoomsEventType = "chat.bipe.request_rooms"
     public static let requestRoomsMax = 500
 
+    /// Settings that follow the account (registries/synced-settings.json): the global account data event.
+    public static let syncedSettingsEventType = "chat.bipe.settings"
+
     /// Image descriptions (bipe-chat/bipe#501; registries/image-descriptions.json): the m.image content field and its length limit.
     public static let imageDescriptionField = "chat.bipe.image_description"
     public static let imageDescriptionMaxLength = 1000
