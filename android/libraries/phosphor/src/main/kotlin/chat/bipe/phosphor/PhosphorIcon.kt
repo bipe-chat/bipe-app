@@ -63,6 +63,7 @@ enum class PhosphorIcon(val id: String, @DrawableRes val drawable: Int) {
     PUSH_PIN_SLASH("push-pin-slash", R.drawable.phosphor_push_pin_slash),
     QR_CODE("qr-code", R.drawable.phosphor_qr_code),
     SEAL_CHECK("seal-check", R.drawable.phosphor_seal_check),
+    SEAL_CHECK_FILL("seal-check-fill", R.drawable.phosphor_seal_check_fill),
     SEAL_WARNING("seal-warning", R.drawable.phosphor_seal_warning),
     SHARE_NETWORK("share-network", R.drawable.phosphor_share_network),
     SIGN_OUT("sign-out", R.drawable.phosphor_sign_out),

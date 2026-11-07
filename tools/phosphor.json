@@ -1,7 +1,10 @@
 {
-  "$comment": "Phosphor icons (MIT, ADR 0145) that the apps use. After a change, run node tools/phosphor.mjs <unpacked @phosphor-icons/core package>.",
+  "$comment": "Phosphor icons (MIT, ADR 0145) that the apps use. After a change, run node tools/phosphor.mjs <unpacked @phosphor-icons/core package>. fill: icons of the fill weight, on top of weight (ADR 0275: seal-check-fill).",
   "version": "2.1.1",
   "weight": "regular",
+  "fill": [
+    "seal-check-fill"
+  ],
   "icons": [
     "address-book",
     "archive",

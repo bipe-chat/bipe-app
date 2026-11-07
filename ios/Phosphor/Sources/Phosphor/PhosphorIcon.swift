@@ -61,6 +61,7 @@ public enum PhosphorIcon: String, CaseIterable, Sendable {
     case pushPinSlash = "push-pin-slash"
     case qrCode = "qr-code"
     case sealCheck = "seal-check"
+    case sealCheckFill = "seal-check-fill"
     case sealWarning = "seal-warning"
     case shareNetwork = "share-network"
     case signOut = "sign-out"

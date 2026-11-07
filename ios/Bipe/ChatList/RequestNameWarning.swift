@@ -43,7 +43,10 @@ struct RequestTrustContent: View {
             VStack(spacing: 8) {
                 switch trust {
                 case .verified(let name):
-                    Text(BipeStrings.badgeVerifiedName(name)).foregroundStyle(BipeColor.trustVerifiedInk)
+                    // Spec chat-request: the scheme of the strongest proof (ADR 0275). A company has no person proof.
+                    let proof = people.seals.strongestProof(for: request.inviterId)
+                    Text(proof.map { BipeStrings.badgeVerifiedNameVia($0.schemeName, name) } ?? BipeStrings.badgeVerifiedName(name))
+                        .foregroundStyle(BipeColor.trustVerifiedInk)
                 case .unverified:
                     Text(BipeStrings.bannerUnverifiedTitle).font(.headline).foregroundStyle(BipeColor.trustCautionInk)
                     Text(BipeStrings.requestUnverifiedBody).foregroundStyle(BipeColor.inkSecondary)

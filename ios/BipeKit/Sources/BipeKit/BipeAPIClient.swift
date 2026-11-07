@@ -420,6 +420,17 @@ public struct BipeAPIClient: Sendable {
         }
     }
     
+    /// `GET /v1/badges/{userId}/proofs` (ADR 0275). No auth. Each envelope's JSON, not yet verified, strongest first.
+    public func badgeProofs(userID: String) async throws(BipeAPIError) -> [Data] {
+        let (data, response) = try await exchange(method: "GET", path: ["v1", "badges", userID, "proofs"], rawBody: nil, accessToken: nil)
+        guard response.statusCode == 200,
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let badges = object["badges"] as? [Any] else {
+            throw .unexpectedResponse(statusCode: response.statusCode)
+        }
+        return badges.compactMap { try? JSONSerialization.data(withJSONObject: $0) }
+    }
+
     /// `GET /v1/brand-marks/{userId}` (ADR 0162). No auth. Each envelope's JSON, not yet verified, in the server's order.
     public func brandMarks(userID: String) async throws(BipeAPIError) -> [Data] {
         let (data, response) = try await exchange(method: "GET", path: ["v1", "brand-marks", userID], rawBody: nil, accessToken: nil)

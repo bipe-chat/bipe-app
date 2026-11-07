@@ -446,8 +446,10 @@ struct SharedVectorTests {
         let nowText = try #require(file["now"] as? String)
         let now = try #require(BipeProfileFactLines.parse(nowText))
         let vectors = try #require(file["vectors"] as? [[String: Any]])
+        let profileVectors = try #require(file["profile_vectors"] as? [[String: Any]])
         #expect(!vectors.isEmpty)
-        for vector in vectors {
+        #expect(!profileVectors.isEmpty)
+        for (vector, alwaysCreated) in vectors.map({ ($0, false) }) + profileVectors.map({ ($0, true) }) {
             let name = vector["name"] as? String ?? ""
             let raw = try #require(vector["facts"] as? [String: Any])
             let facts = BipeProfileFacts(userId: "@a:bipe.net.br",
@@ -456,7 +458,7 @@ struct SharedVectorTests {
                                          photoChanges: raw["photo_changes"] as? [String] ?? [],
                                          numberMovedOut: raw["number_moved_out"] as? [String] ?? [],
                                          numberMovedIn: raw["number_moved_in"] as? [String] ?? [])
-            let result = BipeProfileFactLines(facts: facts, now: now)
+            let result = BipeProfileFactLines(facts: facts, now: now, alwaysCreated: alwaysCreated)
             let expected = try #require(vector["expected"] as? [String: Any])
             let lines = try #require(expected["lines"] as? [[String: Any]])
             #expect(result.notice == expected["notice"] as? Bool, "profile facts \(name)")
@@ -472,6 +474,21 @@ struct SharedVectorTests {
         }
     }
     
+    @Test
+    func personProofs() throws {
+        let vectors = try #require(try SharedVectors.object("person-proofs.json")["vectors"] as? [[String: Any]])
+        #expect(!vectors.isEmpty)
+        for vector in vectors {
+            let name = vector["name"] as? String ?? ""
+            let payloads = try #require(vector["payloads"] as? [[String: Any]])
+            let expected = try #require(vector["expected"] as? [[String: Any]])
+            let result = BipePersonProofs.schemes(payloads.map { (lvl: $0["lvl"] as? String ?? "", scheme: $0["scheme"] as? String) })
+            #expect(result.map(\.id) == expected.compactMap { $0["scheme"] as? String }, "person proofs \(name)")
+            #expect(result.map(\.assurance) == expected.compactMap { $0["assurance"] as? String }, "person proofs \(name)")
+            #expect(result.map(\.mark) == expected.compactMap { $0["mark"] as? String }, "person proofs \(name)")
+        }
+    }
+
     @Test
     func theftMarks() throws {
         let file = try SharedVectors.object("theft-marks.json")

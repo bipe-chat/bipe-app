@@ -67,6 +67,8 @@ final class PersonProfileModel: ObservableObject {
     let people: PeopleService
 
     @Published private(set) var phase: Phase = .loading
+    /// The answer of GET /v1/badges/{userId}/proofs, each badge verified on this device.
+    @Published private var loadedProofs: [BipePersonProof] = []
     @Published private(set) var person: Person
     /// The SDK's identity of the person (spec facts). nil while not read, or when the SDK could not read it.
     @Published private(set) var trustIdentity: BipeTrustSources.Identity?
@@ -108,6 +110,7 @@ final class PersonProfileModel: ObservableObject {
         phase = .loaded
 
         await readIdentity()
+        loadedProofs = await people.seals.proofs(for: userId)
         if let handle = person.handle, let profile = try? await people.api.publicProfile(handle: handle) {
             let text = profile.bio?.trimmingCharacters(in: .whitespacesAndNewlines)
             bio = text?.isEmpty == false ? text : nil
@@ -168,13 +171,29 @@ final class PersonProfileModel: ObservableObject {
         identityRead && facts.change == "unknown"
     }
 
+    /// proofs of the spec, strongest first. A failed proofs call falls back on the compact seal. A suspended or a
+    /// missing seal gives none (ADR 0275 points 2 and 14).
+    var proofLines: [BipePersonProof] {
+        guard facts.identity == "verified", let strongest = people.seals.strongestProof(for: userId) else { return [] }
+        return loadedProofs.isEmpty ? [strongest] : loadedProofs
+    }
+
+    /// bipe_banner_unverified_title: no proof and no company mark, once the store answered. An official account has
+    /// its own badge, and the own profile shows no facts.
+    var showsUnverifiedLine: Bool {
+        people.seals.hasAnswer(for: userId) && userId != people.session.userId && !isOfficial
+            && proofLines.isEmpty && !marks.contains { $0.kind != .confirmedInPerson }
+    }
+
     /// marks of the spec: only marks that verify on this device.
     var marks: [TrustMark] {
         var marks: [TrustMark] = []
         let facts = facts
         if case .verified = personSeal {
-            if let name = facts.verifiedName {
-                marks.append(TrustMark(kind: .verifiedName, text: BipeStrings.badgeVerifiedName(name)))
+            // Only when the badge name differs from the display name: else the header already shows it (spec notes).
+            if let name = facts.verifiedName, let strongest = proofLines.first,
+               NameNormalizer.normalize(name) != NameNormalizer.normalize(person.displayName) {
+                marks.append(TrustMark(kind: .verifiedName, text: BipeStrings.badgeVerifiedNameVia(strongest.schemeName, name)))
             }
         } else if case .suspended = personSeal {
             marks.append(TrustMark(kind: .nameSuspended, text: BipeStrings.badgeSuspended))

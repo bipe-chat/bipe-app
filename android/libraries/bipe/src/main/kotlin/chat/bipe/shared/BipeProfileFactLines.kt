@@ -70,7 +70,8 @@ data class BipeProfileFactLines(
         private const val DAY_MS = 86_400_000L
         private const val HOUR_MS = 3_600_000L
 
-        fun of(facts: BipeProfileFacts, now: Instant = Instant.now()): BipeProfileFactLines {
+        /** [alwaysCreated]: person-profile keeps the account age at any age (ADR 0275 point 13). */
+        fun of(facts: BipeProfileFacts, now: Instant = Instant.now(), alwaysCreated: Boolean = false): BipeProfileFactLines {
             val nowMs = now.toEpochMilli()
             val windowMs = BipeRegistries.PROFILE_FACTS_WINDOW_DAYS * DAY_MS
             fun inWindow(list: List<String>): List<Long> =
@@ -79,7 +80,7 @@ data class BipeProfileFactLines(
             val photos = inWindow(facts.photoChanges)
             val lines = mutableListOf<Line>()
             val created = facts.createdAt?.let { parse(it) }?.toEpochMilli()
-            if (created != null && created <= nowMs && nowMs - created < BipeRegistries.PROFILE_FACTS_NEW_ACCOUNT_DAYS * DAY_MS) {
+            if (created != null && created <= nowMs && (alwaysCreated || nowMs - created < BipeRegistries.PROFILE_FACTS_NEW_ACCOUNT_DAYS * DAY_MS)) {
                 lines += Line(Fact.CREATED, null, Instant.ofEpochMilli(created))
             }
             if (photos.isNotEmpty()) lines += Line(Fact.PHOTO, photos.size, Instant.ofEpochMilli(photos.last()))

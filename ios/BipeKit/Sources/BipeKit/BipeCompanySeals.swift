@@ -30,7 +30,10 @@ public enum BipePersonSealState: Equatable, Sendable {
 
 /// The compact mark next to a name (spec person-profile notes). The same in every place.
 public enum BipeSealMark: Equatable, Sendable {
-    case person
+    /// Assurance bank: `sealCheck` regular (ADR 0275).
+    case personBank
+    /// Assurance state: `sealCheck` fill (ADR 0275).
+    case personState
     case company
     case personSuspended
     case companySuspended
@@ -38,11 +41,18 @@ public enum BipeSealMark: Equatable, Sendable {
     /// What the mark says to a screen reader.
     public var label: String {
         switch self {
-        case .person: BipeStrings.badgeVerified
+        case .personBank: Self.personLabel("bank")
+        case .personState: Self.personLabel("state")
         case .company: BipeStrings.badgeCompany
         case .personSuspended: BipeStrings.badgeSuspended
         case .companySuspended: BipeStrings.badgeCompanySuspended
         }
+    }
+
+    /// The apps decode only alias levels, and each assurance has one alias scheme (registries/schemes.json).
+    private static func personLabel(_ assurance: String) -> String {
+        BipeRegistries.personSchemes.first { $0.assurance == assurance }
+            .map { BipeStrings.badgeVerifiedVia($0.localizedName) } ?? BipeStrings.badgeVerified
     }
 
     public var isSuspended: Bool { self == .personSuspended || self == .companySuspended }
@@ -153,7 +163,10 @@ public final class BipeCompanySeals {
     /// The compact mark next to a name, or `nil`. A revoked company seal has no mark.
     public func mark(for userID: String) -> BipeSealMark? {
         switch personState(for: userID) {
-        case .verified: return .person
+        case .verified(let payload):
+            // The strongest proof only (ADR 0275 point 15). The server answers the strongest; the mark comes from the badge.
+            guard let proof = BipePersonProofs.proofs([payload]).first else { return nil }
+            return proof.isFill ? .personState : .personBank
         case .suspended: return .personSuspended
         case .none: break
         }
@@ -164,6 +177,31 @@ public final class BipeCompanySeals {
         }
     }
     
+    /// The strongest proof that verified on this device, or `nil`.
+    public func strongestProof(for userID: String) -> BipePersonProof? {
+        guard case .verified(let payload) = personState(for: userID) else { return nil }
+        return BipePersonProofs.proofs([payload]).first
+    }
+
+    /// The store has an answer for the account, so "no seal" is a fact and not a fetch that still runs.
+    public func hasAnswer(for userID: String) -> Bool {
+        _ = state(for: userID)
+        return entries[userID] != nil
+    }
+
+    /// Every person proof of the account that verifies on this device, strongest first (ADR 0275).
+    /// A failed call, no master key or a badge that fails gives no proof for it (fail closed).
+    public func proofs(for userID: String) async -> [BipePersonProof] {
+        guard BipeServers.isBipeUserID(userID),
+              let envelopes = try? await apiClient.badgeProofs(userID: userID),
+              let key = try? await masterKey(userID),
+              let verifier = try? BadgeVerifier.bipeTrusted() else { return [] }
+        let payloads = envelopes.compactMap { json -> BadgePayload? in
+            if case .valid(let payload) = verifier.verify(envelopeJSON: json, sender: userID, senderMasterKey: key) { payload } else { nil }
+        }
+        return BipePersonProofs.proofs(payloads)
+    }
+
     /// Whether the account is a company (ADR 0132). Queues a fetch when the cache has no fresh value.
     public func isCompany(_ userID: String) -> Bool {
         guard BipeServers.isBipeUserID(userID) else { return false }
