@@ -58,6 +58,9 @@ final class GroupPrivacyModel: ObservableObject {
     @Published private(set) var canChangeJoin = false
     @Published private(set) var canChangeHistory = false
     @Published private(set) var canInvite = false
+    /// nil until the room state is read.
+    @Published private(set) var publicationOnly: Bool?
+    @Published private(set) var canChangePublicationOnly = false
     @Published var failed = false
 
     private let session: AccountSession
@@ -104,7 +107,10 @@ final class GroupPrivacyModel: ObservableObject {
             canChangeJoin = levels.canOwnUserSendState(stateEvent: .roomJoinRules)
             canChangeHistory = levels.canOwnUserSendState(stateEvent: .roomHistoryVisibility)
             canInvite = levels.canOwnUserInvite()
+            canChangePublicationOnly = levels.canOwnUserSendState(stateEvent: .roomPowerLevels)
         }
+        let state = try? await ServerRoomState.json(client: session.client, roomId: roomId)
+        publicationOnly = BipeGroupPublication.isOn(stateJson: state)
     }
 
     /// Action setJoin.
@@ -124,6 +130,18 @@ final class GroupPrivacyModel: ObservableObject {
         do {
             try await room.updateHistoryVisibility(visibility: value.visibility)
             history = value
+        } catch {
+            failed = true
+        }
+    }
+
+    /// Action setPublicationOnly.
+    func setPublicationOnly(_ enabled: Bool) async {
+        guard let room, enabled != publicationOnly else { return }
+        do {
+            _ = try await room.sendStateEventRaw(eventType: BipeGroupPowerLevels.publicationOnlyEvent, stateKey: "",
+                                                 content: BipeGroupPublication.content(enabled: enabled))
+            publicationOnly = enabled
         } catch {
             failed = true
         }
@@ -172,6 +190,17 @@ struct GroupPrivacyView: View {
                 Text(BipeStrings.groupPrivacyHistory)
             } footer: {
                 Text(BipeStrings.groupPrivacyHistoryFooter)
+            }
+            if let publicationOnly = model.publicationOnly {
+                Section {
+                    Toggle(BipeStrings.groupPublicationOnlyTitle, isOn: Binding(
+                        get: { publicationOnly },
+                        set: { value in Task { await model.setPublicationOnly(value) } }
+                    ))
+                    .disabled(!model.canChangePublicationOnly)
+                } footer: {
+                    Text(BipeStrings.groupPublicationOnlyFooter)
+                }
             }
             if !model.requests.isEmpty {
                 Section {

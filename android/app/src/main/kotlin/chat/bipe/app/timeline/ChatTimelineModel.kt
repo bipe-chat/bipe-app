@@ -10,6 +10,8 @@ import chat.bipe.app.account.AccountSession
 import chat.bipe.app.common.InviterGreetings
 import chat.bipe.app.common.applyDiff
 import chat.bipe.app.common.serverRoomState
+import chat.bipe.shared.BipeGroupPublication
+import chat.bipe.shared.generated.BipeGroupPowerLevels
 import chat.bipe.app.common.displayName
 import chat.bipe.app.common.toVectorDiff
 import chat.bipe.app.composer.ComposerMarkdown
@@ -200,6 +202,8 @@ data class ComposerState(
     val suggestions: List<MentionSuggestion> = emptyList(),
     /** false: the composer is off, with the reason bar instead. */
     val canPost: Boolean = true,
+    /** Spec composer publicationClosed (bipe-chat/bipe#1263): the reason bar says how to comment. */
+    val publicationClosed: Boolean = false,
     /** The poll row of attachment-picker. Never in a DM (ADR 0192). */
     val canPoll: Boolean = true,
     /** mode recording: voice-recording replaces the field. */
@@ -339,6 +343,8 @@ class ChatTimelineModel(
     private var started = false
     private var acceptsMenuActions = true
     private var facts = RoomFacts(ownUserId = session.userId)
+    private var levelsAllowPost = true
+    private var isPublicationOnly = false
     private val membersLoading = mutableSetOf<String>()
     private var keptDraft = ""
     private var typingSentAt: Long? = null
@@ -472,6 +478,10 @@ class ChatTimelineModel(
             } catch (e: Exception) {
                 null
             }
+            BipeGroupPublication.isOn(state)?.let { isOn ->
+                isPublicationOnly = isOn
+                updateCanPost()
+            }
             val readers = BipeAssistantSend.readers(state).map { userId ->
                 val name = runCatching { room.memberDisplayName(userId) }.getOrNull()?.takeIf { it.isNotBlank() }
                 AssistantReader(userId, name ?: chat.bipe.shared.weblink.BipeWebLink.localpart(userId))
@@ -480,11 +490,18 @@ class ChatTimelineModel(
         }
     }
 
-    /** The marker is room state: when the count of marker events in the timeline changes, the state is read again. */
+    /** Spec composer canPost and publicationClosed. A thread view stays open. Staff has a level of 50 or more, or is a creator. */
+    private fun updateCanPost() {
+        val closed = isPublicationOnly && !facts.isDm && threadRoot == null && facts.roles[session.userId] == null
+        _composer.update { it.copy(canPost = levelsAllowPost && !closed, publicationClosed = closed) }
+    }
+
+    /** The marker and the publication-only mode are room state: when the count of these events in the timeline changes, the state is read again. */
     private fun noteReaderMarkers() {
         val count = items.count { item ->
             val state = item.asEvent()?.content as? TimelineItemContent.State
-            (state?.content as? OtherState.Custom)?.eventType == BipeAssistantSend.READER_EVENT_TYPE
+            val eventType = (state?.content as? OtherState.Custom)?.eventType
+            eventType == BipeAssistantSend.READER_EVENT_TYPE || eventType == BipeGroupPowerLevels.PUBLICATION_ONLY_EVENT
         }
         if (count == readerMarkerCount) return
         readerMarkerCount = count
@@ -525,12 +542,9 @@ class ChatTimelineModel(
             facts = facts.copy(canRedactOwn = powerLevels.canOwnUserRedactOwn(), canRedactOther = powerLevels.canOwnUserRedactOther())
             canPin = !facts.isDm && powerLevels.canOwnUserPinUnpin()
             facts = facts.copy(roles = if (facts.isDm) emptyMap() else GroupPeople.staffRoles(powerLevels.userPowerLevels(), creators))
-            _composer.update {
-                it.copy(
-                    canPost = powerLevels.canOwnUserSendMessage(MessageLikeEventType.RoomMessage),
-                    canPoll = !facts.isDm && powerLevels.canOwnUserSendMessage(MessageLikeEventType.PollStart),
-                )
-            }
+            levelsAllowPost = powerLevels.canOwnUserSendMessage(MessageLikeEventType.RoomMessage)
+            _composer.update { it.copy(canPoll = !facts.isDm && powerLevels.canOwnUserSendMessage(MessageLikeEventType.PollStart)) }
+            updateCanPost()
         }
         _isDm.value = facts.isDm
         _isEncrypted.value = facts.isEncrypted
@@ -851,10 +865,10 @@ class ChatTimelineModel(
         if (row.kind != TimelineRow.Kind.MESSAGE) return emptyList()
         return MessageAction.entries.filter { action ->
             when (action) {
-                MessageAction.REPLY -> details.canReply && isSent
+                MessageAction.REPLY -> details.canReply && isSent && !_composer.value.publicationClosed
                 // Spec threads: groups only, not inside a thread view, not a reply that is in a thread already.
                 MessageAction.REPLY_IN_THREAD -> !facts.isDm && threadRoot == null && isSent && !details.inThread
-                MessageAction.EDIT -> details.canEdit
+                MessageAction.EDIT -> details.canEdit && !_composer.value.publicationClosed
                 // Spec message-edit removeCaption (bipe-chat/bipe#668).
                 MessageAction.REMOVE_CAPTION -> details.canEdit && !message.media?.caption.isNullOrBlank()
                 // Media copies its caption, voice its transcript (specs timeline-media, voice-message).

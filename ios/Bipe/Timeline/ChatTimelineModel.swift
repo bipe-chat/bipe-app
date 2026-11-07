@@ -229,6 +229,10 @@ final class ChatTimelineModel: ObservableObject {
     @Published var recording: VoiceRecordingModel?
     /// false: the composer is off, with the reason bar instead.
     @Published private(set) var canPost = true
+    /// Spec composer publicationClosed (bipe-chat/bipe#1263): the reason bar says how to comment.
+    @Published private(set) var publicationClosed = false
+    private var levelsAllowPost = true
+    private var isPublicationOnly = false
     /// The poll row of attachment-picker. Never in a DM (ADR 0192).
     @Published private(set) var canPoll = true
     /// Spec message-pins (bipe#665): RoomPowerLevels.canOwnUserPinUnpin, groups only.
@@ -526,10 +530,11 @@ final class ChatTimelineModel: ObservableObject {
         if let powerLevels = try? await room.getPowerLevels() {
             facts.canRedactOwn = powerLevels.canOwnUserRedactOwn()
             facts.canRedactOther = powerLevels.canOwnUserRedactOther()
-            canPost = powerLevels.canOwnUserSendMessage(message: .roomMessage)
+            levelsAllowPost = powerLevels.canOwnUserSendMessage(message: .roomMessage)
             canPoll = !facts.isDm && powerLevels.canOwnUserSendMessage(message: .pollStart)
             canPin = !facts.isDm && powerLevels.canOwnUserPinUnpin()
             facts.roles = facts.isDm ? [:] : GroupRole.staff(levels: powerLevels.userPowerLevels(), creators: creators)
+            updateCanPost()
         }
         isDm = facts.isDm
         isEncrypted = facts.isEncrypted
@@ -751,10 +756,10 @@ final class ChatTimelineModel: ObservableObject {
         guard row.kind == .message, let details = row.details else { return [] }
         return MessageAction.allCases.filter { action in
             switch action {
-            case .reply: details.canReply && isSent
+            case .reply: details.canReply && isSent && !publicationClosed
             // Spec threads: groups only, not inside a thread view, not a reply that is in a thread already.
             case .replyInThread: !isDm && threadRoot == nil && isSent && !details.inThread
-            case .edit: details.canEdit
+            case .edit: details.canEdit && !publicationClosed
             // Spec message-edit removeCaption (bipe#668).
             case .removeCaption: details.canEdit && message.media?.caption?.nilIfBlank != nil
             // Media copies its caption, voice its transcript (specs timeline-media, voice-message).
@@ -1309,6 +1314,10 @@ final class ChatTimelineModel: ObservableObject {
         readersTask?.cancel()
         readersTask = Task { [weak self, session, roomId] in
             let state = try? await ServerRoomState.json(client: session.client, roomId: roomId)
+            if !Task.isCancelled, let self, let isOn = BipeGroupPublication.isOn(stateJson: state) {
+                self.isPublicationOnly = isOn
+                self.updateCanPost()
+            }
             var readers: [AssistantReader] = []
             for userId in BipeAssistantSend.readers(stateJson: state) {
                 let name = ((try? await room.memberDisplayName(userId: userId)) ?? nil)?.nilIfBlank
@@ -1319,11 +1328,17 @@ final class ChatTimelineModel: ObservableObject {
         }
     }
 
-    /// The marker is room state: when the count of marker events in the timeline changes, the state is read again.
+    /// Spec composer canPost and publicationClosed. A thread view stays open. Staff has a level of 50 or more, or is a creator.
+    private func updateCanPost() {
+        publicationClosed = isPublicationOnly && !facts.isDm && threadRoot == nil && facts.roles[session.userId] == nil
+        canPost = levelsAllowPost && !publicationClosed
+    }
+
+    /// The marker and the publication-only mode are room state: when the count of these events in the timeline changes, the state is read again.
     private func noteReaderMarkers() {
         let count = items.reduce(into: 0) { count, item in
             if let event = item.asEvent(), case .state(_, .custom(let eventType)) = event.content,
-               eventType == BipeAssistantSend.readerEventType {
+               eventType == BipeAssistantSend.readerEventType || eventType == BipeGroupPowerLevels.publicationOnlyEvent {
                 count += 1
             }
         }
