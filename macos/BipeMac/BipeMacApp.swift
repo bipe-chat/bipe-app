@@ -12,7 +12,10 @@ import UniformTypeIdentifiers
 struct BipeMacApp: App {
     @StateObject private var workspace = MacWorkspace()
 
-    init() { AppTheme.load() }
+    init() {
+        MacLocalCache.clean()
+        AppTheme.load()
+    }
 
     var body: some Scene {
         WindowGroup {
@@ -30,6 +33,7 @@ struct BipeMacApp: App {
                 }
         }
         .defaultSize(width: 1040, height: 740)
+        .windowToolbarStyle(.unified(showsTitle: false))
     }
 }
 
@@ -153,14 +157,6 @@ struct MacChatView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if let face {
-                HStack(spacing: 12) {
-                    MacAvatar(name: name, media: media, url: face.url, userID: face.userID, members: face.members, size: 40)
-                    Text(name).macFont(.headline).lineLimit(1)
-                    Spacer()
-                }.padding(.horizontal, 16).frame(height: 56).background(BipeColor.surfaceBase)
-                Divider()
-            }
             if !model.isEncrypted { MacNotice(text: BipeStrings.appTimelineNotEncrypted).padding() }
             ScrollViewReader { scroll in
                 ScrollView {
@@ -178,8 +174,15 @@ struct MacChatView: View {
                         }
                     }.padding()
                 }
+                .onScrollGeometryChange(for: Bool.self) { geometry in
+                    geometry.contentOffset.y + geometry.containerSize.height >= geometry.contentSize.height - 80
+                } action: { _, atBottom in
+                    model.readingLatest = atBottom
+                    if atBottom { Task { await model.markRead() } }
+                }
                 .onChange(of: model.messages.last?.id) { _, id in
-                    if let id { scroll.scrollTo(id, anchor: .bottom) }
+                    // Reading older messages stays where it is. An own message always shows.
+                    if let id, model.readingLatest || model.messages.last?.isOwn == true { scroll.scrollTo(id, anchor: .bottom) }
                 }
             }
             if model.failed { MacNotice(text: BipeStrings.errorGeneric, danger: true).padding() }
@@ -217,6 +220,14 @@ struct MacChatView: View {
             }.padding()
         }
         .navigationTitle(name)
+        .toolbar {
+            ToolbarItem(placement: .navigation) {
+                HStack(spacing: 8) {
+                    if let face { MacAvatar(name: name, media: media, url: face.url, userID: face.userID, members: face.members, size: 28) }
+                    Text(name).macFont(.headline).lineLimit(1)
+                }
+            }
+        }
         .alert(BipeStrings.appReactionFailed, isPresented: $model.reactionFailed) {
             Button(BipeStrings.appClose, role: .cancel) {}
         }
