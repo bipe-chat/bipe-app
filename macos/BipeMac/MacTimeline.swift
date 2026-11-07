@@ -209,8 +209,6 @@ final class MacTimeline: ObservableObject {
 
     func pauseSecondsLeft(_ id: String, now: Date = .now) -> Int { moneyPause.secondsLeft(id: id, now: now) }
 
-    deinit { attachment?.remove() }
-
     private func persistDraft() {
         draftRevision += 1
         guard let room else { return }

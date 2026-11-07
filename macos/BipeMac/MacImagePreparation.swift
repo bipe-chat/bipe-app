@@ -7,13 +7,20 @@ import ImageIO
 import MatrixRustSDK
 import UniformTypeIdentifiers
 
-struct MacPreparedImage: Identifiable {
+final class MacPreparedImage: Identifiable, Sendable {
     let id = UUID()
     let folder: URL
     let file: URL
     let thumbnail: URL
     let info: ImageInfo
+    init(folder: URL, file: URL, thumbnail: URL, info: ImageInfo) {
+        self.folder = folder
+        self.file = file
+        self.thumbnail = thumbnail
+        self.info = info
+    }
     func remove() { try? FileManager.default.removeItem(at: folder) }
+    deinit { remove() }
 }
 
 /// The phone's standard photo policy: oriented, at most 2048px, JPEG, without camera/location metadata.
