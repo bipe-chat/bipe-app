@@ -4,21 +4,13 @@ This repo holds Bipe's own messenger client. `ios/` holds the iOS app (SwiftUI).
 
 Decisions: [ADR 0143](https://github.com/bipe-chat/bipe/blob/main/docs/adr/0143-own-client-on-matrix-rust-sdk.md), [ADR 0144](https://github.com/bipe-chat/bipe/blob/main/docs/adr/0144-app-store-permission-for-bipe-code.md), [ADR 0145](https://github.com/bipe-chat/bipe/blob/main/docs/adr/0145-own-client-setup.md). Plan: [client-rewrite-plan.md](https://github.com/bipe-chat/bipe/blob/main/docs/client-rewrite-plan.md). The tracker is `bipe-chat/bipe`.
 
-## Clean room
+## No Element code
 
-These rules come from the plan, section 2. They are mandatory.
+ADR 0144 lets Bipe's clients ship on the App Store only if they hold no Element AGPL code. ADR 0274 keeps that outcome and ends the older session rules.
 
-- The new repos never contain Element X code, and agents never read Element X sources while they work on them. Agent sessions for the new clients do not open the old forks or `bipe-tokens`.
-- Bipe features that live inside Element files today (228 iOS files, 199 Android files) are re-specified from the running app, the issue and the ADR. Nobody reads the fork diff to port them: the diff shows Element code around the Bipe lines.
-- Never fork, clone or seed a new repo from the old forks or bipe-tokens.
-
-Rules for sessions:
-
-- Start a session in `~/Dev/Bipe/bipe-app` or in a cloud session that clones only bipe-app and bipe-shared. The fork checkouts left `~/Dev/Bipe` on 26 October 2026 (`~/Dev/BipeApp` is gone). Never clone the old forks or compound-design-tokens again.
-- A session that worked on a fork issue today does not work in this repo. It gives the issue text to a new session.
-- Do not read any `element-hq` repository. Do not read the fork bundles in `~/Dev/_/bipe-forks-*`, the folders `~/Dev/Bipe/.worktrees` and `~/Dev/Bipe/.factory`, or a fork checkout if one comes back. These rules apply to shell commands too (`cat`, `grep`, `find`, `ls`, `git`), not only to the Read tool.
-- `.claude/settings.json` denies Read and Edit on the `bipe-tokens` paths and the fork bundles.
-- The old forks are not a source. Do not read any part of them, on disk or on GitHub.
+- This repo holds no Element code or packages. CI enforces it: `deny-list`, `licences`, `headers` and `similarity`.
+- Do not port from Element. `element-hq` repositories, the archived forks (`bipe-ios`, `bipe-android`), `compound-design-tokens` and the fork bundles in `~/Dev/_/bipe-forks-*` are not sources. Only the audit in bipe-chat/bipe#1230 reads them.
+- Any session can work in this repo, in `~/Dev/Bipe/bipe-app` or `~/Dev/Bipe/.factory/bipe-app`.
 - If you are not sure that a source is allowed, do not open it. Ask in the issue.
 
 ## Allowed reading list
