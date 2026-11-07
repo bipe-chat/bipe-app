@@ -51,6 +51,8 @@ final class MacTimeline: ObservableObject {
     private var listener: TaskHandle?
     private var items: [TimelineItem] = []
     private var moneyPause = BipeMoneyPause()
+    private var attachmentSend: SendAttachmentJoinHandle?
+    private var attachmentCancelled = false
 
     init(drafts: MacDrafts) { self.drafts = drafts }
 
@@ -161,7 +163,12 @@ final class MacTimeline: ObservableObject {
     }
 
     func cancelAttachment() {
-        guard !sending else { return }
+        if sending {
+            guard let attachmentSend else { return }
+            attachmentCancelled = true
+            attachmentSend.cancel()
+            return
+        }
         attachment?.remove(); attachment = nil
         imageCaption = ""; imageDescription = ""; uploadError = nil
     }
@@ -173,21 +180,27 @@ final class MacTimeline: ObservableObject {
             return
         }
         sending = true
+        attachmentCancelled = false
         uploadError = nil
         let reply = replyID
-        defer { sending = false }
+        defer { sending = false; attachmentSend = nil }
         do {
             let caption = imageCaption.trimmingCharacters(in: .whitespacesAndNewlines)
             let params = UploadParameters(source: .file(filename: image.file.path), caption: caption.isEmpty ? nil : caption,
                                           formattedCaption: nil, mentions: nil, inReplyTo: reply,
                                           extraContentJson: BipeImageDescription.extraContentJson(imageDescription))
             let handle = try timeline.sendImage(params: params, thumbnailSource: .file(filename: image.thumbnail.path), imageInfo: image.info)
+            attachmentSend = handle
             try await handle.join()
             image.remove()
             attachment = nil
             imageCaption = ""; imageDescription = ""
-            if replyID == reply { replyID = nil }
-        } catch { uploadError = BipeStrings.appUploadFailed }
+            if !attachmentCancelled, replyID == reply { replyID = nil }
+        } catch {
+            if attachmentCancelled {
+                image.remove(); attachment = nil; imageCaption = ""; imageDescription = ""
+            } else { uploadError = BipeStrings.appUploadFailed }
+        }
     }
 
     func startMoneyPause(_ message: MacMessage) {

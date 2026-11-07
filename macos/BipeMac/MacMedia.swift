@@ -78,9 +78,10 @@ final class MacMedia: ObservableObject {
         let data = try await client.getMediaContent(mediaSource: source)
         try Task.checkCancellation()
         guard self.generation == generation else { throw CancellationError() }
-        if photo.content.info?.isAnimated == true, source === photo.content.source,
+        if source === photo.content.source,
            data.count <= 16 * 1024 * 1024,
            let source = CGImageSourceCreateWithData(data as CFData, nil),
+           CGImageSourceGetCount(source) > 1,
            let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
            let width = properties[kCGImagePropertyPixelWidth] as? Int,
            let height = properties[kCGImagePropertyPixelHeight] as? Int,
