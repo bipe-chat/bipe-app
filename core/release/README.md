@@ -54,3 +54,17 @@ version and SHA-256 in `android/gradle/verification-metadata.xml`.
 verification against the 5 ms budget. `core-release-android` builds it signed with the tester key (artifact
 `core-bench-apk`) and runs it once on the x86_64 emulator.
 
+
+## iPhone bench (bipe-chat/bipe#1277 item 5)
+
+`ios/bench` is the same bench on the release XCFramework, through `swift/` (XcodeGen, bundle ID
+`chat.bipe.core.bench`, never shipped). `core-release-ios-bench` registers the bundle ID on its first run
+(`BIPE_ID_SET=bench node tools/asc.mjs signing <serial>`), makes its ad hoc profile again with every enabled iPhone of
+team 992N457T8D, and keeps the IPA as the artifact `core-bench-ipa`. With the iPhone on USB:
+
+```bash
+xcrun devicectl device install app --device <UDID> bipe-core-bench-<v>.ipa
+xcrun devicectl device process launch --console --device <UDID> chat.bipe.core.bench
+```
+
+The console prints one `BipeCoreBench:` line with the verdict and the `BIPE_CORE_METRICS` line.

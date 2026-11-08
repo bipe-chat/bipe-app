@@ -1,0 +1,47 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
+# Copyright 2026 Bipe contributors
+
+# iOS phone bench of bipe-core (bipe-chat/bipe#1277 item 5): the release XCFramework through ../../swift on an
+# iPhone. core.yml job core-release-ios-bench runs `xcodegen generate` here after it copies badges.json into vectors/,
+# then archives with the ad hoc profile of tools/asc.mjs BENCH. Never shipped: bundle ID chat.bipe.core.bench.
+name: BipeCoreBench
+options:
+  bundleIdPrefix: chat.bipe.core
+  deploymentTarget:
+    iOS: "18.0"
+packages:
+  BipeCore:
+    path: ../../swift
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    DEVELOPMENT_TEAM: 992N457T8D
+targets:
+  BipeCoreBench:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources
+      - path: vectors
+        buildPhase: resources
+        optional: true
+    dependencies:
+      - package: BipeCore
+        product: BipeCore
+    info:
+      path: build/Info.plist
+      properties:
+        CFBundleDisplayName: Core Bench
+        CFBundleShortVersionString: "0.1.0"
+        CFBundleVersion: "1"
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: chat.bipe.core.bench
+        TARGETED_DEVICE_FAMILY: "1"
+        GENERATE_INFOPLIST_FILE: NO
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: Apple Distribution
+        PROVISIONING_PROFILE_SPECIFIER: $(BIPE_CI_PROFILE_APP)
