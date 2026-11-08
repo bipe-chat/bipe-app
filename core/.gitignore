@@ -6,3 +6,4 @@ generated/
 badges.json
 jniLibs/
 node_modules/
+/harness/web/sdk-generated/
