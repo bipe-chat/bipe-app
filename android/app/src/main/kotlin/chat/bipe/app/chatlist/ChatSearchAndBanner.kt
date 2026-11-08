@@ -80,7 +80,8 @@ class ChatSearchModel(private val session: AccountSession, private val list: Cha
         if (_state.value.query.isNotBlank()) {
             val query = _state.value.query
             val draftsRoomId = AssistantDraftsStore.roomId(session.userId)
-            val summaries = found.filter { it.id() != list.notes.roomId && it.id() != draftsRoomId }.mapNotNull { list.summary(it) }
+            val workNotesRoomId = chat.bipe.app.business.WorkNotesRooms.roomId(session.userId)
+            val summaries = found.filter { it.id() != list.notes.roomId && it.id() != draftsRoomId && it.id() != workNotesRoomId }.mapNotNull { list.summary(it) }
             val visible = NativeDmSelection.visible(summaries, session)
             if (_state.value.query == query) _state.value = _state.value.copy(results = visible, isSearching = false)
         }

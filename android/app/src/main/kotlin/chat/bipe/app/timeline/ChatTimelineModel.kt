@@ -234,6 +234,9 @@ class ChatTimelineModel(
     /** The account's @ resolver (People names). null: names fall back to the cached @. */
     private val handles: chat.bipe.shared.BipeHandleResolver? = null,
 ) {
+    /** The account of this chat, for the work queue lines (spec work-chat-bar). */
+    val userId: String get() = session.userId
+
     /** The main timeline of the chat: not a thread view and not a day view. */
     val isMainTimeline: Boolean get() = threadRoot == null && dayFocus == null
 

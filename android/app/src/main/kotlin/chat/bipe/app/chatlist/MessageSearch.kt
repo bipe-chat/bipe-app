@@ -148,6 +148,8 @@ class MessageSearchModel(
         if (roomId != null && message.roomId != roomId) return null
         // Spec drafts notes: the drafts room never shows in search.
         if (AssistantDraftsStore.isDraftsRoom(message.roomId, session.userId)) return null
+        // Spec work-notes: nor the notes room of a work account.
+        if (chat.bipe.app.business.WorkNotesRooms.isNotesRoom(message.roomId, session.userId)) return null
         val content = message.result.content as? TimelineItemContent.MsgLike ?: return null
         val text = (content.content.kind as? MsgLikeKind.Message)?.content ?: return null
         val room = runCatching { session.client.getRoom(message.roomId) }.getOrNull()
