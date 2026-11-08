@@ -12,6 +12,7 @@
 //   /c/<roomId>            a chat                    /c/<roomId>/info     the chat with its info panel
 //   /c/<roomId>/e/<eventId>  the chat at a message
 //   /trabalho              Trabalho of a company account; /trabalho/<tool> one tool (ADR 0226)
+//   /interno               Interno of a work account (spec interno); its rooms open at /c/<roomId>
 
 import { useEffect, useState } from 'react';
 
@@ -22,7 +23,8 @@ export type Route =
   | { kind: 'request'; roomId: string }
   | { kind: 'chat'; roomId: string; info?: boolean; eventId?: string }
   | { kind: 'settings'; group?: string }
-  | { kind: 'work'; tool?: string };
+  | { kind: 'work'; tool?: string }
+  | { kind: 'interno' };
 
 const enc = encodeURIComponent;
 
@@ -42,6 +44,8 @@ export function pathOf(route: Route): string {
       return route.group ? `/ajustes/${enc(route.group)}` : '/ajustes';
     case 'work':
       return route.tool ? `/trabalho/${enc(route.tool)}` : '/trabalho';
+    case 'interno':
+      return '/interno';
   }
 }
 
@@ -62,6 +66,7 @@ export function routeOf(path: string): Route {
   if (first === 'pedidos') return second ? { kind: 'request', roomId: second } : { kind: 'requests' };
   if (first === 'ajustes') return { kind: 'settings', group: second };
   if (first === 'trabalho') return { kind: 'work', tool: second };
+  if (first === 'interno') return { kind: 'interno' };
   if (first === 'c' && second) {
     if (third === 'info') return { kind: 'chat', roomId: second, info: true };
     if (third === 'e' && fourth) return { kind: 'chat', roomId: second, eventId: fourth };

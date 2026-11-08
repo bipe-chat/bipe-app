@@ -121,10 +121,11 @@ class AccountSession(val client: Client, val syncService: SyncService, val userI
          * keeps that store and its device ID, so the cross-signing keys and the room keys stay (bipe-chat/bipe#909).
          * Only a store without a known device ID goes.
          */
-        suspend fun signIn(context: Context, userId: String, password: String, sessionStore: SessionStore): AccountSession {
+        suspend fun signIn(context: Context, userId: String, password: String, sessionStore: SessionStore,
+                           homeserverUrl: String = AppConfig.HOMESERVER): AccountSession {
             val keptDeviceId = if (hasStore(context, userId)) storedDeviceId(context, userId) else null
             if (keptDeviceId == null) deleteStore(context, userId)
-            val client = AccountStep.run("build client") { makeClient(context, userId, sessionStore) }
+            val client = AccountStep.run("build client") { makeClient(context, userId, sessionStore, homeserverUrl) }
             AccountStep.run("login") { client.login(userId, password, AppConfig.DEVICE_NAME, keptDeviceId) }
             sessionStore.save(client.session())
             return start(client, context)
@@ -134,9 +135,10 @@ class AccountSession(val client: Client, val syncService: SyncService, val userI
          * Spec soft-logout authError: signs in again with the hidden password on the same store and device ID, so keys
          * and history stay. The caller pauses the expired session first.
          */
-        suspend fun signInAgain(context: Context, expired: AccountSession, password: String, sessionStore: SessionStore): AccountSession {
+        suspend fun signInAgain(context: Context, expired: AccountSession, password: String, sessionStore: SessionStore,
+                                homeserverUrl: String = AppConfig.HOMESERVER): AccountSession {
             val deviceId = expired.client.deviceId()
-            val client = AccountStep.run("build client") { makeClient(context, expired.userId, sessionStore) }
+            val client = AccountStep.run("build client") { makeClient(context, expired.userId, sessionStore, homeserverUrl) }
             AccountStep.run("login") { client.login(expired.userId, password, AppConfig.DEVICE_NAME, deviceId) }
             sessionStore.save(client.session())
             return start(client, context)

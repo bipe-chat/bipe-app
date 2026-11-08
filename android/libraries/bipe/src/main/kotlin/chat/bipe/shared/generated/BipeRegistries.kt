@@ -1127,7 +1127,7 @@ object BipeRegistries {
     const val MAPS_LIVE_MAX_INTERVAL_SECONDS = 120
 
     /** Verificar com gov.br (bipe-chat/bipe#544; registries/govbr.json). Rules: BipeGovbrFlow, test-vectors/govbr-verify.json. */
-    const val GOVBR_FILE_NAME = "bipe-verificacao.pdf"
+    const val GOVBR_FILE_NAME = "bipe_verificacao.pdf"
     const val GOVBR_MAX_DOCUMENT_BYTES = 5242880
     const val GOVBR_ANDROID_PACKAGE = "br.gov.meugovbr"
     const val GOVBR_ANDROID_STORE_URL = "https://play.google.com/store/apps/details?id=br.gov.meugovbr"

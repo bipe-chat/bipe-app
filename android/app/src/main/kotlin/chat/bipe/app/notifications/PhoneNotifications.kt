@@ -86,19 +86,28 @@ class PhoneNotifications(private val context: Context) {
      * The sound of [userId]'s messages on this phone (bipe-chat/bipe#511: per account). The phone-wide value from
      * before is the start value of every account.
      */
-    fun sound(userId: String): NotificationSound =
-        (prefs.getString("$KEY_SOUND.$userId", null) ?: prefs.getString(KEY_SOUND, null))
+    fun sound(userId: String): NotificationSound = settingsOwner(userId).let { owner ->
+        (prefs.getString("$KEY_SOUND.$owner", null) ?: prefs.getString(KEY_SOUND, null))
             ?.let { runCatching { NotificationSound.valueOf(it) }.getOrNull() } ?: NotificationSound.PHONE
+    }
+
+    /**
+     * Spec interno notes: the work account row's notification settings cover the pushes of its member identity (bipe
+     * ADR 0284), so a member identity uses the settings and the channel of its work account.
+     */
+    private fun settingsOwner(userId: String): String =
+        (context.applicationContext as? BipeApplication)?.interno?.workAccountOf(userId) ?: userId
 
     /** Spec notification-settings, state preview: per account on this phone. Default true. */
-    fun preview(userId: String): Boolean = prefs.getBoolean("$KEY_PREVIEW.$userId", true)
+    fun preview(userId: String): Boolean = prefs.getBoolean("$KEY_PREVIEW.${settingsOwner(userId)}", true)
 
     fun setPreview(userId: String, isOn: Boolean) {
         prefs.edit().putBoolean("$KEY_PREVIEW.$userId", isOn).apply()
     }
 
     /** The phone's copy of a work account's opening hours (spec work-hours notes). Null: the account rings. */
-    fun workHours(userId: String): BipeWorkHours? = prefs.getString("$KEY_WORK_HOURS.$userId", null)?.let(BipeWorkHours::decoded)
+    fun workHours(userId: String): BipeWorkHours? =
+        prefs.getString("$KEY_WORK_HOURS.${settingsOwner(userId)}", null)?.let(BipeWorkHours::decoded)
 
     fun setWorkHours(userId: String, hours: BipeWorkHours?) {
         prefs.edit().apply { if (hours == null) remove("$KEY_WORK_HOURS.$userId") else putString("$KEY_WORK_HOURS.$userId", hours.encoded()) }.apply()
@@ -521,8 +530,9 @@ class PhoneNotifications(private val context: Context) {
         }
     }
 
-    private fun isActive(session: AccountSession): Boolean =
-        (context.applicationContext as BipeApplication).accountStart.sessions.value.any { it === session }
+    private fun isActive(session: AccountSession): Boolean = (context.applicationContext as BipeApplication).let { app ->
+        app.accountStart.sessions.value.any { it === session } || app.interno.isActive(session)
+    }
 
     /** Only local notifications with a still-live registration lifetime can open or write. */
     fun target(intent: Intent): BipeNotificationTarget? {
@@ -582,7 +592,8 @@ class PhoneNotifications(private val context: Context) {
     }
 
     /** [userId]'s messages channel, made with its sound when it does not exist yet. */
-    private fun messagesChannel(userId: String): String {
+    private fun messagesChannel(memberOrAccount: String): String {
+        val userId = settingsOwner(memberOrAccount)
         val id = messagesChannelId(userId)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val system = context.getSystemService(NotificationManager::class.java)

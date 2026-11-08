@@ -2576,6 +2576,18 @@ export const ptBR = {
   bipe_reach_limit_body: "Você chegou ao limite de conversas com pessoas que não conhecem você. A próxima libera em %1$s.",
   bipe_reach_limit_body_none: "Esta conta não pode começar conversas com pessoas que não conhecem você.",
   bipe_avatar_open: "Ver foto",
+  bipe_interno_title: "Interno",
+  bipe_interno_row_body: "Conversas só entre quem atende por %1$s.",
+  bipe_interno_geral: "Geral",
+  bipe_interno_geral_body: "Todo mundo que atende por %1$s.",
+  bipe_interno_new: "Nova conversa",
+  bipe_interno_pick_title: "Conversar com quem?",
+  bipe_interno_private_hint: "Só vocês dois veem esta conversa. Nem a pessoa responsável vê.",
+  bipe_interno_setup: "Preparando o Interno",
+  bipe_interno_error: "Não deu para abrir o Interno. Tente de novo.",
+  bipe_interno_empty: "Ninguém mais atende por esta conta ainda.",
+  bipe_govbr_step_sign_file: "No app gov.br, toque em assinar documento e escolha %1$s.",
+  bipe_govbr_reason_wrong_document_file: "Esse não é o documento desta verificação. Use o arquivo %1$s.",
 } as const;
 
 export type StringKey = keyof typeof ptBR;
@@ -5150,6 +5162,18 @@ export const en: Record<StringKey, string> = {
   bipe_reach_limit_body: "You reached the limit of chats with people who do not know you. The next one frees up %1$s.",
   bipe_reach_limit_body_none: "This account cannot start chats with people who do not know you.",
   bipe_avatar_open: "View photo",
+  bipe_interno_title: "Interno",
+  bipe_interno_row_body: "Chats only between the people who answer for %1$s.",
+  bipe_interno_geral: "General",
+  bipe_interno_geral_body: "Everyone who answers for %1$s.",
+  bipe_interno_new: "New chat",
+  bipe_interno_pick_title: "Chat with whom?",
+  bipe_interno_private_hint: "Only you two see this chat. Not even the person in charge sees it.",
+  bipe_interno_setup: "Setting up Interno",
+  bipe_interno_error: "Could not open Interno. Try again.",
+  bipe_interno_empty: "Nobody else answers for this account yet.",
+  bipe_govbr_step_sign_file: "In the gov.br app, tap sign document and pick %1$s.",
+  bipe_govbr_reason_wrong_document_file: "This is not the document of this check. Use the file %1$s.",
 };
 
 export type Locale = "pt-BR" | "en";

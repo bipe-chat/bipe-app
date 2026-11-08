@@ -15,6 +15,8 @@ private enum ChatDetail: Hashable {
     case room(String)
     case requests
     case people(PeopleRoute)
+    /// Spec interno, with the room to open first.
+    case interno(String?)
 }
 
 /// Spec chat-list, one scope: Conversas or Grupos (ADR 0053), or both in one list for a company account (spec app-tabs).
@@ -81,6 +83,8 @@ struct ChatListView: View {
     @State private var showsDrafts = false
     /// Spec work-chats (ADR 0284 phase A): the filters and who has each customer chat, with two or more people.
     @ObservedObject private var workQueue = WorkQueueStore.shared
+    /// Spec interno (ADR 0284 phase B): the member sessions, for the row and its pushes.
+    @ObservedObject private var interno = InternoSessions.shared
     @StateObject private var cards: FirstListCardsModel
     @StateObject private var asks: AccountAsksModel
     @State private var showsProfileEdit = false
@@ -302,6 +306,17 @@ struct ChatListView: View {
             case nil: openingRoomLink = RoomLink(url: url)
             }
         }
+        // Spec interno notes, Push: a tap on a push of this account's member session opens Interno at that chat.
+        .onReceive(notifications.$roomToOpen.compactMap { $0 }) { target in
+            Task { @MainActor in
+                guard scope != .grupos, notifications.roomToOpen == target,
+                      let member = interno.session(forWork: model.session.userId),
+                      target.accountUserId == member.userId else { return }
+                notifications.roomToOpen = nil
+                showingArchived = false
+                show(.interno(target.roomId))
+            }
+        }
         // Spec notification-service, action open.
         .onReceive(notifications.$roomToOpen.compactMap { $0 }) { target in
             // @Published emits before assignment. Consume after the owner/tab route has settled.
@@ -483,6 +498,11 @@ struct ChatListView: View {
         scope != .grupos && workQueue.isActive(userId: model.session.userId)
     }
 
+    /// Spec interno: the row shows in Conversas of a work account with two or more people, on a phone with a person.
+    private var internoShown: Bool {
+        workActive && workQueue.mySeatId != nil
+    }
+
     /// Spec work-chats: only customer chats have records. Groups and official chats are not.
     private func isCustomerChat(_ chat: ChatSummary) -> Bool {
         chat.isDm && !chat.isOfficial
@@ -513,6 +533,11 @@ struct ChatListView: View {
         // Spec chat-list-prompt: the one prompt card is the first row, so it scrolls with the chats (MZ decision
         // 25 Oct 2026), in every chat list (bipe-chat/bipe#853, #894).
         promptRow
+        if internoShown && !showingArchived && !(muralOn && !muralShowsList) {
+            Button { show(.interno(nil)) } label: { InternoRow(workId: model.session.userId) }
+                .buttonStyle(.plain)
+                .listRowBackground(rowBackground(.interno(nil)))
+        }
         if workActive && !showingArchived && !(muralOn && !muralShowsList) {
             Picker(selection: $workQueue.filter) {
                 ForEach(WorkChatFilter.allCases) { filter in
@@ -835,6 +860,9 @@ struct ChatListView: View {
             requestsScreen
         case .people(let route):
             peopleScreen(route)
+        case .interno(let roomId):
+            InternoView(work: model.session, api: api, initialRoomId: roomId)
+                .id(roomId ?? "")
         case nil:
             // Wide window with no chat open. The list beside it is the call to action, so no text here.
             BipeMark()

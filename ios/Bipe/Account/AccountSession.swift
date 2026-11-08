@@ -80,12 +80,16 @@ final class AccountSession {
     /// Every step has a time limit (AccountStep).
     /// When this phone still holds the account's store, the login keeps that store and its device ID, so the
     /// cross-signing keys and the room keys stay (bipe-chat/bipe#909). Only a store without a known device ID goes.
-    static func signIn(userId: String, password: String) async throws -> AccountSession {
+    /// homeserverURL: the server of the account; a member identity (ADR 0284) signs in on its work account's server.
+    static func signIn(userId: String, password: String,
+                       homeserverURL: String = AppConfig.homeserver) async throws -> AccountSession {
         // The old saved session goes first, so the notification service never opens the new store with the old device ID.
         SessionStore.delete(userId: userId)
         let keptDeviceId = hasStore(userId: userId) ? storedDeviceId(userId: userId) : nil
         if keptDeviceId == nil { deleteStore(userId: userId) }
-        let client = try await AccountStep.run("build client") { try await makeClient(userId: userId) }
+        let client = try await AccountStep.run("build client") {
+            try await makeClient(userId: userId, homeserverURL: homeserverURL)
+        }
         try await AccountStep.run("login") {
             try await client.login(username: userId, password: password, initialDeviceName: AppConfig.deviceName,
                                    deviceId: keptDeviceId)

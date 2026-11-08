@@ -379,3 +379,57 @@ suspend fun BipeApiClient.updateBusinessChat(
     return send("PUT", listOf("v1", "me", "business", "chats", roomId), body = body, accessToken = accessToken,
         response = BipeChatAssignment.serializer())
 }
+
+// Interno (bipe ADR 0284 phase B, bipe-chat/bipe#1294). Contract /v1/me/business/members.
+
+/** Contract `WorkMember`: a person's member identity. [name] is the seat name. */
+@Serializable
+data class BipeWorkMember(
+    @SerialName("seat_id") val seatId: String,
+    @SerialName("user_id") val userId: String,
+    @SerialName("name") val name: String,
+)
+
+/**
+ * Contract `WorkMembers`. [me]: the member identity of this device's seat, or null when it has none yet.
+ * [geralRoomId]: null until a member's app makes Geral and claims it.
+ */
+@Serializable
+data class BipeWorkMembers(
+    @SerialName("members") val members: List<BipeWorkMember>,
+    @SerialName("me") val me: String? = null,
+    @SerialName("geral_room_id") val geralRoomId: String? = null,
+)
+
+/** Contract `WorkMemberSession`. [password] works for one sign-in; the app never stores or logs it. */
+@Serializable
+class BipeWorkMemberSession(
+    @SerialName("user_id") val userId: String,
+    @SerialName("password") val password: String,
+) {
+    override fun toString() = "BipeWorkMemberSession($userId)"
+}
+
+@Serializable
+private data class WorkGeral(@SerialName("room_id") val roomId: String)
+
+/** `GET /v1/me/business/members`. A device with no person gets 403 seat_required. */
+suspend fun BipeApiClient.workMembers(accessToken: String): BipeWorkMembers =
+    send("GET", listOf("v1", "me", "business", "members"), accessToken = accessToken, response = BipeWorkMembers.serializer())
+
+/**
+ * `POST /v1/me/business/members/session`. Makes the member identity of this device's seat when it has none, and returns
+ * a new one-use password for m.login.password.
+ */
+suspend fun BipeApiClient.workMemberSession(accessToken: String): BipeWorkMemberSession =
+    send("POST", listOf("v1", "me", "business", "members", "session"), body = "{}", accessToken = accessToken,
+        response = BipeWorkMemberSession.serializer())
+
+/** `PUT /v1/me/business/members/geral`. The first claim wins; 409 geral_exists when the account has Geral. */
+suspend fun BipeApiClient.claimWorkGeral(roomId: String, accessToken: String): BipeWorkMembers = send(
+    "PUT",
+    listOf("v1", "me", "business", "members", "geral"),
+    body = encode(WorkGeral.serializer(), WorkGeral(roomId)),
+    accessToken = accessToken,
+    response = BipeWorkMembers.serializer(),
+)
