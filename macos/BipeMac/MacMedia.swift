@@ -276,3 +276,40 @@ private final class MacMediaPreviewStream: MediaPreviewConfigListener {
     func onChange(mediaPreviewConfig: MediaPreviewConfig?) { continuation.yield(mediaPreviewConfig) }
     deinit { continuation.finish() }
 }
+
+
+extension MacMedia {
+    func download(_ file: MacFile) async throws -> MacDownloadedFile {
+        guard let client = client else { throw CancellationError() }
+        let generation = self.generation
+        let folder = try MacTransferFiles.folder()
+        do {
+            let handle = try await client.getMediaFile(mediaSource: file.content.source, filename: file.name.filename,
+                mimeType: file.content.info?.mimetype ?? "application/octet-stream", useCache: false, tempDir: folder.path)
+            try Task.checkCancellation()
+            guard self.generation == generation else { throw CancellationError() }
+            let source = URL(fileURLWithPath: try handle.path())
+            let safe = folder.appendingPathComponent(file.name.filename)
+            if source != safe { try FileManager.default.copyItem(at: source, to: safe) }
+            try MacSavedImage.quarantine(safe)
+            return MacDownloadedFile(folder: folder, file: safe, handle: handle)
+        } catch { try? FileManager.default.removeItem(at: folder); throw error }
+    }
+
+    func save(_ file: MacFile) async throws {
+        let generation = self.generation
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = file.name.filename
+        panel.allowedContentTypes = [file.name.type]
+        panel.allowsOtherFileTypes = false
+        panel.isExtensionHidden = false
+        panel.canSelectHiddenExtension = false
+        guard await panel.begin() == .OK, let url = panel.url else { return }
+        try Task.checkCancellation()
+        guard self.generation == generation else { throw CancellationError() }
+        let downloaded = try await download(file)
+        try Task.checkCancellation()
+        guard self.generation == generation else { throw CancellationError() }
+        try MacTransferFiles.save(downloaded.file, to: url)
+    }
+}

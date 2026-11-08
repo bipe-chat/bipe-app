@@ -155,6 +155,7 @@ struct MacChatView: View {
     @Environment(\.scenePhase) private var scenePhase
     @FocusState private var composerFocused: Bool
     @State private var pickingImage: Bool
+    @State private var pickingFile = false
     @State private var reportReason = ""
     @State private var reportFailed = false
     let forwardTargets: [MacRoomSummary]
@@ -226,7 +227,7 @@ struct MacChatView: View {
                 }
             }
             if model.failed { MacNotice(text: BipeStrings.errorGeneric, danger: true).padding() }
-            if let error = model.uploadError, model.attachment == nil { MacNotice(text: error, danger: true).padding() }
+            if let error = model.uploadError, model.attachment == nil, model.fileAttachment == nil { MacNotice(text: error, danger: true).padding() }
             Divider()
             if model.editingID != nil {
                 HStack {
@@ -248,11 +249,14 @@ struct MacChatView: View {
                 }.padding().background(BipeColor.accentWash)
             }
             HStack(alignment: .bottom) {
-                Button { pickingImage = true } label: {
-                    Image(decorative: "image").resizable().scaledToFit().frame(width: 24, height: 24)
+                Menu {
+                    Button(BipeStrings.appAttachPhotos) { pickingFile = false; pickingImage = true }
+                    Button(BipeStrings.appAttachFile) { pickingFile = true; pickingImage = true }
+                } label: {
+                    Image(decorative: "paperclip").resizable().scaledToFit().frame(width: 24, height: 24)
                         .bipeTapTarget()
-                }.buttonStyle(.plain).accessibilityLabel(BipeStrings.appAttachPhotos)
-                    .help(BipeStrings.appAttachPhotos).disabled(!model.ready || model.preparing || model.sending)
+                }.menuStyle(.borderlessButton).accessibilityLabel(BipeStrings.appComposerAttach)
+                    .help(BipeStrings.appComposerAttach).disabled(!model.ready || model.preparing || model.sending)
                 if model.preparing { ProgressView().accessibilityLabel(BipeStrings.appUploadPreparing) }
                 TextField(BipeStrings.appTimelineComposerPlaceholder, text: $model.draft, axis: .vertical)
                     .focused($composerFocused)
@@ -263,7 +267,7 @@ struct MacChatView: View {
                 Button(BipeStrings.appTimelineSend) { Task { await model.send() } }
                     .buttonStyle(.bipeProminent)
                     .keyboardShortcut(.return, modifiers: .command)
-                    .disabled(!model.ready || model.sending || model.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(!model.ready || model.sending || !model.canSubmitDraft)
             }.padding()
         }
         .navigationTitle(name)
@@ -314,21 +318,35 @@ struct MacChatView: View {
         .task(id: room.id()) { await media.checkRequestRooms(for: room.id()) }
         .dropDestination(for: URL.self) { urls, _ in
             guard let url = urls.first, url.isFileURL, model.ready, !model.preparing, !model.sending else { return false }
-            Task { await model.prepareImage(url) }
+            Task { await model.preparePickedURL(url, maxUploadSize: await media.maxUploadSize()) }
             return true
         }
-        .onPasteCommand(of: [.image]) { providers in
-            if model.ready, let provider = providers.first { model.pasteImage(provider) }
+        .onPasteCommand(of: [.fileURL, .image]) { providers in
+            if model.ready, let provider = providers.first {
+                if provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) {
+                    Task { model.pasteFile(provider, maxUploadSize: await media.maxUploadSize()) }
+                } else { model.pasteImage(provider) }
+            }
         }
-        .fileImporter(isPresented: $pickingImage, allowedContentTypes: [.image]) { result in
-            if case .success(let url) = result { Task { await model.prepareImage(url) } }
+        .fileImporter(isPresented: $pickingImage, allowedContentTypes: pickingFile ? [.data] : [.image]) { result in
+            let asFile = pickingFile
+            if case .success(let url) = result {
+                Task {
+                    if asFile { await model.prepareFile(url, maxUploadSize: await media.maxUploadSize()) }
+                    else { await model.prepareImage(url) }
+                }
+            }
         }
-        .sheet(isPresented: Binding(get: { model.attachment != nil }, set: { if !$0 { model.cancelAttachment() } })) {
+        .sheet(isPresented: Binding(get: { model.attachment != nil || model.fileAttachment != nil }, set: { if !$0 { model.cancelAttachment() } })) {
             if let image = model.attachment {
                 MacImageComposer(image: image, model: model, maxUploadSize: { await media.maxUploadSize() })
                     .interactiveDismissDisabled(model.sending)
+            } else if let file = model.fileAttachment {
+                MacFileComposer(file: file, model: model, maxUploadSize: { await media.maxUploadSize() })
+                    .interactiveDismissDisabled(model.sending)
             }
         }
+        .onDisappear { if !model.sending { model.cancelAttachment() } }
         .onChange(of: scenePhase) { _, phase in if phase == .active { Task { await model.markRead() } } }
     }
 }

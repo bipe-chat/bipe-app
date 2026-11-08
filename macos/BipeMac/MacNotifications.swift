@@ -19,6 +19,10 @@ final class MacAppDelegate: NSObject, NSApplicationDelegate {
         #endif
         UNUserNotificationCenter.current().delegate = MacNotifications.shared
     }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        MacLocalCache.clean()
+    }
 }
 
 /// The owner and destination that a notification keeps (spec notification-service). Never another account's.
