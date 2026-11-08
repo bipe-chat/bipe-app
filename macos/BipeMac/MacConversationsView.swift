@@ -82,6 +82,9 @@ struct MacConversationsView: View {
                 placeholder(scope.title)
             }
         }
+        // macOS list selection reads the accent environment, not just control tint.
+        .accentColor(BipeColor.accentFill)
+        .foregroundStyle(.primary)
         .searchable(text: searchBinding, placement: .sidebar, prompt: BipeStrings.appSearchPlaceholder)
         .onChange(of: showingArchived) { _, archived in
             // A chat that start chat just opened has no row yet, and stays selected.
@@ -129,7 +132,7 @@ struct MacConversationsView: View {
                     .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
             }
         }
-        .listStyle(.plain).scrollContentBackground(.hidden)
+        .listStyle(.sidebar).scrollContentBackground(.hidden)
         .overlay {
             if requests.visible.isEmpty {
                 Text(BipeStrings.appRequestsEmpty).macFont(.body).foregroundStyle(BipeColor.inkSecondary)
@@ -160,6 +163,7 @@ struct MacConversationsView: View {
                                   move: { id, index in Task { await list.moveFavourite(id, to: index, shown: favourites.map(\.id)) } },
                                   menu: { row in rowMenu(row) })
                     .listRowSeparator(.hidden).listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                    .selectionDisabled()
             }
             ForEach(rows) { row in
                 MacChatRow(row: row, media: account.media).tag(row.id)
@@ -175,7 +179,7 @@ struct MacConversationsView: View {
                 Button(BipeStrings.actionShowMore) { list.loadMore() }.listRowSeparator(.hidden)
             }
         }
-        .listStyle(.plain).scrollContentBackground(.hidden)
+        .listStyle(.sidebar).scrollContentBackground(.hidden)
         .overlay {
             if rows.isEmpty, favourites.isEmpty {
                 if !list.loaded { ProgressView() }
@@ -244,20 +248,20 @@ private struct MacChatRow: View {
                     Text(row.name).macFont(.headline).lineLimit(1)
                     Spacer(minLength: 0)
                     if let date = row.date {
-                        Text(time(date)).macFont(.caption).monospacedDigit().foregroundStyle(BipeColor.inkSecondary)
+                        Text(time(date)).macFont(.caption).monospacedDigit().foregroundStyle(.secondary)
                             .lineLimit(1).fixedSize(horizontal: true, vertical: false)
                     }
                 }
                 HStack(spacing: 8) {
                     Text(row.activity.previewText ?? "").macFont(.subheadline).lineLimit(2)
-                        .foregroundStyle(BipeColor.inkSecondary).frame(maxWidth: .infinity, alignment: .leading)
+                        .foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading)
                     if row.isMuted {
                         Image(decorative: "bell-slash").resizable().scaledToFit().frame(width: 16, height: 16).accessibilityHidden(true)
                     }
-                    if row.mentions > 0 { Text("@").macFont(.footnote).foregroundStyle(BipeColor.accentInk).accessibilityLabel(BipeStrings.a11yMention) }
+                    if row.mentions > 0 { Text("@").macFont(.footnote).accessibilityLabel(BipeStrings.a11yMention) }
                     if row.unread > 0 {
                         Text(row.unread.formatted()).macFont(.caption).fontWeight(.semibold).padding(.horizontal, 6).padding(.vertical, 3)
-                            .background(BipeColor.accentWash, in: Capsule())
+                            .foregroundStyle(BipeColor.accentInk).background(BipeColor.accentWash, in: Capsule())
                             .accessibilityLabel(BipeStrings.appChatListUnread(row.unread.formatted()))
                     } else if row.markedUnread {
                         Circle().fill(BipeColor.accentFill).frame(width: 8, height: 8).accessibilityLabel(BipeStrings.chatUnreadState)
@@ -278,6 +282,7 @@ private struct MacFavouritesGrid<MenuContent: View>: View {
     @ObservedObject var media: MacMedia
     @Binding var reordering: Bool
     @Binding var selected: String?
+    @FocusState private var focusedFavourite: String?
     let move: (String, Int) -> Void
     @ViewBuilder let menu: (MacRoomSummary) -> MenuContent
 
@@ -301,8 +306,12 @@ private struct MacFavouritesGrid<MenuContent: View>: View {
                                 if index < rows.count - 1 { Button(BipeStrings.chatFavouriteMoveLater) { move(row.id, index + 1) } }
                             }
                     } else {
-                        Menu { menu(row) } label: { cell(row) } primaryAction: { selected = row.id }
-                            .menuIndicator(.hidden).menuStyle(.button).buttonStyle(.plain)
+                        Button {
+                            selected = row.id
+                            focusedFavourite = row.id
+                        } label: { cell(row) }
+                            .buttonStyle(.plain).focused($focusedFavourite, equals: row.id)
+                            .contextMenu { menu(row) }
                             .accessibilityActions { menu(row) }.accessibilityLabel(label(row))
                     }
                 }
@@ -326,8 +335,24 @@ private struct MacFavouritesGrid<MenuContent: View>: View {
                 }
             Text(row.name).macFont(.subheadline).lineLimit(1).frame(maxWidth: .infinity)
         }.padding(.vertical, 6).frame(maxWidth: .infinity)
-            .background(isSelected ? BipeColor.accentWash : .clear, in: RoundedRectangle(cornerRadius: MacDesign.corner))
+            .modifier(MacFavouriteSelection(isSelected: isSelected))
             .contentShape(Rectangle())
             .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+}
+
+/// Use the same system selection fill as List, including accent, focus and inactive-window changes.
+private struct MacFavouriteSelection: ViewModifier {
+    let isSelected: Bool
+    @Environment(\.isFocused) private var isFocused
+    @Environment(\.appearsActive) private var appearsActive
+
+    func body(content: Content) -> some View {
+        content
+            .background {
+                if isSelected { RoundedRectangle(cornerRadius: 6).fill(.selection) }
+            }
+            .foregroundStyle(.primary)
+            .environment(\.backgroundProminence, isSelected && isFocused && appearsActive ? .increased : .standard)
     }
 }
