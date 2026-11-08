@@ -1,6 +1,8 @@
 target/
 build/
 generated/
+# bipe-shared tools/gen.mjs output. It is committed (bipe-chat/bipe#1277).
+!/crates/bipe-core/src/generated/
 .build/
 .gradle/
 badges.json

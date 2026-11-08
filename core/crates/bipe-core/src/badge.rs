@@ -13,6 +13,8 @@ use base64::engine::{DecodePaddingMode, GeneralPurpose, GeneralPurposeConfig};
 use ed25519_dalek::{Signature, VerifyingKey};
 use serde_json::{Map, Value};
 
+use crate::generated::registries::BRAND_MARK_LABELS;
+
 /// Parser rules: the URL alphabet, no padding, and no rule on unused trailing bits.
 const BASE64URL: GeneralPurpose = GeneralPurpose::new(
     &alphabet::URL_SAFE,
@@ -23,10 +25,6 @@ const BASE64URL: GeneralPurpose = GeneralPurpose::new(
 
 /// Parser rules: `iat` and `exp` range (31 December 9999, UTC).
 const MAX_BADGE_TIME: i64 = 253_402_300_799;
-
-/// `labels` of bipe-shared registries/brand-marks.json. A test compares the two.
-/// A production core takes this list from the generator (ADR 0267).
-pub const BRAND_MARK_LABELS: [&str; 4] = ["revendedora", "revendedor", "corretor", "representante"];
 
 /// One trusted Ed25519 public key.
 #[derive(Clone, Debug, uniffi::Record)]

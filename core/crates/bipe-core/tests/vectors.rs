@@ -71,13 +71,6 @@ fn public_context_rejects_another_homeserver() {
 }
 
 #[test]
-fn brand_mark_labels_match_the_registry() {
-    let registry = shared("registries/brand-marks.json");
-    let labels: Vec<&str> = registry["labels"].as_array().unwrap().iter().map(|label| label.as_str().unwrap()).collect();
-    assert_eq!(labels, BRAND_MARK_LABELS);
-}
-
-#[test]
 fn a_bad_trusted_key_matches_no_badge() {
     let file = shared("test-vectors/badges.json");
     let vector = &file["vectors"][0];

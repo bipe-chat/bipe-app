@@ -6,6 +6,11 @@
 
 mod badge;
 
+/// bipe-shared tools/gen.mjs output (bipe-chat/bipe#1277). Never edit by hand.
+mod generated {
+    pub(crate) mod registries;
+}
+
 pub use badge::*;
 
 uniffi::setup_scaffolding!("bipe_core");
