@@ -70,6 +70,8 @@ fun AppTabsScreen(
     onBringPeople: () -> Unit = {},
     /** Spec chat-search openMessage (bipe-chat/bipe#671): room ID, event ID. */
     onOpenMessage: (String, String) -> Unit = { _, _ -> },
+    /** Spec interno: opens Interno from the row at the top of Conversas of a work account. */
+    onOpenInterno: (() -> Unit)? = null,
 ) {
     val state by tabs.state.collectAsState()
     val session = chatList.session
@@ -91,7 +93,7 @@ fun AppTabsScreen(
                             prompts = prompts,
                             onCreateGroup = onCreateGroup, onSendMedia = onSendMedia, onChatNotifications = onChatNotifications, onChatInfo = onChatInfo, onInvite = onInvite, onOpenPeople = onOpenPeople,
                             requests = requests, remoteBanner = remoteBanner, onOpenRequests = onOpenRequests, listOpenRequest = listOpenRequest,
-                            api = tabs.start.api, onBringPeople = onBringPeople, mural = state.muralEnabled)
+                            api = tabs.start.api, onBringPeople = onBringPeople, mural = state.muralEnabled, onOpenInterno = onOpenInterno)
                     AppTabsModel.Tab.GRUPOS ->
                         ChatListScreen(chatList, ChatScope.GRUPOS, media, handle, openSearch, onOpenHandlePick, onOpenChat,
                             prompts = prompts,

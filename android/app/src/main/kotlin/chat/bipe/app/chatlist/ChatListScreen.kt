@@ -5,6 +5,7 @@
 package chat.bipe.app.chatlist
 
 import chat.bipe.app.update.collectShows
+import chat.bipe.app.business.InternoScreen
 import chat.bipe.app.business.WorkChatFilter
 import chat.bipe.app.business.WorkChatFilters
 import chat.bipe.app.business.shows
@@ -203,6 +204,9 @@ fun HomeScreen(
     var sendMediaRoomId by rememberSaveable { mutableStateOf<String?>(null) }
     var showsHandlePick by rememberSaveable { mutableStateOf(false) }
     var showsNewAccount by rememberSaveable { mutableStateOf(false) }
+    // Spec interno: Interno of this work account, and the room a member identity's notification opens in it.
+    var showsInterno by rememberSaveable(session.userId) { mutableStateOf(false) }
+    var internoRoomId by rememberSaveable(session.userId) { mutableStateOf<String?>(null) }
     // invite-signed-in: a sign-up with someone else's invite from a link.
     var newAccountPreset by remember { mutableStateOf<SignupStart?>(null) }
     val inviteTap by tabs.start.inviteTap.collectAsState()
@@ -311,6 +315,17 @@ fun HomeScreen(
             .collect { ShareShortcuts.update(context.applicationContext, session.userId, model.chats.value) }
     }
     LaunchedEffect(roomToOpen) {
+        // Spec interno: a notification of this work account's member identity opens its room in Interno.
+        roomToOpen?.takeIf { app.interno.workAccountOf(it.accountUserId) == session.userId }?.let {
+            app.roomToOpen.value = null
+            tabs.selectTab(AppTabsModel.Tab.CONVERSAS)
+            peopleStack = emptyList()
+            showsHandlePick = false
+            showsRequests = false
+            internoRoomId = it.roomId
+            showsInterno = true
+            return@LaunchedEffect
+        }
         roomToOpen?.takeIf { it.accountUserId == session.userId }?.let {
             var opensChat = false
             if (it.destination == BipeNotificationDestination.CHAT) {
@@ -415,6 +430,10 @@ fun HomeScreen(
                 onBack = { showsRequests = false },
                 onOpenChat = { showsRequests = false; openRoomId = it },
                 onOpenWhoCanMessage = { showsRequests = false; navigation.push(PeopleRoute.WhoCanMessage) })
+            showsInterno -> InternoScreen(session, internoRoomId) {
+                showsInterno = false
+                internoRoomId = null
+            }
             else -> GroupHost(session, api, media, roomId, foregroundCount, onOpenRoom = {
                 peopleStack = emptyList()
                 openRoomId = it
@@ -526,6 +545,7 @@ fun HomeScreen(
                         },
                         onInvite = groups.openInvites,
                         onOpenPeople = navigation.push,
+                        onOpenInterno = { showsInterno = true },
                     )
                 }
             }
@@ -563,6 +583,8 @@ fun ChatListScreen(
     onBringPeople: () -> Unit = {},
     /** State muralEnabled of spec chat-list (ADR 0246): the Conversas tab of an account with Mural on. */
     mural: Boolean = false,
+    /** Spec interno: opens Interno from its row; null outside Conversas. */
+    onOpenInterno: (() -> Unit)? = null,
 ) {
     val colors = BipeTheme.colors
     val context = LocalContext.current
@@ -663,6 +685,8 @@ fun ChatListScreen(
             // Spec live-location-banner: this account shares its live location.
             chat.bipe.app.location.LiveLocationListRow(model.session.userId)
             if (work != null && !showingArchived) WorkChatFilters(workFilter) { workFilter = it }
+            // Spec interno: the row of a work account with two or more people, at the top of Conversas.
+            if (work != null && onOpenInterno != null && !showingArchived) chat.bipe.app.business.InternoRow(model.session, onOpenInterno)
             // Spec notification-checkup (bipe-chat/bipe#823): the card is a chat-list-prompt entry.
             var showsCheckup by rememberSaveable { mutableStateOf(false) }
             var checkupClosed by remember { mutableIntStateOf(0) }

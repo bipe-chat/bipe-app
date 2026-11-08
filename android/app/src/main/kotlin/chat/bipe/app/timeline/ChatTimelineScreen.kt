@@ -169,6 +169,8 @@ fun ChatTimelineScreen(
     /** Spec chat-row-actions sendMedia: open the photo picker once the chat shows. */
     startPhotos: Boolean = false,
     onStartPhotosUsed: () -> Unit = {},
+    /** A line at the top of the main timeline (spec interno: bipe_interno_private_hint in a direct chat). */
+    topNotice: String? = null,
 ) {
     // Spec app-tabs: the tab bar hides while a chat or thread is open.
     HidesTabBar()
@@ -546,6 +548,14 @@ fun ChatTimelineScreen(
                 if (model.isMainTimeline) business?.Cards()
                 // Spec chat-timeline notes: one persistent notice per member whose assistant reads the chat.
                 if (model.isMainTimeline) AssistantReaderNotices(model)
+                if (model.isMainTimeline && topNotice != null) {
+                    Text(
+                        topNotice,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colors.inkSecondary,
+                        modifier = Modifier.fillMaxWidth().background(colors.accentWash).padding(horizontal = 16.dp, vertical = 8.dp),
+                    )
+                }
                 Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                 LazyColumn(
                     state = listState,

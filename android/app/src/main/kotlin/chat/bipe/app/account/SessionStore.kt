@@ -24,8 +24,10 @@ import org.matrix.rustcomponents.sdk.SlidingSyncVersion
  * Keeps the SDK session (tokens, device ID) of every account in app storage that is not backed up, one file per account
  * keyed by Matrix ID (ADR 0086), encrypted with an Android Keystore key that never leaves the phone. Never logged.
  */
-class SessionStore(context: Context) {
-    private val folder = File(context.noBackupFilesDir, "sessions-saved")
+class SessionStore(context: Context, folderName: String = DEFAULT_FOLDER) {
+    private val folder = File(context.noBackupFilesDir, folderName)
+    /** Only the store of the accounts reads the file of builds before bipe-chat/bipe#577. */
+    private val migratesLegacy = folderName == DEFAULT_FOLDER
     /** The single file of builds before bipe-chat/bipe#577. [loadAll] moves it under its Matrix ID. */
     private val legacyFile = File(context.noBackupFilesDir, "session.bin")
 
@@ -71,7 +73,7 @@ class SessionStore(context: Context) {
     }
 
     private fun migrateLegacyFile() {
-        if (!legacyFile.exists()) return
+        if (!migratesLegacy || !legacyFile.exists()) return
         val session = read(legacyFile)
         if (session != null && !file(session.userId).exists()) {
             write(legacyFile.readBytes(), file(session.userId))
@@ -124,11 +126,17 @@ class SessionStore(context: Context) {
 
     private fun JSONObject.optStringOrNull(name: String): String? = if (isNull(name)) null else optString(name)
 
-    private companion object {
-        const val KEYSTORE = "AndroidKeyStore"
-        const val KEY_ALIAS = "bipe_session"
-        const val TRANSFORMATION = "AES/GCM/NoPadding"
-        const val IV_SIZE = 12
-        const val SUFFIX = ".bin"
+    companion object {
+        const val DEFAULT_FOLDER = "sessions-saved"
+        /**
+         * The member identity sessions of Interno (bipe ADR 0284 point 5): apart from the accounts, so they never show
+         * in the account switcher and never count against maxPersonalAccounts.
+         */
+        const val MEMBER_FOLDER = "member-sessions-saved"
+        private const val KEYSTORE = "AndroidKeyStore"
+        private const val KEY_ALIAS = "bipe_session"
+        private const val TRANSFORMATION = "AES/GCM/NoPadding"
+        private const val IV_SIZE = 12
+        private const val SUFFIX = ".bin"
     }
 }
