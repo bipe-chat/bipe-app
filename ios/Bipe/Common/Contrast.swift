@@ -24,12 +24,9 @@ extension View {
 private struct BipeGlass<S: Shape>: ViewModifier {
     let shape: S
     let tint: Color?
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     func body(content: Content) -> some View {
-        if reduceTransparency {
-            content.background(tint ?? BipeColor.surfaceRaised, in: shape)
-        } else if #available(iOS 26.0, macOS 26.0, *) {
+        if #available(iOS 26.0, macOS 26.0, *) {
             content.glassEffect(Glass.regular.tint(tint).interactive(), in: shape)
         } else if let tint {
             content.background(tint, in: shape)
