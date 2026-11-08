@@ -328,27 +328,6 @@
       "checked": "2026-11-07",
       "note": "MIT OR Apache-2.0; Apache-2.0 chosen."
     },
-    "cargo:askama": {
-      "ecosystem": "cargo",
-      "licence": "Apache-2.0",
-      "source": "https://github.com/askama-rs/askama",
-      "checked": "2026-11-07",
-      "note": "MIT OR Apache-2.0; Apache-2.0 chosen."
-    },
-    "cargo:askama_derive": {
-      "ecosystem": "cargo",
-      "licence": "Apache-2.0",
-      "source": "https://github.com/askama-rs/askama",
-      "checked": "2026-11-07",
-      "note": "MIT OR Apache-2.0; Apache-2.0 chosen."
-    },
-    "cargo:askama_parser": {
-      "ecosystem": "cargo",
-      "licence": "Apache-2.0",
-      "source": "https://github.com/askama-rs/askama",
-      "checked": "2026-11-07",
-      "note": "MIT OR Apache-2.0; Apache-2.0 chosen."
-    },
     "cargo:autocfg": {
       "ecosystem": "cargo",
       "licence": "Apache-2.0",
@@ -369,13 +348,6 @@
       "source": "https://github.com/RustCrypto/formats",
       "checked": "2026-11-07",
       "note": "Apache-2.0 OR MIT; Apache-2.0 chosen."
-    },
-    "cargo:basic-toml": {
-      "ecosystem": "cargo",
-      "licence": "Apache-2.0",
-      "source": "https://github.com/dtolnay/basic-toml",
-      "checked": "2026-11-07",
-      "note": "MIT OR Apache-2.0; Apache-2.0 chosen."
     },
     "cargo:bitflags": {
       "ecosystem": "cargo",
@@ -403,19 +375,6 @@
       "source": "https://github.com/camino-rs/camino",
       "checked": "2026-11-07",
       "note": "MIT OR Apache-2.0; Apache-2.0 chosen."
-    },
-    "cargo:cargo-platform": {
-      "ecosystem": "cargo",
-      "licence": "Apache-2.0",
-      "source": "https://github.com/rust-lang/cargo",
-      "checked": "2026-11-07",
-      "note": "MIT OR Apache-2.0; Apache-2.0 chosen."
-    },
-    "cargo:cargo_metadata": {
-      "ecosystem": "cargo",
-      "licence": "MIT",
-      "source": "https://github.com/oli-obk/cargo_metadata",
-      "checked": "2026-11-07"
     },
     "cargo:cfg-if": {
       "ecosystem": "cargo",
@@ -449,7 +408,8 @@
       "ecosystem": "cargo",
       "licence": "BSD-3-Clause",
       "source": "https://github.com/dalek-cryptography/curve25519-dalek/tree/main/curve25519-dalek",
-      "checked": "2026-11-07"
+      "checked": "2026-11-08",
+      "copyright": "Copyright (c) 2016-2021 isis agora lovecruft. All rights reserved.\nCopyright (c) 2016-2021 Henry de Valence. All rights reserved."
     },
     "cargo:curve25519-dalek-derive": {
       "ecosystem": "cargo",
@@ -483,7 +443,8 @@
       "ecosystem": "cargo",
       "licence": "BSD-3-Clause",
       "source": "https://github.com/dalek-cryptography/curve25519-dalek/tree/main/ed25519-dalek",
-      "checked": "2026-11-07"
+      "checked": "2026-11-08",
+      "copyright": "Copyright (c) 2017-2019 isis agora lovecruft. All rights reserved."
     },
     "cargo:equivalent": {
       "ecosystem": "cargo",
@@ -533,19 +494,6 @@
       "checked": "2026-11-07",
       "note": "MIT OR Apache-2.0; Apache-2.0 chosen."
     },
-    "cargo:glob": {
-      "ecosystem": "cargo",
-      "licence": "Apache-2.0",
-      "source": "https://github.com/rust-lang/glob",
-      "checked": "2026-11-07",
-      "note": "MIT OR Apache-2.0; Apache-2.0 chosen."
-    },
-    "cargo:goblin": {
-      "ecosystem": "cargo",
-      "licence": "MIT",
-      "source": "https://github.com/m4b/goblin",
-      "checked": "2026-11-07"
-    },
     "cargo:hashbrown": {
       "ecosystem": "cargo",
       "licence": "Apache-2.0",
@@ -588,13 +536,6 @@
       "checked": "2026-11-07",
       "note": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT; Apache-2.0 chosen."
     },
-    "cargo:log": {
-      "ecosystem": "cargo",
-      "licence": "Apache-2.0",
-      "source": "https://github.com/rust-lang/log",
-      "checked": "2026-11-07",
-      "note": "MIT OR Apache-2.0; Apache-2.0 chosen."
-    },
     "cargo:memchr": {
       "ecosystem": "cargo",
       "licence": "MIT",
@@ -602,30 +543,10 @@
       "checked": "2026-11-07",
       "note": "Unlicense OR MIT; MIT chosen."
     },
-    "cargo:minimal-lexical": {
-      "ecosystem": "cargo",
-      "licence": "Apache-2.0",
-      "source": "https://github.com/Alexhuszagh/minimal-lexical",
-      "checked": "2026-11-07",
-      "note": "MIT/Apache-2.0; Apache-2.0 chosen."
-    },
-    "cargo:nom": {
-      "ecosystem": "cargo",
-      "licence": "MIT",
-      "source": "https://github.com/Geal/nom",
-      "checked": "2026-11-07"
-    },
     "cargo:once_cell": {
       "ecosystem": "cargo",
       "licence": "Apache-2.0",
       "source": "https://github.com/matklad/once_cell",
-      "checked": "2026-11-07",
-      "note": "MIT OR Apache-2.0; Apache-2.0 chosen."
-    },
-    "cargo:percent-encoding": {
-      "ecosystem": "cargo",
-      "licence": "Apache-2.0",
-      "source": "https://github.com/servo/rust-url/",
       "checked": "2026-11-07",
       "note": "MIT OR Apache-2.0; Apache-2.0 chosen."
     },
@@ -635,13 +556,6 @@
       "source": "https://github.com/RustCrypto/formats/tree/master/pkcs8",
       "checked": "2026-11-07",
       "note": "Apache-2.0 OR MIT; Apache-2.0 chosen."
-    },
-    "cargo:plain": {
-      "ecosystem": "cargo",
-      "licence": "Apache-2.0",
-      "source": "https://github.com/randomites/plain",
-      "checked": "2026-11-07",
-      "note": "MIT/Apache-2.0; Apache-2.0 chosen."
     },
     "cargo:proc-macro2": {
       "ecosystem": "cargo",
@@ -671,13 +585,6 @@
       "checked": "2026-11-07",
       "note": "MIT OR Apache-2.0; Apache-2.0 chosen."
     },
-    "cargo:rustc-hash": {
-      "ecosystem": "cargo",
-      "licence": "Apache-2.0",
-      "source": "https://github.com/rust-lang/rustc-hash",
-      "checked": "2026-11-07",
-      "note": "Apache-2.0 OR MIT; Apache-2.0 chosen."
-    },
     "cargo:rustc_version": {
       "ecosystem": "cargo",
       "licence": "Apache-2.0",
@@ -691,18 +598,6 @@
       "source": "https://github.com/bytecodealliance/rustix",
       "checked": "2026-11-07",
       "note": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT; Apache-2.0 chosen."
-    },
-    "cargo:scroll": {
-      "ecosystem": "cargo",
-      "licence": "MIT",
-      "source": "https://github.com/m4b/scroll",
-      "checked": "2026-11-07"
-    },
-    "cargo:scroll_derive": {
-      "ecosystem": "cargo",
-      "licence": "MIT",
-      "source": "https://github.com/m4b/scroll",
-      "checked": "2026-11-07"
     },
     "cargo:semver": {
       "ecosystem": "cargo",
@@ -767,12 +662,6 @@
       "checked": "2026-11-07",
       "note": "MIT OR Apache-2.0; Apache-2.0 chosen."
     },
-    "cargo:smawk": {
-      "ecosystem": "cargo",
-      "licence": "MIT",
-      "source": "https://github.com/mgeisler/smawk",
-      "checked": "2026-11-07"
-    },
     "cargo:spki": {
       "ecosystem": "cargo",
       "licence": "Apache-2.0",
@@ -791,7 +680,8 @@
       "ecosystem": "cargo",
       "licence": "BSD-3-Clause",
       "source": "https://github.com/dalek-cryptography/subtle",
-      "checked": "2026-11-07"
+      "checked": "2026-11-08",
+      "copyright": "Copyright (c) 2016-2017 Isis Agora Lovecruft, Henry de Valence. All rights reserved.\nCopyright (c) 2016-2024 Isis Agora Lovecruft. All rights reserved."
     },
     "cargo:syn": {
       "ecosystem": "cargo",
@@ -804,26 +694,6 @@
       "ecosystem": "cargo",
       "licence": "Apache-2.0",
       "source": "https://github.com/Stebalien/tempfile",
-      "checked": "2026-11-07",
-      "note": "MIT OR Apache-2.0; Apache-2.0 chosen."
-    },
-    "cargo:textwrap": {
-      "ecosystem": "cargo",
-      "licence": "MIT",
-      "source": "https://github.com/mgeisler/textwrap",
-      "checked": "2026-11-07"
-    },
-    "cargo:thiserror": {
-      "ecosystem": "cargo",
-      "licence": "Apache-2.0",
-      "source": "https://github.com/dtolnay/thiserror",
-      "checked": "2026-11-07",
-      "note": "MIT OR Apache-2.0; Apache-2.0 chosen."
-    },
-    "cargo:thiserror-impl": {
-      "ecosystem": "cargo",
-      "licence": "Apache-2.0",
-      "source": "https://github.com/dtolnay/thiserror",
       "checked": "2026-11-07",
       "note": "MIT OR Apache-2.0; Apache-2.0 chosen."
     },
@@ -869,13 +739,6 @@
       "checked": "2026-11-07",
       "note": "Licence text: (MIT OR Apache-2.0) AND Unicode-3.0. Unicode-3.0 is not in the allowed list. This crate is a dependency of syn, for proc macros at build time, and is not in the shipped library (core.yml, \"Shipped graph\"). bipe-chat/bipe#1172."
     },
-    "cargo:unicode-width": {
-      "ecosystem": "cargo",
-      "licence": "Apache-2.0",
-      "source": "https://github.com/unicode-rs/unicode-width",
-      "checked": "2026-11-07",
-      "note": "MIT OR Apache-2.0; Apache-2.0 chosen."
-    },
     "cargo:uniffi": {
       "ecosystem": "cargo",
       "licence": "MPL-2.0",
@@ -886,12 +749,6 @@
       "ecosystem": "cargo",
       "licence": "MPL-2.0",
       "source": "https://github.com/jhugman/uniffi-bindgen-react-native",
-      "checked": "2026-11-07"
-    },
-    "cargo:uniffi_bindgen": {
-      "ecosystem": "cargo",
-      "licence": "MPL-2.0",
-      "source": "https://github.com/mozilla/uniffi-rs",
       "checked": "2026-11-07"
     },
     "cargo:uniffi_core": {
@@ -924,12 +781,6 @@
       "source": "https://github.com/mozilla/uniffi-rs",
       "checked": "2026-11-07"
     },
-    "cargo:uniffi_udl": {
-      "ecosystem": "cargo",
-      "licence": "MPL-2.0",
-      "source": "https://github.com/mozilla/uniffi-rs",
-      "checked": "2026-11-07"
-    },
     "cargo:version_check": {
       "ecosystem": "cargo",
       "licence": "Apache-2.0",
@@ -943,12 +794,6 @@
       "source": "https://github.com/bytecodealliance/wasi",
       "checked": "2026-11-07",
       "note": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT; Apache-2.0 chosen."
-    },
-    "cargo:weedle2": {
-      "ecosystem": "cargo",
-      "licence": "MIT",
-      "source": "https://github.com/mozilla/uniffi-rs",
-      "checked": "2026-11-07"
     },
     "cargo:windows-link": {
       "ecosystem": "cargo",

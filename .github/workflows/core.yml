@@ -72,26 +72,74 @@ jobs:
         run: |
           [ -f Cargo.lock ] || cargo generate-lockfile
           [ -f tools/uniffi-bindgen/Cargo.lock ] || cargo generate-lockfile --manifest-path tools/uniffi-bindgen/Cargo.toml
+      # Agents have no Rust toolchain (bipe docs/agents/builds.md). When a manifest change needs a new lockfile,
+      # this step shows cargo's own minimal change and the core-lockfiles artifact holds the file to commit.
+      - name: Lockfile is current
+        id: lock
+        working-directory: core
+        run: |
+          if ! cargo metadata --locked --format-version 1 > /dev/null; then
+            cargo metadata --format-version 1 > /dev/null
+            git diff Cargo.lock
+            echo "::error file=core/Cargo.lock::Cargo.lock is stale. Commit Cargo.lock from the core-lockfiles artifact."
+            echo "stale=1" >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: core-lockfiles
           path: |
             core/Cargo.lock
             core/tools/uniffi-bindgen/Cargo.lock
+      - name: Stop on a stale lockfile
+        if: steps.lock.outputs.stale == '1'
+        run: exit 1
       - name: Vectors against the crate
         working-directory: core
         env:
           BIPE_SHARED: ${{ github.workspace }}/bipe-shared
         run: cargo test --locked
-      - name: Shipped graph and licences
+      # bipe-chat/bipe#1277: core/shipped-crates.json names the packages that each client links, per platform.
+      # tools/oss-licences.mjs puts these, and no build tool, in the app's notices.
+      - name: Shipped graph
+        id: shipped
         working-directory: core
         run: |
+          shipped() {
+            args=()
+            for target in "$@"; do args+=(--target "$target"); done
+            cargo tree --locked -p bipe-core -e normal,no-proc-macro --prefix none --no-dedupe "${args[@]}" \
+              | grep -v -e '^bipe-core ' -e '^$' | cut -d' ' -f1 | LC_ALL=C sort -u | jq -R . | jq -sc .
+          }
+          jq -n \
+            --arg comment "Written by .github/workflows/core.yml (cargo tree, normal dependencies, no proc macros). Do not edit: copy the core-shipped-crates artifact." \
+            --argjson apple "$(shipped aarch64-apple-ios aarch64-apple-ios-sim aarch64-apple-darwin x86_64-apple-darwin)" \
+            --argjson android "$(shipped aarch64-linux-android armv7-linux-androideabi x86_64-linux-android)" \
+            --argjson jvm "$(shipped x86_64-unknown-linux-gnu x86_64-pc-windows-msvc)" \
+            --argjson web "$(shipped wasm32-unknown-unknown)" \
+            '{"$comment": $comment, apple: $apple, android: $android, jvm: $jvm, web: $web}' > "$RUNNER_TEMP/shipped-crates.json"
           {
             echo '### Shipped graph (no build, dev or proc-macro dependencies)'
             echo
+            echo '| Platform | Packages |'
+            echo '| -------- | -------- |'
+            jq -r 'to_entries[] | select(.key != "$comment") | "| \(.key) | \(.value | length) |"' "$RUNNER_TEMP/shipped-crates.json"
+            echo
             echo '```'
-            cargo tree --locked -p bipe-core -e normal,no-proc-macro --prefix none --no-dedupe | sort -u
+            jq -r '[.apple, .android, .jvm, .web] | add | unique[]' "$RUNNER_TEMP/shipped-crates.json"
             echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          if ! diff -u shipped-crates.json "$RUNNER_TEMP/shipped-crates.json"; then
+            echo "::error file=core/shipped-crates.json::differs from the shipped graph. Replace it with the core-shipped-crates artifact, then run node tools/oss-licences.mjs."
+            echo "stale=1" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: core-shipped-crates
+          path: ${{ runner.temp }}/shipped-crates.json
+      - name: Licences
+        working-directory: core
+        run: |
+          {
             echo
             echo '### Cargo licences'
             echo
@@ -105,6 +153,9 @@ jobs:
         with:
           name: core-cargo-licences
           path: ${{ runner.temp }}/cargo-licences.json
+      - name: Shipped graph is current
+        if: steps.shipped.outputs.stale == '1'
+        run: exit 1
 
   apple:
     name: core-apple

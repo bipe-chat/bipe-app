@@ -11,7 +11,8 @@
 // - android/app/src/main/assets/open_source_licences.json
 //
 // Bipe comes first (AGPL-3.0-only with the app store permission, ADR 0144), then the dependencies of the platform by
-// name. A vendored package uses its own LICENSE file; every other package the standard text of its SPDX id from
+// name. Cargo packages are those of bipe-core that the platform links (core/shipped-crates.json, which CI keeps equal
+// to the shipped graph, bipe-chat/bipe#1277): no build tool or proc macro. A vendored package uses its own LICENSE file; every other package the standard text of its SPDX id from
 // tools/licence-texts/<id>.txt.
 
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
@@ -24,7 +25,19 @@ export const OUTPUTS = {
 };
 
 // A bundled font (ecosystem "font") ships on Android only.
-const ECOSYSTEMS = { ios: ['swiftpm', 'vendored'], android: ['gradle', 'vendored', 'font'] };
+const ECOSYSTEMS = { ios: ['swiftpm', 'vendored', 'cargo'], android: ['gradle', 'vendored', 'font', 'cargo'] };
+
+// The platform of core/shipped-crates.json for each output.
+const CORE_PLATFORM = { ios: 'apple', android: 'android' };
+
+export function shippedCrates(platform, root = REPO_ROOT) {
+  const shipped = JSON.parse(readFileSync(join(root, 'core/shipped-crates.json'), 'utf8'))[CORE_PLATFORM[platform]];
+  if (!Array.isArray(shipped)) throw new Error(`oss-licences: core/shipped-crates.json has no ${CORE_PLATFORM[platform]} list`);
+  return new Set(shipped.map((name) => `cargo:${name}`));
+}
+
+// The standard BSD text has a placeholder line; a package with its own copyright lines replaces it.
+const PLACEHOLDER = /^Copyright \(c\) <year> <owner>\.\n\n/;
 
 // The LICENSE file of each vendored package, per platform.
 const VENDORED_LICENCE = {
@@ -40,14 +53,17 @@ export function licenceList(platform, root = REPO_ROOT) {
     texts[id] ??= read(root, `tools/licence-texts/${id}.txt`);
     return id;
   };
+  const crates = shippedCrates(platform, root);
   const dependencies = Object.entries(packages)
     // A test-only dependency ("scope": "test", ADR 0148) is not in the app.
     .filter(([, p]) => ECOSYSTEMS[platform].includes(p.ecosystem) && p.scope !== 'test')
+    .filter(([name, p]) => p.ecosystem !== 'cargo' || crates.has(name))
+    .map(([name, p]) => [p.ecosystem === 'cargo' ? name.slice('cargo:'.length) : name, p])
     .sort(([a], [b]) => a.toLowerCase().localeCompare(b.toLowerCase()))
     .map(([name, p]) => {
       const vendored = VENDORED_LICENCE[name]?.[platform];
       if ((p.ecosystem === 'vendored' || p.ecosystem === 'font') && !vendored) throw new Error(`oss-licences: no LICENSE path for vendored ${name}`);
-      if (p.copyright) return { name, licence: p.licence, text: `${p.copyright}\n\n${read(root, `tools/licence-texts/${p.licence}.txt`)}` };
+      if (p.copyright) return { name, licence: p.licence, text: `${p.copyright}\n\n${read(root, `tools/licence-texts/${p.licence}.txt`).replace(PLACEHOLDER, '')}` };
       return vendored ? { name, licence: p.licence, text: read(root, vendored) } : { name, licence: textOf(p.licence) };
     });
   const bipe = {

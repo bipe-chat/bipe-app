@@ -20,9 +20,10 @@ ed25519-dalek = { version = "2", default-features = false, features = ["fast", "
 serde_json = { version = "1", default-features = false, features = ["std"] }
 sha2 = { version = "0.10", default-features = false }
 # The revision of matrix-rust-sdk at ../../../sdk-version, so both libraries use one UniFFI.
-uniffi = { git = "https://github.com/mozilla/uniffi-rs.git", rev = "e5f4821410bea19e71984ea5e06a7bc8b11ed9e5", version = "0.31.0", default-features = false, features = ["cargo-metadata"] }
+# No default features: `cargo-metadata` serves the bindings generator, and tools/uniffi-bindgen has it (bipe-chat/bipe#1277).
+uniffi = { git = "https://github.com/mozilla/uniffi-rs.git", rev = "e5f4821410bea19e71984ea5e06a7bc8b11ed9e5", version = "0.31.0", default-features = false }
 
 [target.'cfg(target_family = "wasm")'.dependencies]
-uniffi = { git = "https://github.com/mozilla/uniffi-rs.git", rev = "e5f4821410bea19e71984ea5e06a7bc8b11ed9e5", version = "0.31.0", default-features = false, features = ["cargo-metadata", "wasm-unstable-single-threaded"] }
+uniffi = { git = "https://github.com/mozilla/uniffi-rs.git", rev = "e5f4821410bea19e71984ea5e06a7bc8b11ed9e5", version = "0.31.0", default-features = false, features = ["wasm-unstable-single-threaded"] }
 # Allocator and panic hook for the ubrn wasm2 player (web/patches/0002).
 uniffi-runtime-wasm = "=0.31.0-6"
