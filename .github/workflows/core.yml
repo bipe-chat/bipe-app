@@ -362,6 +362,10 @@ jobs:
     name: core-web
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    # actions: read, to take the matrix-sdk-ffi module from the last web.yml run on main.
+    permissions:
+      contents: read
+      actions: read
     steps:
       - uses: actions/checkout@v4
       - *shared-branch
@@ -421,6 +425,29 @@ jobs:
           node build/run.mjs "$GITHUB_WORKSPACE/bipe-shared/test-vectors/badges.json" "$PWD/$(ls generated/*.wasm | head -1)" | tee "$RUNNER_TEMP/web.log"
           grep -h BIPE_CORE_METRICS "$RUNNER_TEMP/web.log" | head -1 > "$RUNNER_TEMP/web.metrics"
           test -s "$RUNNER_TEMP/web.metrics"
+      # bipe-chat/bipe#1277 item 6: the web client's matrix-sdk-ffi module (web.yml artifact web-bindings, main).
+      - name: The matrix-sdk-ffi module of the web client
+        working-directory: core/harness/web
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          run=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow web.yml --branch main --status success --limit 1 --json databaseId --jq '.[0].databaseId')
+          test -n "$run" || { echo "::error::No successful web.yml run on main: run it (gh workflow run web.yml --ref main)."; exit 1; }
+          gh run download "$run" --repo "$GITHUB_REPOSITORY" --name web-bindings --dir sdk-generated
+          echo "SDK_RUN=$run" >> "$GITHUB_ENV"
+          ls -la sdk-generated
+      - name: Vectors in Chromium, Firefox and WebKit, next to the SDK
+        working-directory: core/harness/web
+        run: |
+          mkdir -p build/page
+          pnpm exec esbuild browser.ts --bundle --format=esm --platform=browser --external:node:* --outfile=build/page/browser.mjs
+          cp index.html "$GITHUB_WORKSPACE/bipe-shared/test-vectors/badges.json" build/page/
+          cp "$(ls generated/*.wasm | head -1)" build/page/core.wasm
+          cp sdk-generated/matrix_sdk_ffi.wasm build/page/sdk.wasm
+          pnpm exec playwright install --with-deps chromium firefox webkit
+          python3 -m http.server 8787 --bind 127.0.0.1 --directory build/page > "$RUNNER_TEMP/http.log" 2>&1 &
+          until curl -sf http://127.0.0.1:8787/index.html > /dev/null; do sleep 1; done
+          node browsers.mjs http://127.0.0.1:8787/index.html | tee "$RUNNER_TEMP/browsers.log"
       - name: Current website verifier in Node
         working-directory: core/harness/web
         run: |
@@ -455,6 +482,12 @@ jobs:
             echo '| --- | ------- |'
             echo "| Node 24, bipe-core | $(cat "$RUNNER_TEMP/web.metrics") |"
             echo "| Node 24, bipe-web src/badge.ts | $(cat "$RUNNER_TEMP/base.metrics") |"
+            echo
+            echo "Browsers, one page with bipe-core and matrix-sdk-ffi (web.yml run $SDK_RUN):"
+            echo
+            echo '```'
+            grep -h BIPE_CORE_METRICS "$RUNNER_TEMP/browsers.log"
+            echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
           cat "$GITHUB_STEP_SUMMARY"
 
