@@ -5889,4 +5889,40 @@ public enum BipeStrings {
     public static func chatReplyBy(_ p1: String) -> String {
         String(format: NSLocalizedString("bipe_chat_reply_by", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
+
+    public static var accountStatusTitle: String { NSLocalizedString("bipe_account_status_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var accountStatusFooter: String { NSLocalizedString("bipe_account_status_footer", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var accountStatusTier: String { NSLocalizedString("bipe_account_status_tier", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var accountStatusTierUnattested: String { NSLocalizedString("bipe_account_status_tier_unattested", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var accountStatusTierNew: String { NSLocalizedString("bipe_account_status_tier_new", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var accountStatusTierNormal: String { NSLocalizedString("bipe_account_status_tier_normal", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var accountStatusTierVerified: String { NSLocalizedString("bipe_account_status_tier_verified", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var accountStatusTierCompany: String { NSLocalizedString("bipe_account_status_tier_company", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var accountStatusTierSlowed: String { NSLocalizedString("bipe_account_status_tier_slowed", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func accountStatusUsed(_ p1: String, _ p2: String) -> String {
+        String(format: NSLocalizedString("bipe_account_status_used", tableName: "Bipe", bundle: .module, comment: ""), p1, p2)
+    }
+
+    public static func accountStatusResets(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_account_status_resets", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var accountStatusRaiseVerify: String { NSLocalizedString("bipe_account_status_raise_verify", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var accountStatusRaiseWait: String { NSLocalizedString("bipe_account_status_raise_wait", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func reachLimitBody(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_reach_limit_body", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var reachLimitBodyNone: String { NSLocalizedString("bipe_reach_limit_body_none", tableName: "Bipe", bundle: .module, comment: "") }
 }

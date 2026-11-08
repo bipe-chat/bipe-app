@@ -260,6 +260,12 @@ struct SettingsGroupView: View {
             })) {
                 SettingsRowLabel(title: BipeStrings.accountBiometricUnlock(OwnerCheck.biometricWord))
             }
+        case .accountReachStatus:
+            NavigationLink {
+                AccountStatusView(settings: model)
+            } label: {
+                SettingsRowLabel(title: row.title)
+            }
         case .accountLinkedDevices:
             NavigationLink {
                 LinkedDevicesView(model: model)

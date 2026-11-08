@@ -2555,4 +2555,19 @@
     <string name="bipe_chat_notes_placeholder">Write a note</string>
     <string name="bipe_chat_notes_error">The note was not saved. Try again.</string>
     <string name="bipe_chat_reply_by">by %1$s</string>
+    <string name="bipe_account_status_title">Account status</string>
+    <string name="bipe_account_status_footer">Bipe limits how many chats an account can start with people who do not know you yet. This makes scams and spam harder. Chats with your contacts and replies do not count.</string>
+    <string name="bipe_account_status_tier">Account type</string>
+    <string name="bipe_account_status_tier_unattested">Device not checked</string>
+    <string name="bipe_account_status_tier_new">New</string>
+    <string name="bipe_account_status_tier_normal">Not verified</string>
+    <string name="bipe_account_status_tier_verified">Verified</string>
+    <string name="bipe_account_status_tier_company">Verified company</string>
+    <string name="bipe_account_status_tier_slowed">Lower limit</string>
+    <string name="bipe_account_status_used">New chats: %1$s of %2$s</string>
+    <string name="bipe_account_status_resets">The next one frees up %1$s</string>
+    <string name="bipe_account_status_raise_verify">Verify your account to start more new chats.</string>
+    <string name="bipe_account_status_raise_wait">The limit goes back up with time.</string>
+    <string name="bipe_reach_limit_body">You reached the limit of chats with people who do not know you. The next one frees up %1$s.</string>
+    <string name="bipe_reach_limit_body_none">This account cannot start chats with people who do not know you.</string>
 </resources>

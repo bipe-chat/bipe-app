@@ -243,15 +243,16 @@ fun ContactsScreen(people: PeopleService, openChat: (String) -> Unit, invite: ((
                             }
                             BipeOutlinedButton(onClick = {
                                 scope.launch {
-                                    runCatching { people.openOrCreateDm(match.person.userId) }
-                                        .onSuccess(openChat)
-                                        .onFailure { error ->
-                                            BipeToasts.show(if (error is PeopleException) {
-                                                context.getString(R.string.bipe_app_group_invite_refused, match.person.displayName)
-                                            } else {
-                                                context.getString(R.string.bipe_error_generic)
-                                            })
-                                        }
+                                    val result = runCatching { people.openOrCreateDm(match.person.userId) }
+                                    result.onSuccess(openChat)
+                                    val error = result.exceptionOrNull() ?: return@launch
+                                    BipeToasts.show(when {
+                                        error is PeopleException && error.kind == PeopleException.Kind.LIMIT_EXCEEDED ->
+                                            people.reachNotice(context)
+                                        error is PeopleException ->
+                                            context.getString(R.string.bipe_app_group_invite_refused, match.person.displayName)
+                                        else -> context.getString(R.string.bipe_error_generic)
+                                    })
                                 }
                             }) { Text(stringResource(R.string.bipe_invites_chat)) }
                         }

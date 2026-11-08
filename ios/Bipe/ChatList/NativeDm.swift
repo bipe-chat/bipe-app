@@ -12,6 +12,8 @@ enum NativeDm {
     enum CreateError: Error {
         /// The person's who-can-message setting refused the invite (ADR 0038).
         case inviteRefused
+        /// M_LIMIT_EXCEEDED: the first-contact budget, or the server's own rate limit (bipe-chat/bipe#846).
+        case limitExceeded
     }
 
     /// Input of the generated ADR 0141 rule. Reads only this account's local rooms.
@@ -53,6 +55,9 @@ enum NativeDm {
         } catch let error as ClientError {
             if case .MatrixApi(kind: .forbidden, code: _, msg: _, details: _) = error {
                 throw CreateError.inviteRefused
+            }
+            if case .MatrixApi(kind: .limitExceeded(retryAfterMs: _), code: _, msg: _, details: _) = error {
+                throw CreateError.limitExceeded
             }
             throw error
         }

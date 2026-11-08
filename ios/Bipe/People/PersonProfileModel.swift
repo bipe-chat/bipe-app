@@ -129,6 +129,8 @@ final class PersonProfileModel: ObservableObject {
             return roomId
         } catch PeopleError.inviteRefused {
             notice = BipeStrings.appGroupInviteRefused(person.displayName)
+        } catch PeopleError.limitExceeded {
+            notice = await people.reachNotice()
         } catch {
             notice = BipeStrings.errorGeneric
         }
@@ -252,6 +254,8 @@ final class PersonProfileModel: ObservableObject {
         } catch let error as ClientError {
             if case .MatrixApi(kind: .forbidden, code: _, msg: _, details: _) = error {
                 notice = BipeStrings.appGroupInviteRefused(person.displayName)
+            } else if case .MatrixApi(kind: .limitExceeded(retryAfterMs: _), code: _, msg: _, details: _) = error {
+                notice = await people.reachNotice()
             } else {
                 notice = BipeStrings.errorGeneric
             }

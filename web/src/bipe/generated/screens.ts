@@ -14,6 +14,8 @@ export const BipeScreen = {
   accountNew: "account-new",
   /** Account start (flow launch). Spec: bipe-shared/product/screens/account-start.json */
   accountStart: "account-start",
+  /** Account status (flow settings). Spec: bipe-shared/product/screens/account-status.json */
+  accountStatus: "account-status",
   /** Account switcher (flow home). Spec: bipe-shared/product/screens/account-switcher.json */
   accountSwitcher: "account-switcher",
   /** Book a time (flow business). Spec: bipe-shared/product/screens/agenda-book.json */
