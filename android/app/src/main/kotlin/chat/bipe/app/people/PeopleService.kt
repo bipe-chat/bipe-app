@@ -15,6 +15,8 @@ import android.graphics.BitmapFactory
 import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
 import chat.bipe.shared.BipeTrustSources
+import chat.bipe.shared.R
+import chat.bipe.shared.api.BipeReachStatus
 import chat.bipe.shared.BipeHandleResolver
 import chat.bipe.shared.BipeChatRowName
 import chat.bipe.shared.api.lookupContacts
@@ -91,7 +93,8 @@ sealed interface PeopleRoute {
 }
 
 class PeopleException(val kind: Kind) : Exception(kind.name) {
-    enum class Kind { NOT_FOUND, INVITE_REFUSED }
+    /** LIMIT_EXCEEDED: M_LIMIT_EXCEEDED on a new DM (bipe-chat/bipe#846). Show [PeopleService.reachNotice]. */
+    enum class Kind { NOT_FOUND, INVITE_REFUSED, LIMIT_EXCEEDED }
 }
 
 /**
@@ -273,6 +276,22 @@ class PeopleService(
     suspend fun <T> withToken(request: suspend (String) -> T): T = BipeApiClient.withTokenRetry({ session.accessToken() }, request)
 
     /**
+     * Spec person-profile reach notice (bipe-chat/bipe#846), after M_LIMIT_EXCEEDED on a new DM or an add to a group.
+     * The budget notice when GET /v1/me/reach says the budget is spent. Else, and when the read fails, the generic error.
+     */
+    suspend fun reachNotice(context: Context): String {
+        val status = try {
+            withToken { api.reach(it) }
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            null
+        }
+        if (status == null || !status.isSpent) return context.getString(R.string.bipe_error_generic)
+        return reachNoticeText(context, status)
+    }
+
+    /**
      * Spec public-profile-edit syncPhoto (ADR 0041, amended 2 Nov 2026): the public photo is a copy of the Matrix avatar,
      * because the web page cannot read Matrix media. Only for a published profile. Uploads only when the avatar differs
      * from photo_source. Returns the new profile, or [profile] when nothing changed or a step failed: the next run tries
@@ -394,6 +413,7 @@ class PeopleService(
             session.client.createRoom(parameters)
         } catch (error: ClientException.MatrixApi) {
             if (error.kind is ErrorKind.Forbidden) throw PeopleException(PeopleException.Kind.INVITE_REFUSED)
+            if (error.kind is ErrorKind.LimitExceeded) throw PeopleException(PeopleException.Kind.LIMIT_EXCEEDED)
             throw error
         }
         lockDm(roomId)
@@ -427,3 +447,23 @@ class PeopleService(
             Person.name(userId, profileName, handle, contactName)
     }
 }
+
+/** bipe_reach_limit_body with resets_at as a local date and time, then the step of raise_by (bipe-chat/bipe#846). */
+fun reachNoticeText(context: Context, status: BipeReachStatus): String {
+    val body = status.resetsAt?.let { context.getString(R.string.bipe_reach_limit_body, reachDate(context, it)) }
+        ?: context.getString(R.string.bipe_reach_limit_body_none)
+    val raise = when (status.raiseBy) {
+        BipeReachStatus.RaiseBy.VERIFY -> context.getString(R.string.bipe_account_status_raise_verify)
+        BipeReachStatus.RaiseBy.WAIT -> context.getString(R.string.bipe_account_status_raise_wait)
+        null -> null
+    }
+    return if (raise == null) body else "$body $raise"
+}
+
+/** A local date and time for the reach texts. */
+fun reachDate(context: Context, instant: java.time.Instant): String = android.text.format.DateUtils.formatDateTime(
+    context,
+    instant.toEpochMilli(),
+    android.text.format.DateUtils.FORMAT_SHOW_DATE or android.text.format.DateUtils.FORMAT_SHOW_TIME or
+        android.text.format.DateUtils.FORMAT_ABBREV_MONTH,
+)

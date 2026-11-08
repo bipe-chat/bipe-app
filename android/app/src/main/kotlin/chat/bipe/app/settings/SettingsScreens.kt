@@ -133,6 +133,8 @@ sealed interface SettingsRoute {
     data object LinkPhone : SettingsRoute
     data object LinkedAccounts : SettingsRoute
     data object TheftProtection : SettingsRoute
+    /** Spec account-status (bipe-chat/bipe#846). */
+    data object AccountStatus : SettingsRoute
     data object ProblemReport : SettingsRoute
     data object Licences : SettingsRoute
     data object Versions : SettingsRoute
@@ -222,6 +224,7 @@ fun SettingsHost(
         SettingsRoute.LinkPhone -> LinkComputerScreen(model, onClose = pop, mode = LinkComputerModel.Mode.PHONE)
         SettingsRoute.LinkedAccounts -> LinkedAccountsScreen(model, onBack = pop)
         SettingsRoute.TheftProtection -> TheftProtectionScreen(model, onBack = pop)
+        SettingsRoute.AccountStatus -> AccountStatusScreen(model, onBack = pop)
         SettingsRoute.Licences -> OpenSourceLicencesScreen(onBack = pop)
         SettingsRoute.Versions -> VersionHistoryScreen(onBack = pop)
         SettingsRoute.DataUse -> DataUseScreen(session, onBack = pop)
@@ -425,6 +428,7 @@ fun SettingsGroupScreen(
             BipeSettingsRow.ACCOUNT_LINK_PHONE -> onOpen(SettingsRoute.LinkPhone)
             BipeSettingsRow.ACCOUNT_LINKED_ACCOUNTS -> onOpen(SettingsRoute.LinkedAccounts)
             BipeSettingsRow.ACCOUNT_THEFT_PROTECTION -> onOpen(SettingsRoute.TheftProtection)
+            BipeSettingsRow.ACCOUNT_REACH_STATUS -> onOpen(SettingsRoute.AccountStatus)
             BipeSettingsRow.HELP_REPORT_PROBLEM -> onOpen(SettingsRoute.ProblemReport)
             BipeSettingsRow.HELP_LICENSES -> onOpen(SettingsRoute.Licences)
             BipeSettingsRow.HELP_VERSIONS -> onOpen(SettingsRoute.Versions)
