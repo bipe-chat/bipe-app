@@ -379,7 +379,11 @@ final class MacAccount: ObservableObject {
         refreshTask?.cancel()
         qrBytes = nil
         checkSender = nil
+        checkCode = ""
         sessionSaver?.deactivate()
+        // The cancelled task's catch belongs to the old attempt and cannot clear its spinner.
+        // A retained, revoked account slot must offer Retry after a duplicate link is discarded.
+        phase = .failed
     }
 
     private func revoked() async {

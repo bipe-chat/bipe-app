@@ -197,6 +197,27 @@ final class MacSpikeTests: XCTestCase {
         XCTAssertEqual(try vault.load(userID: session.userId)?.folder, folder)
     }
 
+    @MainActor
+    func testCancelledDuplicateLinkLeavesRetryInsteadOfASpinner() throws {
+        let vault = MacSessionVault(keychain: MemoryKeychain())
+        let folder = UUID().uuidString
+        try vault.save(session, folder: folder)
+        let installed = try XCTUnwrap(vault.load(userID: session.userId))
+        let slot = MacAccount(vault: vault)
+        slot.checkCode = "42"
+
+        // MacWorkspace discards a redundant QR device with cancelLink. Its task then sees
+        // a different attempt and returns without running the ordinary failure cleanup.
+        slot.cancelLink()
+        guard case .failed = slot.phase else { return XCTFail("An abandoned slot must offer Retry") }
+        XCTAssertTrue(slot.checkCode.isEmpty)
+        XCTAssertEqual(try vault.loadAll(), [installed], "Cancellation preserves the installed device and store")
+
+        slot.cancelLink()
+        guard case .failed = slot.phase else { return XCTFail("Repeated cancellation must remain recoverable") }
+        XCTAssertEqual(try vault.loadAll(), [installed])
+    }
+
     func testEmptyAccountListNeverResurrectsALegacyRecord() throws {
         let keychain = MemoryKeychain()
         let vault = MacSessionVault(keychain: keychain)
