@@ -178,7 +178,7 @@ final class MacTimeline: ObservableObject {
             }
             let configuration = TimelineConfiguration(focus: .live(hideThreadedEvents: !isDm), filter: .all,
                                                        internalIdPrefix: nil, dateDividerMode: .daily,
-                                                       trackReadReceipts: .messageLikeEvents, reportUtds: false)
+                                                       trackReadReceipts: .messageLikeEvents, reportUtds: true)
             let timeline = try await room.timelineWithConfiguration(configuration: configuration)
             self.timeline = timeline
             let stream = TimelineDiffStream()

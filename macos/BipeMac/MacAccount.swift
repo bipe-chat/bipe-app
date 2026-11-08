@@ -303,6 +303,8 @@ final class MacAccount: ObservableObject {
         }
         authDelegate = delegate
         authHandle = try client.setDelegate(delegate: delegate)
+        // The UTD hook before the sync service, which takes it from the client (bipe-chat/bipe#1301).
+        try? await client.setUtdDelegate(utdDelegate: UtdCounter())
         let sync = try await client.syncService().withOfflineMode().finish()
         try Task.checkCancellation()
         guard attempt == current else { return }
