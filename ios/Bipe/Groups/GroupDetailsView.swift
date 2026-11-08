@@ -11,6 +11,7 @@ import SwiftUI
 struct GroupDetailsView: View {
     @StateObject private var model: GroupDetailsModel
     @State private var pickedPhoto: PhotosPickerItem?
+    @State private var showsPhoto = false
     @State private var askingEmoji = false
     @State private var emojiText = ""
     @State private var leaving = false
@@ -96,8 +97,19 @@ struct GroupDetailsView: View {
                         .clipShape(Circle())
                 } else {
                     let removed = model.editPhoto == .removed && model.phase != .viewing
-                    AvatarView(name: model.name, mxcUrl: removed ? nil : model.avatarUrl, loader: media, size: 96,
-                               members: model.avatarMembers)
+                    // Spec group-details openPhoto: the group photo full screen (spec avatar-viewer), while viewing.
+                    Button { showsPhoto = true } label: {
+                        AvatarView(name: model.name, mxcUrl: removed ? nil : model.avatarUrl, loader: media, size: 96,
+                                   members: model.avatarMembers)
+                        .bipeTapTarget()
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(model.phase != .viewing || model.avatarUrl == nil)
+                    .accessibilityLabel(BipeStrings.avatarOpen)
+                    .fullScreenCover(isPresented: $showsPhoto) {
+                        AvatarPhotoViewer(name: model.name, mxcUrl: model.avatarUrl, publicPhotoUrl: nil,
+                                          loader: media) { showsPhoto = false }
+                    }
                 }
             }
             if model.phase == .viewing {

@@ -424,7 +424,15 @@ private fun Header(model: PersonProfileModel, state: PersonProfileModel.State, i
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Avatar(state.person.displayName, state.person.avatarUrl, model.people.media, size = 96.dp, userId = state.person.userId, isCompany = state.isCompany, publicPhotoUrl = state.publicPhotoUrl)
+        // Spec person-profile openPhoto: the photo full screen (spec avatar-viewer), only when there is one.
+        var showsPhoto by remember { mutableStateOf(false) }
+        val hasPhoto = state.person.avatarUrl != null || state.publicPhotoUrl != null
+        Box(Modifier.opensAvatarPhoto(hasPhoto, stringResource(R.string.bipe_avatar_open)) { showsPhoto = true }) {
+            Avatar(state.person.displayName, state.person.avatarUrl, model.people.media, size = 96.dp, userId = state.person.userId, isCompany = state.isCompany, publicPhotoUrl = state.publicPhotoUrl)
+        }
+        if (showsPhoto) {
+            AvatarPhotoViewer(state.person.displayName, state.person.avatarUrl, state.publicPhotoUrl, model.people.media) { showsPhoto = false }
+        }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(
                 state.person.displayName,

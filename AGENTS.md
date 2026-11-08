@@ -121,6 +121,16 @@ adb install -r Bipe-Next-<n>.apk
 - A change a tester can see adds one file in `changelog/updates/` ([changelog/README.md](changelog/README.md)): kind, platforms, refs and a bold English headline, no build number. The changelog shows by build on bipe.chat/versoes/ and from Configurações › Ajuda › Histórico de versões. `node --test tools/*.test.mjs` checks the files. CI (`changelog.yml`) fails a PR that changes iOS or Android app code and adds no file; the line `Changelog: none` in the PR description opts out.
 - The PR body carries a `Provenance:` line. The line names every source of the change: a spec id in bipe-shared `product/screens`, a Matrix spec section, a `matrix-sdk-ffi` API, an ADR, or a Bipe file. Example: `Provenance: bipe-shared product/screens/chat-list; Matrix spec client-server 10.2 (sync); matrix-sdk-ffi RoomListService`.
 
+## State
+
+An implicit state machine is one lifecycle held in several independent flags or optionals. It lets the code reach states that cannot exist: a spinner next to a result, two sheets at once, a second send. Do not add new ones. When you touch one, change it to the form below.
+
+- One lifecycle is one enum (Swift), sealed type (Kotlin) or discriminated union (TypeScript). The data and the error live inside the case: `loaded([Day])`, `failed(String)`. Templates: iOS `VersionHistoryView.Phase`, `DataExportView.Phase`; Android `DeletePhase` (`settings/AccountDelete.kt`), `SupportOpenModel.Phase`.
+- A screen shows at most one sheet: one optional `Sheet` enum, not one bool per sheet. Templates: Android `BusinessSheet` (`business/BusinessChat.kt`), `GroupSubScreen`.
+- An async action has an in-flight state, and a second tap does nothing while it runs.
+- A one-way `started` flag needs a way back: a retry, or a `failed` case with a Retry action.
+- A late result from an old attempt is dropped: an attempt token (Mac `MacAccount` `attempt`) or a cancelled task.
+
 ## Specs and generated files
 
 - Screen specs live in bipe-shared `product/screens`. The code follows the spec. If the code must differ from the spec, change the spec first.
