@@ -54,6 +54,7 @@
     <application
         android:name=".BipeApplication"
         android:allowBackup="false"
+        android:enableOnBackInvokedCallback="true"
         android:icon="@mipmap/bipe_app_icon_acai"
         android:label="@string/app_launcher_name"
         android:localeConfig="@xml/locales_config"
