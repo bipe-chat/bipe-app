@@ -179,7 +179,7 @@ struct MacChatView: View {
             if model.editingID != nil {
                 BipeComposerPanel {
                     BipeComposerContextBar(glyph: .edit, title: BipeStrings.appMessageEditing,
-                                           preview: model.draft, onClose: model.cancelEdit)
+                                           preview: model.editingPreview, onClose: model.cancelEdit)
                 }
             } else if model.replyID != nil {
                 BipeComposerPanel {

@@ -97,6 +97,7 @@ final class MacTimeline: ObservableObject {
     @Published var deleteFailed = false
     @Published private(set) var pinned: Set<String> = []
     @Published private(set) var editingID: String?
+    @Published private(set) var editingPreview: String?
     @Published var deleting: MacMessage?
     @Published var reporting: MacMessage?
     @Published var forwarding: MacMessage?
@@ -319,6 +320,7 @@ final class MacTimeline: ObservableObject {
 
     func startReply(_ message: MacMessage) {
         guard message.canReply, let eventID = message.eventID else { return }
+        if editingID != nil { cancelEdit() }
         replyID = eventID
     }
 
@@ -393,12 +395,14 @@ final class MacTimeline: ObservableObject {
         if editingID == nil { draftBeforeEdit = draft }
         replyID = nil
         editingID = message.id
+        editingPreview = message.body
         draft = message.body
     }
 
     func cancelEdit() {
         guard editingID != nil else { return }
         editingID = nil
+        editingPreview = nil
         draft = draftBeforeEdit
         draftBeforeEdit = ""
     }

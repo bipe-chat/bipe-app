@@ -90,6 +90,38 @@ final class MacComposerTests: XCTestCase {
     }
 
     @MainActor
+    func testEditPanelKeepsTheOriginalPreviewAndCancellationRestoresTheDraft() {
+        let model = MacTimeline(drafts: MacDrafts())
+        model.draft = "Unsent draft"
+        model.choose(.edit, message())
+        model.draft = "Changed text"
+        XCTAssertEqual(model.editingPreview, "Original text")
+        model.cancelEdit()
+        XCTAssertNil(model.editingPreview)
+        XCTAssertEqual(model.draft, "Unsent draft")
+    }
+
+    @MainActor
+    func testStartingAReplyCancelsTheEditAndKeepsTheUnsentDraftAsOnIOS() {
+        let model = MacTimeline(drafts: MacDrafts())
+        model.draft = "Unsent draft"
+        model.choose(.edit, message())
+        model.draft = "Changed text"
+        model.startReply(message())
+        XCTAssertNil(model.editingID)
+        XCTAssertNil(model.editingPreview)
+        XCTAssertEqual(model.draft, "Unsent draft")
+        XCTAssertEqual(model.replyID, "$original")
+    }
+
+    private func message() -> MacMessage {
+        MacMessage(id: "original", sender: "Bia", senderID: "@person:example.invalid", senderNameAmbiguous: false,
+            senderRole: nil, body: "Original text", richText: BipeMessageText(body: "Original text"), photo: nil, isEmote: false,
+            timestamp: Date(timeIntervalSince1970: 1), isOwn: true, showsSender: false, pending: false, failed: false,
+            warning: nil, eventID: "$original", canReply: true, canReact: true, reactions: [], canEdit: true)
+    }
+
+    @MainActor
     private func render<Content: View>(_ content: Content, name: String) throws -> NSSize {
         let view = NSHostingView(rootView: content)
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 720, height: 200),
