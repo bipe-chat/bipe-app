@@ -326,11 +326,16 @@ final class PeopleService: ObservableObject {
     /// Spec person-profile reach notice (bipe-chat/bipe#846), after M_LIMIT_EXCEEDED on a new DM or an add to a group.
     /// The budget notice when GET /v1/me/reach says the budget is spent. Else, and when the read fails, the generic error.
     func reachNotice() async -> String {
-        let api = api
-        guard let status = try? await withToken({ (token: String) async throws(BipeAPIError) -> BipeReachStatus in
+        await Self.reachNotice(session: session, api: api)
+    }
+
+    /// reachNotice for a screen that holds a session and the API client but no PeopleService (group screens, #1299).
+    static func reachNotice(session: AccountSession, api: BipeAPIClient) async -> String {
+        guard let status = try? await BipeAPIClient.withTokenRetry(accessToken: { session.accessToken() },
+                                                                   { (token: String) async throws(BipeAPIError) -> BipeReachStatus in
             try await api.reach(accessToken: token)
         }), status.isSpent else { return BipeStrings.errorGeneric }
-        return Self.reachNotice(status)
+        return reachNotice(status)
     }
 
     /// bipe_reach_limit_body with resets_at as a local date and time, then the step of raise_by.

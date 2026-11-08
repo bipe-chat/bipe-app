@@ -4,6 +4,7 @@
 
 package chat.bipe.app.groups
 
+import chat.bipe.app.people.reachNoticeFor
 import android.graphics.BitmapFactory
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -71,10 +72,14 @@ fun GroupCreateScreen(
     session: AccountSession,
     media: MediaLoader,
     onClose: () -> Unit,
-    onCreated: (roomId: String, allInvited: Boolean) -> Unit,
+    /** The new group, and the notice to show after it opens (null: every invite went out). */
+    onCreated: (roomId: String, notice: String?) -> Unit,
     people: List<Person> = emptyList(),
 ) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val api = LocalBipeApi.current
+    val invitesFailed = stringResource(R.string.bipe_app_group_create_invites_failed)
     val model = remember(session) { GroupCreateModel(session, scope, people) }
     LaunchedEffect(model) { model.appear() }
     var picking by remember { mutableStateOf(false) }
@@ -116,7 +121,18 @@ fun GroupCreateScreen(
                 if (creating) {
                     CircularProgressIndicator(color = colors.accentFill, modifier = Modifier.size(24.dp).padding(end = 4.dp))
                 } else {
-                    TextButton(onClick = { model.create(onCreated) }, enabled = model.canCreate(name, phase)) {
+                    TextButton(onClick = {
+                        model.create { roomId, allInvited, limited ->
+                            scope.launch {
+                                val notice = when {
+                                    limited && api != null -> reachNoticeFor(context, session, api)
+                                    !allInvited -> invitesFailed
+                                    else -> null
+                                }
+                                onCreated(roomId, notice)
+                            }
+                        }
+                    }, enabled = model.canCreate(name, phase)) {
                         Text(stringResource(R.string.bipe_groups_empty_action))
                     }
                 }

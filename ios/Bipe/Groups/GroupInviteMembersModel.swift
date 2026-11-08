@@ -45,6 +45,9 @@ final class GroupInviteMembersModel: ObservableObject {
     @Published private(set) var handleNotFound = false
     @Published private(set) var phase = Phase.choosing
     @Published private(set) var loading = true
+    /// Spec group-invite-members reachNotice: shown once above the list after M_LIMIT_EXCEEDED (bipe-chat/bipe#1299).
+    @Published private(set) var reachNotice: String?
+    private var api: BipeAPIClient?
 
     let mode: Mode
     private let session: AccountSession
@@ -72,6 +75,7 @@ final class GroupInviteMembersModel: ObservableObject {
 
     func appear(api: BipeAPIClient?, media: MediaLoader) async {
         guard loading else { return }
+        self.api = api
         if let api {
             lookup = GroupInviteLookup(people: PeopleService(session: session, api: api, media: media))
         }
@@ -178,6 +182,13 @@ final class GroupInviteMembersModel: ObservableObject {
             case .refused:
                 results[userId] = .refused
                 allSent = false
+            case .limited:
+                // The person stays marked as not invited; the notice says why, once.
+                results[userId] = .failed
+                allSent = false
+                if reachNotice == nil, let api {
+                    reachNotice = await PeopleService.reachNotice(session: session, api: api)
+                }
             case .failed:
                 results[userId] = .failed
                 allSent = false

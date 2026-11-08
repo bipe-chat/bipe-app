@@ -113,6 +113,8 @@ enum GroupPeople {
 enum InviteOutcome {
     case sent
     case refused
+    /// M_LIMIT_EXCEEDED: the first-contact budget, or the server's own rate limit (bipe-chat/bipe#1299).
+    case limited
     case failed
 
     /// A refused invite is the server's who-can-message module (ADR 0038): the spam checker answers M_FORBIDDEN.
@@ -123,6 +125,9 @@ enum InviteOutcome {
         }
         if let clientError = error as? ClientError, case .MatrixApi(_, let code, _, _) = clientError, code == "M_FORBIDDEN" {
             self = .refused
+        } else if let clientError = error as? ClientError,
+                  case .MatrixApi(kind: .limitExceeded(retryAfterMs: _), code: _, msg: _, details: _) = clientError {
+            self = .limited
         } else {
             self = .failed
         }
