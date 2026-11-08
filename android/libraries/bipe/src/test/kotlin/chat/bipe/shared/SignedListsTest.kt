@@ -6,6 +6,7 @@ package chat.bipe.shared
 
 import chat.bipe.core.ListType
 import com.google.common.truth.Truth.assertThat
+import com.google.common.truth.Truth.assertWithMessage
 import org.junit.Test
 import java.nio.file.Files
 
@@ -27,20 +28,26 @@ class SignedListsTest {
     @Test
     fun defaultServerCountsAlsoWhenStale() {
         val lists = SignedLists(null)
-        val far = 4_102_444_800L
-        assertThat(lists.isBipeServer("bipe.net.br")).isTrue()
-        assertThat(lists.isBipeServer("bipe.net.br", far)).isTrue()
-        assertThat(lists.isBipeServer("matrix.org")).isFalse()
-        assertThat(lists.isBipeServer("matrix.org", far)).isFalse()
+        // Year 2100: every bundled list is stale by then.
+        val nowValues = listOf<Long?>(null, 4_102_444_800L)
+        val expected = mapOf("bipe.net.br" to true, "matrix.org" to false)
+        for ((server, bipe) in expected) {
+            for (now in nowValues) {
+                val result = if (now == null) lists.isBipeServer(server) else lists.isBipeServer(server, now)
+                assertWithMessage("$server at $now").that(result).isEqualTo(bipe)
+            }
+        }
     }
 
     @Test
     fun rejectedEnvelopeKeepsTheCurrentList() {
         val lists = SignedLists(null)
         val before = lists.current(ListType.OPERATORS)
-        assertThat(lists.accept("{}", ListType.OPERATORS, System.currentTimeMillis() / 1000)).isNotEqualTo("valid")
-        assertThat(lists.accept(SignedLists.bundled(ListType.ISSUERS), ListType.OPERATORS, System.currentTimeMillis() / 1000))
-            .isEqualTo("wrong_type")
+        val now = System.currentTimeMillis() / 1000
+        val empty = lists.accept("{}", ListType.OPERATORS, now)
+        val issuersAsOperators = lists.accept(SignedLists.bundled(ListType.ISSUERS), ListType.OPERATORS, now)
+        assertThat(empty).isNotEqualTo("valid")
+        assertThat(issuersAsOperators).isEqualTo("wrong_type")
         assertThat(lists.current(ListType.OPERATORS)).isEqualTo(before)
     }
 
@@ -68,7 +75,7 @@ class SignedListsTest {
 
     @Test
     fun upperCaseServerIsNotBipe() {
-        assertThat(BipeServers.isBipeUserId("@ana:bipe.net.br")).isTrue()
-        assertThat(BipeServers.isBipeUserId("@ana:BIPE.NET.BR")).isFalse()
+        val cases = listOf("@ana:bipe.net.br" to true, "@ana:BIPE.NET.BR" to false)
+        cases.forEach { (userId, bipe) -> assertWithMessage(userId).that(BipeServers.isBipeUserId(userId)).isEqualTo(bipe) }
     }
 }
