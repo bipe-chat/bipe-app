@@ -1,0 +1,115 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
+# Copyright 2026 Bipe contributors
+
+# bipe-core release (ADR 0267, bipe-chat/bipe#1277 item 4). Builds every client artifact with the jobs of core.yml,
+# then publishes them as the GitHub release core-<version> on this commit, with SHA-256 sums and a manifest that
+# records the source commit. Clients take the artifacts from the release, never from a CI workspace:
+# core/release/release.json pins the version, the commit and each checksum (core/release/README.md).
+# It is a prerelease and never "latest", so tools and pages that read the latest release do not see it.
+# Run: gh workflow run core-release.yml --repo bipe-chat/bipe-app --ref main -f version=<x.y.z>
+name: core-release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: bipe-core version (x.y.z)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: core-release
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: core-release-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ inputs.version }}
+    steps:
+      - name: Version and branch
+        run: |
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::version must be x.y.z"; exit 1; }
+          [ "$GITHUB_REF" = refs/heads/main ] || { echo "::error::release from main only"; exit 1; }
+          if gh release view "core-$VERSION" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "::error::core-$VERSION exists. A release is never replaced: take the next version."
+            exit 1
+          fi
+
+  build:
+    needs: check
+    uses: ./.github/workflows/core.yml
+    with:
+      version: ${{ inputs.version }}
+
+  publish:
+    name: core-release-publish
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: core-dist-*
+          path: dist
+          merge-multiple: true
+      - name: Manifest and checksums
+        run: |
+          cd dist
+          ls -la
+          for f in "bipe_coreFFI-$VERSION.xcframework.zip" "bipe_core-$VERSION.swift" "bipe-core-$VERSION.aar" \
+                   "bipe-core-jvm-$VERSION.jar" "bipe-core-web-$VERSION.tgz"; do
+            test -s "$f" || { echo "::error::$f is missing"; exit 1; }
+          done
+          sha256sum -- * > SHA256SUMS
+          uniffi=$(grep -oE 'rev = "[0-9a-f]{40}"' ../core/crates/bipe-core/Cargo.toml | head -1 | cut -d'"' -f2)
+          jq -n --arg version "$VERSION" --arg commit "$GITHUB_SHA" --arg run "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+            --arg rust "$(grep -oE '"[0-9.]+"' ../core/rust-toolchain.toml | tr -d '"')" --arg uniffi "$uniffi" \
+            --arg sdk "$(tr -d '[:space:]' < ../sdk-version)" --rawfile sums SHA256SUMS '
+            {
+              version: $version,
+              tag: ("core-" + $version),
+              commit: $commit,
+              run: $run,
+              rust: $rust,
+              uniffi: $uniffi,
+              sdkVersion: $sdk,
+              assets: ($sums | split("\n") | map(select(length > 0) | split("  ") | {key: .[1], value: .[0]}) | from_entries)
+            }' > "bipe-core-$VERSION.json"
+          cat "bipe-core-$VERSION.json"
+      - name: Publish
+        run: |
+          {
+            echo "bipe-core $VERSION (ADR 0267). Source commit: $GITHUB_SHA. Built by $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID."
+            echo
+            echo "No production client ships this until bipe-chat/bipe#1277 closes. Pin it with core/release/release.json."
+            echo
+            echo '```'
+            cat dist/SHA256SUMS
+            echo '```'
+          } > notes.md
+          gh release create "core-$VERSION" dist/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "bipe-core $VERSION" --notes-file notes.md --prerelease --latest=false
+          {
+            echo "### bipe-core $VERSION"
+            echo
+            echo "Release: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/tag/core-$VERSION"
+            echo
+            echo '```'
+            cat "dist/bipe-core-$VERSION.json"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
