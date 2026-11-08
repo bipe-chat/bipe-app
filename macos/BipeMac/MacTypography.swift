@@ -6,7 +6,7 @@ import SwiftUI
 
 /// Bipe's existing iOS/web type scale. Native macOS body text defaults to 13pt, rather than Bipe's 17pt.
 enum MacTextStyle: Equatable {
-    case body, headline, subheadline, callout, footnote, caption, title2, largeTitle
+    case body, headline, subheadline, callout, footnote, caption, caption2, title2, largeTitle
     var size: CGFloat {
         switch self {
         case .body, .headline: 17
@@ -14,6 +14,7 @@ enum MacTextStyle: Equatable {
         case .callout: 16
         case .footnote: 13
         case .caption: 12
+        case .caption2: 11
         case .title2: 22
         case .largeTitle: 34
         }
@@ -26,6 +27,7 @@ enum MacTextStyle: Equatable {
         case .callout: .callout
         case .footnote: .footnote
         case .caption: .caption
+        case .caption2: .caption2
         case .title2: .title2
         case .largeTitle: .largeTitle
         }

@@ -79,14 +79,7 @@ struct TimelineRowView: View {
                     .accessibilityAddTraits(.isHeader)
             }
         case .readMarker:
-            HStack(spacing: 8) {
-                Rectangle().fill(BipeColor.accentFill).frame(height: 1)
-                Text(BipeStrings.appTimelineNewMessages)
-                    .font(.caption.bold())
-                    .foregroundStyle(BipeColor.accentInk)
-                Rectangle().fill(BipeColor.accentFill).frame(height: 1)
-            }
-            .padding(.vertical, 6)
+            TimelineReadMarker()
         case .handleChange:
             if let line = row.handleChange, let text = line.change.line(name: line.name) {
                 SystemLine(text: text, kind: .action)
@@ -304,20 +297,6 @@ private struct MessageBubbleRow: View {
     }
 }
 
-/// Every event message keeps its clock time; accessibility also exposes the date.
-private struct MessageTimestamp: View {
-    let sentAt: Date
-
-    var body: some View {
-        Text(sentAt.formatted(date: .omitted, time: .shortened))
-            .font(.caption2)
-            .monospacedDigit()
-            .foregroundStyle(BipeColor.inkSecondary)
-            .fixedSize(horizontal: true, vertical: false)
-            .accessibilityLabel(sentAt.formatted(date: .complete, time: .shortened))
-    }
-}
-
 /// Spec scam-warning: a calm caution card. Title then the kind text, one element for screen readers.
 private struct ScamWarningCard: View {
     let kind: ScamWarningKind
@@ -423,40 +402,6 @@ private struct ReaderAvatars: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(BipeStrings.appReceiptReadBy(readers.count.formatted()))
         .accessibilityAddTraits(.isButton)
-    }
-}
-
-/// Spec message-reply: the quote of the original inside the reply.
-struct ReplyQuote: View {
-    let reply: MessageReply
-
-    var body: some View {
-        HStack(spacing: 8) {
-            RoundedRectangle(cornerRadius: 1.5)
-                .fill(BipeColor.accentFill)
-                .frame(width: 3)
-            VStack(alignment: .leading, spacing: 2) {
-                switch reply.state {
-                case .loading:
-                    Text(BipeStrings.appMessageReplyLoading)
-                        .foregroundStyle(BipeColor.inkSecondary)
-                case .unavailable:
-                    Text(BipeStrings.appMessageReplyUnavailable)
-                        .foregroundStyle(BipeColor.inkSecondary)
-                case .ready:
-                    Text(reply.senderName ?? "")
-                        .bold()
-                        .foregroundStyle(BipeColor.accentInk)
-                    Text(reply.preview ?? "")
-                        .foregroundStyle(BipeColor.inkSecondary)
-                        .lineLimit(1)
-                }
-            }
-            .font(.caption)
-        }
-        .padding(6)
-        .background(RoundedRectangle(cornerRadius: 8).fill(BipeColor.surfaceSunken.opacity(0.6)))
-        .fixedSize(horizontal: false, vertical: true)
     }
 }
 
