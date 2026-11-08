@@ -106,6 +106,8 @@ final class AccountSession {
     }
 
     private static func start(_ client: Client) async throws -> AccountSession {
+        // The UTD hook before the sync service, which takes it from the client (bipe-chat/bipe#1122).
+        try? await client.setUtdDelegate(utdDelegate: UtdCounter())
         let syncService = try await AccountStep.run("sync service") {
             // The SDK starts network tasks in the background and reconnects after offline failures.
             // Neither an initial sync response nor a reachability probe is a local-readiness gate.

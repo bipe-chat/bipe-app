@@ -172,7 +172,8 @@ struct ProblemReportView: View {
                 }
             },
             // Spec problem-report notes: legacy-data.json (structure only) when the earlier app's data is here.
-            logs: includeLogs ? Array(AppLogs.compressedFiles().prefix(19)) + [LegacyData.reportFile()].compactMap { $0 } : [])
+            // utd.json: the UTD counts of this phone, no IDs (bipe-chat/bipe#1122).
+            logs: includeLogs ? Array(AppLogs.compressedFiles().prefix(18)) + [LegacyData.reportFile(), UtdCounter.reportFile()].compactMap { $0 } : [])
         let api = model.api
         do {
             try await model.authorized { (token: String) async throws(BipeAPIError) in

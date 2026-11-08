@@ -155,6 +155,8 @@ class AccountSession(val client: Client, val syncService: SyncService, val userI
         }
 
         private suspend fun start(client: Client, context: Context): AccountSession {
+            // The UTD hook before the sync service, which takes it from the client (bipe-chat/bipe#1122).
+            runCatching { client.setUtdDelegate(chat.bipe.app.encryption.UtdCounter(context)) }
             val syncService = AccountStep.run("sync service") {
                 // start() spawns SDK network tasks; offline mode retries when connectivity returns.
                 // Initial sync/reachability responses must never gate local readiness.

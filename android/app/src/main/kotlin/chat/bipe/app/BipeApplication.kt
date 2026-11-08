@@ -81,13 +81,14 @@ class BipeApplication : Application() {
         chat.bipe.app.timeline.ReadReceiptSetting.init(this)
         // Before any SDK call. On Android, initPlatform is the only place where the SDK sets up rustls-platform-verifier:
         // without it the first HTTPS request (the login) panics, and Kotlin gets InternalException. It also sends SDK
-        // warnings, errors and panics to logcat.
+        // warnings, errors and panics to logcat, in debug builds only (bipe-chat/bipe#1122): a release build writes no SDK
+        // log, so nothing about the person's chats reaches logcat.
         initPlatform(
             TracingConfiguration(
                 logLevel = LogLevel.WARN,
                 traceLogPacks = emptyList(),
                 extraTargets = emptyList(),
-                writeToStdoutOrSystem = true,
+                writeToStdoutOrSystem = BuildConfig.DEBUG,
                 writeToFiles = null,
                 sentryConfig = null,
             ),

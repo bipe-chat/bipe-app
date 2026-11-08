@@ -194,6 +194,7 @@ targets:
       - path: NotificationService
       - path: Bipe/Common/AppConfig.swift
       - path: Bipe/Account/AccountSession.swift
+      - path: Bipe/Encryption/UtdCounter.swift
       - path: Bipe/Account/AccountStep.swift
       - path: Bipe/Account/SessionStore.swift
       - path: Bipe/Notifications/NotificationKeys.swift
