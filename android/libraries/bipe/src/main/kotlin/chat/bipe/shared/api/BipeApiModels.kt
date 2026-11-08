@@ -476,3 +476,39 @@ data class BipeVerificationStatus(
     val badge: chat.bipe.shared.BadgeEnvelope? = null,
     val reason: String? = null,
 )
+
+/**
+ * `ReachStatus` of `GET /v1/me/reach` (security.md rule 11, bipe-chat/bipe#851): the first-contact tier and budget.
+ * The budgets are server configuration; the app shows what the server sends and computes nothing.
+ */
+@Serializable
+data class BipeReachStatus(
+    @SerialName("tier") val tier: Tier,
+    /** First contacts allowed per rolling window. */
+    @SerialName("budget") val budget: Int,
+    /** First contacts in the window. */
+    @SerialName("used") val used: Int,
+    /** When one unit comes back. `null` when [used] is 0. */
+    @Serializable(with = InstantSerializer::class) @SerialName("resets_at") val resetsAt: Instant? = null,
+    /** The step that raises the budget. `null`: no step the owner can take. */
+    @SerialName("raise_by") val raiseBy: RaiseBy? = null,
+) {
+    @Serializable
+    enum class Tier {
+        @SerialName("unattested") UNATTESTED,
+        @SerialName("new") NEW,
+        @SerialName("normal") NORMAL,
+        @SerialName("verified") VERIFIED,
+        @SerialName("company") COMPANY,
+        @SerialName("slowed") SLOWED,
+    }
+
+    @Serializable
+    enum class RaiseBy {
+        @SerialName("verify") VERIFY,
+        @SerialName("wait") WAIT,
+    }
+
+    /** Spec person-profile reach notice: the budget is spent. */
+    val isSpent: Boolean get() = used >= budget
+}

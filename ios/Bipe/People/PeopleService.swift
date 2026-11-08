@@ -318,7 +318,31 @@ final class PeopleService: ObservableObject {
             return try await NativeDm.create(with: userId, client: session.client)
         } catch NativeDm.CreateError.inviteRefused {
             throw PeopleError.inviteRefused
+        } catch NativeDm.CreateError.limitExceeded {
+            throw PeopleError.limitExceeded
         }
+    }
+
+    /// Spec person-profile reach notice (bipe-chat/bipe#846), after M_LIMIT_EXCEEDED on a new DM or an add to a group.
+    /// The budget notice when GET /v1/me/reach says the budget is spent. Else, and when the read fails, the generic error.
+    func reachNotice() async -> String {
+        let api = api
+        guard let status = try? await withToken({ (token: String) async throws(BipeAPIError) -> BipeReachStatus in
+            try await api.reach(accessToken: token)
+        }), status.isSpent else { return BipeStrings.errorGeneric }
+        return Self.reachNotice(status)
+    }
+
+    /// bipe_reach_limit_body with resets_at as a local date and time, then the step of raise_by.
+    static func reachNotice(_ status: BipeReachStatus) -> String {
+        var text = status.resetsAt.map { BipeStrings.reachLimitBody($0.formatted(date: .abbreviated, time: .shortened)) }
+            ?? BipeStrings.reachLimitBodyNone
+        switch status.raiseBy {
+        case .verify: text += " " + BipeStrings.accountStatusRaiseVerify
+        case .wait: text += " " + BipeStrings.accountStatusRaiseWait
+        case nil: break
+        }
+        return text
     }
 }
 
@@ -335,6 +359,8 @@ enum PeopleError: Error {
     case notFound
     /// The other person's who-can-message setting refused the invite.
     case inviteRefused
+    /// M_LIMIT_EXCEEDED on a new DM (bipe-chat/bipe#846). Show PeopleService.reachNotice.
+    case limitExceeded
 }
 
 final class IgnoredUsersStream: IgnoredUsersListener {
