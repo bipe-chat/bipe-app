@@ -226,9 +226,6 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Incoming call (flow chat). Spec: bipe-shared/product/screens/incoming-call.json
     case incomingCall = "incoming-call"
 
-    /// Interno (flow business). Spec: bipe-shared/product/screens/interno.json
-    case interno = "interno"
-
     /// Create an invite (flow invites). Spec: bipe-shared/product/screens/invite-note.json
     case inviteNote = "invite-note"
 
