@@ -5,9 +5,9 @@
 import Foundation
 
 /// The encrypted SDK stores hold what the Mac keeps. Nothing else stays on disk unencrypted: no URL cache, which
-/// would list the people the app looked up, and no prepared photos after a quit or a crash.
+/// would list the people the app looked up, and no prepared attachments or decrypted previews after a quit or a crash.
 enum MacLocalCache {
-    /// Call at launch, before any request and before a photo can be prepared.
+    /// Call at launch and normal quit. Launch also removes files left by a crash.
     static func clean() {
         URLCache.shared = URLCache(memoryCapacity: 4 * 1024 * 1024, diskCapacity: 0)
         guard let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first else { return }

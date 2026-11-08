@@ -9,12 +9,13 @@ struct MacMessagePayload {
     let body: String
     let richText: BipeMessageText
     var photo: MacPhoto? = nil
+    var file: MacFile? = nil
     var isEmote = false
     var isEdited = false
     var isDeleted = false
     var isUndecryptable = false
     /// Everything the sender wrote that a person can read or copy, for the scam detector.
-    var safetyText: String { [body, richText.safetyText, photo?.description].compactMap { $0 }.joined(separator: "\n") }
+    var safetyText: String { [body, richText.safetyText, photo?.description, file?.content.filename, file?.name.filename].compactMap { $0 }.joined(separator: "\n") }
 
     init(body: String, formatted: FormattedBody? = nil) {
         self.body = body
@@ -31,6 +32,9 @@ struct MacMessagePayload {
         case .image(let content):
             self.init(body: content.caption ?? "", formatted: content.formattedCaption)
             photo = MacPhoto(content: content, description: BipeImageDescription.read(eventJson: eventJson))
+        case .file(let content):
+            self.init(body: content.caption ?? "", formatted: content.formattedCaption)
+            file = MacFile(content: content)
         default: self.init(body: fallback)
         }
     }
