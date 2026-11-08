@@ -309,6 +309,10 @@ private fun WorkNotesSheet(session: AccountSession, account: WorkAccount, roomId
                     else -> LazyColumn(modifier = Modifier.fillMaxSize()) {
                         items(notes, key = { it.eventId }) { note ->
                             Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                // State notes: the sender seat when known, from the seat list.
+                                state.seatName(note.seatId)?.let { author ->
+                                    Text(author, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = colors.accentInk)
+                                }
                                 Text(note.body, style = MaterialTheme.typography.bodyMedium, color = colors.inkPrimary)
                                 Text(
                                     android.text.format.DateUtils.formatDateTime(context, note.timestampMs,

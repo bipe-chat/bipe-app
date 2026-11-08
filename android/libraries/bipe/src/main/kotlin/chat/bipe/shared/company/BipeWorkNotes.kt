@@ -15,13 +15,14 @@ import kotlinx.serialization.json.put
 
 /**
  * The notes room of a work account (bipe ADR 0284 points 18 and 19, bipe-chat/bipe#1293; bipe-shared
- * registries/work-notes.json). A note is an m.text message whose field chat.bipe.work_note names the customer chat. A
- * reply-by event says which seat sent a reply to a customer. The rules match workNoteFromEvent and replyByFromEvent in
+ * registries/work-notes.json). A note is an m.text message whose field chat.bipe.work_note names the customer chat and the
+ * seat that wrote it. A reply-by is an m.notice message whose field chat.bipe.reply_by says which seat sent a reply to a
+ * customer. Both are m.room.message: matrix-sdk-ui drops custom event types from the timeline. The rules match workNoteFromEvent and replyByFromEvent in
  * bipe-shared tools/lib/registries.mjs and test-vectors/work-notes.json.
  */
 object BipeWorkNotes {
-    /** One note that the apps show on a customer chat. */
-    data class Note(val roomId: String, val body: String)
+    /** One note that the apps show on a customer chat. [seatId] null: no seat of the account wrote it, no author shows. */
+    data class Note(val roomId: String, val body: String, val seatId: String?)
 
     /** One reply-by event that the apps show as a name on a reply. */
     data class ReplyBy(val roomId: String, val eventId: String, val seatId: String)
@@ -47,35 +48,47 @@ object BipeWorkNotes {
     /** The account data content that names the notes room. */
     fun accountDataContent(roomId: String): String = buildJsonObject { put("room_id", roomId) }.toString()
 
-    /** The content of a note on the customer chat [roomId]: m.text with the body and noteField {room_id}. */
-    fun noteContent(body: String, roomId: String): String = buildJsonObject {
+    /** The content of a note on the customer chat [roomId] by [seatId]: m.text with the body and noteField {room_id, seat_id}. */
+    fun noteContent(body: String, roomId: String, seatId: String?): String = buildJsonObject {
         put("msgtype", "m.text")
         put("body", body)
-        put(BipeRegistries.WORK_NOTE_FIELD, buildJsonObject { put("room_id", roomId) })
+        put(BipeRegistries.WORK_NOTE_FIELD, buildJsonObject {
+            put("room_id", roomId)
+            seatId?.let { put("seat_id", it) }
+        })
     }.toString()
 
-    /** The content of a reply-by event: seat [seatId] sent event [eventId] in the customer chat [roomId]. */
+    /**
+     * The content of a reply-by message (type m.room.message): m.notice with replyByBody and replyByField
+     * {room_id, event_id, seat_id}: seat [seatId] sent event [eventId] in the customer chat [roomId].
+     */
     fun replyByContent(roomId: String, eventId: String, seatId: String): String = buildJsonObject {
-        put("room_id", roomId)
-        put("event_id", eventId)
-        put("seat_id", seatId)
+        put("msgtype", "m.notice")
+        put("body", BipeRegistries.WORK_REPLY_BY_BODY)
+        put(BipeRegistries.WORK_REPLY_BY_FIELD, buildJsonObject {
+            put("room_id", roomId)
+            put("event_id", eventId)
+            put("seat_id", seatId)
+        })
     }.toString()
 
     /**
      * workNoteFromEvent for the raw JSON of a notes room event. [sender] (EventTimelineItem.sender) replaces the JSON
      * sender when given, and [redacted] marks a redacted timeline item.
      */
-    fun noteFromEventJson(json: String?, sender: String? = null, redacted: Boolean = false, ownUserId: String, joinedRoomIds: Set<String>): NoteResult {
+    fun noteFromEventJson(json: String?, sender: String? = null, redacted: Boolean = false, ownUserId: String,
+                          joinedRoomIds: Set<String>, seatIds: Set<String>): NoteResult {
         val event = parse(json) as? JsonObject ?: return NoteResult.Hide("type")
-        return noteFromEvent(string(event["type"]), sender ?: string(event["sender"]), redacted || isRedacted(event), event["content"], ownUserId, joinedRoomIds)
+        return noteFromEvent(string(event["type"]), sender ?: string(event["sender"]), redacted || isRedacted(event), event["content"],
+            ownUserId, joinedRoomIds, seatIds)
     }
 
-    /** workNoteFromEvent: an event { sender, type, redacted?, content } of the notes room. */
-    fun noteFromEvent(event: JsonObject, ownUserId: String, joinedRoomIds: Set<String>): NoteResult =
-        noteFromEvent(string(event["type"]), string(event["sender"]), isRedacted(event), event["content"], ownUserId, joinedRoomIds)
+    /** workNoteFromEvent: an event { sender, type, redacted?, content } of the notes room. [seatIds] from GET /v1/me/business/seats. */
+    fun noteFromEvent(event: JsonObject, ownUserId: String, joinedRoomIds: Set<String>, seatIds: Set<String>): NoteResult =
+        noteFromEvent(string(event["type"]), string(event["sender"]), isRedacted(event), event["content"], ownUserId, joinedRoomIds, seatIds)
 
     private fun noteFromEvent(type: String?, sender: String?, redacted: Boolean, rawContent: JsonElement?,
-                              ownUserId: String, joinedRoomIds: Set<String>): NoteResult {
+                              ownUserId: String, joinedRoomIds: Set<String>, seatIds: Set<String>): NoteResult {
         if (type != "m.room.message") return NoteResult.Hide("type")
         if (redacted) return NoteResult.Hide("redacted")
         if (sender != ownUserId) return NoteResult.Hide("sender")
@@ -87,7 +100,9 @@ object BipeWorkNotes {
         val body = string(content["body"])?.takeIf { it.isNotBlank() } ?: return NoteResult.Hide("body")
         // Kotlin and JavaScript String.length both count UTF-16 code units.
         if (body.length > BipeRegistries.WORK_NOTE_BODY_MAX_LENGTH) return NoteResult.Hide("body_too_long")
-        return NoteResult.Show(Note(roomId, body))
+        // A seat that left, or none: the note still shows, with no author.
+        val seatId = string(field["seat_id"])?.takeIf { it in seatIds }
+        return NoteResult.Show(Note(roomId, body, seatId))
     }
 
     /** replyByFromEvent for the raw JSON of a notes room event; [sender] and [redacted] as for [noteFromEventJson]. */
@@ -102,10 +117,12 @@ object BipeWorkNotes {
 
     private fun replyByFromEvent(type: String?, sender: String?, redacted: Boolean, rawContent: JsonElement?,
                                  ownUserId: String, seatIds: Set<String>): ReplyByResult {
-        if (type != BipeRegistries.WORK_REPLY_BY_TYPE) return ReplyByResult.Hide("type")
+        if (type != "m.room.message") return ReplyByResult.Hide("type")
         if (redacted) return ReplyByResult.Hide("redacted")
         if (sender != ownUserId) return ReplyByResult.Hide("sender")
-        val content = rawContent as? JsonObject ?: return ReplyByResult.Hide("content")
+        val message = rawContent as? JsonObject
+        if (message == null || string(message["msgtype"]) != "m.notice") return ReplyByResult.Hide("content")
+        val content = message[BipeRegistries.WORK_REPLY_BY_FIELD] as? JsonObject ?: return ReplyByResult.Hide("field")
         val roomId = string(content["room_id"])?.takeIf { it.startsWith("!") } ?: return ReplyByResult.Hide("room_id")
         val eventId = string(content["event_id"])?.takeIf { it.startsWith("$") } ?: return ReplyByResult.Hide("event_id")
         val seatId = string(content["seat_id"])?.takeIf { it in seatIds } ?: return ReplyByResult.Hide("seat_id")

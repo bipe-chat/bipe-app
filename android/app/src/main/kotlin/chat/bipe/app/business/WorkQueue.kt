@@ -97,8 +97,8 @@ object WorkQueue {
 }
 
 class WorkAccount internal constructor(private val context: Context, val session: AccountSession) {
-    /** One note of spec work-notes. The protocol carries no seat, so a note shows its time only. */
-    data class Note(val eventId: String, val roomId: String, val body: String, val timestampMs: Long)
+    /** One note of spec work-notes. [seatId] null: the author is unknown, only the time shows. */
+    data class Note(val eventId: String, val roomId: String, val body: String, val timestampMs: Long, val seatId: String? = null)
 
     /** State phase of spec work-chat-bar. */
     enum class Phase { IDLE, UPDATING, TAKEN, FAILED }
@@ -306,9 +306,10 @@ class WorkAccount internal constructor(private val context: Context, val session
             val eventId = (event.eventOrTransactionId as? EventOrTransactionId.EventId)?.eventId ?: continue
             val redacted = (event.content as? TimelineItemContent.MsgLike)?.content?.kind is MsgLikeKind.Redacted
             val json = runCatching { event.lazyProvider.debugInfo().originalJson }.getOrNull()
-            when (val note = BipeWorkNotes.noteFromEventJson(json, event.sender, redacted, session.userId, joined)) {
+            // Reply-by notices are not notes: noteFromEvent hides every m.notice, so they never show in the sheet.
+            when (val note = BipeWorkNotes.noteFromEventJson(json, event.sender, redacted, session.userId, joined, seatIds)) {
                 is BipeWorkNotes.NoteResult.Show ->
-                    notes += Note(eventId, note.note.roomId, note.note.body, event.timestamp.toLong())
+                    notes += Note(eventId, note.note.roomId, note.note.body, event.timestamp.toLong(), note.note.seatId)
                 is BipeWorkNotes.NoteResult.Hide -> {
                     val reply = BipeWorkNotes.replyByFromEventJson(json, event.sender, redacted, session.userId, seatIds)
                     if (reply is BipeWorkNotes.ReplyByResult.Show) replyBy[reply.replyBy.eventId] = reply.replyBy.seatId
@@ -326,7 +327,7 @@ class WorkAccount internal constructor(private val context: Context, val session
         val sent = try {
             val notesRoom = notesRoomId()
             val room = session.client.getRoom(notesRoom) ?: error("no notes room")
-            room.sendRaw("m.room.message", BipeWorkNotes.noteContent(text, roomId))
+            room.sendRaw("m.room.message", BipeWorkNotes.noteContent(text, roomId, _state.value.mySeat))
             true
         } catch (cancelled: CancellationException) {
             throw cancelled
@@ -384,7 +385,7 @@ class WorkAccount internal constructor(private val context: Context, val session
         _state.update { it.copy(replyBy = it.replyBy + (eventId to seat)) }
         runCatching {
             val room = session.client.getRoom(notesRoomId()) ?: error("no notes room")
-            room.sendRaw(BipeRegistries.WORK_REPLY_BY_TYPE, BipeWorkNotes.replyByContent(roomId, eventId, seat))
+            room.sendRaw("m.room.message", BipeWorkNotes.replyByContent(roomId, eventId, seat))
         }.onFailure { repliedBy.remove(eventId) }
         watchNotes()
     }
