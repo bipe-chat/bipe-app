@@ -84,9 +84,25 @@ struct MacLinkView: View {
     @ObservedObject var account: MacAccount
 
     var body: some View {
-        VStack(spacing: MacDesign.sectionGap) {
-            MacBrand()
-            Text(title).macFont(.title2).fontWeight(.semibold).multilineTextAlignment(.center)
+        // The cover takes the leading side of a wide window and the top of a narrow one.
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 0) {
+                MacLinkCover().frame(width: 360)
+                panel.frame(minWidth: 620)
+            }
+            VStack(spacing: 0) {
+                MacLinkCover().frame(height: 220)
+                panel
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(BipeColor.surfaceBase)
+    }
+
+    private var panel: some View {
+        VStack(alignment: .leading, spacing: MacDesign.sectionGap) {
+            Text(title).macFont(.largeTitle).fontWeight(.bold).foregroundStyle(BipeColor.inkPrimary)
+                .fixedSize(horizontal: false, vertical: true)
             if account.phase == .qr, let bytes = account.qrBytes, let image = Self.qrImage(bytes) {
                 HStack(alignment: .center, spacing: 40) {
                     VStack(alignment: .leading, spacing: 20) {
@@ -94,39 +110,52 @@ struct MacLinkView: View {
                         instruction(2, BipeStrings.webSigninStepPath(BipeStrings.tabYou, BipeStrings.settingsAccount,
                                                           BipeStrings.linkedDevicesTitle, BipeStrings.linkedDevicesLinkComputer))
                         instruction(3, BipeStrings.webSigninStepScan)
-                    }.frame(maxWidth: 320)
-                    MacCard {
-                        Image(nsImage: image).interpolation(.none).resizable().scaledToFit()
-                            .frame(width: 260, height: 260)
-                            .accessibilityLabel(BipeStrings.webSigninStepScan)
-                    }
+                    }.frame(maxWidth: 300, alignment: .leading)
+                    // A white field with a quiet zone in light and dark mode, as on the phone (LinkPhoneShowView).
+                    Image(nsImage: image).interpolation(.none).resizable().scaledToFit()
+                        .frame(width: 240, height: 240)
+                        .padding(16)
+                        .background(.white, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                        .padding(10)
+                        .background(BipeColor.accentWash, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+                        .shadow(color: BipeColor.accentFill.opacity(0.18), radius: 20, y: 8)
+                        .accessibilityLabel(BipeStrings.webSigninStepScan)
                 }
             } else if account.phase == .checkCode {
                 TextField(BipeStrings.webSigninCheckCodeTitle, text: $account.checkCode)
-                    .macFont(.largeTitle).monospacedDigit().multilineTextAlignment(.center).frame(width: 150)
+                    .textFieldStyle(.plain)
+                    .macFont(.largeTitle).monospacedDigit().multilineTextAlignment(.center)
+                    .frame(width: 150, height: 72)
+                    .background(BipeColor.surfaceRaised, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(BipeColor.accentFill, lineWidth: 2))
                     .onChange(of: account.checkCode) { _, value in
                         account.checkCode = String(value.filter { $0.isASCII && $0.isNumber }.prefix(2))
                     }
                     .onSubmit { account.submitCheckCode() }
                 Button(BipeStrings.webSigninCheckCodeSend) { account.submitCheckCode() }
-                    .keyboardShortcut(.defaultAction).buttonStyle(.bipeProminent)
+                    .keyboardShortcut(.defaultAction).buttonStyle(MacFilledButtonStyle())
             } else if account.phase == .failed || account.phase == .revoked {
-                Button(BipeStrings.appRetry) { account.retry() }.buttonStyle(.bipeProminent)
+                Button(BipeStrings.appRetry) { account.retry() }.buttonStyle(MacFilledButtonStyle())
             } else {
-                ProgressView().accessibilityLabel(title)
+                ProgressView().controlSize(.large).tint(BipeColor.accentFill).accessibilityLabel(title)
             }
         }
-        .padding(MacDesign.pageInset)
+        .padding(48)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(LinearGradient(colors: [BipeColor.accentWash, BipeColor.surfaceBase], startPoint: .topLeading, endPoint: .bottomTrailing))
+        .background {
+            LinearGradient(colors: [BipeColor.accentWash, BipeColor.surfaceBase], startPoint: .top, endPoint: .center)
+        }
     }
 
     private func instruction(_ number: Int, _ text: String) -> some View {
         HStack(alignment: .top, spacing: 12) {
-            Text(number.formatted()).macFont(.subheadline).fontWeight(.semibold)
-                .foregroundStyle(BipeColor.inkOnAccent).frame(width: 28, height: 28)
-                .background(BipeColor.accentFill, in: Circle()).accessibilityHidden(true)
-            Text(text).macFont(.body).fixedSize(horizontal: false, vertical: true).padding(.top, 3)
+            Text(number.formatted()).macFont(.headline).fontWeight(.bold)
+                .foregroundStyle(BipeColor.inkOnAccent).frame(width: 32, height: 32)
+                .background(LinearGradient(colors: [BipeColor.accentFill, BipeColor.accentFillPressed],
+                                           startPoint: .topLeading, endPoint: .bottomTrailing),
+                            in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .accessibilityHidden(true)
+            Text(text).macFont(.body).foregroundStyle(BipeColor.inkPrimary).fixedSize(horizontal: false, vertical: true).padding(.top, 5)
         }
     }
 

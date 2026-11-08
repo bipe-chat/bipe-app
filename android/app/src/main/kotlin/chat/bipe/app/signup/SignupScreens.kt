@@ -5,6 +5,17 @@
 package chat.bipe.app.signup
 
 import android.Manifest
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.unit.Dp
+import chat.bipe.app.common.bipeMotion
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -126,7 +137,10 @@ fun SignupFlowScreen(model: SignupFlowModel, onCancel: ((reachedCreate: Boolean)
             when (val route = path.lastOrNull()) {
                 // The welcome cover draws behind the status bar and pads its own content.
                 null -> OnboardingWelcomeScreen(model, onCancel?.let { cancel -> { cancel(model.reachedCreate) } })
-                else -> Box(Modifier.fillMaxSize().safeDrawingPadding()) {
+                // Every step draws over the açaí backdrop, which runs under the system bars.
+                else -> Box(Modifier.fillMaxSize()) {
+                    OnboardingBackdrop()
+                    Box(Modifier.fillMaxSize().safeDrawingPadding()) {
                     when (route) {
                         SignupFlowModel.Route.INVITE_CODE -> SignupInviteCodeScreen(model)
                         SignupFlowModel.Route.NAME -> if (model.start != null && path.size == 1) {
@@ -143,6 +157,7 @@ fun SignupFlowScreen(model: SignupFlowModel, onCancel: ((reachedCreate: Boolean)
                         SignupFlowModel.Route.FALLBACK -> SignupFallbackScreen(model)
                         SignupFlowModel.Route.CREATE -> SignupCreateScreen(model)
                     }
+                    }
                 }
             }
         }
@@ -152,59 +167,9 @@ fun SignupFlowScreen(model: SignupFlowModel, onCancel: ((reachedCreate: Boolean)
     }
 }
 
-// Shared pieces
+// Shared pieces. The buttons, header, backdrop and footers are in OnboardingKit.kt.
 
-/** A sign-up step: title, optional body and content. */
-@Composable
-private fun StepLayout(screen: BipeScreen, title: String, message: String? = null, content: @Composable ColumnScope.() -> Unit) {
-    val colors = BipeTheme.colors
-    Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp).testTag(screen.id),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        Text(title, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = colors.inkPrimary)
-        if (message != null) Text(message, style = MaterialTheme.typography.bodyLarge, color = colors.inkSecondary)
-        content()
-    }
-}
-
-/** The one filled button of a step. */
-@Composable
-private fun PrimaryButton(title: String, enabled: Boolean = true, busy: Boolean = false, onClick: () -> Unit) {
-    val colors = BipeTheme.colors
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(if (enabled) colors.accentFill else colors.surfaceSunken, RoundedCornerShape(14.dp))
-            .clickable(enabled = enabled && !busy, role = Role.Button, onClick = onClick)
-            .padding(vertical = 14.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        if (busy) {
-            CircularProgressIndicator(color = colors.inkOnAccent, modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
-        } else {
-            Text(title, style = MaterialTheme.typography.titleMedium, color = if (enabled) colors.inkOnAccent else colors.inkDisabled)
-        }
-    }
-}
-
-/** A text button under the filled button. */
-@Composable
-private fun TextButtonRow(title: String, enabled: Boolean = true, onClick: () -> Unit) {
-    Text(
-        title,
-        style = MaterialTheme.typography.titleSmall,
-        color = if (enabled) BipeTheme.colors.accentInk else BipeTheme.colors.inkDisabled,
-        textAlign = TextAlign.Center,
-        modifier = Modifier.fillMaxWidth().clickable(enabled = enabled, role = Role.Button, onClick = onClick).padding(vertical = 10.dp),
-    )
-}
-
-@Composable
-private fun FieldFooter(text: String, isError: Boolean = false) {
-    Text(text, style = MaterialTheme.typography.bodySmall, color = if (isError) BipeTheme.colors.trustDangerInk else BipeTheme.colors.inkSecondary)
-}
-
+/** A framed field: raised surface, a thin line, an açaí ring while it has focus, an optional glyph. */
 @Composable
 private fun BipeField(
     label: String,
@@ -213,12 +178,21 @@ private fun BipeField(
     keyboardType: KeyboardType = KeyboardType.Text,
     modifier: Modifier = Modifier,
     isCode: Boolean = false,
+    icon: PhosphorIcon? = null,
+    isError: Boolean = false,
     format: (String) -> String = { it },
 ) {
     val colors = BipeTheme.colors
+    val interaction = remember { MutableInteractionSource() }
+    val focused by interaction.collectIsFocusedAsState()
     // When format rewrites the text (the invite code adds dashes), or the model sets it, the cursor goes to the end.
     var field by remember { mutableStateOf(TextFieldValue(value, TextRange(value.length))) }
     LaunchedEffect(value) { if (field.text != value) field = TextFieldValue(value, TextRange(value.length)) }
+    val textStyle = if (isCode) {
+        MaterialTheme.typography.titleLarge.copy(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.SemiBold)
+    } else {
+        MaterialTheme.typography.bodyLarge
+    }
     BasicTextField(
         value = field,
         onValueChange = {
@@ -227,19 +201,38 @@ private fun BipeField(
             onChange(text)
         },
         singleLine = true,
+        interactionSource = interaction,
         keyboardOptions = KeyboardOptions(
             capitalization = if (isCode) KeyboardCapitalization.Characters else KeyboardCapitalization.Unspecified,
             autoCorrectEnabled = if (isCode) false else null,
             keyboardType = keyboardType,
         ),
-        textStyle = MaterialTheme.typography.bodyLarge.copy(color = colors.inkPrimary),
+        textStyle = textStyle.copy(color = colors.inkPrimary),
         cursorBrush = SolidColor(colors.accentFill),
-        modifier = modifier.fillMaxWidth().background(colors.surfaceSunken, RoundedCornerShape(12.dp)).padding(14.dp)
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = OnboardingMetrics.buttonHeight)
+            .background(colors.surfaceRaised, OnboardingMetrics.fieldShape)
+            .border(
+                if (focused || isError) 2.dp else 1.dp,
+                when {
+                    isError -> colors.trustDangerLine
+                    focused -> colors.accentFill
+                    else -> colors.lineSubtle
+                },
+                OnboardingMetrics.fieldShape,
+            )
+            .padding(horizontal = 16.dp)
             .semantics { contentDescription = label },
         decorationBox = { inner ->
-            Box {
-                if (value.isEmpty()) Text(label, style = MaterialTheme.typography.bodyLarge, color = colors.inkSecondary)
-                inner()
+            Row(Modifier.heightIn(min = OnboardingMetrics.buttonHeight), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (icon != null) {
+                    Icon(painterResource(icon.drawable), contentDescription = null, tint = if (focused) colors.accentInk else colors.glyphSecondary, modifier = Modifier.size(22.dp))
+                }
+                Box(Modifier.weight(1f)) {
+                    if (value.isEmpty()) Text(label, style = textStyle, color = colors.inkSecondary)
+                    inner()
+                }
             }
         },
     )
@@ -249,6 +242,7 @@ private fun BipeField(
 
 @Composable
 private fun OnboardingWelcomeScreen(model: SignupFlowModel, onCancel: (() -> Unit)?) {
+    val colors = BipeTheme.colors
     LaunchedEffect(Unit) { model.appear() }
     // The window decides the layout, never the device.
     BoxWithConstraints(Modifier.fillMaxSize().testTag(BipeScreen.ONBOARDING_WELCOME.id)) {
@@ -271,13 +265,25 @@ private fun OnboardingWelcomeScreen(model: SignupFlowModel, onCancel: (() -> Uni
             }
         } else {
             // Tall: the cover takes everything above the two buttons.
+            // The buttons sit on a sheet with round top corners that overlaps the cover's lower edge.
             Column(Modifier.fillMaxSize()) {
-                WelcomeCover(model, onCancel, WindowInsetsSides.Top + WindowInsetsSides.Horizontal, Modifier.fillMaxWidth().weight(1f))
+                WelcomeCover(
+                    model, onCancel, WindowInsetsSides.Top + WindowInsetsSides.Horizontal,
+                    Modifier.fillMaxWidth().weight(1f), bottomInset = WELCOME_SHEET_OVERLAP,
+                )
+                val sheet = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .layout { measurable, constraints ->
+                            val overlap = WELCOME_SHEET_OVERLAP.roundToPx()
+                            val placeable = measurable.measure(constraints)
+                            layout(placeable.width, (placeable.height - overlap).coerceAtLeast(0)) { placeable.place(0, -overlap) }
+                        }
+                        .shadow(16.dp, sheet, ambientColor = colors.accentFillPressed, spotColor = colors.accentFillPressed)
+                        .background(colors.surfaceBase, sheet)
                         .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))
-                        .padding(24.dp),
+                        .padding(start = 24.dp, end = 24.dp, top = 28.dp, bottom = 16.dp),
                     contentAlignment = Alignment.Center,
                 ) {
                     WelcomeActions(model, Modifier.widthIn(max = 480.dp))
@@ -293,7 +299,13 @@ private fun OnboardingWelcomeScreen(model: SignupFlowModel, onCancel: (() -> Uni
  * under the system bars; the text keeps the safe-drawing insets on [sides].
  */
 @Composable
-private fun WelcomeCover(model: SignupFlowModel, onCancel: (() -> Unit)?, sides: WindowInsetsSides, modifier: Modifier) {
+private fun WelcomeCover(
+    model: SignupFlowModel,
+    onCancel: (() -> Unit)?,
+    sides: WindowInsetsSides,
+    modifier: Modifier,
+    bottomInset: Dp = 0.dp,
+) {
     val colors = BipeTheme.colors
     val invite by model.invite.collectAsState()
     val context = LocalContext.current
@@ -310,7 +322,7 @@ private fun WelcomeCover(model: SignupFlowModel, onCancel: (() -> Unit)?, sides:
             modifier = Modifier
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.safeDrawing.only(sides))
-                .padding(28.dp),
+                .padding(start = 28.dp, end = 28.dp, top = 28.dp, bottom = 28.dp + bottomInset),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             if (onCancel != null) {
@@ -318,22 +330,31 @@ private fun WelcomeCover(model: SignupFlowModel, onCancel: (() -> Unit)?, sides:
             }
             // The horizontal lockup of artwork-brief.md: mark, then the lowercase wordmark.
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(40.dp).background(colors.inkOnAccent, BipeMarkShape))
+                Box(
+                    Modifier.size(44.dp)
+                        .shadow(8.dp, BipeMarkShape, ambientColor = colors.accentFillPressed, spotColor = colors.accentFillPressed)
+                        .background(colors.inkOnAccent, BipeMarkShape),
+                )
                 Text(
                     stringResource(R.string.bipe_app_name).lowercase(),
+                    style = MaterialTheme.typography.displayMedium,
                     fontSize = 52.sp,
+                    letterSpacing = (-1).sp,
                     fontWeight = FontWeight.ExtraBold,
                     color = colors.inkOnAccent,
                     modifier = Modifier.semantics { heading() },
                 )
             }
             Spacer(Modifier.weight(1f))
-            Text(title, style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, color = colors.inkOnAccent)
+            Text(title, style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold, color = colors.inkOnAccent)
             // Action learnMore: the site in a Custom Tab, so sign-up stays where it was.
             Row(
                 modifier = Modifier
+                    .heightIn(min = 48.dp)
+                    .clip(CircleShape)
+                    .background(colors.inkOnAccent.copy(alpha = 0.16f))
                     .clickable(role = Role.Button) { openPage(context, BipeLegalLinks.homeUrl(AppConfig.PUBLIC_SITE)) }
-                    .padding(vertical = 8.dp),
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -354,18 +375,21 @@ private fun WelcomeActions(model: SignupFlowModel, modifier: Modifier) {
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         if (variant == SignupFlowModel.Variant.LOADING) {
             // Keeps the height of the two buttons, so the cover does not jump when the variant arrives.
-            Box(Modifier.fillMaxWidth().height(112.dp), contentAlignment = Alignment.Center) {
+            Box(Modifier.fillMaxWidth().height(OnboardingMetrics.buttonHeight * 2 + 12.dp), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = colors.accentFill)
             }
         } else {
             val start = model.startVariant
             val checking by model.checkingInvite.collectAsState()
-            PrimaryButton(stringResource(start.primary.title), busy = checking, onClick = model::primary)
+            OnboardingPrimaryButton(stringResource(start.primary.title), busy = checking, onClick = model::primary)
             // haveAccount: recovery-start (bipe-chat/bipe#556).
-            start.text.forEach { SecondaryButton(stringResource(it.title), onClick = model.onHaveAccount) }
+            start.text.forEach { OnboardingSecondaryButton(stringResource(it.title), onClick = model.onHaveAccount) }
         }
     }
 }
+
+/** How far the welcome button sheet reaches over the cover. */
+private val WELCOME_SHEET_OVERLAP = 28.dp
 
 /** A Bipe mark of the cover texture: centre and side as fractions of the panel, so the texture follows the window size. */
 private class TextureBubble(val x: Float, val y: Float, val size: Float, val opacity: Float)
@@ -397,22 +421,6 @@ private fun BubbleTexture() {
     }
 }
 
-/** The second choice next to a filled button: same size, açaí wash. */
-@Composable
-private fun SecondaryButton(title: String, onClick: () -> Unit) {
-    val colors = BipeTheme.colors
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(colors.accentWash, RoundedCornerShape(14.dp))
-            .clickable(role = Role.Button, onClick = onClick)
-            .padding(vertical = 14.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(title, style = MaterialTheme.typography.titleMedium, color = colors.accentInk)
-    }
-}
-
 // signup-invite-code
 
 @Composable
@@ -426,18 +434,37 @@ private fun SignupInviteCodeScreen(model: SignupFlowModel) {
         return
     }
     val step = BipeOnboardingStep.INVITE_CODE
-    StepLayout(BipeScreen.SIGNUP_INVITE_CODE, stringResource(step.title), step.body?.let { stringResource(it) }) {
-        BipeField(stringResource(R.string.bipe_signup_invite_code), code, model::editCode, isCode = true, format = BipeInviteLink::typedCode)
-        // Action pasteCode: reads the clipboard only on this tap and continues at once.
-        TextButtonRow(stringResource(R.string.bipe_onboarding_paste_invite), enabled = phase != SignupFlowModel.InviteCodePhase.CHECKING, onClick = model::pasteCode)
-        // Action scanCode: the QR code on the inviter's phone holds the invite link.
-        TextButtonRow(stringResource(R.string.bipe_onboarding_scan_invite), enabled = phase != SignupFlowModel.InviteCodePhase.CHECKING) { scanning = true }
+    val checking = phase == SignupFlowModel.InviteCodePhase.CHECKING
+    OnboardingStepLayout(
+        BipeScreen.SIGNUP_INVITE_CODE,
+        PhosphorIcon.HANDSHAKE,
+        stringResource(step.title),
+        message = step.body?.let { stringResource(it) },
+        actions = {
+            OnboardingPrimaryButton(stringResource(step.primary.title), enabled = code.isNotBlank(), busy = checking, onClick = model::submitCode)
+            step.text.forEach { OnboardingTextButton(stringResource(it.title), onClick = model::noInvite) }
+        },
+    ) {
+        BipeField(
+            stringResource(R.string.bipe_signup_invite_code), code, model::editCode,
+            isCode = true, icon = PhosphorIcon.KEY, isError = error != null, format = BipeInviteLink::typedCode,
+        )
         when {
-            phase == SignupFlowModel.InviteCodePhase.CHECKING -> FieldFooter(stringResource(R.string.bipe_app_invite_checking))
-            error != null -> FieldFooter(error.orEmpty(), isError = true)
+            checking -> OnboardingFieldFooter(stringResource(R.string.bipe_app_invite_checking))
+            error != null -> OnboardingFieldFooter(error.orEmpty(), isError = true)
         }
-        PrimaryButton(stringResource(step.primary.title), enabled = code.isNotBlank(), busy = phase == SignupFlowModel.InviteCodePhase.CHECKING, onClick = model::submitCode)
-        step.text.forEach { TextButtonRow(stringResource(it.title), onClick = model::noInvite) }
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            // Action pasteCode: reads the clipboard only on this tap and continues at once.
+            OnboardingSecondaryButton(
+                stringResource(R.string.bipe_onboarding_paste_invite), Modifier.weight(1f),
+                icon = PhosphorIcon.COPY, enabled = !checking, onClick = model::pasteCode,
+            )
+            // Action scanCode: the QR code on the inviter's phone holds the invite link.
+            OnboardingSecondaryButton(
+                stringResource(R.string.bipe_onboarding_scan_invite), Modifier.weight(1f),
+                icon = PhosphorIcon.QR_CODE, enabled = !checking,
+            ) { scanning = true }
+        }
     }
 }
 
@@ -498,22 +525,32 @@ private fun SignupWaitlistScreen(model: SignupFlowModel) {
     val invalid by model.waitlistEmailInvalid.collectAsState()
     val error by model.waitlistError.collectAsState()
     Column(
-        modifier = Modifier.fillMaxWidth().background(colors.surfaceBase, RoundedCornerShape(20.dp)).padding(24.dp)
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(colors.surfaceBase)
+            .background(Brush.verticalGradient(listOf(colors.accentWash, colors.surfaceBase)))
+            .padding(24.dp)
             .testTag(BipeScreen.SIGNUP_WAITLIST.id),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
-        Text(stringResource(BipeOnboarding.waitlistBody), color = colors.inkPrimary)
+        OnboardingStepHeader(PhosphorIcon.BELL)
+        Text(stringResource(BipeOnboarding.waitlistBody), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, color = colors.inkPrimary)
         if (phase == SignupFlowModel.WaitlistPhase.DONE) {
-            Text(stringResource(BipeOnboarding.waitlistDone), style = MaterialTheme.typography.titleMedium, color = colors.statusSuccess)
-        } else {
-            BipeField(stringResource(R.string.bipe_signup_email), email, model::editWaitlistEmail, KeyboardType.Email)
-            when {
-                invalid -> FieldFooter(stringResource(R.string.bipe_signup_email_invalid), isError = true)
-                error != null -> FieldFooter(error.orEmpty(), isError = true)
+            Row(
+                Modifier.fillMaxWidth().background(colors.accentWash, RoundedCornerShape(16.dp)).padding(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(painterResource(PhosphorIcon.CHECK_CIRCLE.drawable), contentDescription = null, tint = colors.statusSuccess, modifier = Modifier.size(24.dp))
+                Text(stringResource(BipeOnboarding.waitlistDone), style = MaterialTheme.typography.titleMedium, color = colors.statusSuccess)
             }
-            PrimaryButton(stringResource(BipeOnboarding.waitlistPrimary.title), busy = phase == SignupFlowModel.WaitlistPhase.SENDING, onClick = model::joinWaitlist)
+        } else {
+            BipeField(stringResource(R.string.bipe_signup_email), email, model::editWaitlistEmail, KeyboardType.Email, icon = PhosphorIcon.BELL, isError = invalid || error != null)
+            when {
+                invalid -> OnboardingFieldFooter(stringResource(R.string.bipe_signup_email_invalid), isError = true)
+                error != null -> OnboardingFieldFooter(error.orEmpty(), isError = true)
+            }
+            OnboardingPrimaryButton(stringResource(BipeOnboarding.waitlistPrimary.title), busy = phase == SignupFlowModel.WaitlistPhase.SENDING, onClick = model::joinWaitlist)
         }
-        TextButtonRow(stringResource(R.string.bipe_app_close), onClick = model::closeWaitlist)
+        OnboardingTextButton(stringResource(R.string.bipe_app_close), onClick = model::closeWaitlist)
     }
 }
 
@@ -527,18 +564,37 @@ private fun SignupNameScreen(model: SignupFlowModel) {
     val required by model.showTermsRequired.collectAsState()
     val invite by model.invite.collectAsState()
     val step = BipeOnboardingStep.NAME
-    StepLayout(BipeScreen.SIGNUP_NAME, stringResource(step.title)) {
+    val glyph = if (model.isCompany) PhosphorIcon.BRIEFCASE else PhosphorIcon.USER_CIRCLE
+    OnboardingStepLayout(
+        BipeScreen.SIGNUP_NAME,
+        glyph,
+        stringResource(step.title),
+        step = 1,
+        actions = {
+            OnboardingPrimaryButton(stringResource(step.primary.title), enabled = model.canContinueName(name, accepted), onClick = model::continueFromName)
+        },
+    ) {
         val handle = invite?.takeIf { it.isValid }?.inviterHandle
         if (handle != null) {
-            Text(stringResource(R.string.bipe_signup_invited_by, handle), style = MaterialTheme.typography.titleSmall, color = colors.accentInk)
+            Row(
+                Modifier.background(colors.accentWash, CircleShape).padding(horizontal = 14.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(painterResource(PhosphorIcon.HANDSHAKE.drawable), contentDescription = null, tint = colors.accentInk, modifier = Modifier.size(18.dp))
+                Text(stringResource(R.string.bipe_signup_invited_by, handle), style = MaterialTheme.typography.titleSmall, color = colors.accentInk)
+            }
         }
-        BipeField(stringResource(if (model.isCompany) R.string.bipe_company_name else R.string.bipe_signup_display_name), name, model::editName)
-        FieldFooter(stringResource(R.string.bipe_signup_display_name_footer))
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            BipeField(stringResource(if (model.isCompany) R.string.bipe_company_name else R.string.bipe_signup_display_name), name, model::editName, icon = glyph)
+            OnboardingFieldFooter(stringResource(R.string.bipe_signup_display_name_footer))
+        }
         // The person's region, read-only (ADR 0197).
-        FieldFooter(stringResource(R.string.bipe_onboarding_point_brazil))
-        TermsRow(accepted, onToggle = model::toggleTerms)
-        if (required) FieldFooter(stringResource(R.string.bipe_signup_terms_required), isError = true)
-        PrimaryButton(stringResource(step.primary.title), enabled = model.canContinueName(name, accepted), onClick = model::continueFromName)
+        OnboardingNote(PhosphorIcon.LOCK_SIMPLE, stringResource(R.string.bipe_onboarding_point_brazil))
+        OnboardingCard {
+            TermsRow(accepted, onToggle = model::toggleTerms)
+            if (required) OnboardingFieldFooter(stringResource(R.string.bipe_signup_terms_required), isError = true)
+        }
     }
 }
 
@@ -572,13 +628,13 @@ fun TermsRow(accepted: Boolean, onToggle: () -> Unit) {
                 }
         }
     }
-    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.clickable(role = Role.Checkbox, onClick = onToggle)
-        .semantics { stateDescription = if (accepted) "✓" else "" }) {
-        Box(
-            Modifier.size(22.dp)
-                .background(if (accepted) colors.accentFill else colors.surfaceBase, RoundedCornerShape(5.dp))
-                .border(2.dp, if (accepted) colors.accentFill else colors.lineStrong, RoundedCornerShape(5.dp)),
-        )
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.heightIn(min = 48.dp).clickable(role = Role.Checkbox, onClick = onToggle)
+            .semantics { stateDescription = if (accepted) "✓" else "" },
+    ) {
+        OnboardingCheckbox(accepted)
         Text(text, style = MaterialTheme.typography.bodyMedium.copy(color = colors.inkPrimary))
     }
 }
@@ -591,34 +647,33 @@ private fun SignupPinScreen(model: SignupFlowModel, confirm: Boolean) {
     val pin by model.pin.collectAsState()
     val problem by model.pinProblem.collectAsState()
     val focus = remember { FocusRequester() }
+    val interaction = remember { MutableInteractionSource() }
+    val focused by interaction.collectIsFocusedAsState()
     LaunchedEffect(confirm) { focus.requestFocus() }
-    StepLayout(
+    OnboardingStepLayout(
         BipeScreen.SIGNUP_PIN,
+        PhosphorIcon.LOCK_SIMPLE,
         stringResource(if (confirm) R.string.bipe_pin_confirm_title else R.string.bipe_pin_create_title),
-        if (confirm) null else stringResource(R.string.bipe_pin_create_body, BipeRegistries.PIN_LENGTH.toString()),
+        step = 2,
+        message = if (confirm) null else stringResource(R.string.bipe_pin_create_body, BipeRegistries.PIN_LENGTH.toString()),
     ) {
         val progress = stringResource(R.string.bipe_a11y_pin_progress, pin.length.toString(), BipeRegistries.PIN_LENGTH.toString())
+        val isError = problem != SignupFlowModel.PinProblem.NONE
         // The system digit keyboard (spec: the fallback of the number pad). It brings delete and paste.
         BasicTextField(
             value = pin,
             onValueChange = model::editPin,
+            interactionSource = interaction,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
             textStyle = MaterialTheme.typography.bodySmall.copy(color = colors.surfaceBase),
             cursorBrush = SolidColor(colors.surfaceBase),
-            // TalkBack reads how many digits are in; the dots show it by colour only (bipe#495).
+            // TalkBack reads how many digits are in; the cells show it by their dot (bipe#495).
             modifier = Modifier.fillMaxWidth().focusRequester(focus).semantics { stateDescription = progress },
             decorationBox = { inner ->
                 Box {
-                    // The field itself stays one dot wide: the row of dots shows how many digits are in.
+                    // The field itself stays one dot wide: the cells show how many digits are in.
                     Box(Modifier.size(1.dp)) { inner() }
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
-                    ) {
-                        repeat(BipeRegistries.PIN_LENGTH) { index ->
-                            Box(Modifier.size(14.dp).background(if (index < pin.length) colors.accentFill else colors.surfaceSunken, CircleShape))
-                        }
-                    }
+                    PinCells(pin.length, focused, isError)
                 }
             },
         )
@@ -629,8 +684,53 @@ private fun SignupPinScreen(model: SignupFlowModel, confirm: Boolean) {
             SignupFlowModel.PinProblem.DATE -> stringResource(R.string.bipe_pin_problem_date)
             SignupFlowModel.PinProblem.MISMATCH -> stringResource(R.string.bipe_pin_mismatch)
         }
-        if (problemText != null) FieldFooter(problemText, isError = true)
-        FieldFooter(stringResource(R.string.bipe_pin_never_asked))
+        if (problemText != null) OnboardingFieldFooter(problemText, isError = true)
+        OnboardingNote(PhosphorIcon.LOCK_SIMPLE, stringResource(R.string.bipe_pin_never_asked), filled = true)
+    }
+}
+
+/**
+ * One cell per digit, in two groups of four so the eight digits read in halves. A filled cell holds an açaí dot, the
+ * next cell has the açaí ring while the keyboard is up. Same as iOS PinCells.
+ */
+@Composable
+private fun PinCells(count: Int, focused: Boolean, isError: Boolean) {
+    val colors = BipeTheme.colors
+    val half = BipeRegistries.PIN_LENGTH / 2
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(14.dp, Alignment.CenterHorizontally),
+    ) {
+        listOf(0 until half, half until BipeRegistries.PIN_LENGTH).forEach { range ->
+            Row(Modifier.weight(1f, fill = false), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                range.forEach { index ->
+                    val filled = index < count
+                    val current = focused && index == count
+                    val shape = RoundedCornerShape(12.dp)
+                    val dot by animateFloatAsState(if (filled) 1f else 0f, bipeMotion(spring(dampingRatio = 0.45f)), label = "pin")
+                    Box(
+                        Modifier
+                            .weight(1f, fill = false)
+                            .widthIn(min = 28.dp, max = 44.dp)
+                            .height(52.dp)
+                            .background(if (filled) colors.accentWash else colors.surfaceRaised, shape)
+                            .border(
+                                if (current || isError) 2.dp else 1.dp,
+                                when {
+                                    isError -> colors.trustDangerLine
+                                    current -> colors.accentFill
+                                    filled -> colors.accentFill.copy(alpha = 0.35f)
+                                    else -> colors.lineSubtle
+                                },
+                                shape,
+                            ),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Box(Modifier.size(12.dp).scale(dot).background(colors.accentFill, CircleShape))
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -644,20 +744,35 @@ private fun SignupFallbackScreen(model: SignupFlowModel) {
     val linkProvider by model.fallbackLinkProvider.collectAsState()
     LaunchedEffect(model) { model.loadFallbackLink() }
     val step = BipeOnboardingStep.FALLBACK
-    StepLayout(BipeScreen.SIGNUP_FALLBACK, stringResource(step.title), step.body?.let { stringResource(it) }) {
-        if (phase == SignupFlowModel.FallbackPhase.CHOOSE) {
-            PrimaryButton(stringResource(step.primary.title), onClick = model::addEmail)
-            // ADR 0096: the platform's own provider next to the e-mail, when the server offers it.
-            if (linkProvider != null) TextButtonRow(stringResource(R.string.bipe_link_google), onClick = model::linkAccount)
-        } else {
-            BipeField(stringResource(R.string.bipe_signup_email_optional), email, model::editFallbackEmail, KeyboardType.Email)
-            FieldFooter(
-                stringResource(if (invalid) R.string.bipe_signup_email_invalid else R.string.bipe_signup_email_optional_footer),
-                isError = invalid,
-            )
-            PrimaryButton(stringResource(R.string.bipe_action_continue), onClick = model::submitEmail)
+    OnboardingStepLayout(
+        BipeScreen.SIGNUP_FALLBACK,
+        PhosphorIcon.KEY,
+        stringResource(step.title),
+        step = 3,
+        message = step.body?.let { stringResource(it) },
+        actions = {
+            if (phase == SignupFlowModel.FallbackPhase.CHOOSE) {
+                OnboardingPrimaryButton(stringResource(step.primary.title), onClick = model::addEmail)
+                // ADR 0096: the platform's own provider next to the e-mail, when the server offers it.
+                if (linkProvider != null) {
+                    Spacer(Modifier.height(8.dp))
+                    OnboardingSecondaryButton(stringResource(R.string.bipe_link_google), onClick = model::linkAccount)
+                }
+            } else {
+                OnboardingPrimaryButton(stringResource(R.string.bipe_action_continue), onClick = model::submitEmail)
+            }
+            step.text.forEach { OnboardingTextButton(stringResource(it.title), onClick = model::skipEmail) }
+        },
+    ) {
+        if (phase != SignupFlowModel.FallbackPhase.CHOOSE) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                BipeField(stringResource(R.string.bipe_signup_email_optional), email, model::editFallbackEmail, KeyboardType.Email, icon = PhosphorIcon.KEY, isError = invalid)
+                OnboardingFieldFooter(
+                    stringResource(if (invalid) R.string.bipe_signup_email_invalid else R.string.bipe_signup_email_optional_footer),
+                    isError = invalid,
+                )
+            }
         }
-        step.text.forEach { TextButtonRow(stringResource(it.title), onClick = model::skipEmail) }
     }
 }
 
@@ -668,27 +783,41 @@ private fun SignupCreateScreen(model: SignupFlowModel) {
     val colors = BipeTheme.colors
     val phase by model.createPhase.collectAsState()
     val error by model.createError.collectAsState()
-    Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp).testTag(BipeScreen.SIGNUP_CREATE.id),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(20.dp),
-    ) {
-        Spacer(Modifier.weight(1f))
-        if (phase == SignupFlowModel.CreatePhase.FAILED) {
-            Icon(painterResource(PhosphorIcon.WARNING_CIRCLE.drawable), contentDescription = null, tint = colors.trustDangerInk, modifier = Modifier.size(48.dp))
-            // error is read so the text follows it.
-            Text(if (error == SignupFlowModel.CreateError.None) "" else model.createErrorText(), color = colors.inkPrimary, textAlign = TextAlign.Center)
+    Box(Modifier.fillMaxSize().testTag(BipeScreen.SIGNUP_CREATE.id)) {
+        Column(
+            modifier = Modifier.fillMaxSize().padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(24.dp),
+        ) {
             Spacer(Modifier.weight(1f))
-            if (model.canFix) {
-                PrimaryButton(stringResource(R.string.bipe_action_continue), onClick = model::fix)
+            if (phase == SignupFlowModel.CreatePhase.FAILED) {
+                Box(Modifier.size(72.dp).background(colors.trustDangerWash, RoundedCornerShape(22.dp)), contentAlignment = Alignment.Center) {
+                    Icon(painterResource(PhosphorIcon.WARNING_CIRCLE.drawable), contentDescription = null, tint = colors.trustDangerInk, modifier = Modifier.size(36.dp))
+                }
+                // error is read so the text follows it.
+                Text(
+                    if (error == SignupFlowModel.CreateError.None) "" else model.createErrorText(),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = colors.inkPrimary,
+                    textAlign = TextAlign.Center,
+                )
+                Spacer(Modifier.weight(1f))
+                if (model.canFix) {
+                    OnboardingPrimaryButton(stringResource(R.string.bipe_action_continue), onClick = model::fix)
+                } else {
+                    OnboardingPrimaryButton(stringResource(R.string.bipe_app_retry), onClick = model::retryCreate)
+                }
             } else {
-                PrimaryButton(stringResource(R.string.bipe_app_retry), onClick = model::retryCreate)
+                OnboardingBusyMark()
+                Text(
+                    stringResource(R.string.bipe_app_signup_creating),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = colors.inkPrimary,
+                    textAlign = TextAlign.Center,
+                )
+                Spacer(Modifier.weight(1f))
             }
-        } else {
-            CircularProgressIndicator(color = colors.accentFill)
-            Text(stringResource(R.string.bipe_app_signup_creating), color = colors.inkSecondary)
-            Spacer(Modifier.weight(1f))
+            Spacer(Modifier.height(8.dp))
         }
-        Spacer(Modifier.height(8.dp))
     }
 }

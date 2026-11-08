@@ -4,7 +4,22 @@
 
 package chat.bipe.app.signup
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Icon
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import chat.bipe.app.common.bipeMotion
+import chat.bipe.phosphor.PhosphorIcon
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -116,19 +131,39 @@ fun SignupDoneScreen(session: AccountSession, outcome: SignupOutcome, onContinue
     val phase by model.phase.collectAsState()
     val colors = BipeTheme.colors
     LaunchedEffect(model) { model.appear() }
+    var shown by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { shown = true }
+    val badge by animateFloatAsState(if (shown) 1f else 0.3f, bipeMotion(spring(dampingRatio = 0.45f)), label = "badge")
     Surface(
         modifier = Modifier.fillMaxSize().clickable(onClick = model::continueFlow).testTag(BipeScreen.SIGNUP_DONE.id),
         color = colors.surfaceBase,
     ) {
+        OnboardingBackdrop()
         Column(
             modifier = Modifier.fillMaxSize().safeDrawingPadding().padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
+            verticalArrangement = Arrangement.spacedBy(24.dp, Alignment.CenterVertically),
         ) {
-            Box(Modifier.size(56.dp).background(colors.accentFill, BipeMarkShape))
+            Box(Modifier.size(140.dp).clearAndSetSemantics {}, contentAlignment = Alignment.BottomEnd) {
+                Box(Modifier.fillMaxSize().background(colors.accentWash, CircleShape), contentAlignment = Alignment.Center) {
+                    Box(
+                        Modifier.size(76.dp)
+                            .shadow(10.dp, BipeMarkShape, ambientColor = colors.accentFill, spotColor = colors.accentFill)
+                            .background(Brush.linearGradient(listOf(colors.accentFill, colors.accentFillPressed)), BipeMarkShape),
+                    )
+                }
+                Box(
+                    Modifier.offset(x = (-4).dp, y = (-4).dp).size(44.dp).scale(badge).alpha(if (shown) 1f else 0f)
+                        .background(colors.surfaceBase, CircleShape).padding(4.dp)
+                        .background(colors.statusSuccess, CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(painterResource(PhosphorIcon.CHECK.drawable), contentDescription = null, tint = colors.inkOnAccent, modifier = Modifier.size(22.dp))
+                }
+            }
             Text(
                 stringResource(BipeOnboarding.created),
-                style = MaterialTheme.typography.headlineSmall,
+                style = MaterialTheme.typography.headlineLarge,
                 fontWeight = FontWeight.Bold,
                 color = colors.inkPrimary,
                 textAlign = TextAlign.Center,
