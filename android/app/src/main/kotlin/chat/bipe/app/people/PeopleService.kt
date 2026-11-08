@@ -479,3 +479,16 @@ fun reachDate(context: Context, instant: java.time.Instant): String = android.te
     android.text.format.DateUtils.FORMAT_SHOW_DATE or android.text.format.DateUtils.FORMAT_SHOW_TIME or
         android.text.format.DateUtils.FORMAT_ABBREV_MONTH,
 )
+
+/** The reach notice for a screen that holds a session and the API client but no PeopleService (group screens, #1299). */
+suspend fun reachNoticeFor(context: Context, session: AccountSession, api: BipeApiClient): String {
+    val status = try {
+        BipeApiClient.withTokenRetry({ session.accessToken() }) { api.reach(it) }
+    } catch (error: CancellationException) {
+        throw error
+    } catch (error: Exception) {
+        null
+    }
+    if (status == null || !status.isSpent) return context.getString(R.string.bipe_error_generic)
+    return reachNoticeText(context, status)
+}

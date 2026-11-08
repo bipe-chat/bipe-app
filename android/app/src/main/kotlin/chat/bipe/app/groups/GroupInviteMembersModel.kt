@@ -40,6 +40,9 @@ class GroupInviteMembersModel(
 
     enum class Phase { CHOOSING, INVITING, DONE }
 
+    /** Spec group-invite-members reachNotice: shown once above the list after M_LIMIT_EXCEEDED (bipe-chat/bipe#1299). */
+    private val _reachNotice = MutableStateFlow<String?>(null)
+    val reachNotice: StateFlow<String?> = _reachNotice.asStateFlow()
     private val _query = MutableStateFlow("")
     val query: StateFlow<String> = _query.asStateFlow()
     private val _contacts = MutableStateFlow<List<PersonPick>>(emptyList())
@@ -146,7 +149,7 @@ class GroupInviteMembersModel(
     fun selectedPeople(): List<Person> = selected.mapNotNull { userId -> people.firstOrNull { it.userId == userId } }
 
     /** Action invite, invite mode: one call per person; each row shows its result. onAllSent runs when all succeed. */
-    fun invite(onAllSent: () -> Unit) {
+    fun invite(reachNotice: (suspend () -> String)? = null, onAllSent: () -> Unit) {
         val invite = mode as? Mode.Invite ?: return
         if (_phase.value != Phase.CHOOSING || selected.isEmpty()) return
         val room = runCatching { session.client.getRoom(invite.roomId) }.getOrNull() ?: return
@@ -160,6 +163,12 @@ class GroupInviteMembersModel(
                     InviteOutcome.REFUSED -> {
                         results[userId] = PersonPick.Status.REFUSED
                         allSent = false
+                    }
+                    InviteOutcome.LIMITED -> {
+                        // The person stays marked as not invited; the notice says why, once.
+                        results[userId] = PersonPick.Status.FAILED
+                        allSent = false
+                        if (_reachNotice.value == null && reachNotice != null) _reachNotice.value = reachNotice()
                     }
                     InviteOutcome.FAILED -> {
                         results[userId] = PersonPick.Status.FAILED

@@ -4,6 +4,7 @@
 
 package chat.bipe.app.groups
 
+import org.matrix.rustcomponents.sdk.ErrorKind
 import chat.bipe.shared.generated.BipeGroupPowerLevels
 import java.text.Collator
 import java.text.Normalizer
@@ -143,6 +144,9 @@ enum class GroupRole {
 enum class InviteOutcome {
     SENT,
     REFUSED,
+
+    /** M_LIMIT_EXCEEDED: the first-contact budget, or the server's own rate limit (bipe-chat/bipe#1299). */
+    LIMITED,
     FAILED,
     ;
 
@@ -151,6 +155,7 @@ enum class InviteOutcome {
         fun of(error: Throwable?): InviteOutcome = when {
             error == null -> SENT
             error is ClientException.MatrixApi && error.code == "M_FORBIDDEN" -> REFUSED
+            error is ClientException.MatrixApi && error.kind is ErrorKind.LimitExceeded -> LIMITED
             else -> FAILED
         }
     }

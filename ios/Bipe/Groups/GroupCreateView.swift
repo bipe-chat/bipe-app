@@ -11,12 +11,14 @@ import SwiftUI
 struct GroupCreateView: View {
     @StateObject private var model: GroupCreateModel
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.bipeAPI) private var api
     @State private var pickedPhoto: PhotosPickerItem?
     @State private var choosingPeople = false
     private let media: MediaLoader
-    private let onCreated: (_ roomId: String, _ allInvited: Bool) -> Void
+    /// The new group, and the notice to show after it opens (nil: every invite went out).
+    private let onCreated: (_ roomId: String, _ notice: String?) -> Void
 
-    init(session: AccountSession, media: MediaLoader, people: [Person] = [], onCreated: @escaping (String, Bool) -> Void) {
+    init(session: AccountSession, media: MediaLoader, people: [Person] = [], onCreated: @escaping (String, String?) -> Void) {
         _model = StateObject(wrappedValue: GroupCreateModel(session: session, people: people))
         self.media = media
         self.onCreated = onCreated
@@ -97,8 +99,14 @@ struct GroupCreateView: View {
                     Button(BipeStrings.groupsEmptyAction) {
                         Task {
                             if let result = await model.create() {
+                                var notice: String?
+                                if result.limited, let api {
+                                    notice = await PeopleService.reachNotice(session: model.session, api: api)
+                                } else if !result.allInvited {
+                                    notice = BipeStrings.appGroupCreateInvitesFailed
+                                }
                                 dismiss()
-                                onCreated(result.roomId, result.allInvited)
+                                onCreated(result.roomId, notice)
                             }
                         }
                     }

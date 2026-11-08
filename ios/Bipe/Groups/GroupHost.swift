@@ -31,11 +31,9 @@ private struct GroupHostModifier: ViewModifier {
                 }
             }
             .sheet(isPresented: $creatingGroup) {
-                GroupCreateView(session: session, media: media) { roomId, allInvited in
+                GroupCreateView(session: session, media: media) { roomId, notice in
                     openChat(roomId)
-                    if !allInvited {
-                        toast = BipeStrings.appGroupCreateInvitesFailed
-                    }
+                    if let notice { toast = notice }
                 }
             }
             .sheet(item: Binding(get: { deletingDm.map(DmSheetId.init) }, set: { deletingDm = $0?.id })) { dm in

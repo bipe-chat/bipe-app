@@ -4,6 +4,7 @@
 
 package chat.bipe.app.groups
 
+import chat.bipe.app.people.reachNoticeFor
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -66,6 +67,7 @@ fun GroupInviteMembersScreen(
     val selectedCount by model.selectedCount.collectAsState()
     val handleMatch by model.handleMatch.collectAsState()
     val handleNotFound by model.handleNotFound.collectAsState()
+    val reachNotice by model.reachNotice.collectAsState()
 
     Surface(modifier = Modifier.fillMaxSize().testTag(BipeScreen.GROUP_INVITE_MEMBERS.id), color = colors.surfaceBase) {
         Column(modifier = Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
@@ -81,7 +83,7 @@ fun GroupInviteMembersScreen(
                                 is GroupInviteMembersModel.Mode.Pick -> onDone(model.selectedPeople())
                                 is GroupInviteMembersModel.Mode.Invite -> {
                                     val people = model.selectedPeople()
-                                    model.invite { onDone(people) }
+                                    model.invite(reachNotice = api?.let { client -> suspend { reachNoticeFor(context, session, client) } }) { onDone(people) }
                                 }
                             }
                         },
@@ -98,6 +100,17 @@ fun GroupInviteMembersScreen(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             )
             LazyColumn(modifier = Modifier.fillMaxSize()) {
+                // Spec group-invite-members reachNotice (bipe-chat/bipe#1299): once, above the list.
+                reachNotice?.let { notice ->
+                    item(key = "reach-notice") {
+                        Text(
+                            notice,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = BipeTheme.colors.trustCautionInk,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                        )
+                    }
+                }
                 item(key = "header") { GroupSectionHeader(stringResource(R.string.bipe_app_people_contacts)) }
                 handleMatch?.let { match ->
                     item(key = "handle") { PickRow(match, media) { model.toggle(match.person.userId) } }
