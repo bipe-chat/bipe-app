@@ -192,8 +192,9 @@ jobs:
       - name: Fuzz each target
         working-directory: core/fuzz
         run: |
+          # The prebuilt cargo-fuzz defaults to its own musl target, which ASan refuses.
           for target in envelope payload; do
-            cargo +nightly fuzz run "$target" "corpus/$target" -- -max_total_time="$FUZZ_SECONDS" -max_len=8192 2>&1 | tail -20
+            cargo +nightly fuzz run --target x86_64-unknown-linux-gnu "$target" "corpus/$target" -- -max_total_time="$FUZZ_SECONDS" -max_len=8192 2>&1 | tail -20
             test "${PIPESTATUS[0]}" -eq 0
             echo "- $target: $(ls "corpus/$target" | wc -l) corpus inputs after $FUZZ_SECONDS s, no crash" >> "$GITHUB_STEP_SUMMARY"
           done
