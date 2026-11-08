@@ -29,11 +29,11 @@ final class MacComposerTests: XCTestCase {
     }
 
     @MainActor
-    func testEmptyAndReadyComposersStayCompactAtNarrowAndWideWidths() throws {
+    func testEmptyAndReadyComposersStayCompactAtNarrowAndWideWidths() async throws {
         for width in [CGFloat(320), 720] {
             for text in ["", "A short message"] {
                 let root = composer(text: text, editing: false).frame(width: width)
-                let size = try render(root, name: "composer-\(Int(width))-\(text.isEmpty ? "empty" : "ready")")
+                let size = try await render(root, name: "composer-\(Int(width))-\(text.isEmpty ? "empty" : "ready")")
                 XCTAssertGreaterThan(size.height, 0)
                 XCTAssertLessThanOrEqual(size.height, 84, "An attachment asset must never enlarge the composer")
                 XCTAssertEqual(size.width, width, accuracy: 1)
@@ -42,23 +42,23 @@ final class MacComposerTests: XCTestCase {
     }
 
     @MainActor
-    func testEditingAndMultilineComposersKeepTheirHeightBounded() throws {
+    func testEditingAndMultilineComposersKeepTheirHeightBounded() async throws {
         for editing in [false, true] {
             let root = composer(text: String(repeating: "A message that wraps to another line. ", count: 30), editing: editing).frame(width: 320)
-            let size = try render(root, name: "composer-multiline-\(editing ? "edit" : "message")")
+            let size = try await render(root, name: "composer-multiline-\(editing ? "edit" : "message")")
             XCTAssertGreaterThan(size.height, 0)
             XCTAssertLessThanOrEqual(size.height, 200)
         }
     }
 
     @MainActor
-    func testReplyAndEditPanelsUseTheSameCompactAppleChrome() throws {
+    func testReplyAndEditPanelsUseTheSameCompactAppleChrome() async throws {
         for glyph in [BipeComposerGlyph.reply, .edit] {
             let root = BipeComposerPanel {
                 BipeComposerContextBar(glyph: glyph, title: BipeStrings.appMessageEditing,
                                        preview: "A message preview", onClose: {})
             }.macFont(.body).frame(width: 320)
-            let size = try render(root, name: "composer-panel-" + glyph.rawValue)
+            let size = try await render(root, name: "composer-panel-" + glyph.rawValue)
             XCTAssertGreaterThan(size.height, 0)
             XCTAssertLessThanOrEqual(size.height, 120)
         }
@@ -122,19 +122,36 @@ final class MacComposerTests: XCTestCase {
     }
 
     @MainActor
-    private func render<Content: View>(_ content: Content, name: String) throws -> NSSize {
-        let view = NSHostingView(rootView: content)
+    private func render<Content: View>(_ content: Content, name: String) async throws -> NSSize {
+        let view = NSHostingView(rootView: content.background(BipeColor.surfaceBase))
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 720, height: 200),
                               styleMask: [.titled], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
+        window.appearance = NSAppearance(named: .aqua)
         window.contentView = view
         defer { window.close() }
+        window.orderFront(nil)
+        // SwiftUI renders after layout. Yield to its display work before asking AppKit for the pixels.
+        try await Task.sleep(for: .milliseconds(150))
         view.layoutSubtreeIfNeeded()
         let size = view.fittingSize
         window.setContentSize(size)
+        try await Task.sleep(for: .milliseconds(150))
         view.layoutSubtreeIfNeeded()
+        window.displayIfNeeded()
         let bitmap = try XCTUnwrap(view.bitmapImageRepForCachingDisplay(in: view.bounds))
         view.cacheDisplay(in: view.bounds, to: bitmap)
+        var colors: Set<UInt32> = []
+        for y in stride(from: 0, to: bitmap.pixelsHigh, by: 3) {
+            for x in stride(from: 0, to: bitmap.pixelsWide, by: 3) {
+                guard let color = bitmap.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB), color.alphaComponent > 0.5 else { continue }
+                let r = UInt32(max(0, min(1, color.redComponent)) * 255)
+                let g = UInt32(max(0, min(1, color.greenComponent)) * 255)
+                let b = UInt32(max(0, min(1, color.blueComponent)) * 255)
+                colors.insert(r << 16 | g << 8 | b)
+            }
+        }
+        XCTAssertGreaterThan(colors.count, 8, "A blank or transparent snapshot is not visual evidence")
         let data = try XCTUnwrap(bitmap.representation(using: .png, properties: [:]))
         let attachment = XCTAttachment(data: data, uniformTypeIdentifier: "public.png")
         attachment.name = name
