@@ -5925,4 +5925,6 @@ public enum BipeStrings {
     }
 
     public static var reachLimitBodyNone: String { NSLocalizedString("bipe_reach_limit_body_none", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var avatarOpen: String { NSLocalizedString("bipe_avatar_open", tableName: "Bipe", bundle: .module, comment: "") }
 }
