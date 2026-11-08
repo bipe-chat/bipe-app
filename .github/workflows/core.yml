@@ -72,12 +72,27 @@ jobs:
         run: |
           [ -f Cargo.lock ] || cargo generate-lockfile
           [ -f tools/uniffi-bindgen/Cargo.lock ] || cargo generate-lockfile --manifest-path tools/uniffi-bindgen/Cargo.toml
+      # Agents have no Rust toolchain (bipe docs/agents/builds.md). When a manifest change needs a new lockfile,
+      # this step shows cargo's own minimal change and the core-lockfiles artifact holds the file to commit.
+      - name: Lockfile is current
+        id: lock
+        working-directory: core
+        run: |
+          if ! cargo metadata --locked --format-version 1 > /dev/null; then
+            cargo metadata --format-version 1 > /dev/null
+            git diff Cargo.lock
+            echo "::error file=core/Cargo.lock::Cargo.lock is stale. Commit Cargo.lock from the core-lockfiles artifact."
+            echo "stale=1" >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: core-lockfiles
           path: |
             core/Cargo.lock
             core/tools/uniffi-bindgen/Cargo.lock
+      - name: Stop on a stale lockfile
+        if: steps.lock.outputs.stale == '1'
+        run: exit 1
       - name: Vectors against the crate
         working-directory: core
         env:
