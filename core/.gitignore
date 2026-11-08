@@ -6,6 +6,10 @@ generated/
 .build/
 .gradle/
 badges.json
+/harness/swift/Tests/BipeCoreHarnessTests/ed25519-cases.json
 jniLibs/
 node_modules/
 /harness/web/sdk-generated/
+/fuzz/corpus/
+/fuzz/artifacts/
+/fuzz/coverage/

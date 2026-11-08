@@ -3,11 +3,11 @@
 # Copyright 2026 Bipe contributors
 
 # bipe-core (ADR 0267). This lockfile holds only what ships in the apps.
-# tools/uniffi-bindgen and spike/combined are separate workspaces, so the build
+# tools/uniffi-bindgen, spike/combined and fuzz are separate workspaces, so the build
 # tool and the Matrix SDK do not enter tools/licences.json through this file.
 [workspace]
 members = ["crates/bipe-core"]
-exclude = ["tools/uniffi-bindgen", "spike/combined"]
+exclude = ["tools/uniffi-bindgen", "spike/combined", "fuzz"]
 resolver = "3"
 
 # The name matches the Matrix SDK profile and the ubrn command in web.yml.
