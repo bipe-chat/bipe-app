@@ -10,6 +10,40 @@ import XCTest
 
 final class MacSidebarSelectionTests: XCTestCase {
     @MainActor
+    func testRightClickSelectsOneFavouriteAndUsesItsOwnMenuTarget() async throws {
+        let model = SidebarFixtureModel()
+        let window = fixture(model: model, bothSelected: false, appearance: .darkAqua)
+        defer { window.close() }
+        try await settle(window)
+        let content = try XCTUnwrap(window.contentView)
+        let table = try XCTUnwrap(find(NSTableView.self, in: content))
+        let targets = all(MacFavouriteContextMenu.Target.self, in: content)
+        XCTAssertEqual(targets.count, 2)
+        let target = try XCTUnwrap(targets.last)
+        XCTAssertLessThan(target.bounds.width, table.bounds.width / 2, "The menu target must be a tile, not the grid row")
+        let event = try XCTUnwrap(NSEvent.mouseEvent(with: .rightMouseDown, location: .zero, modifierFlags: [],
+            timestamp: 0, windowNumber: window.windowNumber, context: nil, eventNumber: 1, clickCount: 1, pressure: 1))
+        XCTAssertTrue(MacFavouriteContextMenu.Target.isContextClick(event))
+        let menu = try XCTUnwrap(target.menu(for: event))
+        try await settle(window)
+        XCTAssertEqual(model.selected, "second-favourite")
+        XCTAssertEqual(menu.items.map(\.title), [BipeChatMenuItem.unfavourite.title, BipeChatMenuItem.notifications.title])
+        XCTAssertTrue(menu.items[0].isEnabled)
+        XCTAssertFalse(menu.items[1].isEnabled)
+        XCTAssertFalse(menu.autoenablesItems)
+        menu.performActionForItem(at: 0)
+        XCTAssertEqual(model.lastMenuRoom, "second-favourite")
+        XCTAssertEqual(model.lastMenuCommand, .unfavourite)
+        XCTAssertEqual(table.selectionHighlightStyle, .none)
+        let normal = try XCTUnwrap(NSEvent.mouseEvent(with: .leftMouseDown, location: .zero, modifierFlags: [],
+            timestamp: 0, windowNumber: window.windowNumber, context: nil, eventNumber: 2, clickCount: 1, pressure: 1))
+        XCTAssertFalse(MacFavouriteContextMenu.Target.isContextClick(normal))
+        let control = try XCTUnwrap(NSEvent.mouseEvent(with: .leftMouseDown, location: .zero, modifierFlags: [.control],
+            timestamp: 0, windowNumber: window.windowNumber, context: nil, eventNumber: 3, clickCount: 1, pressure: 1))
+        XCTAssertTrue(MacFavouriteContextMenu.Target.isContextClick(control))
+    }
+
+    @MainActor
     func testNativeListKeepsSelectionAndArrowKeysWithoutSystemPaint() async throws {
         let model = SidebarFixtureModel()
         let window = fixture(model: model, bothSelected: false, appearance: .aqua)
@@ -128,11 +162,18 @@ final class MacSidebarSelectionTests: XCTestCase {
         for child in view.subviews { if let found = find(type, in: child, matching: matching) { return found } }
         return nil
     }
+
+    @MainActor
+    private func all<T: NSView>(_ type: T.Type, in view: NSView) -> [T] {
+        (view as? T).map { [$0] } ?? view.subviews.flatMap { all(type, in: $0) }
+    }
 }
 
 @MainActor
 private final class SidebarFixtureModel: ObservableObject {
     @Published var selected: String? = "first"
+    var lastMenuRoom: String?
+    var lastMenuCommand: BipeChatMenuItem?
 }
 
 private struct SidebarFixture: View {
@@ -142,13 +183,8 @@ private struct SidebarFixture: View {
         VStack(spacing: 0) {
             List(selection: $model.selected) {
                 HStack {
-                    Button { model.selected = "favourite" } label: {
-                        VStack(spacing: 6) {
-                            Circle().fill(BipeColor.accentWash).frame(width: 72, height: 72)
-                            Text(BipeStrings.chatFavourites).macFont(.subheadline)
-                        }.padding(8).frame(width: 120)
-                            .modifier(MacSidebarSelection(isSelected: bothSelected || model.selected == "favourite"))
-                    }.buttonStyle(.plain)
+                    favourite("favourite")
+                    favourite("second-favourite")
                     Spacer()
                 }.listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16)).selectionDisabled()
                 entry("first", title: BipeStrings.requestsTitle)
@@ -157,6 +193,24 @@ private struct SidebarFixture: View {
             TextField(BipeStrings.appTimelineComposerPlaceholder, text: .constant(""))
                 .textFieldStyle(.plain).padding(16)
         }.background(BipeColor.surfaceBase)
+    }
+
+    private func favourite(_ id: String) -> some View {
+        Button { model.selected = id } label: {
+            VStack(spacing: 6) {
+                Circle().fill(BipeColor.accentWash).frame(width: 72, height: 72)
+                Text(BipeStrings.chatFavourites).macFont(.subheadline)
+            }.padding(8).frame(width: 120)
+                .modifier(MacSidebarSelection(isSelected: (bothSelected && id == "favourite") || model.selected == id))
+        }.buttonStyle(.plain)
+            .overlay {
+                MacFavouriteContextMenu(items: [
+                    .init(command: .unfavourite, isEnabled: true, action: {
+                        model.lastMenuRoom = id; model.lastMenuCommand = .unfavourite
+                    }),
+                    .init(command: .notifications, isEnabled: false, action: {})
+                ], select: { model.selected = id }).accessibilityHidden(true)
+            }
     }
 
     private func entry(_ id: String, title: String) -> some View {

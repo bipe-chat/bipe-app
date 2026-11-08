@@ -160,6 +160,7 @@ struct MacConversationsView: View {
             if !favourites.isEmpty {
                 MacFavouritesGrid(rows: favourites, media: account.media, reordering: $reordering, selected: selectedRoom,
                                   move: { id, index in Task { await list.moveFavourite(id, to: index, shown: favourites.map(\.id)) } },
+                                  contextItems: favouriteContextItems,
                                   menu: { row in rowMenu(row) })
                     .listRowSeparator(.hidden).listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                     .selectionDisabled()
@@ -236,6 +237,14 @@ struct MacConversationsView: View {
             }.disabled(list.busy.contains(row.id) && item != .notifications && item != .sendMedia)
         }
     }
+
+    private func favouriteContextItems(_ row: MacRoomSummary) -> [MacFavouriteContextMenu.Item] {
+        menuItems(row).map { item in
+            MacFavouriteContextMenu.Item(command: item,
+                isEnabled: !list.busy.contains(row.id) || item == .notifications || item == .sendMedia,
+                action: { choose(item, row) })
+        }
+    }
 }
 
 private struct MacChatRow: View {
@@ -291,6 +300,7 @@ private struct MacFavouritesGrid<MenuContent: View>: View {
     @Binding var selected: String?
     @FocusState private var focusedFavourite: String?
     let move: (String, Int) -> Void
+    let contextItems: (MacRoomSummary) -> [MacFavouriteContextMenu.Item]
     @ViewBuilder let menu: (MacRoomSummary) -> MenuContent
 
     var body: some View {
@@ -319,7 +329,12 @@ private struct MacFavouritesGrid<MenuContent: View>: View {
                         } label: { cell(row) }
                             .buttonStyle(.plain).focusable(interactions: .edit).focusEffectDisabled()
                             .focused($focusedFavourite, equals: row.id)
-                            .contextMenu { menu(row) }
+                            .overlay {
+                                MacFavouriteContextMenu(items: contextItems(row)) {
+                                    selected = row.id
+                                    focusedFavourite = row.id
+                                }.accessibilityHidden(true)
+                            }
                             .accessibilityActions { menu(row) }.accessibilityLabel(label(row))
                     }
                 }

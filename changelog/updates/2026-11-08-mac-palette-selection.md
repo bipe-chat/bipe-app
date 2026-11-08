@@ -6,4 +6,4 @@ platforms: [macos]
 refs: [bipe#1306]
 ---
 
-**Sidebar selection now follows your Bipe palette.** Favourites and chat rows share one highlight and keep it when you move into the message field.
+**Sidebar selection now follows your Bipe palette.** Favourites and chat rows share one highlight and keep it when you move into the message field. Right-clicking a favourite targets that tile instead of the whole grid.
