@@ -43,6 +43,12 @@ struct MacMessage: Identifiable {
     var file: MacFile? = nil
     var isSent: Bool { eventID != nil && !pending && !failed && !isDeleted }
     var hasMediaCaption: Bool { isImage || file != nil }
+    var composerPreview: String {
+        if !body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return body }
+        if photo != nil { return BipeStrings.appMediaImage }
+        if file != nil { return BipeStrings.appMediaFile }
+        return BipeStrings.appMessageReplyUnavailable
+    }
 
     func editedContent(_ text: String) throws -> EditedContent {
         if hasMediaCaption { return .mediaCaption(caption: text, formattedCaption: nil, mentions: nil) }
@@ -91,6 +97,7 @@ final class MacTimeline: ObservableObject {
     @Published var deleteFailed = false
     @Published private(set) var pinned: Set<String> = []
     @Published private(set) var editingID: String?
+    @Published private(set) var editingPreview: String?
     @Published var deleting: MacMessage?
     @Published var reporting: MacMessage?
     @Published var forwarding: MacMessage?
@@ -313,6 +320,7 @@ final class MacTimeline: ObservableObject {
 
     func startReply(_ message: MacMessage) {
         guard message.canReply, let eventID = message.eventID else { return }
+        if editingID != nil { cancelEdit() }
         replyID = eventID
     }
 
@@ -387,12 +395,14 @@ final class MacTimeline: ObservableObject {
         if editingID == nil { draftBeforeEdit = draft }
         replyID = nil
         editingID = message.id
+        editingPreview = message.body
         draft = message.body
     }
 
     func cancelEdit() {
         guard editingID != nil else { return }
         editingID = nil
+        editingPreview = nil
         draft = draftBeforeEdit
         draftBeforeEdit = ""
     }

@@ -1016,6 +1016,7 @@ private fun ComposerBar(
                             painterResource(PhosphorIcon.PLUS.drawable),
                             contentDescription = stringResource(R.string.bipe_app_composer_attach),
                             tint = colors.glyphPrimary,
+                            modifier = Modifier.size(22.dp),
                         )
                     }
                     attachMenu(attaching) { attaching = false }
@@ -1085,6 +1086,7 @@ private fun ComposerBar(
                         painterResource(PhosphorIcon.MICROPHONE.drawable),
                         contentDescription = stringResource(R.string.bipe_app_composer_record),
                         tint = colors.glyphPrimary,
+                        modifier = Modifier.size(22.dp),
                     )
                 }
             } else {
@@ -1097,6 +1099,7 @@ private fun ComposerBar(
                         painterResource(if (editing == null) PhosphorIcon.PAPER_PLANE_RIGHT.drawable else PhosphorIcon.CHECK.drawable),
                         contentDescription = stringResource(if (editing == null) R.string.bipe_app_timeline_send else R.string.bipe_app_message_save_edit),
                         tint = if (canSend) colors.inkOnAccent else colors.inkDisabled,
+                        modifier = Modifier.size(22.dp),
                     )
                 }
             }
