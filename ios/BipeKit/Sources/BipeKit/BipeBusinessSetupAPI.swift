@@ -364,7 +364,7 @@ public struct BipeWorkMemberSession: Decodable, Sendable {
 /// The member identity rule of registries/accounts.json `memberLocalpartPrefix` (ADR 0284 point 1). The Swift generator
 /// does not emit that value yet, so this file holds it; keep it equal to the registry.
 public enum BipeMemberIdentity {
-    public static let localpartPrefix = "m_"
+    public static let localpartPrefix = BipeRegistries.memberLocalpartPrefix
 
     /// true for a Matrix ID whose localpart starts with the prefix. No other localpart has `_` (ADR 0284 point 1).
     public static func isMember(_ userId: String) -> Bool {
