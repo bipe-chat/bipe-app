@@ -83,6 +83,8 @@ struct TimelineMessage: Identifiable, Equatable {
     var assistantLabel: String? = nil
     /// Spec chat-timeline forwardCount (bipe-chat/bipe#933): the count of the forward mark, 0 without one.
     var forwardCount = 0
+    /// Spec work-chat-bar notes (ADR 0284 point 19): bipe_chat_reply_by with the seat name, inside a work account only.
+    var replyByLabel: String? = nil
 }
 
 /// A member whose assistant reads the chat (spec chat-timeline notes, bipe-chat/bipe#439).
@@ -308,6 +310,17 @@ final class ChatTimelineModel: ObservableObject {
     private var noticeTask: Task<Void, Never>?
     /// The account's @ resolver (People names), set by the view before start. nil: names fall back to the cached @.
     var handles: BipeHandleResolver?
+    /// Spec work-chat-bar reply: runs before a text send; false keeps the draft and sends nothing.
+    var beforeSend: (@MainActor () async -> Bool)?
+    /// Spec work-chat-bar reply: each message this device sent in this chat, once with its event ID.
+    var onSent: (@MainActor (String) -> Void)?
+    /// Spec work-chat-bar notes: event ID to bipe_chat_reply_by, set by the view from the notes room.
+    var replyByLabels: [String: String] = [:] {
+        didSet { if oldValue != replyByLabels { rebuild() } }
+    }
+    /// Unique IDs of local echoes seen in this model, and the event IDs already passed to onSent.
+    private var localEchoIds: Set<String> = []
+    private var sentEventIds: Set<String> = []
 
     /// Spec threads (bipe#667): the root event of the thread view; nil for the main timeline.
     let threadRoot: String?
@@ -663,6 +676,7 @@ final class ChatTimelineModel: ObservableObject {
         }
         let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let timeline, !text.isEmpty else { return }
+        if let beforeSend, !(await beforeSend()) { return }
         // Spec composer send: Markdown with the pills as matrix.to links, then the mentions.
         let content = ComposerMarkdown.content(text: text, mentions: mentions)
         draft = ""
@@ -1378,8 +1392,17 @@ final class ChatTimelineModel: ObservableObject {
         // Spec read-receipts: delivered acks and the read receipts switch count in a DM only.
         facts.deliveredEventIds = facts.isDm ? Set(DeliveredLog.eventIds(userId: session.userId, roomId: roomId)) : []
         facts.showsOthersRead = !facts.isDm || ReadReceiptSetting.isOn
+        trackSentEchoes()
         let built = TimelineRowBuilder.rows(items: items, facts: facts)
-        rows = built.rows
+        var builtRows = built.rows
+        if !replyByLabels.isEmpty {
+            for index in builtRows.indices where builtRows[index].message?.isOwn == true {
+                if let eventId = builtRows[index].details?.eventId, let label = replyByLabels[eventId] {
+                    builtRows[index].message?.replyByLabel = label
+                }
+            }
+        }
+        rows = builtRows
         if built.hitStart {
             reachedStart = true
         }
@@ -1393,6 +1416,27 @@ final class ChatTimelineModel: ObservableObject {
             }
         }
         loadMembers(built.unknownUsers)
+    }
+
+    /// Spec work-chat-bar reply: a local echo of this device that got its event ID goes to onSent once. Remote events
+    /// from the account's other devices have no local echo here.
+    private func trackSentEchoes() {
+        guard let onSent else { return }
+        for item in items {
+            guard let event = item.asEvent(), event.isOwn else { continue }
+            let uniqueId = item.uniqueId().id
+            var sentEventId: String?
+            switch event.eventOrTransactionId {
+            case .transactionId:
+                localEchoIds.insert(uniqueId)
+                if case .sent(let eventId)? = event.localSendState { sentEventId = eventId }
+            case .eventId(let eventId):
+                if localEchoIds.contains(uniqueId) { sentEventId = eventId }
+            }
+            guard let eventId = sentEventId else { continue }
+            localEchoIds.remove(uniqueId)
+            if sentEventIds.insert(eventId).inserted { onSent(eventId) }
+        }
     }
 
     /// Display names and avatars of members for receipts, reactions and typing.

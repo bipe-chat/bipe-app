@@ -414,6 +414,8 @@ private fun MessageBubbleRow(
         message.assistantLabel?.let { label ->
             Text(label, style = MaterialTheme.typography.labelSmall, color = BipeTheme.colors.inkSecondary)
         }
+        // Spec work-chat-bar notes: inside a work account with two or more people, who sent this reply to the customer.
+        if (isDm && message.isOwn) chat.bipe.app.business.WorkReplyByLine(model.userId, details.eventId)
         // Spec threads: the count under a root, which opens the thread.
         val replies = details.threadReplies
         val rootId = details.eventId

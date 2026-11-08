@@ -82,8 +82,8 @@ final class ChatSearchModel: ObservableObject {
         let expectedQuery = query
         Task {
             var summaries: [ChatSummary] = []
-            let draftsRoomId = AssistantDraftsStore.shared.roomId(for: session.userId)
-            for room in rooms where room.id() != notes?.roomId && room.id() != draftsRoomId {
+            let hiddenRoomIds = AccountPrivateRooms.ids(userId: session.userId)
+            for room in rooms where room.id() != notes?.roomId && !hiddenRoomIds.contains(room.id()) {
                 if let summary = await ChatListModel.summary(of: room, ownUserId: session.userId) { summaries.append(summary) }
             }
             guard query == expectedQuery else { return }

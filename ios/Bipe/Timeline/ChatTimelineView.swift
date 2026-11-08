@@ -30,6 +30,13 @@ struct ChatTimelineView: View {
     @ObservedObject private var cleared = ClearedChatsStore.shared
     /// Spec drafts (bipe-chat/bipe#866): the assistant draft banner above the composer.
     @ObservedObject private var assistantDrafts = AssistantDraftsStore.shared
+    /// Specs work-chat-bar and work-notes (ADR 0284 phase A): who has the chat, and its notes.
+    @ObservedObject private var workQueue = WorkQueueStore.shared
+    @ObservedObject private var workNotes = WorkNotesStore.shared
+    @State private var showsWorkNotes = false
+    /// Spec work-chat-bar reply: bipe_chat_taken_reply before a send in a chat another person has.
+    @State private var confirmsTakenReply = false
+    @State private var repliesAnyway = false
     @Environment(\.closeChat) private var closeChat
     @Environment(\.openOtherChat) private var openOtherChat
     @State private var creatingPoll = false
@@ -102,6 +109,9 @@ struct ChatTimelineView: View {
                 LiveLocationChatBar(roomId: roomId, userId: session.userId)
                 if model.isDm, let people, let peer = model.peerUserId {
                     CvmStopOrderCard(seals: people.seals, userId: peer)
+                }
+                if isWorkChat {
+                    WorkChatBar(queue: workQueue, roomId: roomId) { showsWorkNotes = true }
                 }
                 // The open bookings with the business, pinned above the timeline (ADR 0102).
                 BookingCardStack(model: business)
@@ -313,6 +323,32 @@ struct ChatTimelineView: View {
         .businessChatTools(business)
         .task(id: "\(model.isDm)|\(model.peerUserId ?? "")|\(model.roomName)") {
             await business.load(peerUserId: model.isDm ? model.peerUserId : nil, peerName: model.roomName)
+        }
+        // Spec work-chats load: the seats and records when a customer chat of a work account opens.
+        .task(id: "\(business.ownerMode)|\(model.isDm)") {
+            guard model.isMainTimeline, business.ownerMode, model.isDm else { return }
+            await workQueue.load(session: session, api: business.api.api, isCompany: true)
+            if workQueue.isActive(userId: session.userId) {
+                await workNotes.refresh(session: session, seatIds: workQueue.seatIds)
+            }
+        }
+        .onChange(of: isWorkChat, initial: true) { _, _ in
+            installWorkHooks()
+            updateReplyByLabels()
+        }
+        .onChange(of: workNotes.replyBy) { _, _ in updateReplyByLabels() }
+        .onChange(of: workQueue.seats) { _, _ in updateReplyByLabels() }
+        .onChange(of: workQueue.assignee(roomId: roomId)) { _, _ in repliesAnyway = false }
+        .sheet(isPresented: $showsWorkNotes) {
+            WorkNotesSheet(store: workNotes, session: session, roomId: roomId)
+        }
+        .confirmationDialog(BipeStrings.chatTakenBanner(workQueue.seatName(workQueue.assignee(roomId: roomId)) ?? ""),
+                            isPresented: $confirmsTakenReply, titleVisibility: .visible) {
+            Button(BipeStrings.chatTakenReply) {
+                repliesAnyway = true
+                Task { await model.send() }
+            }
+            Button(BipeStrings.appCancel, role: .cancel) {}
         }
         .onDisappear {
             voicePlayer.stop()
@@ -551,6 +587,61 @@ struct ChatTimelineView: View {
             .disabled(identity.blocksSending)
             // Spec composer nameAmbiguous: the @ in the suggestion rows.
             .environment(\.bipeHandles, people?.handles)
+    }
+
+    /// Specs work-chat-bar and work-chats: a customer chat of a work account with two or more people. Customers, personal
+    /// accounts and a work account with one person see nothing new.
+    private var isWorkChat: Bool {
+        model.isMainTimeline && model.isDm && business.ownerMode && model.peerUserId != nil
+            && model.peerUserId != session.userId && !BipeOfficialAccounts.isOfficial(model.peerUserId)
+            && workQueue.isActive(userId: session.userId)
+    }
+
+    /// Spec work-chat-bar reply: take before the first send in the pool, bipe_chat_taken_reply in a chat another person
+    /// has, and one reply-by event after each send.
+    private func installWorkHooks() {
+        guard isWorkChat else {
+            model.beforeSend = nil
+            model.onSent = nil
+            return
+        }
+        let queue = workQueue
+        let notes = workNotes
+        let roomId = roomId
+        let session = session
+        let confirm = $confirmsTakenReply
+        let anyway = $repliesAnyway
+        model.beforeSend = {
+            if queue.isTakenByOther(roomId: roomId), !anyway.wrappedValue {
+                confirm.wrappedValue = true
+                return false
+            }
+            if queue.assignee(roomId: roomId) == nil, !(await queue.take(roomId: roomId)),
+               queue.isTakenByOther(roomId: roomId), !anyway.wrappedValue {
+                confirm.wrappedValue = true
+                return false
+            }
+            return true
+        }
+        model.onSent = { eventId in
+            guard let seatId = queue.mySeatId else { return }
+            Task { await notes.sendReplyBy(chatRoomId: roomId, eventId: eventId, seatId: seatId, session: session) }
+            // A photo, voice or sticker reply in the pool takes the chat too.
+            if queue.assignee(roomId: roomId) == nil { Task { await queue.take(roomId: roomId) } }
+        }
+    }
+
+    /// Spec work-chat-bar notes: bipe_chat_reply_by on the replies of this chat with a valid reply-by event.
+    private func updateReplyByLabels() {
+        guard isWorkChat else {
+            model.replyByLabels = [:]
+            return
+        }
+        var labels: [String: String] = [:]
+        for (eventId, reply) in workNotes.replyBy where reply.roomId == roomId {
+            if let name = workQueue.seatName(reply.seatId) { labels[eventId] = BipeStrings.chatReplyBy(name) }
+        }
+        model.replyByLabels = labels
     }
 
     private var chatTitle: some View {

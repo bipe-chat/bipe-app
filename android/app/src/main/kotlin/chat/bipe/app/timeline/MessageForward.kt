@@ -85,6 +85,8 @@ fun MessageForwardSheet(client: Client, contentJsons: List<String>, media: Media
             .filter { runCatching { it.membership() == Membership.JOINED && !it.isSpace() }.getOrDefault(false) }
             // Spec drafts notes: never the drafts room.
             .filter { room -> runCatching { !AssistantDraftsStore.isDraftsRoom(room.id(), client.userId()) }.getOrDefault(true) }
+            // Spec work-notes: nor the notes room of a work account.
+            .filter { room -> runCatching { !chat.bipe.app.business.WorkNotesRooms.isNotesRoom(room.id(), client.userId()) }.getOrDefault(true) }
             .map { ForwardChat(it.id(), it.displayName()?.takeIf { name -> name.isNotBlank() } ?: noName, it.avatarUrl()) }
             .sortedBy { searchFold(it.name) }
     }

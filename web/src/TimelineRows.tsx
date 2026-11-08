@@ -327,12 +327,15 @@ export function TimelineRowView({
   dmPeerId,
   senders,
   on,
+  replyByName,
 }: {
   row: Row;
   isDm: boolean;
   dmPeerId?: string;
   senders: SenderFacts;
   on: RowHandlers;
+  /** Spec work-chat-bar notes: the seat name of a reply with a valid reply-by event (work accounts with people). */
+  replyByName?: (eventId: string) => string | undefined;
 }) {
   switch (row.kind) {
     case 'day':
@@ -356,7 +359,16 @@ export function TimelineRowView({
         </li>
       );
     case 'message':
-      return <MessageBubble row={row} isDm={isDm} dmPeerId={dmPeerId} senders={senders} on={on} />;
+      return (
+        <MessageBubble
+          row={row}
+          isDm={isDm}
+          dmPeerId={dmPeerId}
+          senders={senders}
+          on={on}
+          replyBy={row.own && row.eventId ? replyByName?.(row.eventId) : undefined}
+        />
+      );
   }
 }
 
@@ -366,12 +378,14 @@ function MessageBubble({
   dmPeerId,
   senders,
   on,
+  replyBy,
 }: {
   row: MessageRow;
   isDm: boolean;
   dmPeerId?: string;
   senders: SenderFacts;
   on: RowHandlers;
+  replyBy?: string;
 }) {
   // Only the one other person of a DM goes without a name. A room flagged direct can hold messages from people who left.
   const showsSender = !isDm || dmPeerId === undefined || row.whoId !== dmPeerId || row.body === 'undecryptable';
@@ -467,6 +481,7 @@ function MessageBubble({
       {row.scamKind && <ScamWarningCard rowKey={row.key} kind={row.scamKind} />}
       <Footer
         at={row.at}
+        replyBy={replyBy}
         edited={row.edited}
         send={row.body !== 'deleted' && row.body !== 'undecryptable' && row.body !== 'other' ? row.send : undefined}
         onRetry={() => on.retry(row)}
@@ -588,9 +603,23 @@ function Bubble({
 
 // The time, the edited label (message-edit) and, on an own message, the send state (spec read-receipts):
 // a clock while it sends, a tick once the server has it, a warning when it failed.
-function Footer({ at, edited, send, onRetry }: { at: number; edited: boolean; send?: Send; onRetry: () => void }) {
+function Footer({
+  at,
+  replyBy,
+  edited,
+  send,
+  onRetry,
+}: {
+  at: number;
+  /** bipe_chat_reply_by: the person of the work account who sent this reply, inside the account only. */
+  replyBy?: string;
+  edited: boolean;
+  send?: Send;
+  onRetry: () => void;
+}) {
   return (
     <span className="flex items-center gap-1 self-end text-caption2 whitespace-nowrap text-ink-secondary">
+      {replyBy && <span>{s('bipe_chat_reply_by', replyBy)}</span>}
       <time className="tabular-nums" dateTime={new Date(at).toISOString()}>
         {timeText(at)}
       </time>

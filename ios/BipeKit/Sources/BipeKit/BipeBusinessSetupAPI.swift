@@ -284,3 +284,55 @@ extension BipeBusinessAPI {
         try await request("DELETE", ["v1", "me", "business", "seats", "devices", deviceId])
     }
 }
+
+// MARK: - Who has a customer chat (ADR 0284 phase A; contract /v1/me/business/chats)
+
+/// Contract `ChatAssignmentStatus`.
+public enum BipeChatAssignmentStatus: String, Codable, Sendable, CaseIterable {
+    case open, waiting, solved
+}
+
+/// Contract `ChatAssignment`. A chat with no record is open and in the pool. assigneeSeatId nil: the pool.
+public struct BipeChatAssignment: Decodable, Sendable, Equatable {
+    public let roomId: String
+    public let assigneeSeatId: String?
+    public let status: BipeChatAssignmentStatus
+    public let openedAt: String
+    public let updatedAt: String
+}
+
+/// Contract `ChatAssignmentUpdate`. Both seat fields are always sent, null for the pool.
+private struct ChatAssignmentUpdate: Encodable {
+    let assigneeSeatId: String?
+    let expectedAssigneeSeatId: String?
+    let status: BipeChatAssignmentStatus?
+
+    enum CodingKeys: String, CodingKey {
+        case assigneeSeatId, expectedAssigneeSeatId, status
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(assigneeSeatId, forKey: .assigneeSeatId)
+        try container.encode(expectedAssigneeSeatId, forKey: .expectedAssigneeSeatId)
+        try container.encodeIfPresent(status, forKey: .status)
+    }
+}
+
+private struct ChatAssignmentList: Decodable { let chats: [BipeChatAssignment] }
+
+extension BipeBusinessAPI {
+    /// `GET /v1/me/business/chats`. 403 `seat_required` on a device with no person.
+    public func chatAssignments() async throws(BipeAPIError) -> [BipeChatAssignment] {
+        let list: ChatAssignmentList = try await request("GET", ["v1", "me", "business", "chats"])
+        return list.chats
+    }
+
+    /// `PUT /v1/me/business/chats/{roomId}`. Take (assignee = my seat), give, or put back (nil). 409 `chat_taken` when
+    /// expected is not the current assignee; 404 `not_found` when assignee is not an active seat.
+    public func updateChatAssignment(roomId: String, assignee: String?, expected: String?,
+                                     status: BipeChatAssignmentStatus? = nil) async throws(BipeAPIError) -> BipeChatAssignment {
+        try await request("PUT", ["v1", "me", "business", "chats", roomId],
+                          json: ChatAssignmentUpdate(assigneeSeatId: assignee, expectedAssigneeSeatId: expected, status: status))
+    }
+}

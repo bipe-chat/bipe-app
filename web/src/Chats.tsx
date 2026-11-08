@@ -63,6 +63,8 @@ import { useSyncedSettings } from './settings-sync';
 import { useNotesRoomId } from './notes';
 import { Settings } from './Settings';
 import { businessClientFor } from './work/business-client';
+import { assigneeLine, inFilter, useChatQueue, type QueueFilter } from './work/chat-queue';
+import { useWorkNotesRoomId } from './work/work-notes';
 import { workHostFor } from './work/host';
 import { WorkView } from './work/WorkView';
 import { RoomTimeline } from './Timeline';
@@ -190,7 +192,17 @@ export function Chats({ client }: { client: Client }) {
 
   // Spec chat-list-filters notes (ADR 0053): the self-chat shows in neither tab, in search or in the badges. It opens from Você.
   const notesId = useNotesRoomId(client, sync.kind);
-  const listedRooms = useMemo(() => allRooms.filter((r) => r.id() !== notesId), [allRooms, notesId]);
+  // Company mode (ADR 0121 point kept by ADR 0225, ADR 0087): the account type from bipe-api.
+  const isCompany = useIsCompany(client.userId());
+  // Spec work-chats (bipe ADR 0284 phase A): who has each customer chat, shown with two or more people. The notes room
+  // of the work account is not a chat: it shows in no list.
+  const queue = useChatQueue(client, isCompany);
+  const [queueFilter, setQueueFilter] = useState<QueueFilter>('all');
+  const workNotesId = useWorkNotesRoomId(client, isCompany);
+  const listedRooms = useMemo(
+    () => allRooms.filter((r) => r.id() !== notesId && r.id() !== workNotesId),
+    [allRooms, notesId, workNotesId],
+  );
   const summaries = useChatSummaries(listedRooms, client.userId());
   const archive = useMemo(() => new ChatArchive(client.userId()), [client]);
   useArchiveVersion(archive);
@@ -264,18 +276,20 @@ export function Chats({ client }: { client: Client }) {
   const cleared = (c: ChatSummary) =>
     c.kind === 'dm' && clearedChatHidden(clearedMarker(c.roomId), c.row.at ?? null);
   const isFavourite = (c: ChatSummary) => c.info?.isFavourite === true;
+  // Spec work-chats selectFilter: on the device, no call. Comigo and Sem ninguém take only customer chats (DMs).
+  const queued = (c: ChatSummary) => inFilter(queue, queueFilter, c.roomId, c.kind === 'dm');
   // Spec chat-list favourites: the favourites of the scope that are not archived, in room list order.
   const favourites = summaries.filter(
-    (c) => inScope(c) && isFavourite(c) && !archive.isArchived(c.roomId) && !cleared(c),
+    (c) => inScope(c) && isFavourite(c) && !archive.isArchived(c.roomId) && !cleared(c) && queued(c),
   );
   // A favourite shows in the row at the top, not again below it.
   const active = summaries.filter(
-    (c) => inScope(c) && !isFavourite(c) && !archive.isArchived(c.roomId) && !cleared(c),
+    (c) => inScope(c) && !isFavourite(c) && !archive.isArchived(c.roomId) && !cleared(c) && queued(c),
   );
   const archived = summaries.filter((c) => inScope(c) && archive.isArchived(c.roomId) && !cleared(c));
   // A favourite adds to the score and has no row of its own in Mural, so these chats include favourites.
   const muralChats = muralOn
-    ? summaries.filter((c) => inScope(c) && !archive.isArchived(c.roomId) && !cleared(c))
+    ? summaries.filter((c) => inScope(c) && !archive.isArchived(c.roomId) && !cleared(c) && queued(c))
     : [];
   const requests = summaries.filter((c) => c.kind === 'request');
   const groupInvites = summaries.filter((c) => c.kind === 'groupInvite');
@@ -308,8 +322,6 @@ export function Chats({ client }: { client: Client }) {
   useTabTitle(chatsBadge + groupsBadge, page);
   // The switcher shows each account's last known name, photo and unread badge (ADR 0225 point 4).
   const { remember, current: account } = useAccounts();
-  // Company mode (ADR 0121 point kept by ADR 0225, ADR 0087): the account type from bipe-api.
-  const isCompany = useIsCompany(client.userId());
   useEffect(() => remember({ isCompany }), [isCompany, remember]);
   useEffect(() => {
     if (sync.kind === 'ready') remember({ unread: chatsBadge + groupsBadge });
@@ -494,6 +506,9 @@ export function Chats({ client }: { client: Client }) {
               onChange={setScope}
             />
           )}
+          {queue.on && scope === 'conversas' && !searching && !showingArchived && (
+            <QueueFilterPicker filter={queueFilter} onChange={setQueueFilter} />
+          )}
           {permission === 'default' && !bannerClosed && (
             // Desktop notifications need the person's yes, asked from this banner, never on load.
             <div className="mx-4 mb-2 flex items-start gap-3 rounded-xl bg-accent-wash p-3">
@@ -620,6 +635,7 @@ export function Chats({ client }: { client: Client }) {
                 <ChatRow
                   key={chat.roomId}
                   chat={chat}
+                  assignee={assigneeLine(queue, chat.roomId)}
                   selected={open?.id() === chat.roomId}
                   onOpen={() => openChat(chat.room)}
                   onMenu={(e) => {
@@ -761,6 +777,28 @@ function ScopePicker({
     <div role="tablist" className="mx-4 mb-2 flex shrink-0 gap-0.5 rounded-[9px] bg-surface-sunken p-0.5">
       {item('conversas', s('bipe_tab_chats'))}
       {item('grupos', s('bipe_tab_groups'))}
+    </div>
+  );
+}
+
+// Spec work-chats: Comigo, Sem ninguém and Todas under the scopes, in the same segmented style. Default Todas.
+function QueueFilterPicker({ filter, onChange }: { filter: QueueFilter; onChange: (filter: QueueFilter) => void }) {
+  const item = (value: QueueFilter, title: string) => (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={filter === value}
+      className={`flex min-h-8 flex-1 items-center justify-center rounded-[7px] text-subheadline font-semibold ${filter === value ? 'bg-surface-base text-ink-primary shadow-sm' : 'text-ink-secondary'}`}
+      onClick={() => onChange(value)}
+    >
+      {title}
+    </button>
+  );
+  return (
+    <div role="tablist" className="mx-4 mb-2 flex shrink-0 gap-0.5 rounded-[9px] bg-surface-sunken p-0.5">
+      {item('mine', s('bipe_chats_filter_mine'))}
+      {item('pool', s('bipe_chats_filter_pool'))}
+      {item('all', s('bipe_chats_filter_all'))}
     </div>
   );
 }
@@ -964,11 +1002,14 @@ function ChatAvatar({ chat, name, avatarUrl, size }: { chat: ChatSummary; name: 
 
 function ChatRow({
   chat,
+  assignee,
   selected,
   onOpen,
   onMenu,
 }: {
   chat: ChatSummary;
+  /** Spec work-chats: who has the chat (Com você, Com Ana); nothing for the pool or with one person. */
+  assignee?: string;
   selected: boolean;
   onOpen: () => void;
   onMenu: (e: MouseEvent) => void;
@@ -997,6 +1038,7 @@ function ChatRow({
               </time>
             )}
           </span>
+          {assignee && <span className="truncate text-footnote font-semibold text-accent-ink">{assignee}</span>}
           <span className="flex items-center gap-2">
             <span className="line-clamp-2 min-w-0 flex-1 text-subheadline break-words text-ink-secondary">
               {chat.row.preview ?? ''}
