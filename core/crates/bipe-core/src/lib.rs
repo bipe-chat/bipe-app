@@ -5,8 +5,10 @@
 //! Pure Bipe logic shared by all clients (ADR 0267). No network, files, clock, secrets or Matrix session.
 
 mod badge;
+mod signed_list;
 
 pub use badge::*;
+pub use signed_list::*;
 
 uniffi::setup_scaffolding!("bipe_core");
 
