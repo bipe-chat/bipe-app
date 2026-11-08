@@ -94,8 +94,15 @@ struct AccountStartView: View {
     }
 
     private func routeNotification(_ pending: BipeNotificationOpen?) {
-        guard let target = pending,
-              model.sessions.contains(where: { $0.userId == target.accountUserId }) else { return }
+        guard let target = pending else { return }
+        // Spec interno notes, Push: a member session's push opens its work account; Conversas opens Interno.
+        if let work = InternoSessions.shared.workAccount(ofMember: target.accountUserId),
+           model.sessions.contains(where: { $0.userId == work }) {
+            model.switchAccount(to: work)
+            tabs.selectTab(.conversas)
+            return
+        }
+        guard model.sessions.contains(where: { $0.userId == target.accountUserId }) else { return }
         model.switchAccount(to: target.accountUserId)
         tabs.selectTab(target.destination == .groups ? .grupos : .conversas)
     }
