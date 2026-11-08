@@ -240,6 +240,7 @@ struct MacConversationsView: View {
 private struct MacChatRow: View {
     let row: MacRoomSummary
     @ObservedObject var media: MacMedia
+    @Environment(\.backgroundProminence) private var prominence
     var body: some View {
         HStack(spacing: 12) {
             MacAvatar(name: row.name, media: media, url: row.avatar.url, userID: row.avatar.userID, members: row.avatar.members)
@@ -264,7 +265,8 @@ private struct MacChatRow: View {
                             .foregroundStyle(BipeColor.accentInk).background(BipeColor.accentWash, in: Capsule())
                             .accessibilityLabel(BipeStrings.appChatListUnread(row.unread.formatted()))
                     } else if row.markedUnread {
-                        Circle().fill(BipeColor.accentFill).frame(width: 8, height: 8).accessibilityLabel(BipeStrings.chatUnreadState)
+                        Circle().fill(prominence == .increased ? BipeColor.inkOnAccent : BipeColor.accentFill)
+                            .frame(width: 8, height: 8).accessibilityLabel(BipeStrings.chatUnreadState)
                     }
                 }
             }.frame(minHeight: 56)
