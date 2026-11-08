@@ -22,11 +22,14 @@ final class MacSidebarSelectionTests: XCTestCase {
         }
         XCTAssertEqual(targets.count, 2)
         let target = try XCTUnwrap(targets.last)
+        XCTAssertGreaterThan(target.bounds.width, 44)
+        XCTAssertGreaterThan(target.bounds.height, 44)
         XCTAssertLessThan(target.bounds.width, table.bounds.width / 2, "The menu target must be a tile, not the grid row")
         let event = try XCTUnwrap(NSEvent.mouseEvent(with: .rightMouseDown, location: .zero, modifierFlags: [],
             timestamp: 0, windowNumber: window.windowNumber, context: nil, eventNumber: 1, clickCount: 1, pressure: 1))
         XCTAssertTrue(MacSidebarContextMenu.Target.isContextClick(event))
         let menu = try XCTUnwrap(target.menu(for: event))
+        XCTAssertTrue(menu.delegate === target)
         target.menuWillOpen(menu)
         try await settle(window)
         XCTAssertEqual(model.contextFavourite, "second-favourite")
