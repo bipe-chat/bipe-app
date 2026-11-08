@@ -4,12 +4,11 @@
 
 // The notes room of a work account (bipe ADR 0284 points 18 and 19; registries/work-notes.json; spec work-notes): one
 // private, encrypted room with only the account's own devices, its ID in global account data. It is the own-room of
-// notes.ts with another account data type. A note is an m.room.message with the noteField {room_id}; after each send to
-// a customer this browser sends one reply-by event {room_id, event_id, seat_id}. The rules workNoteFromEvent and
-// replyByFromEvent of bipe-shared decide what shows. The room is read live once a chat of the queue opens.
-//
-// matrix-sdk-ffi 26.08.11 keeps custom message-like events out of every timeline (matrix-sdk-ui default_event_filter),
-// so this page sends reply-by events but its timeline has none to read until the SDK lets them through.
+// notes.ts with another account data type. A note is an m.text m.room.message with the noteField {room_id, seat_id};
+// after each send to a customer this browser sends one m.notice m.room.message, body replyByBody, with the replyByField
+// {room_id, event_id, seat_id}. Both are m.room.message because matrix-sdk-ffi 26.08.11 drops custom event types from
+// the timeline. The rules workNoteFromEvent and replyByFromEvent of bipe-shared decide what shows; a reply-by notice is
+// never a note (msgtype m.notice). The room is read live once a chat of the queue opens.
 
 import { useEffect, useSyncExternalStore } from 'react';
 import { replyByFromEvent, workNoteFromEvent } from '../bipe/generated/lib/registries.mjs';
@@ -42,7 +41,8 @@ const NOTES_ROOM: OwnRoom = {
 /** An event of the notes room in the shape of the rules: { sender, type, redacted, content }. */
 type RoomEvent = { eventId: string; at: number; sender: string; type: string; redacted: boolean; content: unknown };
 
-export type WorkNote = { eventId: string; at: number; body: string };
+/** seatId: the seat that wrote the note, null when it names no seat of the list. */
+export type WorkNote = { eventId: string; at: number; body: string; seatId: string | null };
 
 type State = { roomId?: string; events: RoomEvent[] };
 
@@ -104,15 +104,23 @@ class WorkNotesRoom {
   }
 
   /** Spec work-notes send: creates the room on first use, then an m.room.message with the noteField. */
-  async sendNote(chatRoomId: string, body: string): Promise<void> {
+  async sendNote(chatRoomId: string, body: string, seatId: string | undefined): Promise<void> {
     const room = await this.room();
-    await room.sendRaw('m.room.message', JSON.stringify({ msgtype: 'm.text', body, [workNotes.noteField]: { room_id: chatRoomId } }));
+    const field = seatId ? { room_id: chatRoomId, seat_id: seatId } : { room_id: chatRoomId };
+    await room.sendRaw('m.room.message', JSON.stringify({ msgtype: 'm.text', body, [workNotes.noteField]: field }));
   }
 
   /** Spec work-chat-bar reply: after a send to a customer, who sent it. */
   async sendReplyBy(chatRoomId: string, eventId: string, seatId: string): Promise<void> {
     const room = await this.room();
-    await room.sendRaw(workNotes.replyByType, JSON.stringify({ room_id: chatRoomId, event_id: eventId, seat_id: seatId }));
+    await room.sendRaw(
+      'm.room.message',
+      JSON.stringify({
+        msgtype: 'm.notice',
+        body: workNotes.replyByBody,
+        [workNotes.replyByField]: { room_id: chatRoomId, event_id: eventId, seat_id: seatId },
+      }),
+    );
   }
 
   private async room() {
@@ -174,14 +182,14 @@ export function useWorkNotesRoomId(client: Client, on: boolean): string | undefi
 }
 
 /** Spec work-notes notes: the notes of one customer chat, oldest first (workNoteFromEvent). */
-export function useChatNotes(client: Client, chatRoomId: string, on: boolean): WorkNote[] {
+export function useChatNotes(client: Client, chatRoomId: string, seatIds: string[], on: boolean): WorkNote[] {
   const state = useWorkNotesState(client, on);
-  const ctx = { ownUserId: client.userId(), joinedRoomIds: [chatRoomId] };
+  const ctx = { ownUserId: client.userId(), joinedRoomIds: [chatRoomId], seatIds };
   const notes: WorkNote[] = [];
   for (const event of state.events) {
     const result = workNoteFromEvent(event, ctx, reg);
     if ('note' in result && result.note.roomId === chatRoomId)
-      notes.push({ eventId: event.eventId, at: event.at, body: result.note.body });
+      notes.push({ eventId: event.eventId, at: event.at, body: result.note.body, seatId: result.note.seatId });
   }
   return notes;
 }

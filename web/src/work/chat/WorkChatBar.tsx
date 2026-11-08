@@ -213,14 +213,17 @@ export function WorkNotesSheet({
   client,
   roomId,
   accountName,
+  chat,
   onClose,
 }: {
   client: Client;
   roomId: string;
   accountName: string;
+  chat: WorkChat;
   onClose: () => void;
 }) {
-  const notes = useChatNotes(client, roomId, true);
+  const names = chat.queue.names;
+  const notes = useChatNotes(client, roomId, [...names.keys()], true);
   const [body, setBody] = useState('');
   const [phase, setPhase] = useState<'ready' | 'sending' | 'failed'>('ready');
   const end = useRef<HTMLLIElement>(null);
@@ -230,7 +233,7 @@ export function WorkNotesSheet({
     if (!text || phase === 'sending') return;
     setPhase('sending');
     workNotesFor(client)
-      .sendNote(roomId, text)
+      .sendNote(roomId, text, chat.queue.mySeat)
       .then(
         () => {
           setBody('');
@@ -292,6 +295,11 @@ export function WorkNotesSheet({
         <ol className="flex flex-col gap-2 px-4 pb-4">
           {notes.map((note) => (
             <li key={note.eventId} className="flex flex-col gap-1 rounded-2xl bg-surface-raised px-3 py-2">
+              {note.seatId !== null && names.get(note.seatId) && (
+                <span className="text-caption font-bold text-accent-ink">
+                  {names.get(note.seatId)}
+                </span>
+              )}
               <p className="text-body break-words whitespace-pre-wrap text-ink-primary">{note.body}</p>
               <time className="self-end text-caption2 text-ink-secondary" dateTime={new Date(note.at).toISOString()}>
                 {noteTime.format(note.at)}

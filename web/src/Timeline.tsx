@@ -694,6 +694,7 @@ export function RoomTimeline({
           client={client}
           roomId={room.id()}
           accountName={account.name ?? ''}
+          chat={work}
           onClose={() => setNotesOpen(false)}
         />
       )}
