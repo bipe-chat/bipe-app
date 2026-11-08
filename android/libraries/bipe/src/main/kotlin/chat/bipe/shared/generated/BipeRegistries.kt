@@ -927,7 +927,8 @@ object BipeRegistries {
     const val WORK_NOTES_ROOM_TYPE = "chat.bipe.work_notes"
     const val WORK_NOTES_ACCOUNT_DATA_TYPE = "chat.bipe.work_notes_room"
     const val WORK_NOTE_FIELD = "chat.bipe.work_note"
-    const val WORK_REPLY_BY_TYPE = "chat.bipe.reply_by"
+    const val WORK_REPLY_BY_FIELD = "chat.bipe.reply_by"
+    const val WORK_REPLY_BY_BODY = "Resposta enviada"
     const val WORK_NOTE_BODY_MAX_LENGTH = 4000
 
     /** Assistant sends (bipe ADR 0210, bipe-chat/bipe#439; registries/mcp-tools.json personalSend). Rules: test-vectors/assistant-send.json. */
