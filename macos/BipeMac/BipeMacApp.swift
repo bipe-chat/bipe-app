@@ -15,6 +15,16 @@ struct BipeMacApp: App {
     @AppStorage(BipeSettingsRow.chatsAppearance.rawValue) private var appearance = "system"
 
     init() {
+        // Before any SDK call (bipe-chat/bipe#1301): SDK warnings, errors and panics, to the console in Debug builds
+        // only. A Release build writes no SDK log.
+        #if DEBUG
+        let sdkConsole = true
+        #else
+        let sdkConsole = false
+        #endif
+        try? initPlatform(config: TracingConfiguration(logLevel: .warn, traceLogPacks: [], extraTargets: [],
+                                                       writeToStdoutOrSystem: sdkConsole, writeToFiles: nil, sentryConfig: nil),
+                          useLightweightTokioRuntime: false)
         MacLocalCache.clean()
         AppTheme.load()
     }
