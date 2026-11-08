@@ -233,6 +233,18 @@ jobs:
           swift test -c release -Xswiftc -enable-testing 2>&1 | tee "$RUNNER_TEMP/mac.log"
           grep -h BIPE_CORE_METRICS "$RUNNER_TEMP/mac.log" | head -1 > "$RUNNER_TEMP/mac.metrics"
           test -s "$RUNNER_TEMP/mac.metrics"
+      # bipe-chat/bipe#1277 item 5: the x86_64 slice of the XCFramework, run on this arm64 Mac through Rosetta 2.
+      - name: Vectors on macOS x86_64 (Rosetta), next to the Matrix SDK
+        working-directory: core/harness/swift
+        run: |
+          arch -x86_64 /usr/bin/true 2> /dev/null || sudo softwareupdate --install-rosetta --agree-to-license
+          swift test -c release --arch x86_64 -Xswiftc -enable-testing 2>&1 | tee "$RUNNER_TEMP/mac-x86.log"
+          bundle=$(find .build/x86_64-apple-macosx/release -maxdepth 1 -name '*.xctest' | head -1)
+          file "$bundle/Contents/MacOS/"* | tee "$RUNNER_TEMP/mac-x86.file"
+          grep -q 'x86_64' "$RUNNER_TEMP/mac-x86.file"
+          if grep -q 'arm64' "$RUNNER_TEMP/mac-x86.file"; then echo "::error::the test bundle is not x86_64 only"; exit 1; fi
+          grep -h BIPE_CORE_METRICS "$RUNNER_TEMP/mac-x86.log" | head -1 > "$RUNNER_TEMP/mac-x86.metrics"
+          test -s "$RUNNER_TEMP/mac-x86.metrics"
       - name: Vectors on the iOS simulator, next to the Matrix SDK
         working-directory: core/harness/swift
         run: |
@@ -283,6 +295,7 @@ jobs:
             echo '| Run | Metrics |'
             echo '| --- | ------- |'
             echo "| macOS, bipe-core | $(cat "$RUNNER_TEMP/mac.metrics") |"
+            echo "| macOS x86_64 under Rosetta, bipe-core | $(cat "$RUNNER_TEMP/mac-x86.metrics") |"
             echo "| iOS simulator, bipe-core | $(cat "$RUNNER_TEMP/ios.metrics") |"
             echo "| macOS, BadgeVerifier.swift | $(cat "$RUNNER_TEMP/base.metrics") |"
           } >> "$GITHUB_STEP_SUMMARY"
