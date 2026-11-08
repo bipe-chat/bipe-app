@@ -124,7 +124,8 @@ final class MacComposerTests: XCTestCase {
 
     @MainActor
     private func render<Content: View>(_ content: Content, name: String) async throws -> NSSize {
-        let view = NSHostingView(rootView: content.background(BipeColor.surfaceBase))
+        // Capture the real solid accessibility variant; compositor-owned glass is not a portable bitmap source.
+        let view = NSHostingView(rootView: content.environment(\.accessibilityReduceTransparency, true).background(BipeColor.surfaceBase))
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 720, height: 200),
                               styleMask: [.titled], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
