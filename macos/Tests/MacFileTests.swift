@@ -105,6 +105,22 @@ final class MacFileTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: uploads.path))
     }
 
+    @MainActor
+    func testPickerCanPrepareBeforeTheTimelineIsReadyAndCancelRemovesTheCopy() async throws {
+        let root = try folder(); defer { try? FileManager.default.removeItem(at: root) }
+        let source = root.appendingPathComponent("file.pdf")
+        try Data([1, 2, 3]).write(to: source)
+        let model = MacTimeline(drafts: MacDrafts())
+        XCTAssertFalse(model.ready)
+        await model.prepareFile(source, maxUploadSize: 100)
+        let prepared = try XCTUnwrap(model.fileAttachment)
+        XCTAssertEqual(try Data(contentsOf: prepared.file), Data([1, 2, 3]))
+        model.cancelAttachment()
+        XCTAssertNil(model.fileAttachment)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: prepared.folder.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: source.path))
+    }
+
     func testSavedFileIsQuarantinedAndQuarantineFailurePreservesExistingOutput() throws {
         let root = try folder(); defer { try? FileManager.default.removeItem(at: root) }
         let source = root.appendingPathComponent("source.pdf"), output = root.appendingPathComponent("saved.pdf")

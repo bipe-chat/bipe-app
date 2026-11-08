@@ -458,7 +458,7 @@ final class MacTimeline: ObservableObject {
     }
 
     func prepareImage(_ url: URL) async {
-        guard ready, !preparing, !sending else { return }
+        guard !preparing, !sending else { return }
         let revision = attachmentRevision
         preparing = true
         uploadError = nil
@@ -494,7 +494,7 @@ final class MacTimeline: ObservableObject {
     }
 
     func prepareFile(_ url: URL, maxUploadSize: UInt64?) async {
-        guard ready, !preparing, !sending else { return }
+        guard !preparing, !sending else { return }
         let revision = attachmentRevision
         preparing = true; uploadError = nil
         defer { preparing = false }
