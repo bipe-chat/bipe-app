@@ -104,10 +104,6 @@
       "licence": "MIT"
     },
     {
-      "name": "camino",
-      "licence": "Apache-2.0"
-    },
-    {
       "name": "cfg-if",
       "licence": "Apache-2.0"
     },
@@ -163,6 +159,10 @@
     },
     {
       "name": "equivalent",
+      "licence": "Apache-2.0"
+    },
+    {
+      "name": "errno",
       "licence": "Apache-2.0"
     },
     {
@@ -248,10 +248,6 @@
     },
     {
       "name": "rustls:rustls-platform-verifier",
-      "licence": "Apache-2.0"
-    },
-    {
-      "name": "serde",
       "licence": "Apache-2.0"
     },
     {

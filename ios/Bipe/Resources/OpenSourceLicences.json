@@ -32,10 +32,6 @@
       "licence": "MIT"
     },
     {
-      "name": "camino",
-      "licence": "Apache-2.0"
-    },
-    {
       "name": "cfg-if",
       "licence": "Apache-2.0"
     },
@@ -74,6 +70,10 @@
       "licence": "Apache-2.0"
     },
     {
+      "name": "errno",
+      "licence": "Apache-2.0"
+    },
+    {
       "name": "fastrand",
       "licence": "Apache-2.0"
     },
@@ -106,10 +106,6 @@
       "licence": "Apache-2.0"
     },
     {
-      "name": "linux-raw-sys",
-      "licence": "Apache-2.0"
-    },
-    {
       "name": "livekit-uniffi-xcframework",
       "licence": "Apache-2.0"
     },
@@ -127,10 +123,6 @@
     },
     {
       "name": "rustix",
-      "licence": "Apache-2.0"
-    },
-    {
-      "name": "serde",
       "licence": "Apache-2.0"
     },
     {
