@@ -240,7 +240,7 @@ jobs:
           arch -x86_64 /usr/bin/true 2> /dev/null || sudo softwareupdate --install-rosetta --agree-to-license
           # swift test runs an arm64 helper that cannot open an x86_64 bundle, so xctest runs it under Rosetta.
           swift build -c release --arch x86_64 --build-tests -Xswiftc -enable-testing
-          bundle=$(find .build -path '*Release*' -name 'BipeCoreHarnessTests.xctest' -type d -newer Package.swift | head -1)
+          bundle=$(find .build -ipath '*release*' -name 'BipeCoreHarnessTests.xctest' -type d -newer Package.swift | head -1)
           test -n "$bundle"
           arch -x86_64 xcrun xctest "$bundle" 2>&1 | tee "$RUNNER_TEMP/mac-x86.log"
           file "$bundle/Contents/MacOS/"* | tee "$RUNNER_TEMP/mac-x86.file"
