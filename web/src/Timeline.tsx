@@ -84,6 +84,7 @@ export function RoomTimeline({
   onInfo,
   focusEventId,
   onBack,
+  hint,
 }: {
   room: Room;
   chats: ChatSummary[];
@@ -91,6 +92,8 @@ export function RoomTimeline({
   onInfo: (show: boolean) => void;
   focusEventId?: string;
   onBack: () => void;
+  /** A line at the top of the chat, under the bar: bipe_interno_private_hint in a direct chat of Interno. */
+  hint?: string;
 }) {
   // The sheets of the message menu: forward, the emoji picker, who reacted.
   const [sheet, setSheet] = useState<
@@ -418,6 +421,11 @@ export function RoomTimeline({
             <Icon path={magnifyingGlass} size={22} />
           </button>
         </header>
+        {hint && (
+          <p className="mx-4 mt-2 shrink-0 rounded-xl bg-accent-wash px-3 py-2 text-center text-footnote text-ink-secondary">
+            {hint}
+          </p>
+        )}
         {isGroup && (
           <PinnedBanner
             pins={pins}
