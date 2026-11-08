@@ -24,6 +24,15 @@
 // Matched tokens: JPlag's average similarity is 2 * matched / (tokens of the
 // first file + tokens of the second file), so matched = average * (sum) / 2.
 // The token counts come from submissionFileIndex.json in the JPlag report.
+//
+// JPlag 6.3.0 writes that index only for the submissions of the comparisons
+// the report shows (-n, default 2500), while results.csv holds every
+// comparison. With thousands of files most pairs had no count, so every pair
+// above THRESHOLD failed (bipe-chat/bipe#1305). The scan therefore keeps only
+// comparisons at or above THRESHOLD (-m, average similarity) and shows all of
+// them (-n -1): every pair that can fail has its counts. A pair whose maximum
+// similarity alone is above THRESHOLD is no longer listed. The files JPlag
+// could not compare come from failedSubmissions in runInformation.json.
 
 import { execFileSync } from 'node:child_process';
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
@@ -80,7 +89,7 @@ export function parseCsv(text) {
   return rows.filter((r) => r.length > 1 || r[0] !== '');
 }
 
-function flatKey(submissionName) {
+export function flatKey(submissionName) {
   const m = submissionName.match(/(?:^|[/\\])([ot]\d{5}_[^/\\]+)$/);
   return m ? m[1] : null;
 }
@@ -91,7 +100,10 @@ export function matchedTokens(avg, tokensA, tokensB) {
   return Math.round((avg * (tokensA + tokensB)) / 2);
 }
 
-// Token count per flat submission name, from JPlag's submissionFileIndex.json:
+// Token count per flat submission name, from JPlag's submissionFileIndex.json.
+// JPlag 6.3.0 keys it by submission ID, the name with the path separator
+// replaced by '_' ("ours_o00001_A.kt"), and each file by its path under the
+// ID ("ours_o00001_A.kt/ours_o00001_A.kt"):
 // { fileIndexes: { "<dir>_<flat>": { "<path>": { tokenCount } } } }.
 export function tokenCounts(index) {
   const out = new Map();
@@ -103,11 +115,32 @@ export function tokenCounts(index) {
   return out;
 }
 
+// Flat names of the submissions JPlag could not use, from runInformation.json:
+// { failedSubmissions: [{ submissionId: "ours/o00001_A.kt", submissionState }] }.
+export function failedSubmissions(info) {
+  const out = new Set();
+  for (const f of info.failedSubmissions ?? []) {
+    const key = flatKey(String(f.submissionId ?? '').replace(/^[^_/\\]*_(?=[ot]\d{5}_)/, ''));
+    if (key) out.add(key);
+  }
+  return out;
+}
+
+// Fails the scan when results.csv has pairs but the index has no count at all:
+// a JPlag report format change, not a copy (bipe-chat/bipe#1305).
+export function checkTokenIndex(rows, tokens) {
+  if (rows.length > 1 && tokens.size === 0) {
+    throw new Error('similarity: token index empty: submissionFileIndex.json has no token count for any submission');
+  }
+}
+
 // rows: parsed results.csv (header first). ours/theirs: maps from flatNames.
 // tokens: map from flat name to token count (a missing count counts as a
 // copy, so the pair fails).
+// failed: flat names from runInformation.json. Without it, a file in no row
+// counts as not compared.
 // Returns { failures, warnings, notCompared } with original file paths.
-export function evaluate(rows, ours, theirs, threshold = THRESHOLD, tokens = new Map(), minTokens = MIN_MATCHED_TOKENS) {
+export function evaluate(rows, ours, theirs, threshold = THRESHOLD, tokens = new Map(), minTokens = MIN_MATCHED_TOKENS, failed = null) {
   const [header, ...data] = rows;
   const col = (name) => header.indexOf(name);
   const [c1, c2, cAvg, cMax] = ['submissionName1', 'submissionName2', 'averageSimilarity', 'maxSimilarity'].map(col);
@@ -132,7 +165,7 @@ export function evaluate(rows, ours, theirs, threshold = THRESHOLD, tokens = new
     else if (avg > threshold || max > threshold) warnings.push(pair);
   }
   const byAvg = (x, y) => y.avg - x.avg || y.max - x.max;
-  const notCompared = [...ours.keys()].filter((k) => !compared.has(k)).map((k) => ours.get(k));
+  const notCompared = [...ours.keys()].filter((k) => (failed ? failed.has(k) : !compared.has(k))).map((k) => ours.get(k));
   return { failures: failures.sort(byAvg), warnings: warnings.sort(byAvg), notCompared };
 }
 
@@ -148,7 +181,9 @@ export function runJplag({ jar, lang, ours, theirs, oursRoot, theirsRoot, work }
   stage(ours, oursRoot, oursDir);
   stage(theirs, theirsRoot, theirsDir);
   const result = join(work, 'report');
+  // -m and -n -1: see the header. The index then covers every pair that can fail.
   const args = ['-Xmx6g', '-jar', jar, '-M', 'RUN', '-l', LANGS[lang].jplag, '--csv-export', '--cluster-skip', '--overwrite'];
+  args.push('-m', String(THRESHOLD), '-n', '-1');
   args.push('-new', oursDir, '-old', theirsDir, '-r', result);
   try {
     execFileSync('java', args, { stdio: 'inherit' });
@@ -159,11 +194,14 @@ export function runJplag({ jar, lang, ours, theirs, oursRoot, theirsRoot, work }
   }
   const csv = join(result, 'results.csv');
   if (!existsSync(csv)) throw new Error(`JPlag wrote no ${csv}`);
-  // The report archive holds the token count of each file.
+  // The report archive holds the token count of each file and the failed submissions.
   const index = join(work, 'index');
-  execFileSync('unzip', ['-o', '-q', `${result}.jplag`, 'submissionFileIndex.json', '-d', index], { stdio: 'inherit' });
+  execFileSync('unzip', ['-o', '-q', `${result}.jplag`, 'submissionFileIndex.json', 'runInformation.json', '-d', index], { stdio: 'inherit' });
   const tokens = tokenCounts(JSON.parse(readFileSync(join(index, 'submissionFileIndex.json'), 'utf8')));
-  return { rows: parseCsv(readFileSync(csv, 'utf8')), tokens };
+  const failed = failedSubmissions(JSON.parse(readFileSync(join(index, 'runInformation.json'), 'utf8')));
+  const rows = parseCsv(readFileSync(csv, 'utf8'));
+  checkTokenIndex(rows, tokens);
+  return { rows, tokens, failed };
 }
 
 function report(result, label, threshold) {
@@ -220,8 +258,8 @@ async function scan(opts) {
   const ours = flatNames(oursFiles, 'o');
   const theirs = flatNames(theirsFiles, 't');
   console.log(`similarity: ${oursFiles.length} Bipe file(s) against ${theirsFiles.length} file(s) of ${opts.repo}@${tag}`);
-  const { rows, tokens } = runJplag({ jar: opts.jar, lang, ours, theirs, oursRoot: REPO_ROOT, theirsRoot: clone, work: join(work, 'jplag') });
-  const result = evaluate(rows, ours, theirs, threshold, tokens);
+  const { rows, tokens, failed } = runJplag({ jar: opts.jar, lang, ours, theirs, oursRoot: REPO_ROOT, theirsRoot: clone, work: join(work, 'jplag') });
+  const result = evaluate(rows, ours, theirs, threshold, tokens, MIN_MATCHED_TOKENS, failed);
   report(result, `${opts.repo}@${tag}`, threshold);
   console.log(`similarity: ${result.failures.length} pair(s) above ${threshold} with ${MIN_MATCHED_TOKENS} or more matched tokens`);
   return result.failures.length ? 1 : 0;
@@ -252,10 +290,12 @@ function selfTest(opts) {
     writeFileSync(join(src, `Unrelated${ext}`), SAMPLES[lang][1]);
     const ours = flatNames([`Copied${ext}`], 'o');
     const theirs = flatNames([`Copied${ext}`, `Unrelated${ext}`], 't');
-    const { rows, tokens } = runJplag({ jar: opts.jar, lang, ours, theirs, oursRoot: src, theirsRoot: src, work: join(work, 'jplag') });
-    const result = evaluate(rows, ours, theirs, THRESHOLD, tokens);
+    const { rows, tokens, failed } = runJplag({ jar: opts.jar, lang, ours, theirs, oursRoot: src, theirsRoot: src, work: join(work, 'jplag') });
+    const result = evaluate(rows, ours, theirs, THRESHOLD, tokens, MIN_MATCHED_TOKENS, failed);
+    // A finite count proves the token index matched the pair (bipe-chat/bipe#1305).
     const ok =
-      result.failures.length === 1 && result.failures[0].theirs === `Copied${ext}` && result.notCompared.length === 0;
+      result.failures.length === 1 && result.failures[0].theirs === `Copied${ext}` &&
+      Number.isFinite(result.failures[0].matched) && result.notCompared.length === 0;
     console.log(`similarity self-test ${lang}: ${ok ? 'OK' : 'FAIL'} ${JSON.stringify(result)}`);
     if (!ok) {
       console.log(`::error title=similarity::self-test for ${lang} failed: JPlag did not flag a copied file`);
