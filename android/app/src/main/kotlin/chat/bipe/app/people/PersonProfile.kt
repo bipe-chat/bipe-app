@@ -241,7 +241,13 @@ class PersonProfileModel(
                 _state.value = _state.value.copy(dmRoomId = roomId, openingChat = false)
                 open(roomId)
             } catch (error: PeopleException) {
-                showNotice(context.getString(R.string.bipe_app_group_invite_refused, _state.value.person.displayName))
+                showNotice(
+                    if (error.kind == PeopleException.Kind.LIMIT_EXCEEDED) {
+                        people.reachNotice(context)
+                    } else {
+                        context.getString(R.string.bipe_app_group_invite_refused, _state.value.person.displayName)
+                    },
+                )
             } catch (error: Exception) {
                 showNotice(context.getString(R.string.bipe_error_generic))
             }
@@ -285,6 +291,8 @@ class PersonProfileModel(
                 showNotice(
                     if (error.kind is ErrorKind.Forbidden) {
                         context.getString(R.string.bipe_app_group_invite_refused, _state.value.person.displayName)
+                    } else if (error.kind is ErrorKind.LimitExceeded) {
+                        people.reachNotice(context)
                     } else {
                         context.getString(R.string.bipe_error_generic)
                     },

@@ -297,6 +297,8 @@ struct ContactsView: View {
                         openChat(try await model.people.openOrCreateDM(with: match.person.userId))
                     } catch PeopleError.inviteRefused {
                         notice = BipeStrings.appGroupInviteRefused(match.person.displayName)
+                    } catch PeopleError.limitExceeded {
+                        notice = await model.people.reachNotice()
                     } catch {
                         notice = BipeStrings.errorGeneric
                     }
