@@ -152,6 +152,8 @@ export const BipeScreen = {
   identityChange: "identity-change",
   /** Incoming call (flow chat). Spec: bipe-shared/product/screens/incoming-call.json */
   incomingCall: "incoming-call",
+  /** Interno (flow business). Spec: bipe-shared/product/screens/interno.json */
+  interno: "interno",
   /** Create an invite (flow invites). Spec: bipe-shared/product/screens/invite-note.json */
   inviteNote: "invite-note",
   /** Invite card (flow invites). Spec: bipe-shared/product/screens/invite-qr.json */
