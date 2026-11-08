@@ -1,0 +1,38 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
+# Copyright 2026 Bipe contributors
+
+# Fuzz targets of the badge parser (bipe-chat/bipe#1277 item 7). A test tool: its own workspace, so libfuzzer-sys stays
+# out of ../Cargo.lock and out of the apps. The core-fuzz job of .github/workflows/core.yml runs it on nightly Rust.
+[package]
+name = "bipe-core-fuzz"
+version = "0.0.0"
+edition = "2024"
+license = "AGPL-3.0-only"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+bipe-core = { path = "../crates/bipe-core" }
+base64 = "0.22"
+ed25519-dalek = "2"
+libfuzzer-sys = "0.4"
+serde_json = "1"
+
+[[bin]]
+name = "envelope"
+path = "fuzz_targets/envelope.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "payload"
+path = "fuzz_targets/payload.rs"
+test = false
+doc = false
+bench = false
+
+[workspace]

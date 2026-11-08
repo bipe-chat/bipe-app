@@ -48,6 +48,8 @@ env:
   BUDGET_WASM_BROTLI: 307200
   # The version in the names of the core-dist-* artifacts: the release's, or 0.0.0-dev on a pull request or push.
   DIST_VERSION: ${{ inputs.version || '0.0.0-dev' }}
+  # Seconds per fuzz target on each run (bipe-chat/bipe#1277 item 7).
+  FUZZ_SECONDS: 300
 
 jobs:
   rust:
@@ -168,6 +170,44 @@ jobs:
         if: steps.shipped.outputs.stale == '1'
         run: exit 1
 
+  # bipe-chat/bipe#1277 item 7: the badge parser under libFuzzer. A crash fails the job and uploads its input.
+  fuzz:
+    name: core-fuzz
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - *shared-branch
+      - *shared-checkout
+      - uses: dtolnay/rust-toolchain@nightly
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: core/fuzz
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-fuzz
+      - name: Seed the corpora from the vectors
+        working-directory: core/fuzz
+        run: python3 seed.py "$GITHUB_WORKSPACE/bipe-shared/test-vectors/badges.json" corpus
+      - name: Fuzz each target
+        working-directory: core/fuzz
+        run: |
+          # The prebuilt cargo-fuzz defaults to its own musl target, which ASan refuses.
+          for target in envelope payload; do
+            cargo +nightly fuzz run --target x86_64-unknown-linux-gnu "$target" "corpus/$target" -- -max_total_time="$FUZZ_SECONDS" -max_len=8192 2>&1 | tail -20
+            test "${PIPESTATUS[0]}" -eq 0
+            echo "- $target: $(ls "corpus/$target" | wc -l) corpus inputs after $FUZZ_SECONDS s, no crash" >> "$GITHUB_STEP_SUMMARY"
+          done
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: core-fuzz-crashes
+          path: core/fuzz/artifacts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: core-fuzz-lockfile
+          path: core/fuzz/Cargo.lock
+
   apple:
     name: core-apple
     runs-on: xcode-27
@@ -213,6 +253,7 @@ jobs:
             -library target/universal-macos/libbipe_core.a -headers "$headers" \
             -output harness/swift/build/bipe_coreFFI.xcframework
           cp "$GITHUB_WORKSPACE/bipe-shared/test-vectors/badges.json" harness/swift/Tests/BipeCoreHarnessTests/badges.json
+          cp harness/ed25519-cases.json harness/swift/Tests/BipeCoreHarnessTests/ed25519-cases.json
       # The release form (core-release.yml): the zip that SwiftPM's binaryTarget takes, and the Swift bindings.
       - name: Package for SwiftPM
         working-directory: core
@@ -231,6 +272,7 @@ jobs:
         working-directory: core/harness/swift
         run: |
           swift test -c release -Xswiftc -enable-testing 2>&1 | tee "$RUNNER_TEMP/mac.log"
+          grep -h BIPE_ED25519_CASES "$RUNNER_TEMP/mac.log" | head -1 > "$RUNNER_TEMP/mac.cases"
           grep -h BIPE_CORE_METRICS "$RUNNER_TEMP/mac.log" | head -1 > "$RUNNER_TEMP/mac.metrics"
           test -s "$RUNNER_TEMP/mac.metrics"
       - name: Vectors on the iOS simulator, next to the Matrix SDK
@@ -285,6 +327,8 @@ jobs:
             echo "| macOS, bipe-core | $(cat "$RUNNER_TEMP/mac.metrics") |"
             echo "| iOS simulator, bipe-core | $(cat "$RUNNER_TEMP/ios.metrics") |"
             echo "| macOS, BadgeVerifier.swift | $(cat "$RUNNER_TEMP/base.metrics") |"
+            echo
+            echo "Ed25519 cases (case:core,platform): $(cat "$RUNNER_TEMP/mac.cases")"
           } >> "$GITHUB_STEP_SUMMARY"
           cat "$GITHUB_STEP_SUMMARY"
 
@@ -303,9 +347,9 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: core
-      - uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-ndk
+      # Pinned and built from crates.io: install-action's binstall lookup of cargo-ndk timed out on 8 Nov 2026.
+      - name: Install cargo-ndk
+        run: cargo install --locked cargo-ndk --version 4.1.2
       - name: Build each ABI
         working-directory: core
         run: |
@@ -441,10 +485,13 @@ jobs:
         working-directory: core/harness/jvm
         env:
           BIPE_VECTORS: ${{ github.workspace }}/bipe-shared/test-vectors/badges.json
+          BIPE_ED25519_CASES: ${{ github.workspace }}/core/harness/ed25519-cases.json
         run: |
           ../../../android/gradlew --no-daemon run | tee "$RUNNER_TEMP/jvm.log"
           grep -h BIPE_CORE_METRICS "$RUNNER_TEMP/jvm.log" | head -1 > "$RUNNER_TEMP/jvm.metrics"
           test -s "$RUNNER_TEMP/jvm.metrics"
+          grep -h BIPE_ED25519_CASES "$RUNNER_TEMP/jvm.log" | head -1 > "$RUNNER_TEMP/jvm.cases"
+          test -s "$RUNNER_TEMP/jvm.cases"
       - name: Report
         run: |
           {
@@ -454,6 +501,7 @@ jobs:
             echo
             echo "- Library bytes: $(wc -c < "$BIPE_CORE_LIB")"
             echo "- $(cat "$RUNNER_TEMP/jvm.metrics")"
+            echo "- $(cat "$RUNNER_TEMP/jvm.cases")"
           } >> "$GITHUB_STEP_SUMMARY"
           cat "$GITHUB_STEP_SUMMARY"
 
