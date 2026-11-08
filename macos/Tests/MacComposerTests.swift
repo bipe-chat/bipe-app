@@ -5,6 +5,7 @@
 import AppKit
 import BipeKit
 import MatrixRustSDK
+import QuartzCore
 import SwiftUI
 import XCTest
 @testable import BipeMac
@@ -139,8 +140,39 @@ final class MacComposerTests: XCTestCase {
         try await Task.sleep(for: .milliseconds(150))
         view.layoutSubtreeIfNeeded()
         window.displayIfNeeded()
-        let bitmap = try XCTUnwrap(view.bitmapImageRepForCachingDisplay(in: view.bounds))
+        var bitmap = try XCTUnwrap(view.bitmapImageRepForCachingDisplay(in: view.bounds))
         view.cacheDisplay(in: view.bounds, to: bitmap)
+        var backend = "view"
+        // Native text controls can draw through backing layers instead of NSView's bitmap cache.
+        if colorCount(bitmap) <= 8, let layer = view.layer, let graphics = NSGraphicsContext(bitmapImageRep: bitmap) {
+            let context = graphics.cgContext
+            context.clear(CGRect(x: 0, y: 0, width: CGFloat(bitmap.pixelsWide), height: CGFloat(bitmap.pixelsHigh)))
+            context.saveGState()
+            context.scaleBy(x: CGFloat(bitmap.pixelsWide) / view.bounds.width,
+                            y: CGFloat(bitmap.pixelsHigh) / view.bounds.height)
+            layer.render(in: context)
+            context.restoreGState()
+            backend = "layer"
+        }
+        // AppKit's print renderer also supports native controls without a screen-recording permission.
+        if colorCount(bitmap) <= 8,
+           let image = NSImage(data: view.dataWithPDF(inside: view.bounds)),
+           let tiff = image.tiffRepresentation, let printed = NSBitmapImageRep(data: tiff) {
+            bitmap = printed
+            backend = "print"
+        }
+        let colors = colorCount(bitmap)
+        print("Composer render \(name): \(backend), \(bitmap.pixelsWide)x\(bitmap.pixelsHigh), \(colors) opaque colours")
+        XCTAssertGreaterThan(colors, 8, "A blank or transparent snapshot is not visual evidence")
+        let data = try XCTUnwrap(bitmap.representation(using: .png, properties: [:]))
+        let attachment = XCTAttachment(data: data, uniformTypeIdentifier: "public.png")
+        attachment.name = name + "-" + backend
+        attachment.lifetime = .keepAlways
+        add(attachment)
+        return size
+    }
+
+    private func colorCount(_ bitmap: NSBitmapImageRep) -> Int {
         var colors: Set<UInt32> = []
         for y in stride(from: 0, to: bitmap.pixelsHigh, by: 3) {
             for x in stride(from: 0, to: bitmap.pixelsWide, by: 3) {
@@ -151,12 +183,6 @@ final class MacComposerTests: XCTestCase {
                 colors.insert(r << 16 | g << 8 | b)
             }
         }
-        XCTAssertGreaterThan(colors.count, 8, "A blank or transparent snapshot is not visual evidence")
-        let data = try XCTUnwrap(bitmap.representation(using: .png, properties: [:]))
-        let attachment = XCTAttachment(data: data, uniformTypeIdentifier: "public.png")
-        attachment.name = name
-        attachment.lifetime = .keepAlways
-        add(attachment)
-        return size
+        return colors.count
     }
 }
