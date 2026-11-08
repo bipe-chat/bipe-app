@@ -2,6 +2,10 @@
 
 Issue: bipe-chat/bipe#900. Decision: ADR 0216 (spike), ADR 0214 (host `web.bipe.chat`). Sign-in rules: ADR 0116, ADR 0118, ADR 0121.
 
+## Status (8 November 2026)
+
+This file records the spike of 1 November. The web client in `web/src` has grown past it since then (more than 100 commits). The build still carries the 4 SDK patches in `web/patches/` and the prerelease `@ubjs/core` and `@ubjs/wasm` 0.31.0-6 (`package.json`). Those stay until matrix-sdk-ffi and ubrn ship what they patch (bipe-chat/bipe#1121, the SDK upgrade). No agent has run the page in a browser; MZ's hand test is the check (bipe-chat/bipe#1125).
+
 ## Result (1 November 2026)
 
 **Builds, and the module runs. Not yet run in a browser.** `matrix-sdk-ffi` at the phones' `sdk-version` builds for `wasm32-unknown-unknown` in CI with 4 small patches, ubrn generates the TypeScript bindings, and the page in `web/` typechecks and bundles against them. Outside a browser, the module opens, answers a sync call and builds a `Client` against production (async Rust futures and HTTP work). No agent ran the page: MZ tests by hand (steps below). The spike verdict ("works" or "use matrix-js-sdk + `matrix-sdk-crypto-wasm`") waits for that test.

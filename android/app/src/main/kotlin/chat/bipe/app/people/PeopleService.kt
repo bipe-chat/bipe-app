@@ -420,17 +420,29 @@ class PeopleService(
         return roomId
     }
 
-    /** Room.sendStateEventRaw with the m.room.power_levels content of a new DM (ADR 0141, bipe-chat/bipe#532). */
+    /**
+     * Room.sendStateEventRaw with the m.room.power_levels content of a new DM (ADR 0141, bipe-chat/bipe#532). A failed
+     * write is tried again, and the last failure goes to logcat with its type only (bipe-chat/bipe#1125). The DM stays
+     * usable without the lock.
+     */
     private suspend fun lockDm(roomId: String) {
+        var lastError: String? = null
         repeat(5) { attempt ->
             val room = runCatching { session.client.getRoom(roomId) }.getOrNull()
             if (room != null) {
-                runCatching { room.sendStateEventRaw("m.room.power_levels", "", BipeDmPowerLevels.content(emptyList())) }
-                return
+                try {
+                    room.sendStateEventRaw("m.room.power_levels", "", BipeDmPowerLevels.content(emptyList()))
+                    return
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (error: Exception) {
+                    lastError = error::class.simpleName
+                }
             }
             // The created room reaches the local store with the next sync.
             delay(300L * (attempt + 1))
         }
+        android.util.Log.e("BipeDmLock", "DM power levels not written: ${lastError ?: "room not found"}")
     }
 
     /**

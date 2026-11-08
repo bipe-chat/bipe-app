@@ -25,6 +25,8 @@ settings:
     MARKETING_VERSION: "0.1.0"
     CURRENT_PROJECT_VERSION: "1"
     BIPE_COMMIT: ""
+    # Swift 5 language mode on the Swift 6 compiler (bipe-chat/bipe#1125, decided 8 Nov 2026). Swift 6 mode turns on
+    # strict concurrency checking in every target; that move gets its own issue and a local build to iterate.
     SWIFT_VERSION: "5.0"
     TARGETED_DEVICE_FAMILY: "1"
     # Signing (bipe-chat/bipe#575): automatic, team Centaur Labs (ADR 0061). The tester build
