@@ -18,18 +18,28 @@ import { s } from './ui/i18n';
 
 const EVENT_TYPE = 'chat.bipe.self_chat';
 
-function pendingKey(client: Client) {
-  return `bipe.next.notes.pending.${client.userId()}`;
-}
+/**
+ * A private room with only the account's own user, saved in global account data as {"room_id": ...}: the self-chat here,
+ * and the notes room of a work account (work/work-notes.ts). pendingKey keeps a created room until account data has it.
+ */
+export type OwnRoom = { accountDataType: string; pendingKey: (userId: string) => string; name: () => string };
 
-/** The room in account data. undefined: no notes yet. A failed or malformed read throws. */
-async function readNotesId(client: Client): Promise<string | undefined> {
-  const json = await client.accountData(EVENT_TYPE);
+const SELF_CHAT: OwnRoom = {
+  accountDataType: EVENT_TYPE,
+  pendingKey: (userId) => `bipe.next.notes.pending.${userId}`,
+  name: () => s('bipe_self_chat_title'),
+};
+
+/** The room in account data. undefined: no room yet. A failed or malformed read throws. */
+export async function readOwnRoomId(client: Client, accountDataType: string): Promise<string | undefined> {
+  const json = await client.accountData(accountDataType);
   if (!json) return undefined;
   const id = (JSON.parse(json) as { room_id?: unknown }).room_id;
-  if (typeof id !== 'string' || !id.startsWith('!') || /\s/.test(id)) throw new Error('bad self chat');
+  if (typeof id !== 'string' || !id.startsWith('!') || /\s/.test(id)) throw new Error(`bad ${accountDataType}`);
   return id;
 }
+
+const readNotesId = (client: Client) => readOwnRoomId(client, EVENT_TYPE);
 
 /** The notes room, once read. A new `version` reads again; a failed read keeps what it has. */
 export function useNotesRoomId(client: Client, version: unknown): string | undefined {
@@ -64,19 +74,25 @@ export function useIsNotes(client: Client, room: Room): boolean | undefined {
 }
 
 /** Spec voce openNotes: the room, created on first use. A failed read never means "no notes yet". */
-export async function openNotes(client: Client): Promise<string> {
-  const known = await readNotesId(client);
-  const pending = localStorage.getItem(pendingKey(client)) ?? undefined;
+export function openNotes(client: Client): Promise<string> {
+  return openOwnRoom(client, SELF_CHAT);
+}
+
+/** The own room, created on first use (encrypted, private, no invites). A failed read never means "no room yet". */
+export async function openOwnRoom(client: Client, own: OwnRoom): Promise<string> {
+  const pendingKey = own.pendingKey(client.userId());
+  const known = await readOwnRoomId(client, own.accountDataType);
+  const pending = localStorage.getItem(pendingKey) ?? undefined;
   if (known && known !== pending) {
     // A room missing from the local store may still be syncing. Keep its identity; never replace it.
     const room = await roomWhenSynced(client, known);
-    if (!room || (await room.roomInfo()).membership !== Membership.Joined) throw new Error('notes unavailable');
+    if (!room || (await room.roomInfo()).membership !== Membership.Joined) throw new Error('own room unavailable');
     return known;
   }
   let id = pending;
   if (!id) {
     id = await client.createRoom({
-      name: s('bipe_self_chat_title'),
+      name: own.name(),
       topic: undefined,
       isEncrypted: true,
       isDirect: false,
@@ -91,10 +107,10 @@ export async function openNotes(client: Client): Promise<string> {
       isSpace: false,
     });
     // If writing account data fails, the next attempt finishes that write instead of creating another room.
-    localStorage.setItem(pendingKey(client), id);
+    localStorage.setItem(pendingKey, id);
   }
-  await client.setAccountData(EVENT_TYPE, JSON.stringify({ room_id: id }));
-  localStorage.removeItem(pendingKey(client));
+  await client.setAccountData(own.accountDataType, JSON.stringify({ room_id: id }));
+  localStorage.removeItem(pendingKey);
   await roomWhenSynced(client, id);
   return id;
 }
