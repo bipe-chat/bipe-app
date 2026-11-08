@@ -92,6 +92,9 @@ struct MacMessageView: View {
     let choose: (BipeMessageMenuItem) -> Void
     let react: (String) -> Void
     let reactionPending: (String) -> Bool
+    let isHighlighted: Bool
+    let openOriginal: (String) -> Void
+    let loadReply: () async -> Void
     @State private var showingEmoji = false
     @State private var senders: MacReaction?
 
@@ -103,6 +106,9 @@ struct MacMessageView: View {
         }
         .sheet(isPresented: $showingEmoji) { MacReactionPicker(pick: react) }
         .sheet(item: $senders) { MacReactionSenders(reaction: $0, room: room, media: media) }
+        .onChange(of: message.isDeleted) { _, deleted in
+            if deleted { showingEmoji = false; senders = nil }
+        }
     }
 
     private func content(secondsLeft: Int) -> some View {
@@ -113,30 +119,44 @@ struct MacMessageView: View {
                     if !message.isOwn, message.showsSender {
                         MacSenderLine(message: message)
                     }
-                    if let photo = message.photo {
+                    if let reply = message.reply, !message.isDeleted {
+                        Button { openOriginal(reply.eventId) } label: {
+                            ReplyQuote(reply: reply)
+                        }
+                        .buttonStyle(.plain).accessibilityLabel(BipeStrings.a11yOpenOriginal)
+                        .task(id: reply.eventId) { await loadReply() }
+                    }
+                    if message.isDeleted {
+                        Text(message.isOwn ? BipeStrings.appMessageDeletedOwn : BipeStrings.appMessageDeleted)
+                            .macFont(.body).italic().foregroundStyle(BipeColor.inkSecondary)
+                    } else if let photo = message.photo {
                         MacPhotoView(photo: photo, eventID: message.id, isOwn: message.isOwn,
                                      isPrivate: isPrivateRoom, fromRequest: fromRequest, richText: message.richText,
                                      pauseSecondsLeft: pauseSecondsLeft, media: media)
                     }
-                    if !message.richText.text.isEmpty {
+                    if !message.isDeleted, !message.richText.text.isEmpty {
                         if secondsLeft > 0 { richText } else { richText.textSelection(.enabled) }
                     }
-                    if let warning = message.warning { MacNotice(text: warning.message) }
-                    if secondsLeft > 0 {
+                    if let warning = message.warning, !message.isDeleted { MacNotice(text: warning.message) }
+                    if secondsLeft > 0, !message.isDeleted {
                         Text(BipeStrings.pauseCountdown(String(secondsLeft))).macFont(.caption).monospacedDigit()
                             .foregroundStyle(BipeColor.trustCautionInk)
                     }
                     HStack(spacing: 8) {
-                        Text(message.timestamp, style: .time).macFont(.caption).foregroundStyle(BipeColor.inkSecondary)
-                        if message.pending { Text(BipeStrings.appTimelineSending).macFont(.caption).foregroundStyle(BipeColor.inkSecondary) }
-                        if message.failed { Text(BipeStrings.appTimelineFailed).macFont(.caption).foregroundStyle(BipeColor.trustDangerInk) }
+                        MessageTimestamp(sentAt: message.timestamp)
+                        if message.isEdited, !message.isDeleted { Text(BipeStrings.appMessageEdited).macFont(.caption2).foregroundStyle(BipeColor.inkSecondary) }
+                        if message.pending, !message.isDeleted { Text(BipeStrings.appTimelineSending).macFont(.caption).foregroundStyle(BipeColor.inkSecondary) }
+                        if message.failed, !message.isDeleted { Text(BipeStrings.appTimelineFailed).macFont(.caption).foregroundStyle(BipeColor.trustDangerInk) }
                     }
                 }
                 .padding(.horizontal, 12).padding(.vertical, 8)
                 .foregroundStyle(BipeColor.inkPrimary)
                 .background(message.isOwn ? BipeColor.bubbleOwn : BipeColor.bubbleOther,
                             in: RoundedRectangle(cornerRadius: MacDesign.corner))
-                if !message.reactions.isEmpty {
+                .overlay {
+                    if isHighlighted { RoundedRectangle(cornerRadius: MacDesign.corner).stroke(BipeColor.accentFill, lineWidth: 2) }
+                }
+                if !message.isDeleted, !message.reactions.isEmpty {
                     MacReactionPills(reactions: message.reactions, pending: reactionPending, toggle: react, showSenders: { senders = $0 })
                 }
             }.frame(maxWidth: 560, alignment: message.isOwn ? .trailing : .leading)
@@ -144,7 +164,7 @@ struct MacMessageView: View {
         }
         .environment(\.openURL, OpenURLAction { url in pauseSecondsLeft(.now) > 0 ? .handled : .systemAction })
         .contextMenu {
-            if message.canReact {
+            if !message.isDeleted, message.canReact {
                 ControlGroup {
                     ForEach(BipeReactions.quickKeys, id: \.self) { key in
                         Button { react(key) } label: {
@@ -165,7 +185,10 @@ struct MacMessageView: View {
             }
         }
         .accessibilityActions {
-            if message.canReact { Button(BipeStrings.a11yReact) { showingEmoji = true } }
+            if let reply = message.reply, !message.isDeleted {
+                Button(BipeStrings.a11yOpenOriginal) { openOriginal(reply.eventId) }
+            }
+            if !message.isDeleted, message.canReact { Button(BipeStrings.a11yReact) { showingEmoji = true } }
             ForEach(menuItems, id: \.self) { item in Button(item.title) { choose(item) }.disabled(item == .copy && pauseSecondsLeft(.now) > 0) }
         }
     }

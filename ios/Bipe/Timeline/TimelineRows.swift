@@ -69,20 +69,6 @@ struct MessageDetails: Equatable {
     var inThread = false
 }
 
-/// Type MessageReply of spec message-reply.
-struct MessageReply: Equatable {
-    enum State: Equatable {
-        case loading
-        case ready
-        case unavailable
-    }
-
-    var eventId: String
-    var state: State
-    var senderName: String?
-    var preview: String?
-}
-
 /// Type MessageReaction of spec message-reactions.
 struct MessageReaction: Equatable, Identifiable {
     var key: String
@@ -507,19 +493,9 @@ enum TimelineRowBuilder {
 
     /// Spec message-reply notes: Unavailable and Pending are loading until loadReply ran once; Error is unavailable.
     private static func reply(from details: InReplyToDetails, facts: RoomFacts, name: (String) -> String) -> MessageReply {
-        let eventId = details.eventId()
-        switch details.event() {
-        case .ready(let content, let sender, let senderProfile, _, _):
-            let senderName = sender == facts.ownUserId ? BipeStrings.appYou : senderProfile.realName(of: sender) ?? name(sender)
-            return MessageReply(eventId: eventId, state: .ready, senderName: senderName,
-                                preview: replyPreview(content, isOwn: sender == facts.ownUserId))
-        case .error:
-            return MessageReply(eventId: eventId, state: .unavailable)
-        case .unavailable:
-            return MessageReply(eventId: eventId, state: facts.replyLoadsTried.contains(eventId) ? .unavailable : .loading)
-        case .pending:
-            return MessageReply(eventId: eventId, state: .loading)
-        }
+        MessageReply.make(details, ownUserID: facts.ownUserId,
+                          loadTried: facts.replyLoadsTried.contains(details.eventId()), name: name,
+                          preview: { replyPreview($0, isOwn: $1) })
     }
 
     private static func replyPreview(_ content: TimelineItemContent, isOwn: Bool) -> String {

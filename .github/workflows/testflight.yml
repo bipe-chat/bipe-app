@@ -65,6 +65,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
+      - name: Prefetch pinned SwiftPM archives
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node tools/swiftpm-assets.mjs --cache "$RUNNER_TEMP/bipe-package-cache" --platform ios
       - name: Write the API key
         env:
           ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
@@ -159,6 +163,7 @@ jobs:
             -configuration Release \
             -destination "generic/platform=iOS" \
             -derivedDataPath ios/DerivedData \
+            -packageCachePath "$RUNNER_TEMP/bipe-package-cache" \
             -archivePath "$RUNNER_TEMP/Bipe.xcarchive" \
             DEVELOPMENT_TEAM="$TEAM_ID" \
             BIPE_SIGN_STYLE=Manual \

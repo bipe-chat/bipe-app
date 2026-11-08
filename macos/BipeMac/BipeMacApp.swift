@@ -175,8 +175,10 @@ struct MacChatView: View {
             ScrollViewReader { scroll in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: MacDesign.gap) {
-                        Button(model.loadingHistory ? BipeStrings.appTimelineLoadingHistory : BipeStrings.actionShowMore) { Task { await model.loadHistory() } }
-                            .disabled(model.loadingHistory)
+                        if !model.reachedStart {
+                            Button(model.loadingHistory ? BipeStrings.appTimelineLoadingHistory : BipeStrings.actionShowMore) { Task { await model.loadHistory() } }
+                                .disabled(model.loadingHistory)
+                        }
                         ForEach(model.rows) { row in
                             switch row {
                             case .message(let message):
@@ -189,13 +191,19 @@ struct MacChatView: View {
                                                    if item == .reply || item == .edit { composerFocused = true }
                                                },
                                                react: { key in Task { await model.react(rowID: message.id, key: key) } },
-                                               reactionPending: { model.reactionPending(rowID: message.id, key: $0) })
+                                               reactionPending: { model.reactionPending(rowID: message.id, key: $0) },
+                                               isHighlighted: model.highlightedRowID == message.id,
+                                               openOriginal: { eventID in Task { await model.openOriginal(eventID: eventID) } },
+                                               loadReply: { await model.loadReply(rowID: message.id) })
                                     .id(message.id).onAppear { model.startMoneyPause(message) }
+                                    .onChange(of: message.warning) { _, _ in model.startMoneyPause(message) }
                             case .day(let id, let date):
                                 SystemLine(text: daySeparatorText(date)).id(id)
                                     .accessibilityAddTraits(.isHeader)
                             case .line(let id, let text, let kind):
                                 SystemLine(text: text, kind: kind).id(id)
+                            case .readMarker(let id):
+                                TimelineReadMarker().id(id)
                             }
                         }
                     }.padding()
@@ -209,6 +217,12 @@ struct MacChatView: View {
                 .onChange(of: model.rows.last?.id) { _, id in
                     // Reading older messages stays where it is. An own message always shows.
                     if let id, model.readingLatest || model.lastRowIsOwnMessage { scroll.scrollTo(id, anchor: .bottom) }
+                }
+                .onChange(of: model.scrollTarget) { _, target in
+                    if let target {
+                        scroll.scrollTo(target.rowID, anchor: .center)
+                        model.scrolledToTarget(target)
+                    }
                 }
             }
             if model.failed { MacNotice(text: BipeStrings.errorGeneric, danger: true).padding() }
@@ -262,6 +276,12 @@ struct MacChatView: View {
             }
         }
         .alert(BipeStrings.appReactionFailed, isPresented: $model.reactionFailed) {
+            Button(BipeStrings.appClose, role: .cancel) {}
+        }
+        .alert(BipeStrings.appMessageEditFailed, isPresented: $model.editFailed) {
+            Button(BipeStrings.appClose, role: .cancel) {}
+        }
+        .alert(BipeStrings.appMessageDeleteFailed, isPresented: $model.deleteFailed) {
             Button(BipeStrings.appClose, role: .cancel) {}
         }
         .background(ChatBackgroundView())

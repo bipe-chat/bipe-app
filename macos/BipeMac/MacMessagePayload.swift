@@ -10,6 +10,9 @@ struct MacMessagePayload {
     let richText: BipeMessageText
     var photo: MacPhoto? = nil
     var isEmote = false
+    var isEdited = false
+    var isDeleted = false
+    var isUndecryptable = false
     /// Everything the sender wrote that a person can read or copy, for the scam detector.
     var safetyText: String { [body, richText.safetyText, photo?.description].compactMap { $0 }.joined(separator: "\n") }
 
@@ -30,5 +33,25 @@ struct MacMessagePayload {
             photo = MacPhoto(content: content, description: BipeImageDescription.read(eventJson: eventJson))
         default: self.init(body: fallback)
         }
+    }
+
+    init?(kind: MsgLikeKind, eventJson: String?) {
+        switch kind {
+        case .message(let message):
+            self.init(type: message.msgType, fallback: message.body, eventJson: eventJson)
+            isEdited = message.isEdited
+        case .redacted:
+            self.init(body: "")
+            isDeleted = true
+        case .unableToDecrypt:
+            self.init(body: BipeStrings.webTimelineUndecryptable)
+            isUndecryptable = true
+        default: return nil
+        }
+    }
+
+    func warning(including reply: MessageReply?, isOwn: Bool, eventID: String) -> ScamWarningKind? {
+        guard !isOwn, !isDeleted else { return nil }
+        return ScamDetector.warningKind(for: safetyText + "\n" + (reply?.safetyText ?? ""), eventID: eventID)
     }
 }

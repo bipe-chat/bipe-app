@@ -31,19 +31,21 @@ The conversation sidebar keeps a 300 to 440 pt width, with 360 pt preferred. Sea
 
 ## Remaining parity gaps
 
-The Mac is still a preview. The 174-capability ledger includes partial implementations as planned until their full behavior and evidence exist.
+The Mac is still a preview. The 177-capability ledger includes partial implementations as planned until their full behavior and evidence exist.
 
 | Area | Still missing or incomplete | Tracking |
 | --- | --- | --- |
 | Desktop and account lifecycle | App lock and PIN, theft protection, changing recovery email, linked accounts or recovery key, signing out another device, old messages, the remaining rows of Privacy, Chats and Help, updater and notarized distribution; cross-device/offline/revocation acceptance | #1161, #1165 |
-| Conversations | Start chat and requests, full search, newest-DM selection/clearing, archive synchronization/actions, reply quotes, editing/deleting/forwarding, pins, receipts/ticks, profile/invite/Matrix routing, Mural and assistant drafts | #1162 |
+| Conversations | Full search, receipts/ticks, chat/person details, profile/invite/Matrix routing, Mural and assistant drafts; remaining cross-device messaging/request acceptance | #1162 |
 | Groups | Creation/details/membership, roles/moderation, group links/privacy, threads, polls and communities | #1163 |
 | Media | Videos/files/voice, gallery, captions after sending, full media settings/invite photos, stickers, location and share integrations | #1164 |
 | Identity and safety | Complete profiles, verification/attestation/marks, invites/contacts, account/device/privacy settings, support/report/export/delete flows and all safety surfaces | #1165 |
 | Work | The current screen is a read-only overview; operational tool screens/actions, roles/people/devices, catalog/order/quote/agenda/queue/payment editors remain. The inbox/key-model merge retains #1066 as its own prerequisite | #1166 |
-| Desktop attention | Audio/video/group calls, screen sharing, incoming attention across background/locked/asleep/quit states, notifications, badges/notification sender photos, the sound, preview and work hours rows of Notifications, and work focus/time behavior | #1167 |
+| Desktop attention | Audio/video/group calls, screen sharing, notification actions, full sender-photo parity and lifecycle acceptance, the sound, preview and work hours rows of Notifications, and work focus/time behavior | #1167 |
 
-The timeline shows the date separators, the chat start, call lines and group state lines in the two pill styles of spec timeline-rows, from the same `TimelinePill`, `CallLines` and `StateLines` as iOS. It has no read marker or handle-change lines yet.
+The timeline shows the date separators, the chat start, call lines and group state lines in the two pill styles of spec timeline-rows, from the same `TimelinePill`, `CallLines` and `StateLines` as iOS. The SDK's unread marker, quote states and timestamp views come from the shared Apple `TimelineDetails`. Handle-change lines remain in #1165. Mac CI checks that both workflow filters cover every Swift file the Mac project compiles from the iOS app.
+
+Replies show the original sender and a one-line preview, including loading, unavailable and deleted-original states. The SDK fetches missing quote details once; opening an original searches at most five history pages and briefly highlights the row. Edited messages keep their event time and show the shared Edited label. Redacted messages keep that time and a deleted placeholder, with no original content, quote, reactions or message actions. Quoted source text and link destinations participate in the local scam checks; a newly loaded quote can start the money pause. Unsent own messages are cancelled through the SDK send handle without a deletion dialog. Edit and delete failures have their own shared error messages.
 
 The message and chat row menus come from bipe-shared registries/context-menus.json: order, titles and symbols. The Mac shows the commands that apply and that it has a handler for: reply, edit, copy, copy link, pin, forward, retry, delete and report on a message; send photos, favourite, reorder, read state, notifications and archive on a chat. Text replies use the SDK's reply relation. Composer text and reply targets live in the room's encrypted SDK store. Each account has an ordered draft-write queue, so reopening a room waits for edits from its dismissed view. Visible conversations send read receipts only while Bipe is active. The privacy switch keeps DM receipts private when off; group receipts keep the shared public-receipt rule.
 
@@ -58,6 +60,8 @@ QR codes use one binary byte segment, as the web does, so released phone scanner
 ## CI evidence
 
 `.github/workflows/macos.yml` builds Debug and Release for both architectures. Hosted XCTest checks native SDK/SQLite loading without a server, Keychain error handling with synthetic records, same-device restoration, the approval gate and delayed refresh after revocation. Unit tests never read real credentials.
+
+CI prefetches the pinned binary archives through the GitHub API into an explicit SwiftPM cache. The helper checks the package revision's manifest, archive version and SHA-256; SwiftPM keeps its own checksum and resolved-pin checks. This avoids failures of the GitHub release-page download path without changing the dependencies or package manifests. `tools/swiftpm-assets.json` holds the archives and their checksums.
 
 The Release job uploads `bipe-mac-spike`, containing `Bipe-Mac.zip` and its SHA-256 checksum. After both Mac configurations and native tests pass on main, the publish job updates the public `mac-preview` prerelease. The downloads page reads that URL from bipe-shared/product/distribution.json. The ZIP contains Bipe.app for macOS 15+, on Apple silicon and Intel. It uses an ad hoc signature; Developer ID signing, notarization, store distribution and a supported updater remain later work. A build or synthetic test does not prove real-account linking or cross-device behavior.
 

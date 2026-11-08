@@ -37,7 +37,15 @@ struct MacMessage: Identifiable {
     var isUndecryptable = false
     var isImage = false
     var forwardJson: String? = nil
-    var isSent: Bool { eventID != nil && !pending && !failed }
+    var reply: MessageReply? = nil
+    var isEdited = false
+    var isDeleted = false
+    var isSent: Bool { eventID != nil && !pending && !failed && !isDeleted }
+}
+
+struct MacTimelineScroll: Equatable {
+    let id = UUID()
+    let rowID: String
 }
 
 /// A row of spec timeline-rows on the Mac: a message, or a pill between the messages.
@@ -45,11 +53,12 @@ enum MacTimelineRow: Identifiable {
     case message(MacMessage)
     case day(id: String, date: Date)
     case line(id: String, text: String, kind: TimelinePillKind)
+    case readMarker(id: String)
 
     var id: String {
         switch self {
         case .message(let message): message.id
-        case .day(let id, _), .line(let id, _, _): id
+        case .day(let id, _), .line(let id, _, _), .readMarker(let id): id
         }
     }
 }
@@ -62,12 +71,17 @@ final class MacTimeline: ObservableObject {
     @Published private(set) var failed = false
     @Published private(set) var sending = false
     @Published private(set) var loadingHistory = false
+    @Published private(set) var reachedStart = false
+    @Published private(set) var scrollTarget: MacTimelineScroll?
+    @Published private(set) var highlightedRowID: String?
     @Published private(set) var ready = false
     @Published private(set) var isEncrypted = true
     @Published private(set) var isPrivateRoom = false
     var readingLatest = true
     @Published private(set) var isDm = false
     @Published var reactionFailed = false
+    @Published var editFailed = false
+    @Published var deleteFailed = false
     @Published private(set) var pinned: Set<String> = []
     @Published private(set) var editingID: String?
     @Published var deleting: MacMessage?
@@ -106,10 +120,19 @@ final class MacTimeline: ObservableObject {
     private var senderRoles: [String: GroupRole] = [:]
     private var memberNames: [String: String] = [:]
     private var knownMemberCount: UInt64?
+    private var replyLoadsTried: Set<String> = []
+    private var openingOriginal = false
+    private var highlightTask: Task<Void, Never>?
 
     init(drafts: MacDrafts) { self.drafts = drafts }
 
     func run(room: Room) async {
+        replyLoadsTried = []
+        reachedStart = false
+        loadingHistory = false
+        highlightedRowID = nil
+        scrollTarget = nil
+        highlightTask?.cancel()
         do {
             let revision = draftRevision
             let saved = try await drafts.load(room: room)
@@ -141,9 +164,14 @@ final class MacTimeline: ObservableObject {
             let stream = TimelineDiffStream()
             listener = await timeline.addListener(listener: stream)
             ready = true
-            defer { listener?.cancel(); listener = nil; self.timeline = nil; self.room = nil; ready = false }
+            defer {
+                if self.timeline === timeline {
+                    listener?.cancel(); listener = nil; self.timeline = nil; self.room = nil; ready = false
+                    highlightTask?.cancel(); highlightedRowID = nil; scrollTarget = nil
+                }
+            }
             for await updates in stream.updates {
-                guard !Task.isCancelled else { return }
+                guard !Task.isCancelled, self.timeline === timeline else { return }
                 for update in updates { items.apply(update.vectorDiff) }
                 await readRoomKind(room)
                 rebuild()
@@ -190,10 +218,65 @@ final class MacTimeline: ObservableObject {
     }
 
     func loadHistory() async {
-        guard let timeline, !loadingHistory else { return }
+        guard let timeline, !loadingHistory, !reachedStart else { return }
+        do { _ = try await paginateHistory(timeline) }
+        catch { if !Task.isCancelled { failed = true } }
+    }
+
+    private func paginateHistory(_ timeline: Timeline) async throws -> Bool {
+        while loadingHistory {
+            try await Task.sleep(for: .milliseconds(100))
+            guard self.timeline === timeline else { throw CancellationError() }
+        }
+        guard self.timeline === timeline else { throw CancellationError() }
+        if reachedStart { return true }
         loadingHistory = true
-        defer { loadingHistory = false }
-        do { _ = try await timeline.paginateBackwards(numEvents: 30) } catch { failed = true }
+        defer { if self.timeline === timeline { loadingHistory = false } }
+        let hitStart = try await timeline.paginateBackwards(numEvents: 30)
+        guard self.timeline === timeline else { throw CancellationError() }
+        reachedStart = hitStart
+        return hitStart
+    }
+
+    func loadReply(rowID: String) async {
+        guard let timeline, let message = messages.first(where: { $0.id == rowID }),
+              let reply = message.reply, reply.state == .loading, let eventID = message.eventID,
+              !replyLoadsTried.contains(reply.eventId) else { return }
+        replyLoadsTried.insert(reply.eventId)
+        try? await timeline.fetchDetailsForEvent(eventId: eventID)
+        guard self.timeline === timeline, !Task.isCancelled else { return }
+        rebuild()
+    }
+
+    func openOriginal(eventID: String) async {
+        guard let timeline, !openingOriginal else { return }
+        openingOriginal = true
+        defer { openingOriginal = false }
+        do {
+            let target = try await MacOriginalLookup.find(loaded: {
+                self.messages.first { $0.eventID == eventID }?.id
+            }, paginate: {
+                let hitStart = try await self.paginateHistory(timeline)
+                // The SDK's new rows arrive through its listener, as on iOS.
+                try await Task.sleep(for: .milliseconds(300))
+                guard self.timeline === timeline else { throw CancellationError() }
+                return hitStart
+            })
+            guard self.timeline === timeline, let target else { return }
+            readingLatest = false
+            let request = MacTimelineScroll(rowID: target)
+            scrollTarget = request
+            highlightedRowID = target
+            highlightTask?.cancel()
+            highlightTask = Task { @MainActor [weak self] in
+                do { try await Task.sleep(for: .seconds(1.5)) } catch { return }
+                if self?.highlightedRowID == target { self?.highlightedRowID = nil }
+            }
+        } catch { if !Task.isCancelled, self.timeline === timeline { failed = true } }
+    }
+
+    func scrolledToTarget(_ target: MacTimelineScroll) {
+        if scrollTarget == target { scrollTarget = nil }
     }
 
     func send() async {
@@ -225,6 +308,7 @@ final class MacTimeline: ObservableObject {
 
     /// The commands that apply to this message and that the Mac has, in the shared order. See the spec notes.
     func menuItems(for message: MacMessage) -> [BipeMessageMenuItem] {
+        if message.isDeleted { return [] }
         if message.isUndecryptable { return !message.isOwn && message.isSent ? [.report] : [] }
         let eventID = message.eventID ?? ""
         return BipeMessageMenuItem.allCases.filter { item in
@@ -245,6 +329,7 @@ final class MacTimeline: ObservableObject {
     }
 
     func choose(_ item: BipeMessageMenuItem, _ message: MacMessage) {
+        guard !message.isDeleted else { return }
         switch item {
         case .reply: startReply(message)
         case .edit: startEdit(message)
@@ -266,7 +351,14 @@ final class MacTimeline: ObservableObject {
         case .retry:
             guard let handle = items.first(where: { $0.uniqueId().id == message.id })?.asEvent()?.lazyProvider.getSendHandle() else { return }
             Task { try? await handle.tryResend() }
-        case .delete: deleting = message
+        case .delete:
+            if message.isOwn, !message.isSent {
+                guard let handle = items.first(where: { $0.uniqueId().id == message.id })?.asEvent()?.lazyProvider.getSendHandle() else { return }
+                Task {
+                    do { _ = try await handle.abort() }
+                    catch { deleteFailed = true }
+                }
+            } else { deleting = message }
         case .report: reporting = message
         default: break
         }
@@ -304,13 +396,13 @@ final class MacTimeline: ObservableObject {
                 : .roomMessage(content: try messageEventContentNew(msgtype: .text(content: TextMessageContent(body: text, formatted: nil))))
             try await timeline.edit(eventOrTransactionId: event.eventOrTransactionId, newContent: content)
             cancelEdit()
-        } catch { failed = true }
+        } catch { editFailed = true }
     }
 
     func confirmDelete(_ message: MacMessage) async {
         guard let timeline, let event = items.first(where: { $0.uniqueId().id == message.id })?.asEvent() else { return }
         do { try await timeline.redactEvent(eventOrTransactionId: event.eventOrTransactionId, reason: nil) }
-        catch { failed = true }
+        catch { deleteFailed = true }
     }
 
     func sendReport(_ message: MacMessage, reason: String) async -> Bool {
@@ -449,7 +541,7 @@ final class MacTimeline: ObservableObject {
                 switch virtual {
                 case .dateDivider(let ts): built.append(.day(id: id, date: Date(timeIntervalSince1970: Double(ts) / 1000)))
                 case .timelineStart: built.append(.line(id: id, text: BipeStrings.appTimelineStart, kind: .info))
-                case .readMarker: continue
+                case .readMarker: built.append(.readMarker(id: id))
                 }
                 stateLine = nil
                 continue
@@ -498,19 +590,19 @@ final class MacTimeline: ObservableObject {
 
     private func messageRow(_ item: TimelineItem) -> MacMessage? {
         guard let event = item.asEvent(), case .msgLike(let content) = event.content else { return nil }
-        let payload: MacMessagePayload
-        let decryptable: Bool
+        let debugInfo = event.lazyProvider.debugInfo()
+        guard let payload = MacMessagePayload(kind: content.kind, eventJson: debugInfo.originalJson) else { return nil }
+        let decryptable = !payload.isUndecryptable && !payload.isDeleted
         var forwardJson: String?
-        switch content.kind {
-        case .message(let message):
-            decryptable = true
-            let debugInfo = event.lazyProvider.debugInfo()
+        if decryptable {
             forwardJson = BipeForwardMark.forwardedContentJson(originalJson: debugInfo.originalJson, latestEditJson: debugInfo.latestEditJson)
-            payload = MacMessagePayload(type: message.msgType, fallback: message.body,
-                                        eventJson: event.lazyProvider.debugInfo().originalJson)
-        case .unableToDecrypt: payload = MacMessagePayload(body: BipeStrings.webTimelineUndecryptable); decryptable = false
-        default: return nil
         }
+        let reply = decryptable ? content.inReplyTo.map {
+            MessageReply.make($0, ownUserID: room?.ownUserId() ?? "",
+                              loadTried: replyLoadsTried.contains($0.eventId()),
+                              name: { memberNames[$0] ?? BipeChatRowName.person(userID: $0, displayName: nil, handle: nil) },
+                              preview: { MacReplyPreview.text($0, isOwn: $1) }, sourceText: MacReplyPreview.safetyText)
+        } : nil
         let sender = MacRoomSummary.personName(event.senderProfile, userID: event.sender)
         let pending: Bool
         let failed: Bool
@@ -531,15 +623,15 @@ final class MacTimeline: ObservableObject {
                           timestamp: Date(timeIntervalSince1970: Double(event.timestamp) / 1000),
                           isOwn: event.isOwn, showsSender: !isDm || dmPeerID == nil || event.sender != dmPeerID,
                           pending: pending, failed: failed,
-                          warning: event.isOwn ? nil : ScamDetector.warningKind(for: payload.safetyText, eventID: item.uniqueId().id),
-                          eventID: eventID, canReply: event.canBeRepliedTo,
+                          warning: payload.warning(including: reply, isOwn: event.isOwn, eventID: item.uniqueId().id),
+                          eventID: eventID, canReply: decryptable && event.canBeRepliedTo && !pending && !failed,
                           canReact: decryptable && eventID != nil && !pending && !failed,
                           reactions: decryptable ? MacReaction.summaries(content.reactions, ownUserID: room?.ownUserId() ?? "") : [],
                           canEdit: decryptable && event.isEditable,
-                          canDelete: event.isOwn ? (canRedactOwn || eventID == nil) : (!isDm && canRedactOther),
-                          isUndecryptable: !decryptable,
+                          canDelete: !payload.isDeleted && (event.isOwn ? (canRedactOwn || eventID == nil) : (!isDm && canRedactOther)),
+                          isUndecryptable: payload.isUndecryptable,
                           isImage: payload.photo != nil,
-                          forwardJson: forwardJson)
+                          forwardJson: forwardJson, reply: reply, isEdited: payload.isEdited, isDeleted: payload.isDeleted)
     }
 }
 

@@ -98,7 +98,13 @@ jobs:
           java-version: 25
       - name: Download JPlag
         run: |
-          curl -fsSL -o "$RUNNER_TEMP/jplag.jar" "https://github.com/jplag/JPlag/releases/download/v${JPLAG_VERSION}/jplag-${JPLAG_VERSION}-jar-with-dependencies.jar"
+          for bipe_asset_attempt in 1 2 3; do
+            if gh release download "v${JPLAG_VERSION}" --repo jplag/JPlag \
+              --pattern "jplag-${JPLAG_VERSION}-jar-with-dependencies.jar" --dir "$RUNNER_TEMP" --clobber; then break; fi
+            [ "$bipe_asset_attempt" = 3 ] && exit 1
+            sleep "$((bipe_asset_attempt * 2))"
+          done
+          mv "$RUNNER_TEMP/jplag-${JPLAG_VERSION}-jar-with-dependencies.jar" "$RUNNER_TEMP/jplag.jar"
           echo "${JPLAG_SHA256}  $RUNNER_TEMP/jplag.jar" | sha256sum -c -
       - name: Self-test (a copied file must fail)
         run: node tools/similarity.mjs self-test --jar "$RUNNER_TEMP/jplag.jar"
