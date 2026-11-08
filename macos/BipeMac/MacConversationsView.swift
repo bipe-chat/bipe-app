@@ -82,9 +82,6 @@ struct MacConversationsView: View {
                 placeholder(scope.title)
             }
         }
-        // macOS list selection reads the accent environment, not just control tint.
-        .accentColor(BipeColor.accentFill)
-        .foregroundStyle(.primary)
         .searchable(text: searchBinding, placement: .sidebar, prompt: BipeStrings.appSearchPlaceholder)
         .onChange(of: showingArchived) { _, archived in
             // A chat that start chat just opened has no row yet, and stays selected.
@@ -128,8 +125,10 @@ struct MacConversationsView: View {
         }.buttonStyle(.plain).accessibilityLabel(scope.title).padding(.horizontal, 16).padding(.vertical, 8)
         List(selection: $selectedRequest) {
             ForEach(requests.visible) { request in
-                MacRequestRow(request: request, media: account.media, seals: account.seals).tag(request.id)
-                    .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                MacRequestRow(request: request, media: account.media, seals: account.seals, isSelected: selectedRequest == request.id)
+                    .padding(.horizontal, 16).padding(.vertical, 8)
+                    .modifier(MacSidebarSelection(isSelected: selectedRequest == request.id)).tag(request.id)
+                    .listRowInsets(EdgeInsets())
             }
         }
         .listStyle(.sidebar).scrollContentBackground(.hidden)
@@ -166,8 +165,10 @@ struct MacConversationsView: View {
                     .selectionDisabled()
             }
             ForEach(rows) { row in
-                MacChatRow(row: row, media: account.media).tag(row.id)
-                    .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                MacChatRow(row: row, media: account.media, isSelected: selected == row.id)
+                    .padding(.horizontal, 16).padding(.vertical, 8)
+                    .modifier(MacSidebarSelection(isSelected: selected == row.id)).tag(row.id)
+                    .listRowInsets(EdgeInsets())
                     .contextMenu { rowMenu(row) }
                     .accessibilityActions { rowMenu(row) }
             }
@@ -240,7 +241,8 @@ struct MacConversationsView: View {
 private struct MacChatRow: View {
     let row: MacRoomSummary
     @ObservedObject var media: MacMedia
-    @Environment(\.backgroundProminence) private var prominence
+    let isSelected: Bool
+    private var secondaryInk: Color { isSelected ? BipeColor.inkOnAccent : BipeColor.inkSecondary }
     var body: some View {
         HStack(spacing: 12) {
             MacAvatar(name: row.name, media: media, url: row.avatar.url, userID: row.avatar.userID, members: row.avatar.members)
@@ -249,23 +251,26 @@ private struct MacChatRow: View {
                     Text(row.name).macFont(.headline).lineLimit(1)
                     Spacer(minLength: 0)
                     if let date = row.date {
-                        Text(time(date)).macFont(.caption).monospacedDigit().foregroundStyle(.secondary)
+                        Text(time(date)).macFont(.caption).monospacedDigit().foregroundStyle(secondaryInk)
                             .lineLimit(1).fixedSize(horizontal: true, vertical: false)
                     }
                 }
                 HStack(spacing: 8) {
                     Text(row.activity.previewText ?? "").macFont(.subheadline).lineLimit(2)
-                        .foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading)
+                        .foregroundStyle(secondaryInk).frame(maxWidth: .infinity, alignment: .leading)
                     if row.isMuted {
                         Image(decorative: "bell-slash").resizable().scaledToFit().frame(width: 16, height: 16).accessibilityHidden(true)
                     }
-                    if row.mentions > 0 { Text("@").macFont(.footnote).accessibilityLabel(BipeStrings.a11yMention) }
+                    if row.mentions > 0 {
+                        Text("@").macFont(.footnote).foregroundStyle(isSelected ? BipeColor.inkOnAccent : BipeColor.accentInk)
+                            .accessibilityLabel(BipeStrings.a11yMention)
+                    }
                     if row.unread > 0 {
                         Text(row.unread.formatted()).macFont(.caption).fontWeight(.semibold).padding(.horizontal, 6).padding(.vertical, 3)
                             .foregroundStyle(BipeColor.accentInk).background(BipeColor.accentWash, in: Capsule())
                             .accessibilityLabel(BipeStrings.appChatListUnread(row.unread.formatted()))
                     } else if row.markedUnread {
-                        Circle().fill(prominence == .increased ? BipeColor.inkOnAccent : BipeColor.accentFill)
+                        Circle().fill(isSelected ? BipeColor.inkOnAccent : BipeColor.accentFill)
                             .frame(width: 8, height: 8).accessibilityLabel(BipeStrings.chatUnreadState)
                     }
                 }
@@ -338,24 +343,7 @@ private struct MacFavouritesGrid<MenuContent: View>: View {
                 }
             Text(row.name).macFont(.subheadline).lineLimit(1).frame(maxWidth: .infinity)
         }.padding(.vertical, 6).frame(maxWidth: .infinity)
-            .modifier(MacFavouriteSelection(isSelected: isSelected))
+            .modifier(MacSidebarSelection(isSelected: isSelected))
             .contentShape(Rectangle())
-            .accessibilityAddTraits(isSelected ? .isSelected : [])
-    }
-}
-
-/// Use the same system selection fill as List, including accent, focus and inactive-window changes.
-private struct MacFavouriteSelection: ViewModifier {
-    let isSelected: Bool
-    @Environment(\.isFocused) private var isFocused
-    @Environment(\.appearsActive) private var appearsActive
-
-    func body(content: Content) -> some View {
-        content
-            .background {
-                if isSelected { RoundedRectangle(cornerRadius: 6).fill(.selection) }
-            }
-            .foregroundStyle(.primary)
-            .environment(\.backgroundProminence, isSelected && isFocused && appearsActive ? .increased : .standard)
     }
 }

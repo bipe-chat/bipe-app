@@ -1,0 +1,168 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
+// Copyright 2026 Bipe contributors
+
+import AppKit
+import BipeKit
+import SwiftUI
+import XCTest
+@testable import BipeMac
+
+final class MacSidebarSelectionTests: XCTestCase {
+    @MainActor
+    func testNativeListKeepsSelectionAndArrowKeysWithoutSystemPaint() async throws {
+        let model = SidebarFixtureModel()
+        let window = fixture(model: model, bothSelected: false, appearance: .aqua)
+        defer { window.close() }
+        try await settle(window)
+        let table = try XCTUnwrap(find(NSTableView.self, in: try XCTUnwrap(window.contentView)))
+        XCTAssertEqual(table.selectionHighlightStyle, .none)
+        XCTAssertEqual(model.selected, "first")
+        XCTAssertGreaterThanOrEqual(table.selectedRow, 0)
+        XCTAssertTrue(window.makeFirstResponder(table))
+        let down = try XCTUnwrap(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [],
+            timestamp: 0, windowNumber: window.windowNumber, context: nil,
+            characters: "\u{F701}", charactersIgnoringModifiers: "\u{F701}", isARepeat: false, keyCode: 125))
+        table.keyDown(with: down)
+        try await settle(window)
+        XCTAssertEqual(model.selected, "second", "Native arrow-key selection must still open the next room")
+        XCTAssertEqual(table.selectionHighlightStyle, .none)
+        model.selected = "favourite"
+        try await settle(window)
+        XCTAssertEqual(model.selected, "favourite")
+        XCTAssertEqual(table.selectionHighlightStyle, .none)
+    }
+
+    @MainActor
+    func testFavouriteAndNativeRowPixelsFollowEveryPaletteAndKeepItAfterFocusMoves() async throws {
+        let saved = BipeTheme.shared.palette
+        defer { BipeTheme.shared.palette = saved }
+        for appearance in [NSAppearance.Name.aqua, .darkAqua, .accessibilityHighContrastAqua, .accessibilityHighContrastDarkAqua] {
+            let window = fixture(model: SidebarFixtureModel(), bothSelected: true, appearance: appearance)
+            defer { window.close() }
+            try await settle(window)
+            let content = try XCTUnwrap(window.contentView)
+            let table = try XCTUnwrap(find(NSTableView.self, in: content))
+            let field = try XCTUnwrap(find(NSTextField.self, in: content, matching: { $0.isEditable }))
+            for palette in BipePalette.allCases {
+                // Change the running theme without recreating the window, as Settings does.
+                BipeTheme.shared.palette = palette
+                XCTAssertTrue(window.makeFirstResponder(table))
+                try await settle(window)
+                XCTAssertEqual(table.selectionHighlightStyle, .none)
+                var fill: NSColor?
+                var ink: NSColor?
+                window.effectiveAppearance.performAsCurrentDrawingAppearance {
+                    fill = NSColor(BipeColor.accentFill).usingColorSpace(.sRGB)
+                    ink = NSColor(BipeColor.inkOnAccent).usingColorSpace(.sRGB)
+                }
+                let expectedFill = try XCTUnwrap(fill)
+                let expectedInk = try XCTUnwrap(ink)
+                for row in [0, 1] {
+                    try assertPixels(table, row: row, fill: expectedFill, ink: expectedInk,
+                                     name: "\(palette.rawValue)-\(appearance.rawValue)-\(row)", attach: palette == .jenipapo)
+                }
+                XCTAssertTrue(window.makeFirstResponder(field))
+                try await settle(window)
+                for row in [0, 1] {
+                    try assertPixels(table, row: row, fill: expectedFill, ink: expectedInk,
+                                     name: "\(palette.rawValue)-\(appearance.rawValue)-\(row)-composer-focus", attach: false)
+                }
+            }
+        }
+    }
+
+    @MainActor
+    private func fixture(model: SidebarFixtureModel, bothSelected: Bool, appearance: NSAppearance.Name) -> NSWindow {
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 360, height: 400),
+                              styleMask: [.titled], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        window.appearance = NSAppearance(named: appearance)
+        window.contentView = NSHostingView(rootView: SidebarFixture(model: model, bothSelected: bothSelected))
+        window.makeKeyAndOrderFront(nil)
+        return window
+    }
+
+    @MainActor
+    private func settle(_ window: NSWindow) async throws {
+        try await Task.sleep(for: .milliseconds(150))
+        window.contentView?.layoutSubtreeIfNeeded()
+        window.displayIfNeeded()
+    }
+
+    @MainActor
+    private func assertPixels(_ table: NSTableView, row: Int, fill: NSColor, ink: NSColor, name: String, attach: Bool) throws {
+        let view = try XCTUnwrap(table.rowView(atRow: row, makeIfNecessary: true))
+        let bitmap = try XCTUnwrap(view.bitmapImageRepForCachingDisplay(in: view.bounds))
+        view.cacheDisplay(in: view.bounds, to: bitmap)
+        let fillPixels = count(bitmap, matching: fill)
+        let inkPixels = count(bitmap, matching: ink)
+        print("Sidebar render \(name): \(bitmap.pixelsWide)x\(bitmap.pixelsHigh), fill=\(fillPixels), ink=\(inkPixels)")
+        XCTAssertGreaterThan(fillPixels, 100, "\(name): selection must use the Bipe accent, not system blue/grey or a blank capture")
+        XCTAssertGreaterThan(inkPixels, 5, "\(name): selected labels must use ink.onAccent")
+        if attach || fillPixels <= 100 || inkPixels <= 5 {
+            let data = try XCTUnwrap(bitmap.representation(using: .png, properties: [:]))
+            let attachment = XCTAttachment(data: data, uniformTypeIdentifier: "public.png")
+            attachment.name = "sidebar-" + name
+            attachment.lifetime = .keepAlways
+            add(attachment)
+        }
+    }
+
+    private func count(_ bitmap: NSBitmapImageRep, matching expected: NSColor) -> Int {
+        var found = 0
+        for y in stride(from: 0, to: bitmap.pixelsHigh, by: 2) {
+            for x in stride(from: 0, to: bitmap.pixelsWide, by: 2) {
+                guard let color = bitmap.colorAt(x: x, y: y)?.usingColorSpace(.sRGB), color.alphaComponent > 0.95 else { continue }
+                if abs(color.redComponent - expected.redComponent) < 0.025,
+                   abs(color.greenComponent - expected.greenComponent) < 0.025,
+                   abs(color.blueComponent - expected.blueComponent) < 0.025 { found += 1 }
+            }
+        }
+        return found
+    }
+
+    @MainActor
+    private func find<T: NSView>(_ type: T.Type, in view: NSView, matching: (T) -> Bool = { _ in true }) -> T? {
+        if let found = view as? T, matching(found) { return found }
+        for child in view.subviews { if let found = find(type, in: child, matching: matching) { return found } }
+        return nil
+    }
+}
+
+@MainActor
+private final class SidebarFixtureModel: ObservableObject {
+    @Published var selected: String? = "first"
+}
+
+private struct SidebarFixture: View {
+    @ObservedObject var model: SidebarFixtureModel
+    let bothSelected: Bool
+    var body: some View {
+        VStack(spacing: 0) {
+            List(selection: $model.selected) {
+                HStack {
+                    Button { model.selected = "favourite" } label: {
+                        VStack(spacing: 6) {
+                            Circle().fill(BipeColor.accentWash).frame(width: 72, height: 72)
+                            Text(BipeStrings.chatFavourites).macFont(.subheadline)
+                        }.padding(8).frame(width: 120)
+                            .modifier(MacSidebarSelection(isSelected: bothSelected || model.selected == "favourite"))
+                    }.buttonStyle(.plain)
+                    Spacer()
+                }.listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16)).selectionDisabled()
+                entry("first", title: BipeStrings.requestsTitle)
+                entry("second", title: BipeStrings.archivedTitle)
+            }.listStyle(.sidebar).scrollContentBackground(.hidden)
+            TextField(BipeStrings.appTimelineComposerPlaceholder, text: .constant(""))
+                .textFieldStyle(.plain).padding(16)
+        }.background(BipeColor.surfaceBase)
+    }
+
+    private func entry(_ id: String, title: String) -> some View {
+        Text(title).macFont(.headline).frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
+            .padding(.horizontal, 16).padding(.vertical, 8)
+            .modifier(MacSidebarSelection(isSelected: model.selected == id)).tag(id)
+            .listRowInsets(EdgeInsets())
+    }
+}
