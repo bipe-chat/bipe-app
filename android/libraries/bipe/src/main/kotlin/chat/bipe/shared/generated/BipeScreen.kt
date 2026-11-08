@@ -529,8 +529,17 @@ enum class BipeScreen(val id: String) {
     /** Who can message me (flow settings). Spec: bipe-shared/product/screens/who-can-message.json */
     WHO_CAN_MESSAGE("who-can-message"),
 
+    /** Who has a customer chat (flow business). Spec: bipe-shared/product/screens/work-chat-bar.json */
+    WORK_CHAT_BAR("work-chat-bar"),
+
+    /** Conversas of a work account with people (flow business). Spec: bipe-shared/product/screens/work-chats.json */
+    WORK_CHATS("work-chats"),
+
     /** Opening hours of a work account (flow settings). Spec: bipe-shared/product/screens/work-hours.json */
     WORK_HOURS("work-hours"),
+
+    /** Internal notes on a customer chat (flow business). Spec: bipe-shared/product/screens/work-notes.json */
+    WORK_NOTES("work-notes"),
 
     /** What do you do? (flow business). Spec: bipe-shared/product/screens/work-sector.json */
     WORK_SECTOR("work-sector"),

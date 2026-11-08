@@ -923,6 +923,12 @@ object BipeRegistries {
     const val DRAFT_FIELD = "chat.bipe.draft"
     const val DRAFT_BODY_MAX_LENGTH = 8000
     const val DRAFT_CLIENT_MAX_LENGTH = 64
+    /** Notes room of a work account (bipe ADR 0284, bipe-chat/bipe#1291; registries/work-notes.json). Rules: test-vectors/work-notes.json. */
+    const val WORK_NOTES_ROOM_TYPE = "chat.bipe.work_notes"
+    const val WORK_NOTES_ACCOUNT_DATA_TYPE = "chat.bipe.work_notes_room"
+    const val WORK_NOTE_FIELD = "chat.bipe.work_note"
+    const val WORK_REPLY_BY_TYPE = "chat.bipe.reply_by"
+    const val WORK_NOTE_BODY_MAX_LENGTH = 4000
 
     /** Assistant sends (bipe ADR 0210, bipe-chat/bipe#439; registries/mcp-tools.json personalSend). Rules: test-vectors/assistant-send.json. */
     const val ASSISTANT_SEND_ACCOUNT_DATA_TYPE = "chat.bipe.assistant_send"
