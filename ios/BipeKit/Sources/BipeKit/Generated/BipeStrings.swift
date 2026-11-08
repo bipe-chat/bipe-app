@@ -5951,12 +5951,4 @@ public enum BipeStrings {
     public static var internoError: String { NSLocalizedString("bipe_interno_error", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var internoEmpty: String { NSLocalizedString("bipe_interno_empty", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static func govbrStepSignFile(_ p1: String) -> String {
-        String(format: NSLocalizedString("bipe_govbr_step_sign_file", tableName: "Bipe", bundle: .module, comment: ""), p1)
-    }
-
-    public static func govbrReasonWrongDocumentFile(_ p1: String) -> String {
-        String(format: NSLocalizedString("bipe_govbr_reason_wrong_document_file", tableName: "Bipe", bundle: .module, comment: ""), p1)
-    }
 }

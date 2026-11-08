@@ -2586,8 +2586,6 @@ export const ptBR = {
   bipe_interno_setup: "Preparando o Interno",
   bipe_interno_error: "Não deu para abrir o Interno. Tente de novo.",
   bipe_interno_empty: "Ninguém mais atende por esta conta ainda.",
-  bipe_govbr_step_sign_file: "No app gov.br, toque em assinar documento e escolha %1$s.",
-  bipe_govbr_reason_wrong_document_file: "Esse não é o documento desta verificação. Use o arquivo %1$s.",
 } as const;
 
 export type StringKey = keyof typeof ptBR;
@@ -5172,8 +5170,6 @@ export const en: Record<StringKey, string> = {
   bipe_interno_setup: "Setting up Interno",
   bipe_interno_error: "Could not open Interno. Try again.",
   bipe_interno_empty: "Nobody else answers for this account yet.",
-  bipe_govbr_step_sign_file: "In the gov.br app, tap sign document and pick %1$s.",
-  bipe_govbr_reason_wrong_document_file: "This is not the document of this check. Use the file %1$s.",
 };
 
 export type Locale = "pt-BR" | "en";

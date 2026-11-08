@@ -4117,9 +4117,9 @@
   ]
  },
  "govbr": {
-  "$comment": "Trust step 5, Verificar com gov.br (bipe-chat/bipe#544, spec product/screens/govbr-verify.json). The apps send the user to the gov.br app to sign the challenge PDF of POST /v1/verifications/govbr. fileName is the fallback name: the apps show GovbrChallenge.fileName (bipe_<handle>_<code>.pdf, api/openapi.yaml) and use this one only when a challenge has none (bipe-chat/bipe#998). maxDocumentBytes is the maxLength of PUT /v1/verifications/govbr/{verificationId}/document: the apps do not upload a bigger file. iosStoreUrl: the gov.br app has no documented URL scheme, so iOS opens its App Store page, which shows Abrir when the app is installed. androidPackage: Android opens the app by this package name when it is installed, else androidStoreUrl. Both store pages checked on 29 Oct 2026.",
+  "$comment": "Trust step 5, Verificar com gov.br (bipe-chat/bipe#544, spec product/screens/govbr-verify.json). The apps send the user to the gov.br app to sign the challenge PDF of POST /v1/verifications/govbr. fileName is the GovbrChallenge fileName of api/openapi.yaml. maxDocumentBytes is the maxLength of PUT /v1/verifications/govbr/{verificationId}/document: the apps do not upload a bigger file. iosStoreUrl: the gov.br app has no documented URL scheme, so iOS opens its App Store page, which shows Abrir when the app is installed. androidPackage: Android opens the app by this package name when it is installed, else androidStoreUrl. Both store pages checked on 29 Oct 2026.",
   "version": 1,
-  "fileName": "bipe_verificacao.pdf",
+  "fileName": "bipe-verificacao.pdf",
   "maxDocumentBytes": 5242880,
   "iosStoreUrl": "https://apps.apple.com/br/app/gov-br/id1506827551",
   "androidPackage": "br.gov.meugovbr",
@@ -7012,9 +7012,7 @@
    "bipe_interno_private_hint": "Só vocês dois veem esta conversa. Nem a pessoa responsável vê.",
    "bipe_interno_setup": "Preparando o Interno",
    "bipe_interno_error": "Não deu para abrir o Interno. Tente de novo.",
-   "bipe_interno_empty": "Ninguém mais atende por esta conta ainda.",
-   "bipe_govbr_step_sign_file": "No app gov.br, toque em assinar documento e escolha %1$s.",
-   "bipe_govbr_reason_wrong_document_file": "Esse não é o documento desta verificação. Use o arquivo %1$s."
+   "bipe_interno_empty": "Ninguém mais atende por esta conta ainda."
   }
  },
  "stringsEn": {
@@ -9599,9 +9597,7 @@
    "bipe_interno_private_hint": "Only you two see this chat. Not even the person in charge sees it.",
    "bipe_interno_setup": "Setting up Interno",
    "bipe_interno_error": "Could not open Interno. Try again.",
-   "bipe_interno_empty": "Nobody else answers for this account yet.",
-   "bipe_govbr_step_sign_file": "In the gov.br app, tap sign document and pick %1$s.",
-   "bipe_govbr_reason_wrong_document_file": "This is not the document of this check. Use the file %1$s."
+   "bipe_interno_empty": "Nobody else answers for this account yet."
   }
  }
 }
