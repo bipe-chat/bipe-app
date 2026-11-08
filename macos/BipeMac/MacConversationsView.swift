@@ -21,6 +21,7 @@ struct MacConversationsView: View {
     @State private var reordering = false
     @State private var notificationsRoom: String?
     @State private var photoPickerRoom: String?
+    @State private var contextRoom: String?
 
     /// The account keeps the open chat of each destination, so switching destinations comes back to it.
     private var selectedRoom: Binding<String?> {
@@ -160,7 +161,7 @@ struct MacConversationsView: View {
             if !favourites.isEmpty {
                 MacFavouritesGrid(rows: favourites, media: account.media, reordering: $reordering, selected: selectedRoom,
                                   move: { id, index in Task { await list.moveFavourite(id, to: index, shown: favourites.map(\.id)) } },
-                                  contextItems: favouriteContextItems,
+                                  contextItems: rowContextItems,
                                   menu: { row in rowMenu(row) })
                     .listRowSeparator(.hidden).listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                     .selectionDisabled()
@@ -168,9 +169,12 @@ struct MacConversationsView: View {
             ForEach(rows) { row in
                 MacChatRow(row: row, media: account.media, isSelected: selected == row.id)
                     .padding(.horizontal, 16).padding(.vertical, 8)
-                    .modifier(MacSidebarSelection(isSelected: selected == row.id)).tag(row.id)
+                    .modifier(MacSidebarSelection(isSelected: selected == row.id, isContextTarget: contextRoom == row.id)).tag(row.id)
                     .listRowInsets(EdgeInsets())
-                    .contextMenu { rowMenu(row) }
+                    .overlay {
+                        MacSidebarContextMenu(items: rowContextItems(row),
+                            begin: { contextRoom = row.id }, end: { contextRoom = nil }).accessibilityHidden(true)
+                    }
                     .accessibilityActions { rowMenu(row) }
             }
             if !showingArchived {
@@ -238,9 +242,9 @@ struct MacConversationsView: View {
         }
     }
 
-    private func favouriteContextItems(_ row: MacRoomSummary) -> [MacFavouriteContextMenu.Item] {
+    private func rowContextItems(_ row: MacRoomSummary) -> [MacSidebarContextMenu.Item] {
         menuItems(row).map { item in
-            MacFavouriteContextMenu.Item(command: item,
+            MacSidebarContextMenu.Item(command: item,
                 isEnabled: !list.busy.contains(row.id) || item == .notifications || item == .sendMedia,
                 action: { choose(item, row) })
         }
@@ -301,7 +305,7 @@ private struct MacFavouritesGrid<MenuContent: View>: View {
     @FocusState private var focusedFavourite: String?
     @State private var contextFavourite: String?
     let move: (String, Int) -> Void
-    let contextItems: (MacRoomSummary) -> [MacFavouriteContextMenu.Item]
+    let contextItems: (MacRoomSummary) -> [MacSidebarContextMenu.Item]
     @ViewBuilder let menu: (MacRoomSummary) -> MenuContent
 
     var body: some View {
@@ -331,7 +335,7 @@ private struct MacFavouritesGrid<MenuContent: View>: View {
                             .buttonStyle(.plain).focusable(interactions: .edit).focusEffectDisabled()
                             .focused($focusedFavourite, equals: row.id)
                             .overlay {
-                                MacFavouriteContextMenu(items: contextItems(row),
+                                MacSidebarContextMenu(items: contextItems(row),
                                     begin: { contextFavourite = row.id }, end: { contextFavourite = nil })
                                     .accessibilityHidden(true)
                             }

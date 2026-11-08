@@ -6,8 +6,8 @@ import AppKit
 import BipeKit
 import SwiftUI
 
-/// A favourite owns its right-click target. SwiftUI's List context menu targets the entire grid row.
-struct MacFavouriteContextMenu: NSViewRepresentable {
+/// Each row or favourite owns its context target, rather than promoting a grid tile to its List row.
+struct MacSidebarContextMenu: NSViewRepresentable {
     struct Item {
         let command: BipeChatMenuItem
         let isEnabled: Bool

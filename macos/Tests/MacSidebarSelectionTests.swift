@@ -17,7 +17,7 @@ final class MacSidebarSelectionTests: XCTestCase {
         try await settle(window)
         let content = try XCTUnwrap(window.contentView)
         let table = try XCTUnwrap(find(NSTableView.self, in: content))
-        let targets = all(MacFavouriteContextMenu.Target.self, in: content).sorted {
+        let targets = all(MacSidebarContextMenu.Target.self, in: content).sorted {
             $0.convert($0.bounds, to: content).minX < $1.convert($1.bounds, to: content).minX
         }
         XCTAssertEqual(targets.count, 2)
@@ -25,7 +25,7 @@ final class MacSidebarSelectionTests: XCTestCase {
         XCTAssertLessThan(target.bounds.width, table.bounds.width / 2, "The menu target must be a tile, not the grid row")
         let event = try XCTUnwrap(NSEvent.mouseEvent(with: .rightMouseDown, location: .zero, modifierFlags: [],
             timestamp: 0, windowNumber: window.windowNumber, context: nil, eventNumber: 1, clickCount: 1, pressure: 1))
-        XCTAssertTrue(MacFavouriteContextMenu.Target.isContextClick(event))
+        XCTAssertTrue(MacSidebarContextMenu.Target.isContextClick(event))
         let menu = try XCTUnwrap(target.menu(for: event))
         target.menuWillOpen(menu)
         try await settle(window)
@@ -43,10 +43,10 @@ final class MacSidebarSelectionTests: XCTestCase {
         XCTAssertEqual(table.selectionHighlightStyle, .none)
         let normal = try XCTUnwrap(NSEvent.mouseEvent(with: .leftMouseDown, location: .zero, modifierFlags: [],
             timestamp: 0, windowNumber: window.windowNumber, context: nil, eventNumber: 2, clickCount: 1, pressure: 1))
-        XCTAssertFalse(MacFavouriteContextMenu.Target.isContextClick(normal))
+        XCTAssertFalse(MacSidebarContextMenu.Target.isContextClick(normal))
         let control = try XCTUnwrap(NSEvent.mouseEvent(with: .leftMouseDown, location: .zero, modifierFlags: [.control],
             timestamp: 0, windowNumber: window.windowNumber, context: nil, eventNumber: 3, clickCount: 1, pressure: 1))
-        XCTAssertTrue(MacFavouriteContextMenu.Target.isContextClick(control))
+        XCTAssertTrue(MacSidebarContextMenu.Target.isContextClick(control))
     }
 
     @MainActor
@@ -212,7 +212,7 @@ private struct SidebarFixture: View {
                                               isContextTarget: model.contextFavourite == id))
         }.buttonStyle(.plain)
             .overlay {
-                MacFavouriteContextMenu(items: [
+                MacSidebarContextMenu(items: [
                     .init(command: .unfavourite, isEnabled: true, action: {
                         model.lastMenuRoom = id; model.lastMenuCommand = .unfavourite
                     }),
