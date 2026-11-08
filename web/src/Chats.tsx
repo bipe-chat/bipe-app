@@ -69,7 +69,7 @@ import { useWorkNotesRoomId } from './work/work-notes';
 import { workHostFor } from './work/host';
 import { WorkView } from './work/WorkView';
 import { InternoView } from './work/Interno';
-import { useAutoJoin, useInterno, useMemberRooms } from './work/interno';
+import { useAutoJoin, useInterno, useMemberRooms } from './work/interno-session';
 import { RoomTimeline } from './Timeline';
 import type { MemberSlot } from './sdk';
 import { Avatar, useIsCompany } from './ui/Avatar';

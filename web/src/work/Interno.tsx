@@ -5,7 +5,7 @@
 // The Interno screen (bipe-shared product/screens/interno.json, bipe ADR 0284 phase B): Geral first, then the direct
 // chats newest first, and Nova conversa with a picker of the other members (GET /v1/me/business/members without me).
 // The rooms open in the normal timeline on the member session (Chats.tsx). Chats renders this inside the member
-// session's ClientContext, so avatars and rooms come from that session. The logic is in interno.ts.
+// session's ClientContext, so avatars and rooms come from that session. The logic is in interno-session.ts.
 
 import { useEffect, useState } from 'react';
 import type { ChatSummary } from '../chat-model';
@@ -17,7 +17,7 @@ import { s } from '../ui/i18n';
 import { NavBar } from '../ui/List';
 import { Spinner } from '../ui/Spinner';
 import { describe } from '../util';
-import { internoRooms, type Interno, type InternoState } from './interno';
+import { internoRooms, type Interno, type InternoState } from './interno-session';
 
 export function InternoView({
   interno,
