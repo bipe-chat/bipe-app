@@ -1287,6 +1287,10 @@ public enum BipeAPIErrorCode: String, Sendable {
     case seatWindowOpen = "seat_window_open"
     /// 409. No phone can join the work account now (ADR 0251).
     case seatWindowClosed = "seat_window_closed"
+    /// 409. Another person took the chat first (ADR 0284); the client reads the chats again.
+    case chatTaken = "chat_taken"
+    /// 403. A device of the work account that belongs to no person (ADR 0284).
+    case seatRequired = "seat_required"
 }
 
 public enum BipeAPIError: Error, Sendable, Equatable {
@@ -1362,6 +1366,7 @@ public enum BipeAPIError: Error, Sendable, Equatable {
             case .ownerOnly: BipeStrings.teamOwnerOnly
             case .seatLimit, .seatWindowOpen: BipeStrings.teamError
             case .seatWindowClosed: BipeStrings.teamAddExpired
+            case .chatTaken, .seatRequired: BipeStrings.chatAssignError
             case .badRequest, .notFound, .internal: BipeStrings.errorGeneric
             }
         case .network:

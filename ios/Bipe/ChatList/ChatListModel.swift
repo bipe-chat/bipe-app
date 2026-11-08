@@ -104,6 +104,7 @@ final class ChatListModel: ObservableObject {
     private var started = false
     private var clearChanges: AnyCancellable?
     private var draftsChanges: AnyCancellable?
+    private var workNotesChanges: AnyCancellable?
 
     init(session: AccountSession) {
         self.session = session
@@ -116,6 +117,10 @@ final class ChatListModel: ObservableObject {
         }
         // Spec drafts notes: the drafts room never shows in the list, its badges or the share targets.
         draftsChanges = AssistantDraftsStore.shared.$revision.dropFirst().sink { [weak self] _ in
+            self?.refreshSummaries()
+        }
+        // Spec work-chats notes: the notes room of a work account never shows either.
+        workNotesChanges = WorkNotesStore.shared.$revision.dropFirst().sink { [weak self] _ in
             self?.refreshSummaries()
         }
         rowActivity = RowActivityScanner(client: session.client, ownUserId: session.userId) { [weak self] in self?.refreshSummaries() }
@@ -161,6 +166,7 @@ final class ChatListModel: ObservableObject {
         started = true
         await refreshNotes()
         await AssistantDraftsStore.shared.learnRoomId(session: session)
+        await WorkNotesStore.shared.learnRoomId(session: session)
         await delivered.start()
         guard let roomList = try? await session.syncService.roomListService().allRooms() else { return }
 
@@ -372,12 +378,12 @@ final class ChatListModel: ObservableObject {
             if let room = try? session.client.getRoom(roomId: id) { rooms.append(room) }
         }
         let userId = session.userId
-        let draftsRoomId = AssistantDraftsStore.shared.roomId(for: userId)
+        let hiddenRoomIds = AccountPrivateRooms.ids(userId: userId)
         summaryTask?.cancel()
         summaryTask = Task { [weak self] in
             var summaries: [ChatSummary] = []
             for room in rooms {
-                if room.id() != self?.notes.roomId, room.id() != draftsRoomId, let summary = await Self.summary(of: room, ownUserId: userId) {
+                if room.id() != self?.notes.roomId, !hiddenRoomIds.contains(room.id()), let summary = await Self.summary(of: room, ownUserId: userId) {
                     summaries.append(summary)
                 }
             }
