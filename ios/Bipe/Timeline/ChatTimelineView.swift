@@ -373,6 +373,8 @@ struct ChatTimelineView: View {
             if phase == .active {
                 Task { await model.markAsRead() }
                 model.refreshAssistantReaders()
+                // Keys the notification extension received while the app was away (retryUndecryptable).
+                model.retryUndecryptable()
             }
             if phase == .background { model.leave() }
         }

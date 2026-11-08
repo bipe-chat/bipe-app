@@ -2571,14 +2571,4 @@
     <string name="bipe_reach_limit_body">Você chegou ao limite de conversas com pessoas que não conhecem você. A próxima libera em %1$s.</string>
     <string name="bipe_reach_limit_body_none">Esta conta não pode começar conversas com pessoas que não conhecem você.</string>
     <string name="bipe_avatar_open">Ver foto</string>
-    <string name="bipe_interno_title">Interno</string>
-    <string name="bipe_interno_row_body">Conversas só entre quem atende por %1$s.</string>
-    <string name="bipe_interno_geral">Geral</string>
-    <string name="bipe_interno_geral_body">Todo mundo que atende por %1$s.</string>
-    <string name="bipe_interno_new">Nova conversa</string>
-    <string name="bipe_interno_pick_title">Conversar com quem?</string>
-    <string name="bipe_interno_private_hint">Só vocês dois veem esta conversa. Nem a pessoa responsável vê.</string>
-    <string name="bipe_interno_setup">Preparando o Interno</string>
-    <string name="bipe_interno_error">Não deu para abrir o Interno. Tente de novo.</string>
-    <string name="bipe_interno_empty">Ninguém mais atende por esta conta ainda.</string>
 </resources>

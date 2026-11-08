@@ -823,6 +823,105 @@ jobs:
             grep -q 'BUDGET' /tmp/bench.line
             echo "### Bench APK, x86_64 emulator: $(cat /tmp/bench.line)" >> "$GITHUB_STEP_SUMMARY"
 
+  # bipe-chat/bipe#1277 item 5: the iOS phone bench on the release XCFramework, ad hoc signed for the devices registered in
+  # team 992N457T8D (tools/asc.mjs BENCH, bundle ID chat.bipe.core.bench). Artifact core-bench-ipa; core/release/README.md
+  # has the install command. Signing as in testflight.yml: the distribution certificate in a temporary keychain.
+  release-ios-bench:
+    name: core-release-ios-bench
+    if: github.workflow == 'core' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: xcode-27
+    timeout-minutes: 40
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
+      ASC_KEY_ID: ${{ vars.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ vars.ASC_ISSUER_ID }}
+      BIPE_ID_SET: bench
+      TEAM_ID: 992N457T8D
+    steps:
+      - uses: actions/checkout@v4
+      - *shared-branch
+      - *shared-checkout
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: App Store Connect key
+        env:
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          key="$RUNNER_TEMP/AuthKey_${ASC_KEY_ID}.p8"
+          printf '%s\n' "$ASC_KEY_P8" > "$key"
+          echo "ASC_KEY_PATH=$key" >> "$GITHUB_ENV"
+      - name: Import the distribution certificate
+        env:
+          DIST_CERT_P12: ${{ secrets.DIST_CERT_P12 }}
+          DIST_CERT_PASSWORD: ${{ secrets.DIST_CERT_PASSWORD }}
+        run: |
+          if [ -z "$DIST_CERT_P12" ] || [ -z "$DIST_CERT_PASSWORD" ]; then
+            echo "::error::Secrets DIST_CERT_P12 and DIST_CERT_PASSWORD are not set (bipe-chat/bipe#585)."
+            exit 1
+          fi
+          password=$(openssl rand -hex 16)
+          keychain="$RUNNER_TEMP/signing.keychain-db"
+          security create-keychain -p "$password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+          printf '%s' "$DIST_CERT_P12" | base64 --decode > "$RUNNER_TEMP/dist.p12"
+          security import "$RUNNER_TEMP/dist.p12" -k "$keychain" -f pkcs12 -P "$DIST_CERT_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
+          rm "$RUNNER_TEMP/dist.p12"
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$password" "$keychain" > /dev/null
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+          serial=$(security find-certificate -c "Apple Distribution" -p "$keychain" | openssl x509 -noout -serial | cut -d= -f2)
+          test -n "$serial"
+          echo "DIST_CERT_SERIAL=$serial" >> "$GITHUB_ENV"
+      # Registers chat.bipe.core.bench on the first run, then makes its ad hoc profile again with every enabled iPhone.
+      - name: Bundle ID and ad hoc profile
+        run: node tools/asc.mjs signing "$DIST_CERT_SERIAL"
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate the project
+        working-directory: core/release/ios/bench
+        run: |
+          mkdir -p vectors
+          cp "$GITHUB_WORKSPACE/bipe-shared/test-vectors/badges.json" vectors/
+          cp "$GITHUB_WORKSPACE/bipe-shared/test-vectors/badges.json" ../../swift/Tests/BipeCoreReleaseTests/badges.json
+          xcodegen generate
+      - name: Archive
+        working-directory: core/release/ios/bench
+        run: |
+          set -o pipefail
+          xcodebuild archive \
+            -project BipeCoreBench.xcodeproj \
+            -scheme BipeCoreBench \
+            -configuration Release \
+            -destination "generic/platform=iOS" \
+            -derivedDataPath "$RUNNER_TEMP/bench-dd" \
+            -archivePath "$RUNNER_TEMP/BipeCoreBench.xcarchive" \
+            DEVELOPMENT_TEAM="$TEAM_ID" \
+            BIPE_CI_PROFILE_APP="$BIPE_CI_PROFILE_APP" 2>&1 | tee "$RUNNER_TEMP/archive.log" | grep -E "error:|ARCHIVE (SUCCEEDED|FAILED)" || true
+          grep -q "ARCHIVE SUCCEEDED" "$RUNNER_TEMP/archive.log"
+      - name: Export the ad hoc IPA
+        run: |
+          set -o pipefail
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/BipeCoreBench.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/adhoc.plist" \
+            -exportPath "$RUNNER_TEMP/ipa" 2>&1 | tee "$RUNNER_TEMP/export.log" | grep -E "error:|EXPORT (SUCCEEDED|FAILED)" || true
+          grep -q "EXPORT SUCCEEDED" "$RUNNER_TEMP/export.log"
+          version=$(jq -r .version core/release/release.json)
+          cd "$RUNNER_TEMP/ipa"
+          mv ./*.ipa "bipe-core-bench-$version.ipa"
+          shasum -a 256 "bipe-core-bench-$version.ipa" > "bipe-core-bench-$version.ipa.sha256"
+          unzip -l "bipe-core-bench-$version.ipa" | grep -E 'bipe_coreFFI|badges.json'
+          echo "### iOS bench IPA: $(cat "bipe-core-bench-$version.ipa.sha256")" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: core-bench-ipa
+          path: ${{ runner.temp }}/ipa/*.ipa*
+          if-no-files-found: error
+      - name: Remove the keychain
+        if: always()
+        run: security delete-keychain "$RUNNER_TEMP/signing.keychain-db" 2> /dev/null || true
+
   release-jvm:
     name: core-release-jvm-${{ matrix.os }}
     if: github.workflow == 'core'

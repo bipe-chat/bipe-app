@@ -17,7 +17,7 @@ import { checkStrings, findLiterals, isUserText } from './strings.mjs';
 import { provenanceLine, issueLine } from './provenance.mjs';
 import { evaluate, flatNames, matchedTokens, parseCsv, tokenCounts } from './similarity.mjs';
 import { checkSdkVersion, projectPin, resolvedPin, catalogPin } from './sdk-version.mjs';
-import { exact, token, sameSerial, profileName, exportOptions, signing, certificates, storeIds, prepare, idSet, STORE, BETA, external, BETA_TEXT } from './asc.mjs';
+import { exact, token, sameSerial, profileName, exportOptions, signing, certificates, storeIds, prepare, idSet, STORE, BETA, BENCH, external, BETA_TEXT } from './asc.mjs';
 import { generateKeyPairSync, verify } from 'node:crypto';
 
 function tree(files) {
@@ -532,6 +532,27 @@ test('asc store set signs chat.bipe.app with App Store and ad hoc profiles and c
     'BIPE_CI_PROFILE_SHARE=Bipe CI App Store chat.bipe.app.shareextension',
     '',
   ].join('\n'));
+});
+
+test('asc bench set makes one ad hoc profile and archives with it (bipe-chat/bipe#1277 item 5)', async () => {
+  const cert = { id: 'C', attributes: { serialNumber: '105A9943', certificateType: 'DISTRIBUTION' } };
+  const { call, calls } = fakeAsc({ certs: [cert] });
+  const home = mkdtempSync(join(tmpdir(), 'bipe-asc-home-'));
+  const outDir = mkdtempSync(join(tmpdir(), 'bipe-asc-out-'));
+  const envFile = join(outDir, 'env');
+  writeFileSync(envFile, '');
+  const log = console.log;
+  console.log = () => {};
+  try {
+    await signing(call, '105A9943', { home, outDir, env: { GITHUB_ENV: envFile }, set: idSet('bench') });
+  } finally {
+    console.log = log;
+  }
+  assert.equal(idSet('bench'), BENCH);
+  const made = calls.filter((c) => c.method === 'POST' && c.path === '/v1/profiles').map((c) => c.body.data.attributes);
+  assert.deepEqual(made, [{ name: 'Bipe Core Bench CI Ad Hoc chat.bipe.core.bench', profileType: 'IOS_APP_ADHOC' }]);
+  assert.match(readFileSync(join(outDir, 'adhoc.plist'), 'utf8'), /<key>chat\.bipe\.core\.bench<\/key><string>Bipe Core Bench CI Ad Hoc chat\.bipe\.core\.bench<\/string>/);
+  assert.equal(readFileSync(envFile, 'utf8'), 'BIPE_CI_PROFILE_APP=Bipe Core Bench CI Ad Hoc chat.bipe.core.bench\n');
 });
 
 test('asc store set never registers a bundle ID or creates the app record', async () => {

@@ -2571,14 +2571,4 @@
     <string name="bipe_reach_limit_body">You reached the limit of chats with people who do not know you. The next one frees up %1$s.</string>
     <string name="bipe_reach_limit_body_none">This account cannot start chats with people who do not know you.</string>
     <string name="bipe_avatar_open">View photo</string>
-    <string name="bipe_interno_title">Interno</string>
-    <string name="bipe_interno_row_body">Chats only between the people who answer for %1$s.</string>
-    <string name="bipe_interno_geral">General</string>
-    <string name="bipe_interno_geral_body">Everyone who answers for %1$s.</string>
-    <string name="bipe_interno_new">New chat</string>
-    <string name="bipe_interno_pick_title">Chat with whom?</string>
-    <string name="bipe_interno_private_hint">Only you two see this chat. Not even the person in charge sees it.</string>
-    <string name="bipe_interno_setup">Setting up Interno</string>
-    <string name="bipe_interno_error">Could not open Interno. Try again.</string>
-    <string name="bipe_interno_empty">Nobody else answers for this account yet.</string>
 </resources>
