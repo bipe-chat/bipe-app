@@ -31,6 +31,7 @@ struct MacFileView: View {
                 }.bipeTapTarget()
             }.buttonStyle(.plain).disabled(busy)
                 .accessibilityLabel(BipeStrings.appMediaFile + ": " + file.name.filename)
+                .accessibilityValue(file.sizeLabel ?? "")
             Button(BipeStrings.appMediaSave) { save() }.disabled(busy)
             if failed { MacNotice(text: BipeStrings.appMediaFailed, danger: true) }
             if saveFailed { MacNotice(text: BipeStrings.appMediaSaveFailed, danger: true) }

@@ -42,6 +42,12 @@ struct MacMessage: Identifiable {
     var isDeleted = false
     var file: MacFile? = nil
     var isSent: Bool { eventID != nil && !pending && !failed && !isDeleted }
+    var hasMediaCaption: Bool { isImage || file != nil }
+
+    func editedContent(_ text: String) throws -> EditedContent {
+        if hasMediaCaption { return .mediaCaption(caption: text, formattedCaption: nil, mentions: nil) }
+        return .roomMessage(content: try messageEventContentNew(msgtype: .text(content: TextMessageContent(body: text, formatted: nil))))
+    }
 }
 
 struct MacTimelineScroll: Equatable {
@@ -107,6 +113,10 @@ final class MacTimeline: ObservableObject {
         return false
     }
     var replyTarget: MacMessage? { messages.first { $0.eventID == replyID } }
+    var canSubmitDraft: Bool {
+        !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+            messages.first(where: { $0.id == editingID })?.hasMediaCaption == true
+    }
     private var timeline: Timeline?
     private var room: Room?
     private var draftRevision = 0
@@ -283,8 +293,9 @@ final class MacTimeline: ObservableObject {
     }
 
     func send() async {
-        guard let timeline, !sending, !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        guard let timeline, !sending else { return }
         if editingID != nil { await saveEdit(); return }
+        guard !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         let text = draft
         let reply = replyID
         sending = true
@@ -390,13 +401,13 @@ final class MacTimeline: ObservableObject {
         guard let timeline, let id = editingID, let message = messages.first(where: { $0.id == id }),
               let event = items.first(where: { $0.uniqueId().id == id })?.asEvent() else { cancelEdit(); return }
         let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !message.isDeleted else { cancelEdit(); return }
+        guard !text.isEmpty || message.hasMediaCaption else { return }
         guard text != message.body else { cancelEdit(); return }
         sending = true
         defer { sending = false }
         do {
-            let content: EditedContent = message.isImage || message.file != nil
-                ? .mediaCaption(caption: text, formattedCaption: nil, mentions: nil)
-                : .roomMessage(content: try messageEventContentNew(msgtype: .text(content: TextMessageContent(body: text, formatted: nil))))
+            let content = try message.editedContent(text)
             try await timeline.edit(eventOrTransactionId: event.eventOrTransactionId, newContent: content)
             cancelEdit()
         } catch { editFailed = true }

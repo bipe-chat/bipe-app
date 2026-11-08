@@ -267,7 +267,7 @@ struct MacChatView: View {
                 Button(BipeStrings.appTimelineSend) { Task { await model.send() } }
                     .buttonStyle(.bipeProminent)
                     .keyboardShortcut(.return, modifiers: .command)
-                    .disabled(!model.ready || model.sending || model.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(!model.ready || model.sending || !model.canSubmitDraft)
             }.padding()
         }
         .navigationTitle(name)

@@ -133,4 +133,17 @@ final class MacFileTests: XCTestCase {
         let deleted = try XCTUnwrap(MacMessagePayload(kind: .redacted, eventJson: nil))
         XCTAssertNil(deleted.file)
     }
+
+    @MainActor
+    func testClearingAFileCaptionUsesAMediaEditInsteadOfChangingItsMessageType() throws {
+        let source = try MediaSource.fromUrl(url: "mxc://example.invalid/file")
+        var message = MacMessage(id: "file", sender: "Bia", senderID: "@person:example.invalid", senderNameAmbiguous: false,
+            senderRole: nil, body: "Caption", richText: BipeMessageText(body: "Caption"), photo: nil, isEmote: false,
+            timestamp: Date(timeIntervalSince1970: 1), isOwn: true, showsSender: false, pending: false, failed: false,
+            warning: nil, eventID: "$file", canReply: true, canReact: true, reactions: [])
+        message.file = MacFile(content: FileMessageContent(filename: "file.pdf", caption: "Caption", formattedCaption: nil,
+                                                         source: source, info: nil))
+        guard case .mediaCaption(let caption, _, _) = try message.editedContent("") else { return XCTFail("Expected a media-caption edit") }
+        XCTAssertEqual(caption, "")
+    }
 }
