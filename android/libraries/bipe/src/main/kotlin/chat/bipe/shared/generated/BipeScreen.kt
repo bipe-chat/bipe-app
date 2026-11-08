@@ -232,6 +232,9 @@ enum class BipeScreen(val id: String) {
     /** Incoming call (flow chat). Spec: bipe-shared/product/screens/incoming-call.json */
     INCOMING_CALL("incoming-call"),
 
+    /** Interno (flow business). Spec: bipe-shared/product/screens/interno.json */
+    INTERNO("interno"),
+
     /** Create an invite (flow invites). Spec: bipe-shared/product/screens/invite-note.json */
     INVITE_NOTE("invite-note"),
 
