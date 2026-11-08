@@ -10,6 +10,7 @@ import SwiftUI
 /// Selection describes the open conversation and persists when focus moves to the composer.
 struct MacSidebarSelection: ViewModifier {
     let isSelected: Bool
+    var isContextTarget = false
 
     func body(content: Content) -> some View {
         content
@@ -18,6 +19,9 @@ struct MacSidebarSelection: ViewModifier {
                 if isSelected { RoundedRectangle(cornerRadius: 6).fill(BipeColor.accentFill) }
             }
             .background(MacSidebarSelectionPaint())
+            .overlay {
+                if isContextTarget { RoundedRectangle(cornerRadius: 6).stroke(BipeColor.accentFill, lineWidth: 2) }
+            }
             .environment(\.backgroundProminence, .standard)
             .accessibilityAddTraits(isSelected ? .isSelected : [])
     }

@@ -10,14 +10,16 @@ import XCTest
 
 final class MacSidebarSelectionTests: XCTestCase {
     @MainActor
-    func testRightClickSelectsOneFavouriteAndUsesItsOwnMenuTarget() async throws {
+    func testRightClickTargetsOneFavouriteWithoutOpeningItOrSelectingTheGrid() async throws {
         let model = SidebarFixtureModel()
         let window = fixture(model: model, bothSelected: false, appearance: .darkAqua)
         defer { window.close() }
         try await settle(window)
         let content = try XCTUnwrap(window.contentView)
         let table = try XCTUnwrap(find(NSTableView.self, in: content))
-        let targets = all(MacFavouriteContextMenu.Target.self, in: content)
+        let targets = all(MacFavouriteContextMenu.Target.self, in: content).sorted {
+            $0.convert($0.bounds, to: content).minX < $1.convert($1.bounds, to: content).minX
+        }
         XCTAssertEqual(targets.count, 2)
         let target = try XCTUnwrap(targets.last)
         XCTAssertLessThan(target.bounds.width, table.bounds.width / 2, "The menu target must be a tile, not the grid row")
@@ -25,8 +27,10 @@ final class MacSidebarSelectionTests: XCTestCase {
             timestamp: 0, windowNumber: window.windowNumber, context: nil, eventNumber: 1, clickCount: 1, pressure: 1))
         XCTAssertTrue(MacFavouriteContextMenu.Target.isContextClick(event))
         let menu = try XCTUnwrap(target.menu(for: event))
+        target.menuWillOpen(menu)
         try await settle(window)
-        XCTAssertEqual(model.selected, "second-favourite")
+        XCTAssertEqual(model.contextFavourite, "second-favourite")
+        XCTAssertEqual(model.selected, "first", "Right-click must not open another chat or send its read receipt")
         XCTAssertEqual(menu.items.map(\.title), [BipeChatMenuItem.unfavourite.title, BipeChatMenuItem.notifications.title])
         XCTAssertTrue(menu.items[0].isEnabled)
         XCTAssertFalse(menu.items[1].isEnabled)
@@ -34,6 +38,8 @@ final class MacSidebarSelectionTests: XCTestCase {
         menu.performActionForItem(at: 0)
         XCTAssertEqual(model.lastMenuRoom, "second-favourite")
         XCTAssertEqual(model.lastMenuCommand, .unfavourite)
+        target.menuDidClose(menu)
+        XCTAssertNil(model.contextFavourite)
         XCTAssertEqual(table.selectionHighlightStyle, .none)
         let normal = try XCTUnwrap(NSEvent.mouseEvent(with: .leftMouseDown, location: .zero, modifierFlags: [],
             timestamp: 0, windowNumber: window.windowNumber, context: nil, eventNumber: 2, clickCount: 1, pressure: 1))
@@ -172,6 +178,7 @@ final class MacSidebarSelectionTests: XCTestCase {
 @MainActor
 private final class SidebarFixtureModel: ObservableObject {
     @Published var selected: String? = "first"
+    @Published var contextFavourite: String?
     var lastMenuRoom: String?
     var lastMenuCommand: BipeChatMenuItem?
 }
@@ -201,7 +208,8 @@ private struct SidebarFixture: View {
                 Circle().fill(BipeColor.accentWash).frame(width: 72, height: 72)
                 Text(BipeStrings.chatFavourites).macFont(.subheadline)
             }.padding(8).frame(width: 120)
-                .modifier(MacSidebarSelection(isSelected: (bothSelected && id == "favourite") || model.selected == id))
+                .modifier(MacSidebarSelection(isSelected: (bothSelected && id == "favourite") || model.selected == id,
+                                              isContextTarget: model.contextFavourite == id))
         }.buttonStyle(.plain)
             .overlay {
                 MacFavouriteContextMenu(items: [
@@ -209,7 +217,7 @@ private struct SidebarFixture: View {
                         model.lastMenuRoom = id; model.lastMenuCommand = .unfavourite
                     }),
                     .init(command: .notifications, isEnabled: false, action: {})
-                ], select: { model.selected = id }).accessibilityHidden(true)
+                ], begin: { model.contextFavourite = id }, end: { model.contextFavourite = nil }).accessibilityHidden(true)
             }
     }
 

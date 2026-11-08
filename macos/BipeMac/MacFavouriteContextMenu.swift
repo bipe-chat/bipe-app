@@ -14,17 +14,20 @@ struct MacFavouriteContextMenu: NSViewRepresentable {
         let action: @MainActor () -> Void
     }
     let items: [Item]
-    let select: () -> Void
+    let begin: () -> Void
+    let end: () -> Void
 
     func makeNSView(context: Context) -> Target { Target() }
     func updateNSView(_ view: Target, context: Context) {
         view.items = items
-        view.select = select
+        view.begin = begin
+        view.end = end
     }
 
-    final class Target: NSView {
+    final class Target: NSView, NSMenuDelegate {
         var items: [Item] = []
-        var select: () -> Void = {}
+        var begin: () -> Void = {}
+        var end: () -> Void = {}
 
         static func isContextClick(_ event: NSEvent?) -> Bool {
             guard let event else { return false }
@@ -38,9 +41,9 @@ struct MacFavouriteContextMenu: NSViewRepresentable {
         }
 
         override func menu(for event: NSEvent) -> NSMenu? {
-            select()
             let menu = NSMenu()
             menu.autoenablesItems = false
+            menu.delegate = self
             for entry in items {
                 let target = Action(entry.action)
                 let item = NSMenuItem(title: entry.command.title, action: #selector(Action.perform(_:)), keyEquivalent: "")
@@ -52,6 +55,9 @@ struct MacFavouriteContextMenu: NSViewRepresentable {
             }
             return menu
         }
+
+        func menuWillOpen(_ menu: NSMenu) { begin() }
+        func menuDidClose(_ menu: NSMenu) { end() }
 
         override func rightMouseDown(with event: NSEvent) { showMenu(event) }
         override func mouseDown(with event: NSEvent) {

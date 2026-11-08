@@ -299,6 +299,7 @@ private struct MacFavouritesGrid<MenuContent: View>: View {
     @Binding var reordering: Bool
     @Binding var selected: String?
     @FocusState private var focusedFavourite: String?
+    @State private var contextFavourite: String?
     let move: (String, Int) -> Void
     let contextItems: (MacRoomSummary) -> [MacFavouriteContextMenu.Item]
     @ViewBuilder let menu: (MacRoomSummary) -> MenuContent
@@ -330,10 +331,9 @@ private struct MacFavouritesGrid<MenuContent: View>: View {
                             .buttonStyle(.plain).focusable(interactions: .edit).focusEffectDisabled()
                             .focused($focusedFavourite, equals: row.id)
                             .overlay {
-                                MacFavouriteContextMenu(items: contextItems(row)) {
-                                    selected = row.id
-                                    focusedFavourite = row.id
-                                }.accessibilityHidden(true)
+                                MacFavouriteContextMenu(items: contextItems(row),
+                                    begin: { contextFavourite = row.id }, end: { contextFavourite = nil })
+                                    .accessibilityHidden(true)
                             }
                             .accessibilityActions { menu(row) }.accessibilityLabel(label(row))
                     }
@@ -358,7 +358,7 @@ private struct MacFavouritesGrid<MenuContent: View>: View {
                 }
             Text(row.name).macFont(.subheadline).lineLimit(1).frame(maxWidth: .infinity)
         }.padding(.vertical, 6).frame(maxWidth: .infinity)
-            .modifier(MacSidebarSelection(isSelected: isSelected))
+            .modifier(MacSidebarSelection(isSelected: isSelected, isContextTarget: contextFavourite == row.id))
             .contentShape(Rectangle())
     }
 }
