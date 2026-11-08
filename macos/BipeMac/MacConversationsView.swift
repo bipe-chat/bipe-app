@@ -310,7 +310,8 @@ private struct MacFavouritesGrid<MenuContent: View>: View {
                             selected = row.id
                             focusedFavourite = row.id
                         } label: { cell(row) }
-                            .buttonStyle(.plain).focused($focusedFavourite, equals: row.id)
+                            .buttonStyle(.plain).focusable(interactions: .edit).focusEffectDisabled()
+                            .focused($focusedFavourite, equals: row.id)
                             .contextMenu { menu(row) }
                             .accessibilityActions { menu(row) }.accessibilityLabel(label(row))
                     }
