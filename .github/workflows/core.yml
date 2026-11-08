@@ -347,9 +347,9 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: core
-      - uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-ndk
+      # Pinned and built from crates.io: install-action's binstall lookup of cargo-ndk timed out on 8 Nov 2026.
+      - name: Install cargo-ndk
+        run: cargo install --locked cargo-ndk --version 4.1.2
       - name: Build each ABI
         working-directory: core
         run: |
