@@ -97,8 +97,8 @@ final class MessageSearchModel: ObservableObject {
     private func hit(_ result: SearchServiceResult) -> MessageHit? {
         guard case .message(let roomId, let message) = result, self.roomId == nil || self.roomId == roomId,
               case .msgLike(let content) = message.content, case .message(let text) = content.kind,
-              // Spec drafts notes: the drafts room never shows in search.
-              !AssistantDraftsStore.shared.isDraftsRoom(roomId, userId: session.userId) else { return nil }
+              // Specs drafts and work-chats notes: the drafts room and the work notes room never show in search.
+              !AccountPrivateRooms.contains(roomId, userId: session.userId) else { return nil }
         let room = try? session.client.getRoom(roomId: roomId)
         let sender = message.sender == session.userId ? BipeStrings.appYou : message.senderProfile.displayName(or: message.sender)
         let body = text.body.replacingOccurrences(of: "\n", with: " ")

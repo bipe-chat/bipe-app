@@ -216,6 +216,12 @@ private struct MessageBubbleRow: View {
                     .font(.caption2)
                     .foregroundStyle(BipeColor.inkSecondary)
             }
+            // Spec work-chat-bar notes (ADR 0284 point 19): the seat that sent a reply, inside the work account only.
+            if let label = message.replyByLabel {
+                Text(label)
+                    .font(.caption2)
+                    .foregroundStyle(BipeColor.inkSecondary)
+            }
             // Spec threads: the count under a root, which opens the thread.
             if let replies = details.threadReplies, model.threadRoot == nil, let eventId = details.eventId {
                 Button {

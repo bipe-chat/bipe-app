@@ -79,6 +79,8 @@ struct ChatListView: View {
     /// Spec drafts openList: the list of the assistant drafts, from the chat list toolbar while drafts exist.
     @ObservedObject private var assistantDrafts = AssistantDraftsStore.shared
     @State private var showsDrafts = false
+    /// Spec work-chats (ADR 0284 phase A): the filters and who has each customer chat, with two or more people.
+    @ObservedObject private var workQueue = WorkQueueStore.shared
     @StateObject private var cards: FirstListCardsModel
     @StateObject private var asks: AccountAsksModel
     @State private var showsProfileEdit = false
@@ -159,6 +161,7 @@ struct ChatListView: View {
                 await bringPeople.load()
                 await asks.load()
                 openBringPeopleIfDue()
+                await loadWork()
             }
         }
         .onChange(of: detail) { _, next in
@@ -177,6 +180,7 @@ struct ChatListView: View {
                         await recovery.load()
                         await bringPeople.load()
                         await asks.load()
+                        await loadWork()
                     }
                     pinReminder.refresh()
                 }
@@ -474,12 +478,53 @@ struct ChatListView: View {
         }
     }
 
+    /// Spec work-chats: shown in Conversas of a work account with two or more people only.
+    private var workActive: Bool {
+        scope != .grupos && workQueue.isActive(userId: model.session.userId)
+    }
+
+    /// Spec work-chats: only customer chats have records. Groups and official chats are not.
+    private func isCustomerChat(_ chat: ChatSummary) -> Bool {
+        chat.isDm && !chat.isOfficial
+    }
+
+    /// Spec work-chats selectFilter: on the device, Todas keeps every chat.
+    private func workFiltered(_ chats: [ChatSummary]) -> [ChatSummary] {
+        guard workActive, !showingArchived else { return chats }
+        return chats.filter { workQueue.matches(roomId: $0.roomId, isCustomerChat: isCustomerChat($0)) }
+    }
+
+    /// Spec work-chats: the row line, nil for the pool and outside a work account with people.
+    private func assigneeLine(_ chat: ChatSummary) -> String? {
+        guard workActive, isCustomerChat(chat) else { return nil }
+        return workQueue.rowLine(roomId: chat.roomId)
+    }
+
+    /// Spec work-chats load: GET seats, then GET chats, when Conversas opens and when the app comes to the front.
+    private func loadWork() async {
+        guard scope != .grupos else { return }
+        let isCompany = await model.media.isCompany(userId: model.session.userId)
+        await workQueue.load(session: model.session, api: api, isCompany: isCompany)
+    }
+
     /// The requests row and the group invites above the chats (specs chat-requests and chat-list-filters).
     @ViewBuilder
     private var topRows: some View {
         // Spec chat-list-prompt: the one prompt card is the first row, so it scrolls with the chats (MZ decision
         // 25 Oct 2026), in every chat list (bipe-chat/bipe#853, #894).
         promptRow
+        if workActive && !showingArchived && !(muralOn && !muralShowsList) {
+            Picker(selection: $workQueue.filter) {
+                ForEach(WorkChatFilter.allCases) { filter in
+                    Text(filter.title).tag(filter)
+                }
+            } label: {
+                EmptyView()
+            }
+            .pickerStyle(.segmented)
+            .listRowSeparator(.hidden)
+            .accessibilityIdentifier(BipeScreen.workChats.rawValue)
+        }
         // Spec chat-archive openArchived: Archived opens from the last row of the list; this row goes back.
         if showingArchived {
             Button { showingArchived = false } label: {
@@ -550,9 +595,9 @@ struct ChatListView: View {
         case .loaded:
             // Spec chat-list favourites: a favourite shows in the row at the top, not again below it. In Mural there is no
             // favourites row, so the plain list has every chat.
-            let chats = model.chats(in: scope, archived: showingArchived).filter { showingArchived || muralOn || !$0.isFavourite }
-            let favourites = showingArchived || muralOn ? [] : model.favourites(in: scope)
-                .filter { !cleared.hidden(roomId: $0.roomId, latest: $0.lastActivity) }
+            let chats = workFiltered(model.chats(in: scope, archived: showingArchived).filter { showingArchived || muralOn || !$0.isFavourite })
+            let favourites = showingArchived || muralOn ? [] : workFiltered(model.favourites(in: scope)
+                .filter { !cleared.hidden(roomId: $0.roomId, latest: $0.lastActivity) })
             List {
                 // The first item of the list, above banners, cards, requests and invites.
                 if !favourites.isEmpty {
@@ -566,7 +611,7 @@ struct ChatListView: View {
                 }
                 topRows
                 ForEach(chats.filter { !cleared.hidden(roomId: $0.roomId, latest: $0.lastActivity) }) { chat in
-                    Button { openChat(chat.roomId) } label: { ChatRow(chat: chat, media: model.media) }
+                    Button { openChat(chat.roomId) } label: { ChatRow(chat: chat, media: model.media, assigneeLine: assigneeLine(chat)) }
                     .buttonStyle(.plain)
                     .listRowBackground(rowBackground(.room(chat.roomId)))
                     .swipeActions(edge: .trailing) { archiveAction(chat) }
@@ -831,6 +876,8 @@ struct ChatListView: View {
 struct ChatRow: View {
     let chat: ChatSummary
     let media: MediaLoader
+    /// Spec work-chats: who has the chat, in Conversas of a work account with two or more people.
+    var assigneeLine: String? = nil
 
     var body: some View {
         HStack(spacing: 12) {
@@ -860,6 +907,12 @@ struct ChatRow: View {
                 }
                 // Spec brand-mark: a reseller's mark under the name.
                 BrandMarkCaption(userId: chat.peerUserId)
+                if let assigneeLine {
+                    Text(assigneeLine)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(BipeColor.accentInk)
+                        .lineLimit(1)
+                }
                 HStack {
                     Text(chat.lastMessage ?? "")
                         .font(.subheadline)
