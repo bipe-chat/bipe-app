@@ -1,8 +1,8 @@
 ---
 id: 2026-11-08-work-chat-assignment
 date: 2026-11-08
-kind: added
-platforms: [ios, android, web]
+kind: new
+platforms: [ios, android]
 refs: [bipe#1293, bipe#1292]
 ---
 
