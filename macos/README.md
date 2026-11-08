@@ -61,6 +61,8 @@ QR codes use one binary byte segment, as the web does, so released phone scanner
 
 `.github/workflows/macos.yml` builds Debug and Release for both architectures. Hosted XCTest checks native SDK/SQLite loading without a server, Keychain error handling with synthetic records, same-device restoration, the approval gate and delayed refresh after revocation. Unit tests never read real credentials.
 
+CI prefetches the pinned binary archives through the GitHub API into an explicit SwiftPM cache. The helper checks the package revision's manifest, archive version and SHA-256; SwiftPM keeps its own checksum and resolved-pin checks. This avoids failures of the GitHub release-page download path without changing the dependencies or package manifests. `tools/swiftpm-assets.json` holds the archives and their checksums.
+
 The Release job uploads `bipe-mac-spike`, containing `Bipe-Mac.zip` and its SHA-256 checksum. After both Mac configurations and native tests pass on main, the publish job updates the public `mac-preview` prerelease. The downloads page reads that URL from bipe-shared/product/distribution.json. The ZIP contains Bipe.app for macOS 15+, on Apple silicon and Intel. It uses an ad hoc signature; Developer ID signing, notarization, store distribution and a supported updater remain later work. A build or synthetic test does not prove real-account linking or cross-device behavior.
 
 ## Real-account acceptance record

@@ -16,6 +16,7 @@ on:
     paths:
       - "ios/**"
       - "sdk-version"
+      - "tools/swiftpm-assets.*"
       - ".github/workflows/ios.yml"
 
 permissions:
@@ -44,7 +45,7 @@ jobs:
         run: |
           if [ "$GITHUB_EVENT_NAME" != pull_request ]; then
             echo "ios=true" >> "$GITHUB_OUTPUT"
-          elif git diff --name-only "origin/${GITHUB_BASE_REF}...HEAD" | grep -qE '^(ios/|sdk-version$|\.github/workflows/ios\.yml$)'; then
+          elif git diff --name-only "origin/${GITHUB_BASE_REF}...HEAD" | grep -qE '^(ios/|sdk-version$|tools/swiftpm-assets\.(mjs|json)$|\.github/workflows/ios\.yml$)'; then
             echo "ios=true" >> "$GITHUB_OUTPUT"
           else
             echo "ios=false" >> "$GITHUB_OUTPUT"
@@ -68,8 +69,15 @@ jobs:
             settings: BIPE_APP_ID=chat.bipe.app BIPE_APP_GROUP=group.chat.bipe BIPE_SHARE_ID_SUFFIX=shareextension BIPE_DISPLAY_NAME=Bipe
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
       - name: Xcode version
         run: xcodebuild -version
+      - name: Prefetch pinned SwiftPM archives
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node tools/swiftpm-assets.mjs --cache "$RUNNER_TEMP/bipe-package-cache" --platform ios
       - name: Install XcodeGen
         run: brew install xcodegen
       - name: Generate the project
@@ -89,6 +97,7 @@ jobs:
             -configuration "${{ matrix.configuration }}" \
             -destination "generic/platform=iOS" \
             -derivedDataPath ios/DerivedData \
+            -packageCachePath "$RUNNER_TEMP/bipe-package-cache" \
             CODE_SIGNING_ALLOWED=NO ${{ matrix.settings }} | tee "$RUNNER_TEMP/xcodebuild.log" | grep -E "error:|warning: .*Bipe|BUILD (SUCCEEDED|FAILED)" || true
           grep -q "BUILD SUCCEEDED" "$RUNNER_TEMP/xcodebuild.log"
       - name: Resolved pins equal ios/Package.resolved
@@ -129,13 +138,20 @@ jobs:
           repository: bipe-chat/bipe-shared
           path: bipe-shared
           ref: ${{ steps.shared.outputs.ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
       - name: Xcode version
         run: xcodebuild -version
+      - name: Prefetch pinned SwiftPM archives
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node tools/swiftpm-assets.mjs --cache "$RUNNER_TEMP/bipe-package-cache" --platform macos
       - name: swift test
         working-directory: ios/BipeKit
         env:
           BIPE_SHARED: ${{ github.workspace }}/bipe-shared
-        run: swift test
+        run: swift test --cache-path "$RUNNER_TEMP/bipe-package-cache"
 
   # The required check on main (bipe-chat/bipe-app#337 merged with the iOS builds red). Green when
   # every iOS job passed or was skipped because no iOS path changed.

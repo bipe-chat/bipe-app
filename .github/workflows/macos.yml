@@ -5,10 +5,10 @@
 name: macos
 on:
   pull_request:
-    paths: ["macos/**", "ios/BipeKit/**", "ios/Bipe/Common/Listeners.swift", "ios/Bipe/Common/ButtonSize.swift", "ios/Bipe/Common/BipeMark.swift", "ios/Bipe/Common/ServerAccountData.swift", "ios/Bipe/Common/SyncedSettings.swift", "ios/Bipe/Common/TapTarget.swift", "ios/Bipe/Common/BipeMessageLayouts.swift", "ios/Bipe/Timeline/ChatBackgroundView.swift", "ios/Bipe/Timeline/CallLines.swift", "ios/Bipe/Timeline/StateLines.swift", "ios/Bipe/Timeline/TimelinePill.swift", "ios/Bipe/Timeline/TimelineDetails.swift", "ios/Bipe/ChatList/NativeDm.swift", "ios/Bipe/Notifications/NotificationRules.swift", "ios/Phosphor/**", "ios/Package.resolved", "sdk-version", ".github/workflows/macos.yml"]
+    paths: ["macos/**", "ios/BipeKit/**", "ios/Bipe/Common/Listeners.swift", "ios/Bipe/Common/ButtonSize.swift", "ios/Bipe/Common/BipeMark.swift", "ios/Bipe/Common/ServerAccountData.swift", "ios/Bipe/Common/SyncedSettings.swift", "ios/Bipe/Common/TapTarget.swift", "ios/Bipe/Common/BipeMessageLayouts.swift", "ios/Bipe/Timeline/ChatBackgroundView.swift", "ios/Bipe/Timeline/CallLines.swift", "ios/Bipe/Timeline/StateLines.swift", "ios/Bipe/Timeline/TimelinePill.swift", "ios/Bipe/Timeline/TimelineDetails.swift", "ios/Bipe/ChatList/NativeDm.swift", "ios/Bipe/Notifications/NotificationRules.swift", "ios/Phosphor/**", "ios/Package.resolved", "sdk-version", "tools/swiftpm-assets.*", ".github/workflows/macos.yml"]
   push:
     branches: [main]
-    paths: ["macos/**", "ios/BipeKit/**", "ios/Bipe/Common/Listeners.swift", "ios/Bipe/Common/ButtonSize.swift", "ios/Bipe/Common/BipeMark.swift", "ios/Bipe/Common/ServerAccountData.swift", "ios/Bipe/Common/SyncedSettings.swift", "ios/Bipe/Common/TapTarget.swift", "ios/Bipe/Common/BipeMessageLayouts.swift", "ios/Bipe/Timeline/ChatBackgroundView.swift", "ios/Bipe/Timeline/CallLines.swift", "ios/Bipe/Timeline/StateLines.swift", "ios/Bipe/Timeline/TimelinePill.swift", "ios/Bipe/Timeline/TimelineDetails.swift", "ios/Bipe/ChatList/NativeDm.swift", "ios/Bipe/Notifications/NotificationRules.swift", "ios/Phosphor/**", "ios/Package.resolved", "sdk-version", ".github/workflows/macos.yml"]
+    paths: ["macos/**", "ios/BipeKit/**", "ios/Bipe/Common/Listeners.swift", "ios/Bipe/Common/ButtonSize.swift", "ios/Bipe/Common/BipeMark.swift", "ios/Bipe/Common/ServerAccountData.swift", "ios/Bipe/Common/SyncedSettings.swift", "ios/Bipe/Common/TapTarget.swift", "ios/Bipe/Common/BipeMessageLayouts.swift", "ios/Bipe/Timeline/ChatBackgroundView.swift", "ios/Bipe/Timeline/CallLines.swift", "ios/Bipe/Timeline/StateLines.swift", "ios/Bipe/Timeline/TimelinePill.swift", "ios/Bipe/Timeline/TimelineDetails.swift", "ios/Bipe/ChatList/NativeDm.swift", "ios/Bipe/Notifications/NotificationRules.swift", "ios/Phosphor/**", "ios/Package.resolved", "sdk-version", "tools/swiftpm-assets.*", ".github/workflows/macos.yml"]
 permissions:
   contents: read
 concurrency:
@@ -32,6 +32,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
+      - name: Prefetch pinned SwiftPM archives
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node tools/swiftpm-assets.mjs --cache "$RUNNER_TEMP/bipe-package-cache" --platform macos
       - name: Install XcodeGen
         run: brew install xcodegen
       - name: Generate the Mac project
@@ -49,7 +53,7 @@ jobs:
           bipe_version_settings=$(node tools/version.mjs --xcodebuild)
           xcodebuild build -project macos/BipeMac.xcodeproj -scheme BipeMac \
             -configuration '${{ matrix.configuration }}' -destination 'generic/platform=macOS' \
-            -derivedDataPath "$RUNNER_TEMP/bipe-mac" ARCHS='arm64 x86_64' ONLY_ACTIVE_ARCH=NO \
+            -derivedDataPath "$RUNNER_TEMP/bipe-mac" -packageCachePath "$RUNNER_TEMP/bipe-package-cache" ARCHS='arm64 x86_64' ONLY_ACTIVE_ARCH=NO \
             CODE_SIGNING_ALLOWED=NO $bipe_version_settings \
             > "$RUNNER_TEMP/macos-build.log" 2>&1 || { tail -100 "$RUNNER_TEMP/macos-build.log"; exit 1; }
           bipe_archs=" $(lipo -archs "$RUNNER_TEMP/bipe-mac/Build/Products/${{ matrix.configuration }}/Bipe.app/Contents/MacOS/Bipe") "
@@ -60,7 +64,7 @@ jobs:
         shell: bash
         run: |
           xcodebuild test -project macos/BipeMac.xcodeproj -scheme BipeMac \
-            -configuration Debug -destination 'platform=macOS' -derivedDataPath "$RUNNER_TEMP/bipe-mac" \
+            -configuration Debug -destination 'platform=macOS' -derivedDataPath "$RUNNER_TEMP/bipe-mac" -packageCachePath "$RUNNER_TEMP/bipe-package-cache" \
             CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM='' \
             -resultBundlePath "$RUNNER_TEMP/macos-tests.xcresult" \
             > "$RUNNER_TEMP/macos-tests.log" 2>&1 || { tail -120 "$RUNNER_TEMP/macos-tests.log"; exit 1; }

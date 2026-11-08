@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "artifacts": [
+    {
+      "identity": "matrix-rust-components-swift",
+      "repository": "matrix-org/matrix-rust-components-swift",
+      "version": "26.08.11",
+      "filename": "MatrixSDKFFI.xcframework.zip",
+      "sha256": "6d6ca99429491c50b6ba5138e640cf51087bb2a48c8a10213efed7709219ef72",
+      "platforms": ["ios", "macos"]
+    },
+    {
+      "identity": "webrtc-xcframework",
+      "repository": "livekit/webrtc-xcframework",
+      "version": "150.7871.03",
+      "filename": "LiveKitWebRTC.xcframework.zip",
+      "sha256": "5727a03c32ed902da570b699e3983e3fb4bfe853ab4da045af70912a7db44557",
+      "platforms": ["ios"]
+    },
+    {
+      "identity": "livekit-uniffi-xcframework",
+      "repository": "livekit/livekit-uniffi-xcframework",
+      "version": "0.1.9",
+      "filename": "RustLiveKitUniFFI.xcframework.zip",
+      "sha256": "8db93e8ccd9f22263c39855808da48a4d6b5d620d8f6e43ab4501ede847b23eb",
+      "platforms": ["ios"]
+    }
+  ]
+}
