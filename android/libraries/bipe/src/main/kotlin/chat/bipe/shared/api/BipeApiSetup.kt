@@ -330,3 +330,52 @@ suspend fun BipeApiClient.leaveSeat(accessToken: String): BipeSeatList =
 /** `POST /v1/me/business/setup/second-seat-skip`. Only the owner answers. */
 suspend fun BipeApiClient.skipSecondSeat(accessToken: String): BipeWorkSetup =
     send("POST", listOf("v1", "me", "business", "setup", "second-seat-skip"), accessToken = accessToken, response = BipeWorkSetup.serializer())
+
+// Who has a customer chat (bipe ADR 0284 points 14 to 17). Contract /v1/me/business/chats.
+
+/** Contract `ChatAssignment`. [assigneeSeatId] null: the chat is in the pool. [status] is open, waiting or solved. */
+@Serializable
+data class BipeChatAssignment(
+    @SerialName("room_id") val roomId: String,
+    @SerialName("assignee_seat_id") val assigneeSeatId: String? = null,
+    @SerialName("status") val status: String,
+    @SerialName("opened_at") val openedAt: String,
+    @SerialName("updated_at") val updatedAt: String,
+) {
+    companion object {
+        const val OPEN = "open"
+        const val WAITING = "waiting"
+        const val SOLVED = "solved"
+        val STATUSES = listOf(OPEN, WAITING, SOLVED)
+    }
+}
+
+/** Contract `ChatAssignmentList`. */
+@Serializable
+data class BipeChatAssignmentList(@SerialName("chats") val chats: List<BipeChatAssignment>)
+
+/** `GET /v1/me/business/chats`. A device with no person gets 403 seat_required. */
+suspend fun BipeApiClient.businessChats(accessToken: String): BipeChatAssignmentList =
+    send("GET", listOf("v1", "me", "business", "chats"), accessToken = accessToken, response = BipeChatAssignmentList.serializer())
+
+/**
+ * `PUT /v1/me/business/chats/{roomId}` (contract `ChatAssignmentUpdate`). [assigneeSeatId] null puts the chat in the
+ * pool; [expectedAssigneeSeatId] is the assignee this device last saw. 409 chat_taken when it is not the current one.
+ * [status] null keeps the status.
+ */
+suspend fun BipeApiClient.updateBusinessChat(
+    roomId: String,
+    assigneeSeatId: String?,
+    expectedAssigneeSeatId: String?,
+    status: String?,
+    accessToken: String,
+): BipeChatAssignment {
+    // Both seat fields are required and may be null, so the body is built by hand: the client's Json drops nulls.
+    val body = kotlinx.serialization.json.buildJsonObject {
+        put("assignee_seat_id", kotlinx.serialization.json.JsonPrimitive(assigneeSeatId))
+        put("expected_assignee_seat_id", kotlinx.serialization.json.JsonPrimitive(expectedAssigneeSeatId))
+        status?.let { put("status", kotlinx.serialization.json.JsonPrimitive(it)) }
+    }.toString()
+    return send("PUT", listOf("v1", "me", "business", "chats", roomId), body = body, accessToken = accessToken,
+        response = BipeChatAssignment.serializer())
+}

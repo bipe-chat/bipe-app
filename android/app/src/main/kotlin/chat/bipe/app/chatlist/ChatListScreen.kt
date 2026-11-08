@@ -5,6 +5,11 @@
 package chat.bipe.app.chatlist
 
 import chat.bipe.app.update.collectShows
+import chat.bipe.app.business.WorkChatFilter
+import chat.bipe.app.business.WorkChatFilters
+import chat.bipe.app.business.shows
+import chat.bipe.app.business.workAssigneeText
+import chat.bipe.app.business.workQueueState
 import chat.bipe.app.update.AppUpdateCard
 import android.content.Intent
 import android.text.format.DateUtils
@@ -218,6 +223,10 @@ fun HomeScreen(
     }
     // terms-reaccept, action check: after sign-in and on every return to the foreground.
     LaunchedEffect(foregroundCount) { terms.check(); tabs.refreshProfiles(); requests.refreshTrust() }
+    // Spec work-chats load: the seats and who has each chat of a work account, at start and on each return to the front.
+    LaunchedEffect(session, foregroundCount) {
+        if (media.isCompany(session.userId)) chat.bipe.app.business.WorkQueue.of(context, session).refresh()
+    }
     // Settings opens with its subtitles and switches filled (SettingsModel keeps the last values per account).
     LaunchedEffect(settings) { settings.load() }
     var peopleStack by remember { mutableStateOf(listOf<PeopleRoute>()) }
@@ -579,7 +588,13 @@ fun ChatListScreen(
     // Spec chat-list openMuralList: back returns to the tiles. The archived list opens from the plain list only.
     BackHandler(enabled = mural && muralShowsList) { if (showingArchived) showingArchived = false else muralShowsList = false }
     val visibleChats = withoutClearedDms(allChats, { it.roomId }, { it.lastActivity })
-    val chats = visibleChats.filter { scope.shows(it.scope) && archiveMarkers.containsKey(it.roomId) == showingArchived }
+    // Spec work-chats: a work account with two or more people filters its customer chats; null shows the list as before.
+    val work = if (scope == ChatScope.GRUPOS) null else workQueueState(model.session.userId)
+    var workFilter by rememberSaveable(model.session.userId) { mutableStateOf(WorkChatFilter.ALL) }
+    val chats = visibleChats.filter {
+        scope.shows(it.scope) && archiveMarkers.containsKey(it.roomId) == showingArchived &&
+            (work == null || workFilter == WorkChatFilter.ALL || (it.isCustomerChat && work.shows(workFilter, it.roomId)))
+    }
     val phase = model.phase(scope, allPhase, chats)
     // Spec chat-list favourites: a favourite shows in the row at the top, not again below it.
     // Spec chat-list, Mural scope: no favourites row in Mural, so the plain list of Mural has every favourite as a row.
@@ -647,6 +662,7 @@ fun ChatListScreen(
             }
             // Spec live-location-banner: this account shares its live location.
             chat.bipe.app.location.LiveLocationListRow(model.session.userId)
+            if (work != null && !showingArchived) WorkChatFilters(workFilter) { workFilter = it }
             // Spec notification-checkup (bipe-chat/bipe#823): the card is a chat-list-prompt entry.
             var showsCheckup by rememberSaveable { mutableStateOf(false) }
             var checkupClosed by remember { mutableIntStateOf(0) }
@@ -778,7 +794,9 @@ fun ChatListScreen(
                                 onLoadMore = { model.loadMore(scope) },
                             )
                         } else {
-                            items(listChats, key = { it.roomId }) { chat ->
+                            items(listChats, key = { it.roomId }) { listed ->
+                                // Spec work-chats: each customer chat shows who has it.
+                                val chat = if (work != null && listed.isCustomerChat) listed.copy(assignee = workAssigneeText(work, listed.roomId)) else listed
                                 ArchivedChatRow(chat, media, ownerId = model.session.userId, commands = commands(chat), onOpen = { onOpenChat(chat.roomId) })
                                 if (!showingArchived && chat.roomId == listChats.lastOrNull()?.roomId) {
                                     LaunchedEffect(allChats.size) { model.loadMore(scope) }
@@ -846,6 +864,10 @@ fun ChatRow(chat: ChatSummary, media: MediaLoader, onLongClick: (() -> Unit)? = 
             }
             // Spec brand-mark: a reseller's mark under the name.
             BrandMarkCaption(chat.peerUserId)
+            // Spec work-chats: who has the chat, inside a work account with two or more people.
+            chat.assignee?.let { line ->
+                Text(line, style = MaterialTheme.typography.labelMedium, color = colors.accentInk, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     chat.lastMessage.orEmpty(),

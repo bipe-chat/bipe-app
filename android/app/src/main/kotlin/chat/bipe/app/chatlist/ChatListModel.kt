@@ -79,12 +79,17 @@ data class ChatSummary(
     val lastFromOther: Boolean = false,
     /** Spec chat-list, messagesPerWeek: local message-like events of the window. Never asks the server. */
     val messagesPerWeek: Int = 0,
+    /** Spec work-chats: who has the chat (Com você, Com <name>), set by the list of a work account with two or more people. */
+    val assignee: String? = null,
 ) {
     val isUnread: Boolean get() = unreadCount > 0 || isMarkedUnread
 
     /** ADR 0141: a group of two stays a group; RoomInfo.isDm is the one DM test. */
     val scope: ChatScope
         get() = if (isDm) ChatScope.CONVERSAS else ChatScope.GRUPOS
+
+    /** Spec work-chats: a chat with a customer, the only kind that has a record (ADR 0284). */
+    val isCustomerChat: Boolean get() = isDm && !isOfficial
 
     /** Spec chat-list isOfficial: a DM with an official Bipe account (ADR 0117), by exact user ID only, or the news room. */
     val isOfficial: Boolean
@@ -160,6 +165,10 @@ class ChatListModel(
     private val draftsChanges = scope.launch {
         AssistantDraftsStore.revision.collect { refreshSummaries() }
     }
+    /** Spec work-chats notes: the notes room of a work account never shows in the list. */
+    private val workNotesChanges = scope.launch {
+        chat.bipe.app.business.WorkNotesRooms.revision.collect { refreshSummaries() }
+    }
 
     /** Subscribes to the room list service: joined chats, newest activity first. */
     fun start() {
@@ -168,6 +177,7 @@ class ChatListModel(
         scope.launch {
             refreshNotes()
             AssistantDraftsStore.learnRoomId(null, session)
+            chat.bipe.app.business.WorkNotesRooms.learn(session)
             session.delivered.start()
             val roomList = runCatching { session.syncService.roomListService().allRooms() }.getOrNull() ?: return@launch
             val loading = Channel<RoomListLoadingState>(Channel.UNLIMITED)
@@ -396,6 +406,7 @@ class ChatListModel(
     fun close() {
         clearChanges.cancel()
         draftsChanges.cancel()
+        workNotesChanges.cancel()
         rowActivity.close()
         handles.forEach { it.cancel() }
         summaryJob?.cancel()
@@ -427,7 +438,8 @@ class ChatListModel(
         summaryJob?.cancel()
         summaryJob = scope.launch {
             val draftsRoomId = AssistantDraftsStore.roomId(session.userId)
-            val summaries = snapshot.filter { it.id() != notes.roomId && it.id() != draftsRoomId }.mapNotNull { summary(it) }
+            val workNotesRoomId = chat.bipe.app.business.WorkNotesRooms.roomId(session.userId)
+            val summaries = snapshot.filter { it.id() != notes.roomId && it.id() != draftsRoomId && it.id() != workNotesRoomId }.mapNotNull { summary(it) }
             val visible = retainingKnownActivity(NativeDmSelection.visible(summaries, session))
             archive.reconcile(visible)
             // SDK order includes server recency stamps and local echoes, even when previews have no timestamp.

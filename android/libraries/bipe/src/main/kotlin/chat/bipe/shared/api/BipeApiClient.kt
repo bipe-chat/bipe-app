@@ -504,6 +504,12 @@ enum class BipeApiErrorCode(val id: String) {
 
     /** 409. No phone can join the work account now (ADR 0251). */
     SEAT_WINDOW_CLOSED("seat_window_closed"),
+
+    /** 409. Another person took the customer chat first (ADR 0284). The client reads the chats again. */
+    CHAT_TAKEN("chat_taken"),
+
+    /** 403. A device of a work account with no person may not read or change who has a chat (ADR 0284). */
+    SEAT_REQUIRED("seat_required"),
     ;
 
     companion object {
@@ -592,6 +598,7 @@ sealed class BipeApiException(cause: Throwable? = null) : Exception(cause) {
             BipeApiErrorCode.OWNER_ONLY -> context.getString(R.string.bipe_team_owner_only)
             BipeApiErrorCode.SEAT_LIMIT, BipeApiErrorCode.SEAT_WINDOW_OPEN -> context.getString(R.string.bipe_team_error)
             BipeApiErrorCode.SEAT_WINDOW_CLOSED -> context.getString(R.string.bipe_team_add_expired)
+            BipeApiErrorCode.CHAT_TAKEN, BipeApiErrorCode.SEAT_REQUIRED -> context.getString(R.string.bipe_chat_assign_error)
             BipeApiErrorCode.BAD_REQUEST, BipeApiErrorCode.NOT_FOUND, BipeApiErrorCode.INTERNAL, BipeApiErrorCode.PHOTO_INVALID,
             BipeApiErrorCode.PASSWORD_WEAK, BipeApiErrorCode.SUPPORT_UNAVAILABLE ->
                 context.getString(R.string.bipe_error_generic)

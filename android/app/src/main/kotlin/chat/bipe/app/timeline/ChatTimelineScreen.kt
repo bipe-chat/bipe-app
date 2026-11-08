@@ -536,6 +536,8 @@ fun ChatTimelineScreen(
                     // Spec message-pins (bipe-chat/bipe#665): groups only.
                     if (isGroup) PinnedBanner(session, roomId) { model.openOriginal(it) }
                     LiveLocationChatBar(roomId, session.userId)
+                    // Spec work-chat-bar: who has a customer chat of a work account with two or more people.
+                    if (isDm) chat.bipe.app.business.WorkChatBar(session, roomId)
                 }
                 val sealInstitutions = people?.seals?.institutions?.collectAsState()
                 val cvmPeer = peerUserId
@@ -656,6 +658,8 @@ fun ChatTimelineScreen(
                             }
                         }
                     }
+                    // Spec work-chat-bar reply: bipe_chat_taken_reply first in a chat another person has.
+                    chat.bipe.app.business.WorkComposerGate(session.userId, roomId.takeIf { isDm && model.isMainTimeline }) {
                     IdentityComposerGate(identityState.blocksSending) { ComposerBar(
                         draft = draft,
                         canSend = model.canSend,
@@ -687,6 +691,7 @@ fun ChatTimelineScreen(
                         onRecord = { model.startRecording(context.applicationContext) },
                         onEndRecording = model::endRecording,
                     ) }
+                    }
                 }
                 val peer = peerUserId
                 val selection = ui.selection
