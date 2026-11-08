@@ -46,7 +46,7 @@ struct MacSidebarContextMenu: NSViewRepresentable {
             menu.delegate = self
             for entry in items {
                 let target = Action(entry.action)
-                let item = NSMenuItem(title: entry.command.title, action: #selector(Action.perform(_:)), keyEquivalent: "")
+                let item = NSMenuItem(title: entry.command.title, action: #selector(Action.invokeMenuCommand(_:)), keyEquivalent: "")
                 item.target = target
                 item.representedObject = target // NSMenuItem's action target is weak.
                 item.image = NSImage(systemSymbolName: entry.command.symbol, accessibilityDescription: nil)
@@ -73,6 +73,6 @@ struct MacSidebarContextMenu: NSViewRepresentable {
     @MainActor private final class Action: NSObject {
         let handler: @MainActor () -> Void
         init(_ handler: @escaping @MainActor () -> Void) { self.handler = handler }
-        @objc func perform(_ sender: NSMenuItem) { handler() }
+        @objc func invokeMenuCommand(_ sender: NSMenuItem) { handler() }
     }
 }

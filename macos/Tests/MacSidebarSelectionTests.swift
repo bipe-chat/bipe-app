@@ -81,26 +81,30 @@ final class MacSidebarSelectionTests: XCTestCase {
         let saved = BipeTheme.shared.palette
         defer { BipeTheme.shared.palette = saved }
         for appearance in [NSAppearance.Name.aqua, .darkAqua, .accessibilityHighContrastAqua, .accessibilityHighContrastDarkAqua] {
-            let window = fixture(model: SidebarFixtureModel(), bothSelected: true, appearance: appearance)
+            let model = SidebarFixtureModel()
+            let window = fixture(model: model, bothSelected: true, appearance: appearance)
             defer { window.close() }
             try await settle(window)
             let content = try XCTUnwrap(window.contentView)
             let table = try XCTUnwrap(find(NSTableView.self, in: content))
             let field = try XCTUnwrap(find(NSTextField.self, in: content, matching: { $0.isEditable }))
+            let reference = try XCTUnwrap(model.reference)
+            var distinctFills: Set<String> = []
             for palette in BipePalette.allCases {
                 // Change the running theme without recreating the window, as Settings does.
                 BipeTheme.shared.palette = palette
                 XCTAssertTrue(window.makeFirstResponder(table))
                 try await settle(window)
                 XCTAssertEqual(table.selectionHighlightStyle, .none)
-                var fill: NSColor?
-                var ink: NSColor?
-                window.effectiveAppearance.performAsCurrentDrawingAppearance {
-                    fill = NSColor(BipeColor.accentFill).usingColorSpace(.sRGB)
-                    ink = NSColor(BipeColor.inkOnAccent).usingColorSpace(.sRGB)
-                }
-                let expectedFill = try XCTUnwrap(fill)
-                let expectedInk = try XCTUnwrap(ink)
+                // Compare with independently rendered token swatches in the same window/bitmap colour space.
+                // NSColor(Color) uses a different bridge from SwiftUI's on-screen renderer.
+                let swatches = try XCTUnwrap(reference.bitmapImageRepForCachingDisplay(in: reference.bounds))
+                reference.cacheDisplay(in: reference.bounds, to: swatches)
+                let expectedFill = try XCTUnwrap(swatches.colorAt(x: swatches.pixelsWide / 4, y: swatches.pixelsHigh / 2)?.usingColorSpace(.sRGB))
+                let expectedInk = try XCTUnwrap(swatches.colorAt(x: swatches.pixelsWide * 3 / 4, y: swatches.pixelsHigh / 2)?.usingColorSpace(.sRGB))
+                XCTAssertGreaterThan(expectedFill.alphaComponent, 0.95)
+                distinctFills.insert([expectedFill.redComponent, expectedFill.greenComponent, expectedFill.blueComponent]
+                    .map { Int(($0 * 255).rounded()) }.description)
                 for row in [0, 1] {
                     try assertPixels(table, row: row, fill: expectedFill, ink: expectedInk,
                                      name: "\(palette.rawValue)-\(appearance.rawValue)-\(row)", attach: palette == .jenipapo)
@@ -112,6 +116,7 @@ final class MacSidebarSelectionTests: XCTestCase {
                                      name: "\(palette.rawValue)-\(appearance.rawValue)-\(row)-composer-focus", attach: false)
                 }
             }
+            XCTAssertEqual(distinctFills.count, BipePalette.allCases.count, "Every palette must visibly update the running window")
         }
     }
 
@@ -184,14 +189,18 @@ private final class SidebarFixtureModel: ObservableObject {
     @Published var contextFavourite: String?
     var lastMenuRoom: String?
     var lastMenuCommand: BipeChatMenuItem?
+    weak var reference: NSView?
 }
 
 private struct SidebarFixture: View {
     @ObservedObject var model: SidebarFixtureModel
     let bothSelected: Bool
+    private var selection: Binding<String?> {
+        Binding(get: { model.selected }, set: { if model.selected != $0 { model.selected = $0 } })
+    }
     var body: some View {
         VStack(spacing: 0) {
-            List(selection: $model.selected) {
+            List(selection: selection) {
                 HStack {
                     favourite("favourite")
                     favourite("second-favourite")
@@ -200,8 +209,11 @@ private struct SidebarFixture: View {
                 entry("first", title: BipeStrings.requestsTitle)
                 entry("second", title: BipeStrings.archivedTitle)
             }.listStyle(.sidebar).scrollContentBackground(.hidden)
-            TextField(BipeStrings.appTimelineComposerPlaceholder, text: .constant(""))
-                .textFieldStyle(.plain).padding(16)
+            HStack {
+                SidebarTokenReference { model.reference = $0 }.frame(width: 32, height: 16)
+                TextField(BipeStrings.appTimelineComposerPlaceholder, text: .constant(""))
+                    .textFieldStyle(.plain)
+            }.padding(16)
         }.background(BipeColor.surfaceBase)
     }
 
@@ -229,5 +241,26 @@ private struct SidebarFixture: View {
             .padding(.horizontal, 16).padding(.vertical, 8)
             .modifier(MacSidebarSelection(isSelected: model.selected == id)).tag(id)
             .listRowInsets(EdgeInsets())
+    }
+}
+
+private struct SidebarTokenReference: NSViewRepresentable {
+    let capture: (NSView) -> Void
+    func makeNSView(context: Context) -> NSHostingView<SidebarTokenSwatches> {
+        let view = NSHostingView(rootView: SidebarTokenSwatches())
+        capture(view)
+        return view
+    }
+    func updateNSView(_ view: NSHostingView<SidebarTokenSwatches>, context: Context) {
+        view.rootView = SidebarTokenSwatches()
+    }
+}
+
+private struct SidebarTokenSwatches: View {
+    var body: some View {
+        HStack(spacing: 0) {
+            Rectangle().fill(BipeColor.accentFill)
+            Rectangle().fill(BipeColor.inkOnAccent)
+        }.frame(width: 32, height: 16)
     }
 }

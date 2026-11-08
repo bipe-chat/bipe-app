@@ -25,7 +25,9 @@ struct MacConversationsView: View {
 
     /// The account keeps the open chat of each destination, so switching destinations comes back to it.
     private var selectedRoom: Binding<String?> {
-        Binding(get: { account.selectedRooms[scope] }, set: { account.selectedRooms[scope] = $0 })
+        Binding(get: { account.selectedRooms[scope] }, set: { value in
+            if account.selectedRooms[scope] != value { account.selectedRooms[scope] = value }
+        })
     }
     private var selected: String? { account.selectedRooms[scope] }
     private var showingRequests: Bool {
