@@ -31,6 +31,14 @@ import { AttachButton, MAX_ITEMS, UploadPreview } from './Attach';
 import { ChatInfo } from './ChatInfo';
 import { BusinessChatBar, BusinessChatSheets, BusinessToolButtons } from './work/chat/BusinessChat';
 import { useBusinessChat } from './work/chat/useBusinessChat';
+import {
+  TakenReplyBar,
+  useReplyByName,
+  useReplyBySender,
+  useWorkChat,
+  WorkChatBar,
+  WorkNotesSheet,
+} from './work/chat/WorkChatBar';
 import { PinnedBanner, usePinnedMessages } from './Pins';
 import { useRoomFace } from './room-face';
 import { itemRow, markRead, TimelineRowView, withoutEmptyDays, type MessageRow, type RowHandlers } from './TimelineRows';
@@ -195,7 +203,18 @@ export function RoomTimeline({
   const blocked = face.isDirect === true && face.peer !== undefined && ignored.has(face.peer.userId);
   const [unblocking, setUnblocking] = useState(false);
   const account = useAccounts().current;
-  const companyName = useIsCompany(ownUserId) ? (account.name ?? undefined) : undefined;
+  const isCompany = useIsCompany(ownUserId);
+  const companyName = isCompany ? (account.name ?? undefined) : undefined;
+  // Specs work-chat-bar, work-notes (bipe ADR 0284 phase A): a DM of a work account is a customer chat. All of it shows
+  // only with two or more people.
+  const customerChat = face.isDirect === true && face.peer !== undefined && face.peer.userId !== ownUserId;
+  const work = useWorkChat(client, room.id(), isCompany, customerChat);
+  useReplyBySender(client, room.id(), items, work);
+  const replyByName = useReplyByName(client, room.id(), work);
+  const [notesOpen, setNotesOpen] = useState(false);
+  // Responder mesmo assim: once per open chat.
+  const [replyAnyway, setReplyAnyway] = useState(false);
+  const claiming = useRef(false);
   // A message link (/c/<room>/e/<event>): load older pages until the message is there, then bring it into
   // view and mark it for a moment, as the reply quote jump does.
   const focused = useRef<string>(undefined);
@@ -411,6 +430,7 @@ export function RoomTimeline({
             }}
           />
         )}
+        <WorkChatBar chat={work} onNotes={() => setNotesOpen(true)} />
         <BusinessChatBar chat={business} />
         {searching && (
           <ChatSearch
@@ -468,7 +488,15 @@ export function RoomTimeline({
               </li>
             )}
             {rows.map((r) => (
-              <TimelineRowView key={r.key} row={r} isDm={isDm} dmPeerId={face.peer?.userId} senders={senders} on={on} />
+              <TimelineRowView
+                key={r.key}
+                row={r}
+                isDm={isDm}
+                dmPeerId={face.peer?.userId}
+                senders={senders}
+                on={on}
+                replyByName={work.on ? replyByName : undefined}
+              />
             ))}
           </ol>
         </div>
@@ -531,6 +559,13 @@ export function RoomTimeline({
                 {s('bipe_action_unblock_person')}
               </button>
             </div>
+          ) : work.on && work.takenByOther && !replyAnyway ? (
+            <TakenReplyBar
+              onReply={() => {
+                setReplyAnyway(true);
+                requestAnimationFrame(() => field.current?.focus());
+              }}
+            />
           ) : (
             <form
               className="flex items-end gap-2 px-3 py-2"
@@ -538,20 +573,34 @@ export function RoomTimeline({
                 e.preventDefault();
                 const text = draft.trim();
                 const t = timeline.current;
-                if (!text || !t) return;
-                setDraft('');
-                setMode(undefined);
-                typingNotice('');
-                const content =
-                  mode?.kind === 'edit' ? messageEventContentFromMarkdown(text) : contentWithMentions(text, mentions);
-                setMentions([]);
-                const sent =
-                  mode?.kind === 'edit'
-                    ? t.edit(mode.row.itemId, new EditedContent.RoomMessage({ content }))
-                    : mode?.kind === 'reply' && mode.row.eventId
-                      ? t.sendReply(content, mode.row.eventId)
-                      : t.send(content);
-                sent.catch((err: unknown) => setNote(describe(err)));
+                if (!text || !t || claiming.current) return;
+                const send = () => {
+                  setDraft('');
+                  setMode(undefined);
+                  typingNotice('');
+                  const content =
+                    mode?.kind === 'edit' ? messageEventContentFromMarkdown(text) : contentWithMentions(text, mentions);
+                  setMentions([]);
+                  const sent =
+                    mode?.kind === 'edit'
+                      ? t.edit(mode.row.itemId, new EditedContent.RoomMessage({ content }))
+                      : mode?.kind === 'reply' && mode.row.eventId
+                        ? t.sendReply(content, mode.row.eventId)
+                        : t.send(content);
+                  sent.catch((err: unknown) => setNote(describe(err)));
+                };
+                // Claim on reply (spec work-chat-bar reply): a send to a chat in the pool takes it first. The text stays
+                // in the field while the claim runs; when another person took the chat meanwhile, nothing is sent and
+                // the composer shows bipe_chat_taken_reply.
+                if (work.on && work.assignee === undefined && mode?.kind !== 'edit') {
+                  claiming.current = true;
+                  void work.claim().then((ok) => {
+                    claiming.current = false;
+                    if (ok) send();
+                  });
+                  return;
+                }
+                send();
               }}
             >
               {mode?.kind !== 'edit' && <AttachButton onFiles={(files) => setPending(files.slice(0, MAX_ITEMS))} />}
@@ -638,6 +687,15 @@ export function RoomTimeline({
           businessTools={<BusinessToolButtons chat={business} onPick={() => onInfo(false)} />}
           onClose={() => onInfo(false)}
           onGone={onBack}
+        />
+      )}
+      {notesOpen && work.on && (
+        <WorkNotesSheet
+          client={client}
+          roomId={room.id()}
+          accountName={account.name ?? ''}
+          chat={work}
+          onClose={() => setNotesOpen(false)}
         />
       )}
       {unblocking && face.peer && (

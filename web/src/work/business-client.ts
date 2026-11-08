@@ -31,6 +31,9 @@ import type {
   BusinessToolState,
   Catalog,
   CatalogItem,
+  ChatAssignment,
+  ChatAssignmentList,
+  ChatAssignmentUpdate,
   CatalogItemInput,
   Order,
   OrderPolicy,
@@ -245,6 +248,11 @@ export class BusinessClient {
   setWorkSector = (sector?: string) => this.put<BusinessTools>('/v1/me/business/sector', sector ? { sector } : {});
   workSetup = () => this.get<WorkSetup>('/v1/me/business/setup');
   seats = () => this.get<SeatList>('/v1/me/business/seats');
+  // Spec work-chats, work-chat-bar (bipe ADR 0284 phase A): who has each customer chat. 403 seat_required for a device
+  // without a person, 409 chat_taken when expected_assignee_seat_id is not the current assignee.
+  chats = () => this.get<ChatAssignmentList>('/v1/me/business/chats');
+  setChat = (roomId: string, update: ChatAssignmentUpdate) =>
+    this.put<ChatAssignment>(`/v1/me/business/chats/${enc(roomId)}`, update);
   workLinkOpened = () => this.post<WorkSetup>('/v1/me/business/setup/link-opened');
   workSuggestions = () => this.get<WorkSuggestions>('/v1/me/business/suggestions');
   dismissWorkSuggestion = (id: string) => this.post<WorkSuggestions>(`/v1/me/business/suggestions/${enc(id)}/dismiss`);
