@@ -19,7 +19,7 @@ import chat.bipe.core.harness.BadgeHarness
 class BenchActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val view = TextView(this).apply { setPadding(48, 96, 48, 48); textSize = 16f; text = "bipe-core: running" }
+        val view = TextView(this).apply { setPadding(48, 96, 48, 48); textSize = 16f; text = RUNNING }
         setContentView(view)
         Thread {
             val report = runCatching {
@@ -28,14 +28,17 @@ class BenchActivity : Activity() {
                 val verdict = if (p95 <= BUDGET_MS) "WITHIN BUDGET" else "OVER BUDGET"
                 "$verdict: p95 %.3f ms (budget %.0f ms)\n\n%s".format(p95, BUDGET_MS, line)
             }.getOrElse { "FAILED: $it" }
-            val text = "$report\n\n${Build.MANUFACTURER} ${Build.MODEL}, Android ${Build.VERSION.RELEASE}, ${Build.SUPPORTED_ABIS.first()}, " +
+            val result = "$report\n\n${Build.MANUFACTURER} ${Build.MODEL}, Android ${Build.VERSION.RELEASE}, ${Build.SUPPORTED_ABIS.first()}, " +
                 "bipe-core ${packageManager.getPackageInfo(packageName, 0).versionName}"
-            Log.i("BipeCoreBench", text.replace('\n', ' '))
-            runOnUiThread { view.text = text }
+            Log.i("BipeCoreBench", result.replace('\n', ' '))
+            runOnUiThread { view.text = result }
         }.start()
     }
 
     private companion object {
         const val BUDGET_MS = 5.0
+
+        // A diagnostic screen for the phone run, in English like the logcat line: no product text.
+        const val RUNNING = "bipe-core: running"
     }
 }
