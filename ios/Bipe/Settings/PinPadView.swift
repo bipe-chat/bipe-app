@@ -100,6 +100,7 @@ struct PinPadView: View {
 
     private func key(_ digit: String, size: CGFloat) -> some View {
         Button {
+            BipeHaptics.play(.tick)
             onDigit(digit)
         } label: {
             Text(verbatim: digit)
@@ -112,7 +113,10 @@ struct PinPadView: View {
     }
 
     private func iconKey(_ icon: PhosphorIcon, label: String, size: CGFloat, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
+        Button {
+            BipeHaptics.play(.tick)
+            action()
+        } label: {
             icon.image
                 .resizable()
                 .frame(width: 28, height: 28)

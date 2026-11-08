@@ -41,6 +41,7 @@ import chat.bipe.app.BipeTheme
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 import chat.bipe.shared.account.BipePin
+import androidx.compose.ui.platform.LocalView
 import chat.bipe.shared.bipeHaptic
 import chat.bipe.shared.generated.BipeHaptic
 import chat.bipe.shared.generated.BipeRegistries
@@ -109,8 +110,10 @@ fun PinPad(
 @Composable
 private fun DigitKey(digit: String, enabled: Boolean, onClick: () -> Unit) {
     val colors = BipeTheme.colors
+    val view = LocalView.current
     Box(
-        modifier = Modifier.size(72.dp).clip(CircleShape).background(colors.surfaceRaised).clickable(enabled = enabled, onClick = onClick),
+        modifier = Modifier.size(72.dp).clip(CircleShape).background(colors.surfaceRaised)
+            .clickable(enabled = enabled) { view.bipeHaptic(BipeHaptic.Tick); onClick() },
         contentAlignment = Alignment.Center,
     ) {
         Text(digit, style = MaterialTheme.typography.headlineMedium, color = colors.inkPrimary)
@@ -119,8 +122,9 @@ private fun DigitKey(digit: String, enabled: Boolean, onClick: () -> Unit) {
 
 @Composable
 private fun IconKey(icon: PhosphorIcon, label: String, enabled: Boolean, onClick: () -> Unit) {
+    val view = LocalView.current
     Box(
-        modifier = Modifier.size(72.dp).clip(CircleShape).clickable(enabled = enabled, onClick = onClick),
+        modifier = Modifier.size(72.dp).clip(CircleShape).clickable(enabled = enabled) { view.bipeHaptic(BipeHaptic.Tick); onClick() },
         contentAlignment = Alignment.Center,
     ) {
         Icon(painterResource(icon.drawable), contentDescription = label, tint = BipeTheme.colors.glyphPrimary, modifier = Modifier.size(28.dp))

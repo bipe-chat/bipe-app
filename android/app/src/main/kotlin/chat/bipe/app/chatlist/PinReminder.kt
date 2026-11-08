@@ -4,6 +4,10 @@
 
 package chat.bipe.app.chatlist
 
+import chat.bipe.shared.generated.BipeHaptic
+import androidx.compose.ui.platform.LocalView
+import chat.bipe.app.common.bipeHaptic
+import chat.bipe.app.common.PinHaptics
 import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -113,6 +117,16 @@ fun PinReminderScreen(
     val scope = rememberCoroutineScope()
     var pin by remember { mutableStateOf("") }
     var phase by remember { mutableStateOf(PinReminderPhase.EDITING) }
+    PinHaptics(pin.length)
+    // The answer of the check: pin_wrong buzzes, a right PIN is the success haptic.
+    val view = LocalView.current
+    LaunchedEffect(phase) {
+        when (phase) {
+            PinReminderPhase.RIGHT -> view.bipeHaptic(BipeHaptic.Success)
+            PinReminderPhase.WRONG, PinReminderPhase.BLOCKED -> view.bipeHaptic(BipeHaptic.Error)
+            else -> Unit
+        }
+    }
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
     PeopleScaffold(stringResource(R.string.bipe_pin_reminder_title), BipeScreen.PIN_REMINDER.id, onClose) {

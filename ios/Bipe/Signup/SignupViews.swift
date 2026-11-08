@@ -53,6 +53,10 @@ struct SignupFlowView: View {
         }
         .tint(BipeColor.accentFill)
         .interactiveDismissDisabled(model.path.contains(.create))
+        // pin_set: the confirm step matched and the flow moved on.
+        .onChange(of: model.path) { old, new in
+            if old.last == .pinConfirm, new.last == .fallback || new.last == .create { BipeHaptics.play(.success) }
+        }
         .sheet(isPresented: $model.showsWaitlist) {
             SignupWaitlistView(model: model)
         }
@@ -547,6 +551,7 @@ struct SignupPinView: View {
             .background(BipeColor.accentWash, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
         .onAppear { focused = true }
+        .bipePinHaptics(count: model.pin.count, error: model.pinProblem != .none)
     }
 
     private var problemText: String? {

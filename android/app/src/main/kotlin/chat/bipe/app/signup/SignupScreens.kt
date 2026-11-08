@@ -16,6 +16,10 @@ import androidx.compose.ui.layout.layout
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.Dp
 import chat.bipe.app.common.bipeMotion
+import chat.bipe.app.common.PinHaptics
+import chat.bipe.app.common.bipeHaptic
+import androidx.compose.ui.platform.LocalView
+import chat.bipe.shared.generated.BipeHaptic
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -126,6 +130,16 @@ fun SignupFlowScreen(model: SignupFlowModel, onCancel: ((reachedCreate: Boolean)
     val path by model.path.collectAsState()
     val showsWaitlist by model.showsWaitlist.collectAsState()
     BackHandler(enabled = path.isNotEmpty() && model.canGoBack) { model.back() }
+    // pin_set: the confirm step matched and the flow moved on.
+    val view = LocalView.current
+    var lastRoute by remember { mutableStateOf(path.lastOrNull()) }
+    LaunchedEffect(path) {
+        val route = path.lastOrNull()
+        if (lastRoute == SignupFlowModel.Route.PIN_CONFIRM && (route == SignupFlowModel.Route.FALLBACK || route == SignupFlowModel.Route.CREATE)) {
+            view.bipeHaptic(BipeHaptic.Success)
+        }
+        lastRoute = route
+    }
     // Spec account-new: the sign-up from Nova conta starts at signup-name and closes from there.
     val cancelRow: @Composable () -> Unit = {
         if (onCancel != null) {
@@ -685,6 +699,7 @@ private fun SignupPinScreen(model: SignupFlowModel, confirm: Boolean) {
             SignupFlowModel.PinProblem.MISMATCH -> stringResource(R.string.bipe_pin_mismatch)
         }
         if (problemText != null) OnboardingFieldFooter(problemText, isError = true)
+        PinHaptics(pin.length, error = isError)
         OnboardingNote(PhosphorIcon.LOCK_SIMPLE, stringResource(R.string.bipe_pin_never_asked), filled = true)
     }
 }
