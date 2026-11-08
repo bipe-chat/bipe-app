@@ -239,6 +239,27 @@ jobs:
             --library "target/aarch64-apple-darwin/$PROFILE/libbipe_core.dylib" --language swift --out-dir "$RUNNER_TEMP/swift-out"
           ls -la "$RUNNER_TEMP/swift-out"
           cp "$RUNNER_TEMP/swift-out/bipe_core.swift" harness/swift/Sources/BipeCore/generated/
+      # bipe-chat/bipe#645: an app links this library next to the Matrix SDK's static library. Each one has its own
+      # copy of Rust's std, and the Mac x86_64 link failed on a duplicate _rust_eh_personality. ld -r keeps only the
+      # FFI symbols that the Swift bindings call as global; every other global becomes local, so no copy clashes.
+      - name: Keep only the FFI symbols global
+        working-directory: core
+        run: |
+          printf '%s\n' '_uniffi_bipe_core_*' '_ffi_bipe_core_*' > "$RUNNER_TEMP/bipe_core.exports"
+          for pair in aarch64-apple-ios:arm64 aarch64-apple-ios-sim:arm64 aarch64-apple-darwin:arm64 x86_64-apple-darwin:x86_64; do
+            target=${pair%%:*}; arch=${pair##*:}
+            lib="target/$target/$PROFILE/libbipe_core.a"
+            xcrun ld -r -arch "$arch" -all_load -exported_symbols_list "$RUNNER_TEMP/bipe_core.exports" "$lib" -o "$lib.o"
+            rm "$lib"
+            xcrun libtool -static -o "$lib" "$lib.o"
+            rm "$lib.o"
+            others=$(nm -gU "$lib" | awk 'NF==3 {print $3}' | grep -vE '^_(uniffi|ffi)_bipe_core_' || true)
+            if [ -n "$others" ]; then
+              echo "::error::$target: global symbols outside the FFI: $(echo "$others" | head -5 | tr '\n' ' ')"
+              exit 1
+            fi
+            echo "$target: $(nm -gU "$lib" | grep -c ' T ') FFI functions global, rust_eh_personality: $(nm "$lib" | grep -c rust_eh_personality) local"
+          done
       - name: Make the XCFramework
         working-directory: core
         run: |
