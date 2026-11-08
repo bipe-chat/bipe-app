@@ -393,7 +393,8 @@ class ChatTimelineModel(
                 internalIdPrefix = null,
                 dateDividerMode = DateDividerMode.DAILY,
                 trackReadReceipts = TimelineReadReceiptTracking.MESSAGE_LIKE_EVENTS,
-                reportUtds = false,
+                // The UTD hook (UtdCounter, bipe-chat/bipe#1122) sees this timeline.
+                reportUtds = true,
             )
             val timeline = runCatching { room.timelineWithConfiguration(configuration) }.getOrNull() ?: return@launch
             this@ChatTimelineModel.timeline = timeline

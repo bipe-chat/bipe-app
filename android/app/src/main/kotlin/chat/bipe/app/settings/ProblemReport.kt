@@ -5,6 +5,7 @@
 package chat.bipe.app.settings
 
 import chat.bipe.app.account.LegacyData
+import chat.bipe.app.encryption.UtdCounter
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -229,7 +230,15 @@ private fun buildReport(context: Context, text: String, screenshots: List<Bitmap
             BipeReportFile("screenshot-${index + 1}.jpg", "image/jpeg", out.toByteArray())
         },
         // Spec problem-report notes: legacy-data.json (structure only) when the earlier app's data is here.
-        logs = if (includeLogs) appLogFiles(context).take(19) + listOfNotNull(runCatching { LegacyData.reportFile(context) }.getOrNull()) else emptyList(),
+        // utd.json: the UTD counts of this phone, no IDs (bipe-chat/bipe#1122).
+        logs = if (includeLogs) {
+            appLogFiles(context).take(18) + listOfNotNull(
+                runCatching { LegacyData.reportFile(context) }.getOrNull(),
+                runCatching { UtdCounter.reportFile(context) }.getOrNull(),
+            )
+        } else {
+            emptyList()
+        },
     )
 }
 

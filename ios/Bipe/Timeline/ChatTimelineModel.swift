@@ -403,7 +403,8 @@ final class ChatTimelineModel: ObservableObject {
                                                   internalIdPrefix: nil,
                                                   dateDividerMode: .daily,
                                                   trackReadReceipts: .messageLikeEvents,
-                                                  reportUtds: false)
+                                                  // The UTD hook (UtdCounter, bipe-chat/bipe#1122) sees this timeline.
+                                                  reportUtds: true)
         guard let timeline = try? await room.timelineWithConfiguration(configuration: configuration) else { return }
         self.timeline = timeline
         if let greeting = BipeInviteStore(userID: session.userId).inviterGreeting(),

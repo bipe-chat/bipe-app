@@ -4,6 +4,7 @@
 
 package chat.bipe.app.linkcomputer
 
+import chat.bipe.app.BuildConfig
 import android.content.Context
 import android.util.Base64
 import android.util.Log
@@ -343,7 +344,8 @@ class LinkComputerModel(
             is BipeApiException.Network -> Failure.NETWORK
             else -> Failure.GENERIC
         }
-        Log.e(TAG, "link failed (${code ?: "-"}): ${error::class.simpleName}: ${error.message}")
+        // The SDK message can name the account or the server: debug builds only (bipe-chat/bipe#1122).
+        Log.e(TAG, "link failed (${code ?: "-"}): ${error::class.simpleName}" + if (BuildConfig.DEBUG) ": ${error.message}" else "")
         _state.update { it.copy(errorCode = code) }
         val state = _state.value
         if (state.isClosed) return
