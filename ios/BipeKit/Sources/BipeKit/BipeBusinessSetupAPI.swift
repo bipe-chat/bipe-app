@@ -336,3 +336,58 @@ extension BipeBusinessAPI {
                           json: ChatAssignmentUpdate(assigneeSeatId: assignee, expectedAssigneeSeatId: expected, status: status))
     }
 }
+
+// MARK: - Interno, member identities (ADR 0284 phase B; contract /v1/me/business/members)
+
+/// Contract `WorkMember`: a person's member identity. name is the seat name.
+public struct BipeWorkMember: Decodable, Sendable, Identifiable, Equatable, Hashable {
+    public let seatId: String
+    public let userId: String
+    public let name: String
+    public var id: String { userId }
+}
+
+/// Contract `WorkMembers`. me: the member identity of this device's seat, nil before it has one. geralRoomId: nil until
+/// a member's app makes Geral and claims it.
+public struct BipeWorkMembers: Decodable, Sendable, Equatable {
+    public let members: [BipeWorkMember]
+    public let me: String?
+    public let geralRoomId: String?
+}
+
+/// Contract `WorkMemberSession`: a one-use password for m.login.password. The app never stores it.
+public struct BipeWorkMemberSession: Decodable, Sendable {
+    public let userId: String
+    public let password: String
+}
+
+/// The member identity rule of registries/accounts.json `memberLocalpartPrefix` (ADR 0284 point 1). The Swift generator
+/// does not emit that value yet, so this file holds it; keep it equal to the registry.
+public enum BipeMemberIdentity {
+    public static let localpartPrefix = "m_"
+
+    /// true for a Matrix ID whose localpart starts with the prefix. No other localpart has `_` (ADR 0284 point 1).
+    public static func isMember(_ userId: String) -> Bool {
+        userId.hasPrefix("@" + localpartPrefix)
+    }
+}
+
+private struct WorkGeral: Encodable { let roomId: String }
+
+extension BipeBusinessAPI {
+    /// `GET /v1/me/business/members`. A device of the work account with a person, else 403 `seat_required`.
+    public func members() async throws(BipeAPIError) -> BipeWorkMembers {
+        try await request("GET", ["v1", "me", "business", "members"])
+    }
+
+    /// `POST /v1/me/business/members/session`. Makes the seat's member identity when it has none and returns a new
+    /// password once.
+    public func memberSession() async throws(BipeAPIError) -> BipeWorkMemberSession {
+        try await request("POST", ["v1", "me", "business", "members", "session"], json: Empty())
+    }
+
+    /// `PUT /v1/me/business/members/geral`. The first claim wins; 409 `geral_exists` after that.
+    public func claimGeral(roomId: String) async throws(BipeAPIError) -> BipeWorkMembers {
+        try await request("PUT", ["v1", "me", "business", "members", "geral"], json: WorkGeral(roomId: roomId))
+    }
+}
