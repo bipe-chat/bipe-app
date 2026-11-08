@@ -5835,4 +5835,58 @@ public enum BipeStrings {
     public static var macSignOutBody: String { NSLocalizedString("bipe_mac_sign_out_body", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var macSignOutHistory: String { NSLocalizedString("bipe_mac_sign_out_history", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatsFilterMine: String { NSLocalizedString("bipe_chats_filter_mine", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatsFilterPool: String { NSLocalizedString("bipe_chats_filter_pool", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatsFilterAll: String { NSLocalizedString("bipe_chats_filter_all", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func chatAssigneeOther(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_chat_assignee_other", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var chatAssigneeMe: String { NSLocalizedString("bipe_chat_assignee_me", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatAssigneeNone: String { NSLocalizedString("bipe_chat_assignee_none", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatTake: String { NSLocalizedString("bipe_chat_take", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatGive: String { NSLocalizedString("bipe_chat_give", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatGiveTitle: String { NSLocalizedString("bipe_chat_give_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatRelease: String { NSLocalizedString("bipe_chat_release", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatStatusOpen: String { NSLocalizedString("bipe_chat_status_open", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatStatusWaiting: String { NSLocalizedString("bipe_chat_status_waiting", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatStatusSolved: String { NSLocalizedString("bipe_chat_status_solved", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func chatTakenBanner(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_chat_taken_banner", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var chatTakenReply: String { NSLocalizedString("bipe_chat_taken_reply", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatAssignError: String { NSLocalizedString("bipe_chat_assign_error", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatNotes: String { NSLocalizedString("bipe_chat_notes", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatNotesTitle: String { NSLocalizedString("bipe_chat_notes_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func chatNotesHint(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_chat_notes_hint", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var chatNotesEmpty: String { NSLocalizedString("bipe_chat_notes_empty", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatNotesPlaceholder: String { NSLocalizedString("bipe_chat_notes_placeholder", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var chatNotesError: String { NSLocalizedString("bipe_chat_notes_error", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func chatReplyBy(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_chat_reply_by", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
 }

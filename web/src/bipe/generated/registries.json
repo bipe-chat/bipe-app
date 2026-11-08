@@ -4306,6 +4306,15 @@
   "bodyMaxLength": 8000,
   "clientMaxLength": 64
  },
+ "workNotes": {
+  "$comment": "Notes room of a work account (bipe ADR 0284 points 18 and 19, bipe-chat/bipe#1291). Each work account has one private, end-to-end encrypted notes room with only the account's own devices, like the drafts room (registries/drafts.json). Its room ID is in global account data accountDataType as {\"room_id\": ...}. The creating device sets the creation type roomType when its SDK can. A note is an m.room.message with msgtype m.text: body is the note text, and noteField holds {\"room_id\"}, the customer chat it is about. After a send to a customer, the sending device sends one replyByType event with {\"room_id\", \"event_id\", \"seat_id\"}: inside the account, the apps show the name of that seat on that reply. Customers see nothing of this room. A modified client can skip or fake a reply-by event, so the name is a help, not proof. Rules: test-vectors/work-notes.json.",
+  "version": 1,
+  "roomType": "chat.bipe.work_notes",
+  "accountDataType": "chat.bipe.work_notes_room",
+  "noteField": "chat.bipe.work_note",
+  "replyByType": "chat.bipe.reply_by",
+  "bodyMaxLength": 4000
+ },
  "assistants": {
   "$comment": "Assistants as chat members (bipe ADR 0210 point 1, bipe-chat/bipe#867). Any AI provider can run an assistant as a Bipe account. Staff register it with its operator, a company account with a verified CNPJ claim (ADR 0042); a foreign operator without a CNPJ needs a staff review before that (default chosen in ADR 0210). bipe-api answers GET /v1/assistants/{userId} (public) and POST /v1/assistants/resolve (up to maxResolve IDs, signed in). The apps show bipe_assistant_label on the profile and the member list, the operator and the model location (bipe_assistant_model_<location>), and bipe_assistant_joined when one joins a group. Only a group admin adds an assistant to a group. modelLocations: where the assistant's model runs, as the operator declares it.",
   "version": 1,
@@ -6942,7 +6951,30 @@
    "bipe_mac_linked_devices_footer": "Para desconectar um aparelho, use o Bipe no celular.",
    "bipe_mac_sign_out_title": "Sair do Bipe neste Mac?",
    "bipe_mac_sign_out_body": "Para voltar, conecte este Mac de novo pelo celular.",
-   "bipe_mac_sign_out_history": "Suas mensagens antigas estão só neste Mac. Sem a chave de recuperação, elas não voltam."
+   "bipe_mac_sign_out_history": "Suas mensagens antigas estão só neste Mac. Sem a chave de recuperação, elas não voltam.",
+   "bipe_chats_filter_mine": "Comigo",
+   "bipe_chats_filter_pool": "Sem ninguém",
+   "bipe_chats_filter_all": "Todas",
+   "bipe_chat_assignee_other": "Com %1$s",
+   "bipe_chat_assignee_me": "Com você",
+   "bipe_chat_assignee_none": "Sem ninguém",
+   "bipe_chat_take": "Pegar",
+   "bipe_chat_give": "Passar para outra pessoa",
+   "bipe_chat_give_title": "Passar para quem?",
+   "bipe_chat_release": "Devolver",
+   "bipe_chat_status_open": "Aberta",
+   "bipe_chat_status_waiting": "Esperando o cliente",
+   "bipe_chat_status_solved": "Resolvida",
+   "bipe_chat_taken_banner": "%1$s está atendendo esta conversa.",
+   "bipe_chat_taken_reply": "Responder mesmo assim",
+   "bipe_chat_assign_error": "Não deu para mudar quem atende esta conversa. Tente de novo.",
+   "bipe_chat_notes": "Notas",
+   "bipe_chat_notes_title": "Notas internas",
+   "bipe_chat_notes_hint": "Só quem atende por %1$s vê estas notas. O cliente não vê.",
+   "bipe_chat_notes_empty": "Nenhuma nota nesta conversa.",
+   "bipe_chat_notes_placeholder": "Escreva uma nota",
+   "bipe_chat_notes_error": "A nota não foi salva. Tente de novo.",
+   "bipe_chat_reply_by": "por %1$s"
   }
  },
  "stringsEn": {
@@ -9478,7 +9510,30 @@
    "bipe_mac_linked_devices_footer": "To sign out a device, use Bipe on your phone.",
    "bipe_mac_sign_out_title": "Sign out of Bipe on this Mac?",
    "bipe_mac_sign_out_body": "To come back, link this Mac again from your phone.",
-   "bipe_mac_sign_out_history": "Your old messages are only on this Mac. Without a recovery key, they don't come back."
+   "bipe_mac_sign_out_history": "Your old messages are only on this Mac. Without a recovery key, they don't come back.",
+   "bipe_chats_filter_mine": "Mine",
+   "bipe_chats_filter_pool": "Unassigned",
+   "bipe_chats_filter_all": "All",
+   "bipe_chat_assignee_other": "With %1$s",
+   "bipe_chat_assignee_me": "With you",
+   "bipe_chat_assignee_none": "Unassigned",
+   "bipe_chat_take": "Take",
+   "bipe_chat_give": "Hand to someone",
+   "bipe_chat_give_title": "Hand to whom?",
+   "bipe_chat_release": "Put back",
+   "bipe_chat_status_open": "Open",
+   "bipe_chat_status_waiting": "Waiting for the customer",
+   "bipe_chat_status_solved": "Solved",
+   "bipe_chat_taken_banner": "%1$s is handling this chat.",
+   "bipe_chat_taken_reply": "Reply anyway",
+   "bipe_chat_assign_error": "Could not change who handles this chat. Try again.",
+   "bipe_chat_notes": "Notes",
+   "bipe_chat_notes_title": "Internal notes",
+   "bipe_chat_notes_hint": "Only people who answer for %1$s see these notes. The customer does not.",
+   "bipe_chat_notes_empty": "No notes on this chat.",
+   "bipe_chat_notes_placeholder": "Write a note",
+   "bipe_chat_notes_error": "The note was not saved. Try again.",
+   "bipe_chat_reply_by": "by %1$s"
   }
  }
 }

@@ -2532,4 +2532,27 @@
     <string name="bipe_mac_sign_out_title">Sign out of Bipe on this Mac?</string>
     <string name="bipe_mac_sign_out_body">To come back, link this Mac again from your phone.</string>
     <string name="bipe_mac_sign_out_history">Your old messages are only on this Mac. Without a recovery key, they don\'t come back.</string>
+    <string name="bipe_chats_filter_mine">Mine</string>
+    <string name="bipe_chats_filter_pool">Unassigned</string>
+    <string name="bipe_chats_filter_all">All</string>
+    <string name="bipe_chat_assignee_other">With %1$s</string>
+    <string name="bipe_chat_assignee_me">With you</string>
+    <string name="bipe_chat_assignee_none">Unassigned</string>
+    <string name="bipe_chat_take">Take</string>
+    <string name="bipe_chat_give">Hand to someone</string>
+    <string name="bipe_chat_give_title">Hand to whom?</string>
+    <string name="bipe_chat_release">Put back</string>
+    <string name="bipe_chat_status_open">Open</string>
+    <string name="bipe_chat_status_waiting">Waiting for the customer</string>
+    <string name="bipe_chat_status_solved">Solved</string>
+    <string name="bipe_chat_taken_banner">%1$s is handling this chat.</string>
+    <string name="bipe_chat_taken_reply">Reply anyway</string>
+    <string name="bipe_chat_assign_error">Could not change who handles this chat. Try again.</string>
+    <string name="bipe_chat_notes">Notes</string>
+    <string name="bipe_chat_notes_title">Internal notes</string>
+    <string name="bipe_chat_notes_hint">Only people who answer for %1$s see these notes. The customer does not.</string>
+    <string name="bipe_chat_notes_empty">No notes on this chat.</string>
+    <string name="bipe_chat_notes_placeholder">Write a note</string>
+    <string name="bipe_chat_notes_error">The note was not saved. Try again.</string>
+    <string name="bipe_chat_reply_by">by %1$s</string>
 </resources>

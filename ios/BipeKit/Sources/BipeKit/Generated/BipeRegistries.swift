@@ -932,6 +932,12 @@ public enum BipeRegistries {
     public static let draftField = "chat.bipe.draft"
     public static let draftBodyMaxLength = 8000
     public static let draftClientMaxLength = 64
+    /// Notes room of a work account (bipe ADR 0284, bipe-chat/bipe#1291; registries/work-notes.json). Rules: test-vectors/work-notes.json.
+    public static let workNotesRoomType = "chat.bipe.work_notes"
+    public static let workNotesAccountDataType = "chat.bipe.work_notes_room"
+    public static let workNoteField = "chat.bipe.work_note"
+    public static let workReplyByType = "chat.bipe.reply_by"
+    public static let workNoteBodyMaxLength = 4000
 
     /// Assistant sends (bipe ADR 0210, bipe-chat/bipe#439; registries/mcp-tools.json personalSend). Rules: test-vectors/assistant-send.json.
     public static let assistantSendAccountDataType = "chat.bipe.assistant_send"
