@@ -42,6 +42,8 @@ export const BipeScreen = {
   appUpdate: "app-update",
   /** Attach (flow chat). Spec: bipe-shared/product/screens/attachment-picker.json */
   attachmentPicker: "attachment-picker",
+  /** Profile photo viewer (flow people). Spec: bipe-shared/product/screens/avatar-viewer.json */
+  avatarViewer: "avatar-viewer",
   /** Block or unblock a person (flow people). Spec: bipe-shared/product/screens/block-person.json */
   blockPerson: "block-person",
   /** Blocked people (flow settings). Spec: bipe-shared/product/screens/blocked-list.json */

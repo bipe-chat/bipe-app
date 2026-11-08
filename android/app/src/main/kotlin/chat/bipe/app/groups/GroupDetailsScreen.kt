@@ -4,6 +4,9 @@
 
 package chat.bipe.app.groups
 
+import chat.bipe.app.people.opensAvatarPhoto
+import chat.bipe.app.people.AvatarPhotoViewer
+import androidx.compose.foundation.layout.Box
 import chat.bipe.app.common.BipeToasts
 import android.graphics.BitmapFactory
 import androidx.activity.compose.BackHandler
@@ -240,7 +243,14 @@ fun GroupDetailsScreen(session: AccountSession, media: MediaLoader, roomId: Stri
                         Image(bitmap, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.size(96.dp).clip(CircleShape))
                     } else {
                         val removed = !viewing && editPhoto == GroupDetailsModel.PhotoEdit.Removed
-                        Avatar(info.name, if (removed) null else info.avatarUrl, media, size = 96.dp, members = info.avatarMembers)
+                        // Spec group-details openPhoto: the group photo full screen (spec avatar-viewer), while viewing.
+                        var showsPhoto by remember { mutableStateOf(false) }
+                        Box(Modifier.opensAvatarPhoto(viewing && info.avatarUrl != null, stringResource(R.string.bipe_avatar_open)) { showsPhoto = true }) {
+                            Avatar(info.name, if (removed) null else info.avatarUrl, media, size = 96.dp, members = info.avatarMembers)
+                        }
+                        if (showsPhoto) {
+                            AvatarPhotoViewer(info.name, info.avatarUrl, null, media) { showsPhoto = false }
+                        }
                     }
                     if (viewing) {
                         Text(info.name, style = MaterialTheme.typography.headlineSmall, color = colors.inkPrimary, textAlign = TextAlign.Center)
