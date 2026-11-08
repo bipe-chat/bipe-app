@@ -1137,7 +1137,7 @@ public enum BipeRegistries {
     public static let mapsLiveMaxIntervalSeconds = 120
 
     /// Verificar com gov.br (bipe-chat/bipe#544; registries/govbr.json). Rules: BipeGovbrFlow, test-vectors/govbr-verify.json.
-    public static let govbrFileName = "bipe-verificacao.pdf"
+    public static let govbrFileName = "bipe_verificacao.pdf"
     public static let govbrMaxDocumentBytes = 5242880
     public static let govbrIosStoreUrl = "https://apps.apple.com/br/app/gov-br/id1506827551"
 
