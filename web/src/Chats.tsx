@@ -48,6 +48,7 @@ import {
   info as infoIcon,
   star,
   trash,
+  usersThree,
 } from './phosphor/icons';
 import { useDesktopNotifications, useNotificationPermission, useTabTitle } from './notifications';
 import { bannerDismissed, EncryptionBanner, EncryptionSheet, needsApproval, useEncryptionState } from './Encryption';
@@ -67,7 +68,10 @@ import { assigneeLine, inFilter, useChatQueue, type QueueFilter } from './work/c
 import { useWorkNotesRoomId } from './work/work-notes';
 import { workHostFor } from './work/host';
 import { WorkView } from './work/WorkView';
+import { InternoView } from './work/Interno';
+import { useAutoJoin, useInterno, useMemberRooms } from './work/interno';
 import { RoomTimeline } from './Timeline';
+import type { MemberSlot } from './sdk';
 import { Avatar, useIsCompany } from './ui/Avatar';
 import { BipeMark } from './ui/BipeMark';
 import { ChatBadges } from './ui/ChatBadges';
@@ -79,7 +83,8 @@ import { applyDiffs, describe, normalize, type DiffVariants } from './util';
 type SyncState = { kind: 'starting' } | { kind: 'ready' } | { kind: 'failed'; message: string };
 type Scope = 'conversas' | 'grupos';
 type Detail =
-  | { kind: 'room'; room: Room }
+  | { kind: 'room'; room: Room; member?: boolean }
+  | { kind: 'interno' }
   | { kind: 'settings' }
   | { kind: 'work' }
   | { kind: 'requests' }
@@ -199,6 +204,20 @@ export function Chats({ client }: { client: Client }) {
   const queue = useChatQueue(client, isCompany);
   const [queueFilter, setQueueFilter] = useState<QueueFilter>('all');
   const workNotesId = useWorkNotesRoomId(client, isCompany);
+  const { remember, current: account } = useAccounts();
+  // Spec interno (bipe ADR 0284 phase B): the member identity session of this work account, under this slot. The row
+  // shows only with the phase A check (two or more people and a seat here); with one person nothing changes.
+  const saveMember = useCallback((member: MemberSlot | undefined) => remember({ member }), [remember]);
+  const { state: internoState, interno } = useInterno(client, isCompany, account.member, saveMember);
+  const member = internoState.member;
+  const onMemberError = useCallback((e: unknown) => interno.failed(e), [interno]);
+  const memberRooms = useMemberRooms(member, onMemberError);
+  const memberSummaries = useChatSummaries(memberRooms, member?.userId() ?? '');
+  useAutoJoin(memberSummaries, onMemberError);
+  const showsInterno = queue.on;
+  const internoUnread = memberSummaries.filter(
+    (c) => (c.kind === 'dm' || c.kind === 'group') && Number(c.info?.numUnreadMessages ?? 0) > 0,
+  ).length;
   const listedRooms = useMemo(
     () => allRooms.filter((r) => r.id() !== notesId && r.id() !== workNotesId),
     [allRooms, notesId, workNotesId],
@@ -230,11 +249,28 @@ export function Chats({ client }: { client: Client }) {
       routeRoom = undefined;
     }
   }
+  // A room of Interno: the member session has it, the work account does not.
+  const memberRouteSummary =
+    route.kind === 'chat' && !routeRoom ? memberSummaries.find((c) => c.roomId === route.roomId) : undefined;
+  let memberRoom: Room | undefined = memberRouteSummary?.room;
+  if (route.kind === 'chat' && !routeRoom && !memberRoom && member) {
+    try {
+      memberRoom = member.getRoom(route.roomId);
+    } catch {
+      memberRoom = undefined;
+    }
+  }
+  // A saved member session that is not back yet may hold the room of the link.
+  const memberPending = account.member !== undefined && !member;
   const detail: Detail | undefined = overlay
     ? { kind: overlay }
     : route.kind === 'chat' && routeRoom
       ? { kind: 'room', room: routeRoom }
-      : route.kind === 'settings'
+      : route.kind === 'chat' && memberRoom
+        ? { kind: 'room', room: memberRoom, member: true }
+        : route.kind === 'interno'
+          ? { kind: 'interno' }
+          : route.kind === 'settings'
         ? { kind: 'settings' }
         : route.kind === 'work'
           ? { kind: 'work' }
@@ -259,14 +295,15 @@ export function Chats({ client }: { client: Client }) {
     if (route.kind === 'chat') {
       if (routeSummary?.info && routeSummary.kind === 'request')
         navigate({ kind: 'request', roomId: route.roomId }, true);
-      else if ((routeSummary?.info && routeSummary.kind === 'hidden') || !routeRoom)
+      else if ((routeSummary?.info && routeSummary.kind === 'hidden') || (!routeRoom && !memberRoom && !memberPending))
         navigate({ kind: 'list', scope: 'conversas' }, true);
     } else if (route.kind === 'request') {
       const r = summaries.find((c) => c.roomId === route.roomId);
       if (r?.info && r.kind !== 'request') navigate({ kind: 'chat', roomId: route.roomId }, true);
     }
-  }, [route, routeSummary, routeRoom, sync.kind, summaries]);
+  }, [route, routeSummary, routeRoom, memberRoom, memberPending, sync.kind, summaries]);
   const open = detail?.kind === 'room' ? detail.room : undefined;
+  const openInMember = detail?.kind === 'room' && detail.member === true;
   const openId = useRef<string>(undefined);
   openId.current = open?.id();
   const ownUserId = client.userId();
@@ -307,9 +344,13 @@ export function Chats({ client }: { client: Client }) {
     navigate({ kind: 'chat', roomId: room.id() });
   }, []);
   useDesktopNotifications(summaries, open?.id(), ownUserId, openChat);
+  // Spec interno notes: Interno rings per person, through the member session.
+  useDesktopNotifications(memberSummaries, open?.id(), member?.userId() ?? '', openChat);
   const page =
     detail?.kind === 'room'
-      ? (routeSummary?.face.name ?? detail.room.displayName())
+      ? (routeSummary?.face.name ?? memberRouteSummary?.face.name ?? detail.room.displayName())
+      : route.kind === 'interno'
+        ? s('bipe_interno_title')
       : route.kind === 'requests' || route.kind === 'request'
         ? s('bipe_requests_title')
         : route.kind === 'archived'
@@ -321,7 +362,6 @@ export function Chats({ client }: { client: Client }) {
               : undefined;
   useTabTitle(chatsBadge + groupsBadge, page);
   // The switcher shows each account's last known name, photo and unread badge (ADR 0225 point 4).
-  const { remember, current: account } = useAccounts();
   useEffect(() => remember({ isCompany }), [isCompany, remember]);
   useEffect(() => {
     if (sync.kind === 'ready') remember({ unread: chatsBadge + groupsBadge });
@@ -583,6 +623,16 @@ export function Chats({ client }: { client: Client }) {
               <EntryRow icon={caretLeft} title={scopeTitle} onOpen={() => setShowingArchived(false)} />
             ) : scope === 'conversas' ? (
               <>
+                {showsInterno && (
+                  <EntryRow
+                    icon={usersThree}
+                    title={s('bipe_interno_title')}
+                    detail={s('bipe_interno_row_body', account.name ?? '')}
+                    count={internoUnread}
+                    selected={detail?.kind === 'interno' || openInMember}
+                    onOpen={() => setDetail({ kind: 'interno' })}
+                  />
+                )}
                 {inMural && muralShowsList && (
                   <EntryRow icon={caretLeft} title={scopeTitle} onOpen={() => setMuralShowsList(false)} />
                 )}
@@ -671,6 +721,31 @@ export function Chats({ client }: { client: Client }) {
               }}
               onClose={() => setDetail({ kind: 'newChat' })}
             />
+          ) : detail?.kind === 'interno' ? (
+            <ClientContext value={member ?? client}>
+              <InternoView
+                interno={interno}
+                state={internoState}
+                chats={memberSummaries}
+                accountName={account.name ?? ''}
+                onOpen={(roomId) => navigate({ kind: 'chat', roomId })}
+                onClose={() => setDetail(undefined)}
+              />
+            </ClientContext>
+          ) : open && openInMember && member ? (
+            // A room of Interno, in the normal timeline on the member session. A direct chat says it is private.
+            <ClientContext value={member}>
+              <RoomTimeline
+                key={open.id()}
+                room={open}
+                chats={memberSummaries}
+                showsInfo={route.kind === 'chat' && route.info === true}
+                onInfo={(show) => navigate({ kind: 'chat', roomId: open.id(), info: show })}
+                focusEventId={route.kind === 'chat' ? route.eventId : undefined}
+                onBack={() => navigate({ kind: 'interno' })}
+                hint={memberRouteSummary?.kind === 'dm' ? s('bipe_interno_private_hint') : undefined}
+              />
+            </ClientContext>
           ) : detail?.kind === 'encryption' ? (
             <EncryptionSheet state={encryption} onClose={() => setDetail(undefined)} />
           ) : detail?.kind === 'work' ? (
@@ -806,7 +881,7 @@ function QueueFilterPicker({ filter, onChange }: { filter: QueueFilter; onChange
 // ListEntryRow (ChatRequestsView.swift): an entry that is not a chat (Pedidos, Arquivadas): a 24 px icon
 // in accent.ink on an accent.wash circle in the 48 px avatar footprint, the title, an optional detail
 // and count.
-function EntryRow({
+export function EntryRow({
   icon,
   title,
   detail,
@@ -1000,7 +1075,7 @@ function ChatAvatar({ chat, name, avatarUrl, size }: { chat: ChatSummary; name: 
   );
 }
 
-function ChatRow({
+export function ChatRow({
   chat,
   assignee,
   selected,

@@ -14,8 +14,11 @@ export type AccountsApi = {
   add: () => void;
   signOut: () => Promise<void>;
   signOutAll: () => Promise<void>;
-  /** Keeps the last known name, photo, unread badge and type of the current account for the switcher. */
-  remember: (patch: Partial<Pick<Slot, 'name' | 'avatarUrl' | 'unread' | 'isCompany'>>) => void;
+  /**
+   * Keeps the last known name, photo, unread badge and type of the current account for the switcher, and its member
+   * identity session (spec interno; undefined drops it).
+   */
+  remember: (patch: Partial<Pick<Slot, 'name' | 'avatarUrl' | 'unread' | 'isCompany' | 'member'>>) => void;
 };
 
 export const AccountsContext = createContext<AccountsApi | undefined>(undefined);
