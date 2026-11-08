@@ -1978,6 +1978,16 @@
     "icon": "user-circle",
     "sections": [
      {
+      "key": "status",
+      "rows": [
+       {
+        "key": "reachStatus",
+        "title": "bipe_account_status_title",
+        "kind": "link"
+       }
+      ]
+     },
+     {
       "key": "waysBack",
       "title": "bipe_fallback_title",
       "rows": [
@@ -4307,12 +4317,13 @@
   "clientMaxLength": 64
  },
  "workNotes": {
-  "$comment": "Notes room of a work account (bipe ADR 0284 points 18 and 19, bipe-chat/bipe#1291). Each work account has one private, end-to-end encrypted notes room with only the account's own devices, like the drafts room (registries/drafts.json). Its room ID is in global account data accountDataType as {\"room_id\": ...}. The creating device sets the creation type roomType when its SDK can. A note is an m.room.message with msgtype m.text: body is the note text, and noteField holds {\"room_id\"}, the customer chat it is about. After a send to a customer, the sending device sends one replyByType event with {\"room_id\", \"event_id\", \"seat_id\"}: inside the account, the apps show the name of that seat on that reply. Customers see nothing of this room. A modified client can skip or fake a reply-by event, so the name is a help, not proof. Rules: test-vectors/work-notes.json.",
+  "$comment": "Notes room of a work account (bipe ADR 0284 points 18 and 19, bipe-chat/bipe#1291, bipe-chat/bipe#1293). Each work account has one private, end-to-end encrypted notes room with only the account's own devices, like the drafts room (registries/drafts.json). Its room ID is in global account data accountDataType as {\"room_id\": ...}. The creating device sets the creation type roomType when its SDK can. A note is an m.room.message with msgtype m.text: body is the note text, and noteField holds {\"room_id\", \"seat_id\"?}: the customer chat it is about and the seat that wrote it. After a send to a customer, the sending device sends one m.room.message with msgtype m.notice, body replyByBody, and replyByField {\"room_id\", \"event_id\", \"seat_id\"}: inside the account, the apps show the name of that seat on that reply. Both are m.room.message because matrix-sdk-ui drops custom event types from the timeline (matrix-sdk-ffi 26.08.11). Customers see nothing of this room. A modified client can skip or fake these fields, so a name is a help, not proof. Rules: test-vectors/work-notes.json.",
   "version": 1,
   "roomType": "chat.bipe.work_notes",
   "accountDataType": "chat.bipe.work_notes_room",
   "noteField": "chat.bipe.work_note",
-  "replyByType": "chat.bipe.reply_by",
+  "replyByField": "chat.bipe.reply_by",
+  "replyByBody": "Resposta enviada",
   "bodyMaxLength": 4000
  },
  "assistants": {
@@ -6974,7 +6985,22 @@
    "bipe_chat_notes_empty": "Nenhuma nota nesta conversa.",
    "bipe_chat_notes_placeholder": "Escreva uma nota",
    "bipe_chat_notes_error": "A nota não foi salva. Tente de novo.",
-   "bipe_chat_reply_by": "por %1$s"
+   "bipe_chat_reply_by": "por %1$s",
+   "bipe_account_status_title": "Status da conta",
+   "bipe_account_status_footer": "O Bipe limita quantas conversas uma conta pode começar com pessoas que ainda não conhecem você. Isso dificulta golpes e spam. Conversas com seus contatos e respostas não contam.",
+   "bipe_account_status_tier": "Tipo de conta",
+   "bipe_account_status_tier_unattested": "Sem verificação do aparelho",
+   "bipe_account_status_tier_new": "Nova",
+   "bipe_account_status_tier_normal": "Sem verificação",
+   "bipe_account_status_tier_verified": "Verificada",
+   "bipe_account_status_tier_company": "Empresa verificada",
+   "bipe_account_status_tier_slowed": "Com limite menor",
+   "bipe_account_status_used": "Conversas novas: %1$s de %2$s",
+   "bipe_account_status_resets": "A próxima libera em %1$s",
+   "bipe_account_status_raise_verify": "Verifique sua conta para começar mais conversas novas.",
+   "bipe_account_status_raise_wait": "O limite volta a subir com o tempo.",
+   "bipe_reach_limit_body": "Você chegou ao limite de conversas com pessoas que não conhecem você. A próxima libera em %1$s.",
+   "bipe_reach_limit_body_none": "Esta conta não pode começar conversas com pessoas que não conhecem você."
   }
  },
  "stringsEn": {
@@ -9533,7 +9559,22 @@
    "bipe_chat_notes_empty": "No notes on this chat.",
    "bipe_chat_notes_placeholder": "Write a note",
    "bipe_chat_notes_error": "The note was not saved. Try again.",
-   "bipe_chat_reply_by": "by %1$s"
+   "bipe_chat_reply_by": "by %1$s",
+   "bipe_account_status_title": "Account status",
+   "bipe_account_status_footer": "Bipe limits how many chats an account can start with people who do not know you yet. This makes scams and spam harder. Chats with your contacts and replies do not count.",
+   "bipe_account_status_tier": "Account type",
+   "bipe_account_status_tier_unattested": "Device not checked",
+   "bipe_account_status_tier_new": "New",
+   "bipe_account_status_tier_normal": "Not verified",
+   "bipe_account_status_tier_verified": "Verified",
+   "bipe_account_status_tier_company": "Verified company",
+   "bipe_account_status_tier_slowed": "Lower limit",
+   "bipe_account_status_used": "New chats: %1$s of %2$s",
+   "bipe_account_status_resets": "The next one frees up %1$s",
+   "bipe_account_status_raise_verify": "Verify your account to start more new chats.",
+   "bipe_account_status_raise_wait": "The limit goes back up with time.",
+   "bipe_reach_limit_body": "You reached the limit of chats with people who do not know you. The next one frees up %1$s.",
+   "bipe_reach_limit_body_none": "This account cannot start chats with people who do not know you."
   }
  }
 }

@@ -936,7 +936,8 @@ public enum BipeRegistries {
     public static let workNotesRoomType = "chat.bipe.work_notes"
     public static let workNotesAccountDataType = "chat.bipe.work_notes_room"
     public static let workNoteField = "chat.bipe.work_note"
-    public static let workReplyByType = "chat.bipe.reply_by"
+    public static let workReplyByField = "chat.bipe.reply_by"
+    public static let workReplyByBody = "Resposta enviada"
     public static let workNoteBodyMaxLength = 4000
 
     /// Assistant sends (bipe ADR 0210, bipe-chat/bipe#439; registries/mcp-tools.json personalSend). Rules: test-vectors/assistant-send.json.
