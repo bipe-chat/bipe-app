@@ -736,35 +736,31 @@ private struct ComposerBar: View {
     @ViewBuilder
     private var composer: some View {
         if !model.suggestions.isEmpty || model.replyingTo != nil || model.editing != nil {
-            VStack(spacing: 0) {
+            BipeComposerPanel {
                 if !model.suggestions.isEmpty {
                     suggestionList
                 }
                 if let reply = model.replyingTo {
-                    bar(icon: .arrowBendUpLeft,
+                    BipeComposerContextBar(glyph: .reply,
                         title: BipeStrings.appMessageReplyingTo(reply.senderName ?? ""),
                         preview: reply.preview,
                         onClose: model.cancelReply)
                 } else if let editing = model.editing {
-                    bar(icon: .pencilSimple,
+                    BipeComposerContextBar(glyph: .edit,
                         title: BipeStrings.appMessageEditing,
                         preview: editing.originalText,
                         onClose: model.cancelEdit)
                 }
             }
-            .padding(.bottom, 8)
-            .bipeGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-            .padding(.horizontal, 12)
-            .padding(.top, 8)
         }
-        HStack(alignment: .bottom, spacing: 8) {
+        BipeComposerRow {
             if model.editing == nil {
                 AttachmentMenu(canPoll: model.canPoll, isNotes: isNotes, choose: openAttachments) {
-                    iconImage(.plus)
+                    BipeComposerControlIcon(glyph: .plus)
                 }
                 .accessibilityLabel(BipeStrings.appComposerAttach)
             }
-            HStack(alignment: .bottom, spacing: 4) {
+            BipeComposerInput {
                 TextField(BipeStrings.appTimelineComposerPlaceholder,
                           text: Binding(get: { model.draft }, set: { model.editDraft($0) }),
                           axis: .vertical)
@@ -792,21 +788,13 @@ private struct ComposerBar: View {
                     .accessibilityLabel(BipeStrings.actionStickers)
                 }
             }
-            .padding(.leading, 16)
-            .padding(.trailing, 4)
-            .bipeGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous))
             // The send button and the record button share one place (spec composer notes).
             if model.canSend || model.editing != nil {
                 Button {
                     Task { await model.send() }
                 } label: {
-                    (model.editing == nil ? PhosphorIcon.paperPlaneRight : PhosphorIcon.check).image
-                        .resizable()
-                        .frame(width: 22, height: 22)
-                        .padding(11)
-                        .foregroundStyle(model.canSend ? BipeColor.inkOnAccent : BipeColor.inkDisabled)
-                        .bipeTapTarget()
-                        .bipeGlass(in: Circle(), tint: model.canSend ? BipeColor.accentFill : nil)
+                    BipeComposerControlIcon(glyph: model.editing == nil ? .send : .check,
+                                            enabled: model.canSend, accented: model.canSend)
                 }
                 .disabled(!model.canSend)
                 .accessibilityLabel(model.editing == nil ? BipeStrings.appTimelineSend : BipeStrings.appMessageSaveEdit)
@@ -815,19 +803,11 @@ private struct ComposerBar: View {
                     focused = false
                     model.startRecording()
                 } label: {
-                    PhosphorIcon.microphone.image
-                        .resizable()
-                        .frame(width: 22, height: 22)
-                        .padding(11)
-                        .foregroundStyle(BipeColor.glyphPrimary)
-                        .bipeTapTarget()
-                        .bipeGlass(in: Circle())
+                    BipeComposerControlIcon(glyph: .microphone)
                 }
                 .accessibilityLabel(BipeStrings.appComposerRecord)
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
     }
 
     /// The @ suggestions of a group (spec composer, ADR 0141).
@@ -869,48 +849,7 @@ private struct ComposerBar: View {
         .fixedSize(horizontal: false, vertical: true)
     }
 
-    private func iconImage(_ icon: PhosphorIcon) -> some View {
-        icon.image
-            .resizable()
-            .frame(width: 22, height: 22)
-            .padding(11)
-            .foregroundStyle(BipeColor.glyphPrimary)
-            .bipeTapTarget()
-            .bipeGlass(in: Circle())
-    }
 
-    private func bar(icon: PhosphorIcon, title: String, preview: String?, onClose: @escaping () -> Void) -> some View {
-        HStack(spacing: 10) {
-            icon.image
-                .resizable()
-                .frame(width: 18, height: 18)
-                .foregroundStyle(BipeColor.accentInk)
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.caption.bold())
-                    .foregroundStyle(BipeColor.accentInk)
-                if let preview {
-                    Text(preview)
-                        .font(.caption)
-                        .foregroundStyle(BipeColor.inkSecondary)
-                        .lineLimit(1)
-                }
-            }
-            Spacer()
-            Button(action: onClose) {
-                PhosphorIcon.x.image
-                    .resizable()
-                    .frame(width: 16, height: 16)
-                    .foregroundStyle(BipeColor.glyphSecondary)
-                    .padding(6)
-                    .bipeTapTarget()
-            }
-            .accessibilityLabel(BipeStrings.appCancel)
-        }
-        .padding(.horizontal, 16)
-        .padding(.top, 8)
-    }
 }
 
 /// signup-done notes: until the inviter's note arrives, the chat says the inviter knows, with a one-tap greeting.

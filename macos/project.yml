@@ -36,6 +36,9 @@ targets:
       - path: ../ios/Bipe/Notifications/NotificationRules.swift
       - path: ../ios/Bipe/Common/Listeners.swift
       - path: ../ios/Bipe/Common/ButtonSize.swift
+      - path: ../ios/Bipe/Common/Contrast.swift
+      - path: ../ios/Bipe/Common/ComposerChrome.swift
+      - path: ../ios/Bipe/Common/AttachmentMenu.swift
       - path: ../ios/Bipe/Common/BipeMark.swift
       - path: ../ios/Bipe/Common/ServerAccountData.swift
       - path: ../ios/Bipe/Common/SyncedSettings.swift

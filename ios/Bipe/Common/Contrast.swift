@@ -14,7 +14,7 @@ extension View {
 }
 
 extension View {
-    /// Liquid Glass on iOS 26 and later, the blur of `bipeMaterial(in:)` before it (spec composer).
+    /// The Apple clients share Liquid Glass on version 26 and later, with the same earlier-system fallback.
     /// The system glass turns solid by itself under Reduce Transparency.
     func bipeGlass<S: Shape>(in shape: S, tint: Color? = nil) -> some View {
         modifier(BipeGlass(shape: shape, tint: tint))
@@ -26,7 +26,7 @@ private struct BipeGlass<S: Shape>: ViewModifier {
     let tint: Color?
 
     func body(content: Content) -> some View {
-        if #available(iOS 26.0, *) {
+        if #available(iOS 26.0, macOS 26.0, *) {
             content.glassEffect(Glass.regular.tint(tint).interactive(), in: shape)
         } else if let tint {
             content.background(tint, in: shape)

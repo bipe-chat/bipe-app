@@ -43,6 +43,12 @@ struct MacMessage: Identifiable {
     var file: MacFile? = nil
     var isSent: Bool { eventID != nil && !pending && !failed && !isDeleted }
     var hasMediaCaption: Bool { isImage || file != nil }
+    var composerPreview: String {
+        if !body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return body }
+        if photo != nil { return BipeStrings.appMediaImage }
+        if file != nil { return BipeStrings.appMediaFile }
+        return BipeStrings.appMessageReplyUnavailable
+    }
 
     func editedContent(_ text: String) throws -> EditedContent {
         if hasMediaCaption { return .mediaCaption(caption: text, formattedCaption: nil, mentions: nil) }

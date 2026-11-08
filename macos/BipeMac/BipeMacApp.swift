@@ -170,6 +170,47 @@ struct MacChatView: View {
         _model = StateObject(wrappedValue: MacTimeline(drafts: drafts))
     }
 
+    private var composer: some View {
+        VStack(spacing: 0) {
+            if model.failed { MacNotice(text: BipeStrings.errorGeneric, danger: true).padding() }
+            if let error = model.uploadError, model.attachment == nil, model.fileAttachment == nil {
+                MacNotice(text: error, danger: true).padding()
+            }
+            if model.editingID != nil {
+                BipeComposerPanel {
+                    BipeComposerContextBar(glyph: .edit, title: BipeStrings.appMessageEditing,
+                                           preview: model.draft, onClose: model.cancelEdit)
+                }
+            } else if model.replyID != nil {
+                BipeComposerPanel {
+                    BipeComposerContextBar(glyph: .reply,
+                        title: model.replyTarget.map { BipeStrings.appMessageReplyingTo($0.sender) } ?? BipeStrings.appMessageActionReply,
+                        preview: model.replyTarget?.composerPreview ?? BipeStrings.appMessageReplyUnavailable,
+                        onClose: model.cancelReply)
+                }
+            }
+            MacComposer(isEditing: model.editingID != nil,
+                        canSend: model.ready && !model.sending && model.canSubmitDraft,
+                        canAttach: model.ready && !model.preparing && !model.sending,
+                        preparing: model.preparing,
+                        choose: { choice in
+                            pickingFile = choice == .file
+                            pickingImage = true
+                        }, send: { Task { await model.send() } }) {
+                TextField(BipeStrings.appTimelineComposerPlaceholder, text: $model.draft, axis: .vertical)
+                    .focused($composerFocused)
+                    .lineLimit(1...5)
+                    .onKeyPress(.return, phases: .down) { press in
+                        guard !press.modifiers.contains(.shift) else { return .ignored }
+                        if model.ready && !model.sending && model.canSubmitDraft { Task { await model.send() } }
+                        return .handled
+                    }
+                    .textFieldStyle(.plain).padding(.vertical, 11)
+                    .foregroundStyle(BipeColor.inkPrimary)
+            }
+        }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             if !model.isEncrypted { MacNotice(text: BipeStrings.appTimelineNotEncrypted).padding() }
@@ -226,50 +267,9 @@ struct MacChatView: View {
                     }
                 }
             }
-            if model.failed { MacNotice(text: BipeStrings.errorGeneric, danger: true).padding() }
-            if let error = model.uploadError, model.attachment == nil, model.fileAttachment == nil { MacNotice(text: error, danger: true).padding() }
-            Divider()
-            if model.editingID != nil {
-                HStack {
-                    Text(BipeStrings.appMessageActionEdit).macFont(.callout).fontWeight(.semibold)
-                    Spacer()
-                    Button(BipeStrings.appCancel) { model.cancelEdit() }
-                }.padding().background(BipeColor.accentWash)
-            }
-            if model.replyID != nil {
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(model.replyTarget.map { BipeStrings.appMessageReplyingTo($0.sender) } ?? BipeStrings.appMessageActionReply)
-                            .macFont(.callout).fontWeight(.semibold)
-                        Text(model.replyTarget?.body ?? BipeStrings.appMessageReplyUnavailable)
-                            .macFont(.caption).lineLimit(2).foregroundStyle(BipeColor.inkSecondary)
-                    }
-                    Spacer()
-                    Button(BipeStrings.appCancel) { model.cancelReply() }
-                }.padding().background(BipeColor.accentWash)
-            }
-            HStack(alignment: .bottom) {
-                Menu {
-                    Button(BipeStrings.appAttachPhotos) { pickingFile = false; pickingImage = true }
-                    Button(BipeStrings.appAttachFile) { pickingFile = true; pickingImage = true }
-                } label: {
-                    Image(decorative: "paperclip").resizable().scaledToFit().frame(width: 24, height: 24)
-                        .bipeTapTarget()
-                }.menuStyle(.borderlessButton).accessibilityLabel(BipeStrings.appComposerAttach)
-                    .help(BipeStrings.appComposerAttach).disabled(!model.ready || model.preparing || model.sending)
-                if model.preparing { ProgressView().accessibilityLabel(BipeStrings.appUploadPreparing) }
-                TextField(BipeStrings.appTimelineComposerPlaceholder, text: $model.draft, axis: .vertical)
-                    .focused($composerFocused)
-                    .lineLimit(1...6).onSubmit { Task { await model.send() } }
-                    .textFieldStyle(.plain).padding(.horizontal, 16).padding(.vertical, 11)
-                    .background(BipeColor.surfaceRaised, in: RoundedRectangle(cornerRadius: 22))
-                    .overlay(RoundedRectangle(cornerRadius: 22).strokeBorder(BipeColor.lineSubtle))
-                Button(BipeStrings.appTimelineSend) { Task { await model.send() } }
-                    .buttonStyle(.bipeProminent)
-                    .keyboardShortcut(.return, modifiers: .command)
-                    .disabled(!model.ready || model.sending || !model.canSubmitDraft)
-            }.padding()
+
         }
+        .safeAreaInset(edge: .bottom, spacing: 0) { composer }
         .navigationTitle(name)
         .toolbar {
             ToolbarItem(placement: .navigation) {
