@@ -67,6 +67,9 @@ enum class BipeScreen(val id: String) {
     /** Attach (flow chat). Spec: bipe-shared/product/screens/attachment-picker.json */
     ATTACHMENT_PICKER("attachment-picker"),
 
+    /** Profile photo viewer (flow people). Spec: bipe-shared/product/screens/avatar-viewer.json */
+    AVATAR_VIEWER("avatar-viewer"),
+
     /** Block or unblock a person (flow people). Spec: bipe-shared/product/screens/block-person.json */
     BLOCK_PERSON("block-person"),
 
@@ -228,6 +231,9 @@ enum class BipeScreen(val id: String) {
 
     /** Incoming call (flow chat). Spec: bipe-shared/product/screens/incoming-call.json */
     INCOMING_CALL("incoming-call"),
+
+    /** Interno (flow business). Spec: bipe-shared/product/screens/interno.json */
+    INTERNO("interno"),
 
     /** Create an invite (flow invites). Spec: bipe-shared/product/screens/invite-note.json */
     INVITE_NOTE("invite-note"),
