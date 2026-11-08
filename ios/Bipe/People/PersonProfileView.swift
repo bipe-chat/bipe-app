@@ -23,6 +23,7 @@ struct PersonProfileView: View {
     private let routes: PersonProfileRoutes
 
     @State private var showsBlock = false
+    @State private var showsPhoto = false
     @State private var showsGallery = false
     @State private var showsReport = false
     @State private var showsSeal = false
@@ -115,9 +116,20 @@ struct PersonProfileView: View {
 
     private var header: some View {
         VStack(spacing: 10) {
-            AvatarView(name: model.person.displayName, mxcUrl: model.person.avatarUrl, loader: people.media,
-                       size: 96, userId: model.person.userId, isCompany: model.isCompany,
-                       publicPhotoUrl: model.publicPhotoUrl)
+            // Spec person-profile openPhoto: the photo full screen (spec avatar-viewer), only when there is one.
+            Button { showsPhoto = true } label: {
+                AvatarView(name: model.person.displayName, mxcUrl: model.person.avatarUrl, loader: people.media,
+                           size: 96, userId: model.person.userId, isCompany: model.isCompany,
+                           publicPhotoUrl: model.publicPhotoUrl)
+                .bipeTapTarget()
+            }
+            .buttonStyle(.plain)
+            .disabled(model.person.avatarUrl == nil && model.publicPhotoUrl == nil)
+            .accessibilityLabel(BipeStrings.avatarOpen)
+            .fullScreenCover(isPresented: $showsPhoto) {
+                AvatarPhotoViewer(name: model.person.displayName, mxcUrl: model.person.avatarUrl,
+                                  publicPhotoUrl: model.publicPhotoUrl, loader: people.media) { showsPhoto = false }
+            }
             HStack(spacing: 6) {
                 Text(model.person.displayName)
                     .font(.title2.bold())

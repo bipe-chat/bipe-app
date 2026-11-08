@@ -289,6 +289,9 @@ final class ChatTimelineModel: ObservableObject {
     private var room: Room?
     private(set) var timeline: Timeline?
     private var items: [TimelineItem] = []
+    /// Megolm sessions of undecryptable rows that already got their retries (retryUndecryptable).
+    private var retriedUtdSessions: Set<String> = []
+    private var utdRetryTask: Task<Void, Never>?
     private var handle: TaskHandle?
     private var typingHandle: TaskHandle?
     private var started = false
@@ -312,6 +315,8 @@ final class ChatTimelineModel: ObservableObject {
     var handles: BipeHandleResolver?
     /// Spec work-chat-bar reply: runs before a text send; false keeps the draft and sends nothing.
     var beforeSend: (@MainActor () async -> Bool)?
+    /// true while beforeSend runs: send ignores a second tap until it ends.
+    private var isClaimingSend = false
     /// Spec work-chat-bar reply: each message this device sent in this chat, once with its event ID.
     var onSent: (@MainActor (String) -> Void)?
     /// Spec work-chat-bar notes: event ID to bipe_chat_reply_by, set by the view from the notes room.
@@ -352,6 +357,7 @@ final class ChatTimelineModel: ObservableObject {
 
     deinit {
         handle?.cancel()
+        utdRetryTask?.cancel()
         typingHandle?.cancel()
         diffsTask?.cancel()
         handleChangesTask?.cancel()
@@ -469,6 +475,41 @@ final class ChatTimelineModel: ObservableObject {
     }
 
     /// Action leave of spec composer: keeps the draft on this device, or clears it.
+    /// A room key that the notification extension received stays in the shared store: the SDK in this process is not
+    /// told, so the row stays locked until the chat opens again (matrix-rust-sdk event cache redecryptor docs, issue
+    /// matrix-org/matrix-rust-sdk#4445). Timeline.retryDecryption makes the SDK try those sessions again. It runs for
+    /// a new undecryptable session after 2, 6 and 15 seconds, and for all of them when the app comes to the front.
+    func retryUndecryptable() {
+        guard let timeline else { return }
+        let sessions = Self.utdSessionIds(items)
+        if !sessions.isEmpty { timeline.retryDecryption(sessionIds: Array(sessions)) }
+    }
+
+    private func scheduleUtdRetries() {
+        let fresh = Self.utdSessionIds(items).subtracting(retriedUtdSessions)
+        guard !fresh.isEmpty else { return }
+        retriedUtdSessions.formUnion(fresh)
+        utdRetryTask?.cancel()
+        utdRetryTask = Task { [weak self] in
+            for delay in [2, 6, 15] as [UInt64] {
+                try? await Task.sleep(nanoseconds: delay * 1_000_000_000)
+                guard !Task.isCancelled, let self else { return }
+                self.retryUndecryptable()
+            }
+        }
+    }
+
+    private static func utdSessionIds(_ items: [TimelineItem]) -> Set<String> {
+        var sessions: Set<String> = []
+        for item in items {
+            guard let event = item.asEvent(), case .msgLike(let content) = event.content,
+                  case .unableToDecrypt(let encrypted) = content.kind,
+                  case .megolmV1AesSha2(let sessionId, _) = encrypted else { continue }
+            sessions.insert(sessionId)
+        }
+        return sessions
+    }
+
     func leave() {
         // The day view has no composer: it never keeps or clears the chat's draft.
         guard let room, editing == nil, dayFocus == nil else { return }
@@ -676,8 +717,15 @@ final class ChatTimelineModel: ObservableObject {
             return
         }
         let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let timeline, !text.isEmpty else { return }
-        if let beforeSend, !(await beforeSend()) { return }
+        guard let timeline, !text.isEmpty, !isClaimingSend else { return }
+        if let beforeSend {
+            // The draft stays in the field while the work-chat claim runs over the network. Before this guard a
+            // second tap in that window read the same draft and sent the message twice (web: the claiming ref).
+            isClaimingSend = true
+            let goes = await beforeSend()
+            isClaimingSend = false
+            guard goes else { return }
+        }
         // Spec composer send: Markdown with the pills as matrix.to links, then the mentions.
         let content = ComposerMarkdown.content(text: text, mentions: mentions)
         draft = ""
@@ -1404,6 +1452,7 @@ final class ChatTimelineModel: ObservableObject {
             }
         }
         rows = builtRows
+        scheduleUtdRetries()
         if built.hitStart {
             reachedStart = true
         }

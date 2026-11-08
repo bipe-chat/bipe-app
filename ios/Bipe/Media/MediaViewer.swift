@@ -254,7 +254,7 @@ struct MediaPage: View {
 }
 
 /// Pinch and double tap zoom for a photo.
-private struct ZoomableImage: UIViewRepresentable {
+struct ZoomableImage: UIViewRepresentable {
     let image: UIImage
 
     func makeUIView(context: Context) -> UIScrollView {
