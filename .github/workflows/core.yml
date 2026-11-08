@@ -246,10 +246,16 @@ jobs:
         working-directory: core
         run: |
           printf '%s\n' '_uniffi_bipe_core_*' '_ffi_bipe_core_*' > "$RUNNER_TEMP/bipe_core.exports"
-          for pair in aarch64-apple-ios:arm64 aarch64-apple-ios-sim:arm64 aarch64-apple-darwin:arm64 x86_64-apple-darwin:x86_64; do
-            target=${pair%%:*}; arch=${pair##*:}
+          # target:arch:platform:minimum:sdk. The minimums are those of release/swift/Package.swift.
+          ios_sdk=$(xcrun --sdk iphoneos --show-sdk-version)
+          sim_sdk=$(xcrun --sdk iphonesimulator --show-sdk-version)
+          mac_sdk=$(xcrun --sdk macosx --show-sdk-version)
+          for spec in "aarch64-apple-ios:arm64:ios:17.0:$ios_sdk" "aarch64-apple-ios-sim:arm64:ios-simulator:17.0:$sim_sdk" \
+                      "aarch64-apple-darwin:arm64:macos:14.0:$mac_sdk" "x86_64-apple-darwin:x86_64:macos:14.0:$mac_sdk"; do
+            IFS=: read -r target arch platform minimum sdk <<< "$spec"
             lib="target/$target/$PROFILE/libbipe_core.a"
-            xcrun ld -r -arch "$arch" -all_load -exported_symbols_list "$RUNNER_TEMP/bipe_core.exports" "$lib" -o "$lib.o"
+            xcrun ld -r -arch "$arch" -platform_version "$platform" "$minimum" "$sdk" -all_load \
+              -exported_symbols_list "$RUNNER_TEMP/bipe_core.exports" "$lib" -o "$lib.o"
             rm "$lib"
             xcrun libtool -static -o "$lib" "$lib.o"
             rm "$lib.o"
