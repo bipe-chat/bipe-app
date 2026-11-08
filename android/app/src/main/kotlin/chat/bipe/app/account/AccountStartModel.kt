@@ -219,6 +219,9 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
 
     /** The account, once start has opened it. A push or a notification action can start the process. */
     suspend fun awaitSession(userId: String, timeoutMs: Long = 20_000): AccountSession? {
+        // Spec interno: a member identity is not an account; its session opens under its work account.
+        val interno = (context.applicationContext as BipeApplication).interno
+        if (interno.workAccountOf(userId) != null) return interno.awaitMember(userId, timeoutMs)
         start()
         return withTimeoutOrNull(timeoutMs) {
             sessions.first { list -> list.any { it.userId == userId } }.first { it.userId == userId }
@@ -518,6 +521,8 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
 
     private fun add(session: AccountSession) {
         if (_sessions.value.any { it.userId == session.userId }) return
+        // Spec interno: the member sessions follow the work accounts on this phone.
+        (context.applicationContext as BipeApplication).interno.watch()
         val order = accountList.order
         watchAuthErrors(session)
         scope.launch { PhoneReport.report(context, session, api) }
