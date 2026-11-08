@@ -156,7 +156,7 @@ struct GovbrVerifyView: View {
             .buttonStyle(.bipeProminent)
         default:
             if case .rejected(let reason) = flow.phase {
-                Text(Self.text(reason)).foregroundStyle(BipeColor.inkPrimary)
+                Text(Self.text(reason, fileName: flow.lastFileName)).foregroundStyle(BipeColor.inkPrimary)
             } else if case .failed = flow.phase {
                 Text(BipeStrings.errorGeneric).foregroundStyle(BipeColor.inkPrimary)
             }
@@ -211,11 +211,11 @@ struct GovbrVerifyView: View {
         return fileName
     }
 
-    static func text(_ reason: BipeGovbrReason) -> String {
+    static func text(_ reason: BipeGovbrReason, fileName: String) -> String {
         switch reason {
         case .notSigned: BipeStrings.govbrReasonNotSigned
         case .notGovbr: BipeStrings.govbrReasonNotGovbr
-        case .wrongDocument: BipeStrings.govbrReasonWrongDocument
+        case .wrongDocument: BipeStrings.govbrReasonWrongDocumentFile(fileName)
         case .expired: BipeStrings.govbrReasonExpired
         case .cpfInUse: BipeStrings.govbrReasonCpfInUse
         case .changedAfterSigning: BipeStrings.govbrReasonChangedAfterSigning

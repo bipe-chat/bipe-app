@@ -663,6 +663,15 @@ object BipeRegistries {
         "bipe.net.br",
     )
 
+    /** Signer set of the signed lists (registries/list-signers.json, docs/signed-lists.md): kid to raw Ed25519 public key, base64url. */
+    const val LIST_SIGNER_THRESHOLD = 1
+    val listSignerKeys: Map<String, String> = mapOf(
+        "list-2026-11" to "0HTu-T4Qd5rDMvSR0S4veLoLRYfmCn0qHU-wQPnQifk",
+    )
+    /** The bundled signed lists (newest signed/operators and signed/issuers envelope). Verify with bipe-core verifyBundledList. */
+    const val BUNDLED_OPERATOR_LIST = "{\"v\":1,\"payload\":\"eyJ0eXAiOiJvcGVyYXRvcnMiLCJ2ZXJzaW9uIjoxLCJpc3N1ZWQiOjE3OTQwNTg0NjcsImV4cGlyZXMiOjE3OTUyNjgwNjcsInByZXYiOm51bGwsInJlZ2lvbiI6eyJpZCI6ImJyIiwibmFtZSI6IkJyYXNpbCIsImNvcmVfYXBpIjoiaHR0cHM6Ly9hcGkuYmlwZS5uZXQuYnIiLCJmbG9vciI6ImUyZWUifSwicmVnaW9ucyI6W10sImFwcGVhbF9rZXlzIjp7ImFwcGVhbC0yMDI2LTExIjoiSXpMWUwwX3phMDB4enE0SE5HYmZOUUhLeW15U0tQTkRuMWg0RDhiOEpoTSJ9LCJvcGVyYXRvcnMiOlt7InNlcnZlcl9uYW1lIjoiYmlwZS5uZXQuYnIiLCJuYW1lIjoiQmlwZSIsInN0YXR1cyI6InZhbGlkIiwiam9pbmVkIjoiMjAyNi0xMC0yNiIsInNpZ25pbmdfa2V5cyI6eyJlZDI1NTE5OmFfdVdoSCI6IjdIWG9nQ0ZGUjNxU1UvbmN5NTR4V0hYRkZwL3MrUWJuekh1Q2p0aGpzdmsifSwiYWNjb3VudF9hcGkiOiJodHRwczovL2FwaS5iaXBlLm5ldC5iciIsInB1c2hfZWdyZXNzIjpbIjIwMS4yMy44Mi4yNTQvMzIiXSwic2lnbnVwIjoiaW52aXRlIiwicmVwb3J0X2tleXMiOnsicmVwb3J0LWJpcGUtMjAyNi0xMSI6IjFNUzdSMHoyVW5tWTdFc3JyTUpwRVRSLUgxNkt4QlczcnZmU1NfSHJTUWcifX1dfQ\",\"sigs\":[{\"kid\":\"list-2026-11\",\"sig\":\"lNoLfIrbUR-KME3HLwtlYDrADro8bgsRLjC8HYbsvyQ-DO9-D2z9SUSMp_9smULjr37Z1ujC2XkLhTlWTHbLCg\"}]}"
+    const val BUNDLED_ISSUER_REGISTRY = "{\"v\":1,\"payload\":\"eyJ0eXAiOiJpc3N1ZXJzIiwidmVyc2lvbiI6MSwiaXNzdWVkIjoxNzk0MDU4NDY3LCJleHBpcmVzIjoxNzk1MjY4MDY3LCJwcmV2IjpudWxsLCJzY2hlbWVzIjpbeyJpZCI6ImJyLnBpeCIsImNvdW50cnkiOiJCUiIsImNsYXNzIjoicGVyc29uIiwiYXNzdXJhbmNlIjoiYmFuayIsImFsaWFzIjoicGl4IiwibmFtZXMiOnsicHQtQlIiOiJQaXgiLCJlbiI6IlBpeCJ9fSx7ImlkIjoiYnIuZ292YnIiLCJjb3VudHJ5IjoiQlIiLCJjbGFzcyI6InBlcnNvbiIsImFzc3VyYW5jZSI6InN0YXRlIiwiYWxpYXMiOiJnb3ZiciIsIm5hbWVzIjp7InB0LUJSIjoiZ292LmJyIiwiZW4iOiJnb3YuYnIifX0seyJpZCI6ImJyLmNucGoiLCJjb3VudHJ5IjoiQlIiLCJjbGFzcyI6Im9yZyIsImFzc3VyYW5jZSI6InJlZ2lzdHJ5K2NvbnRyb2wiLCJhbGlhcyI6ImNucGoiLCJuYW1lcyI6eyJwdC1CUiI6IkNOUEoiLCJlbiI6IkNOUEoifX1dLCJyZWdpb25zIjpbeyJpZCI6ImJyIiwic2VydmVycyI6WyJiaXBlLm5ldC5iciJdLCJzY2hlbWVzIjpbImJyLnBpeCIsImJyLmdvdmJyIiwiYnIuY25waiJdfV0sImlzc3VlcnMiOlt7ImlkIjoiYmlwZSIsIm5hbWUiOiJCaXBlIiwic3RhdHVzIjoidmFsaWQiLCJhY2NyZWRpdGVkIjoiMjAyNi0xMC0yNiIsInJlZ2lvbiI6ImJyIiwibGV2ZWxzIjpbInBpeCIsImdvdmJyIiwiaW5zdGl0dXRpb24iLCJjbnBqIiwiYnJhbmQtbWFyayJdLCJzY2hlbWVzIjpbImJyLnBpeCIsImJyLmdvdmJyIiwiYnIuY25waiJdLCJrZXlzIjp7InByb2QtMjAyNi0xMCI6IjlqM19zbEJyb1pieGEzQjZUZGdjbV9VLU9fTElkck5GWHpEZ1k4b0x3eEUifX1dfQ\",\"sigs\":[{\"kid\":\"list-2026-11\",\"sig\":\"fr5yiDcxgvhSdvkv7cXC6VxLSi1wmPhEqwzuBWtMR8nHcj74RM_ZNpwdZiTtBVUBUIrSXBx2XINzIHrhCO0BAA\"}]}"
+
     /** Full Matrix user IDs of official Bipe accounts. Match exactly; names and handles are not proof. */
     val officialAccountIds: Set<String> = setOf(
         "@suporte:bipe.net.br",
@@ -1120,7 +1129,7 @@ object BipeRegistries {
     const val MAPS_LIVE_MAX_INTERVAL_SECONDS = 120
 
     /** Verificar com gov.br (bipe-chat/bipe#544; registries/govbr.json). Rules: BipeGovbrFlow, test-vectors/govbr-verify.json. */
-    const val GOVBR_FILE_NAME = "bipe-verificacao.pdf"
+    const val GOVBR_FILE_NAME = "bipe_verificacao.pdf"
     const val GOVBR_MAX_DOCUMENT_BYTES = 5242880
     const val GOVBR_ANDROID_PACKAGE = "br.gov.meugovbr"
     const val GOVBR_ANDROID_STORE_URL = "https://play.google.com/store/apps/details?id=br.gov.meugovbr"

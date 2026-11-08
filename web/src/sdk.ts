@@ -11,6 +11,11 @@
 // sealed session record and its own store passphrase (session-store.ts). Only the current account has a
 // client; a switch drops the old client (its sync stops when the chat list unmounts) and builds the new one.
 // The first account keeps the store and record names it had with one account, so it needs no new sign-in.
+//
+// Member identity (bipe ADR 0284 points 5 and 24, spec interno): a work account slot can hold a second session, the
+// person's member identity, in slot.member. It has its own stores, sealed record and passphrase like a slot, but it is
+// not in the list, so the switcher never shows it and it never counts against maxPersonalAccounts. It goes with its
+// work account: a sign-out of that account ends it too.
 
 import { uniffiInitAsync } from './generated';
 import { BackupDownloadStrategy } from './generated/matrix_sdk';
@@ -55,7 +60,13 @@ export type Slot = {
   /** The unread badge at the last sync of this account; not live for other accounts (ADR 0225 point 4). */
   unread?: number;
   isCompany?: boolean;
+  /** The member identity session of a work account (spec interno), made on the first open of Interno here. */
+  member?: MemberSlot;
 };
+/** The stores and records of one member identity session (spec interno). */
+export type MemberSlot = { userId: string; storeName: string; sessionKey: string; passphraseKey: string };
+/** What a client needs of a slot: its stores and its records. */
+type Stores = Pick<Slot, 'storeName' | 'sessionKey' | 'passphraseKey'>;
 export type Accounts = { current?: string; list: Slot[] };
 
 let ready: Promise<void> | undefined;
@@ -65,7 +76,7 @@ export function initSdk(): Promise<void> {
   return ready;
 }
 
-async function buildClient(slot: Slot, restored?: Session): Promise<Client> {
+async function buildClient(slot: Stores, restored?: Session): Promise<Client> {
   await initSdk();
   const passphrase = await storePassphrase(slot.passphraseKey);
   // The SDK asks for the session synchronously; keep the last saved one of this slot here.
@@ -161,7 +172,7 @@ export async function loadAccountList(): Promise<Accounts> {
 export const saveAccountList = (accounts: Accounts) => saveAccounts(accounts);
 
 /** The client of a slot's saved session, or undefined when the session is gone. */
-export async function restoreClient(slot: Slot): Promise<Client | undefined> {
+export async function restoreClient(slot: Stores): Promise<Client | undefined> {
   const saved = await loadSession<Session>(slot.sessionKey);
   if (saved.kind !== 'session') return undefined;
   const client = await buildClient(slot, saved.session);
@@ -194,7 +205,7 @@ export async function addAccount(
 }
 
 /** Drops an unfinished or unwanted slot: its records now, its stores on the next load. */
-export async function forgetSlot(slot: Slot): Promise<void> {
+export async function forgetSlot(slot: Stores): Promise<void> {
   await deleteSecrets(slot.sessionKey, slot.passphraseKey);
   markWipe([slot.storeName]);
 }
@@ -203,8 +214,11 @@ export async function forgetSlot(slot: Slot): Promise<void> {
  * Sign out of one account (spec sign-out, ADR 0225 point 3): Client.logout ends its session on the server,
  * then only its records and stores go. The next account becomes current; with none left, the QR code shows.
  */
-export async function signOutAccount(accounts: Accounts, slot: Slot, client: Client): Promise<void> {
+export async function signOutAccount(accounts: Accounts, opened: Slot, client: Client): Promise<void> {
+  // The list has the newest record of the slot, with a member session made after it opened.
+  const slot = accounts.list.find((s) => s.id === opened.id) ?? opened;
   await client.logout();
+  if (slot.member) await endMember(slot.member);
   await deleteSecrets(slot.sessionKey, slot.passphraseKey);
   if (slot.userId) {
     localStorage.removeItem(archiveKey(slot.userId));
@@ -229,12 +243,69 @@ export async function signOutAll(accounts: Accounts, current: Client): Promise<v
     } catch (e) {
       console.warn('[trace] sign-out of one account failed', slot.userId, e);
     }
+    if (slot.member) await endMember(slot.member);
   }
   // #903: no Bipe data stays in the browser. Every page key starts with "bipe."; the wipe mark is set after.
   for (const k of Object.keys(localStorage)) if (k.startsWith('bipe.')) localStorage.removeItem(k);
-  markWipe(accounts.list.map((s) => s.storeName));
+  markWipe(accounts.list.flatMap((s) => (s.member ? [s.storeName, s.member.storeName] : [s.storeName])));
   await clearSecrets();
   window.location.reload();
+}
+
+// ---- Member identity sessions (spec interno) ----
+
+// The running member client of each member store in this page, so a sign-out ends that session, not a second copy.
+const liveMembers = new Map<string, Client>();
+
+/**
+ * Spec interno open: m.login.password with the user and the one-time password of POST /v1/me/business/members/session,
+ * on the same homeserver, in new stores. The password lives only in this call. The builder's autoEnableCrossSigning
+ * makes the cross-signing keys when the identity has none; nothing asks for a recovery key.
+ */
+export async function signInMember(userId: string, password: string): Promise<{ member: MemberSlot; client: Client }> {
+  const slot = newSlot();
+  try {
+    const client = await buildClient(slot);
+    await client.login(userId, password, 'Bipe', undefined);
+    const session = client.session();
+    await saveSession(slot.sessionKey, session);
+    const member: MemberSlot = {
+      userId: session.userId,
+      storeName: slot.storeName,
+      sessionKey: slot.sessionKey,
+      passphraseKey: slot.passphraseKey,
+    };
+    liveMembers.set(member.storeName, client);
+    return { member, client };
+  } catch (e) {
+    await forgetSlot(slot);
+    throw e;
+  }
+}
+
+/** The client of a saved member session, or undefined when the record is gone. */
+export async function restoreMember(member: MemberSlot): Promise<Client | undefined> {
+  const live = liveMembers.get(member.storeName);
+  if (live) return live;
+  const client = await restoreClient(member);
+  if (client) liveMembers.set(member.storeName, client);
+  return client;
+}
+
+/** Drops a member session in this browser only: its records now, its stores on the next load. */
+export async function forgetMember(member: MemberSlot): Promise<void> {
+  liveMembers.delete(member.storeName);
+  await forgetSlot(member);
+}
+
+/** Ends a member session on the server when it still can, then drops it here. A failed logout does not stop this. */
+async function endMember(member: MemberSlot): Promise<void> {
+  try {
+    await (await restoreMember(member))?.logout();
+  } catch (e) {
+    console.warn('[trace] member sign-out failed', e);
+  }
+  await forgetMember(member);
 }
 
 // Deleting a database waits for its open connections, and the SDK keeps them open while the page runs.
@@ -298,7 +369,7 @@ async function wipeAll(): Promise<void> {
 
 // Stores of a sign-in that never finished (the page closed during the QR code) belong to no slot.
 async function deleteOrphanStores(accounts: Accounts): Promise<void> {
-  const used = new Set(accounts.list.map((s) => s.storeName));
+  const used = new Set(accounts.list.flatMap((s) => (s.member ? [s.storeName, s.member.storeName] : [s.storeName])));
   const prefixes = [...new Set((await storeDatabases()).map((db) => db.slice(0, db.indexOf('::'))))];
   await deleteStores(prefixes.filter((p) => !used.has(p)));
 }
