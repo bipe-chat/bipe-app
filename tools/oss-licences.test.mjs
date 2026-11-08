@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { OUTPUTS, licenceList, render } from './oss-licences.mjs';
+import { OUTPUTS, licenceList, render, shippedCrates } from './oss-licences.mjs';
 import { REPO_ROOT } from './lib.mjs';
 
 test('the licence lists in the apps match tools/licences.json', () => {
@@ -30,4 +30,21 @@ test('Bipe comes first, then the dependencies of the platform, each with a text'
   assert.ok(!licenceList('ios').components.some((c) => c.name.startsWith('androidx.')));
   assert.ok(licenceList('android').components.some((c) => c.name === 'org.matrix.rustcomponents:sdk-android'));
   assert.ok(!licenceList('android').components.some((c) => c.name === 'junit:junit'), 'test-only dependencies are not in the app');
+});
+
+// bipe-chat/bipe#1277: the Cargo packages that each app links, and no build tool.
+test('the notices name the shipped bipe-core packages, with a licence entry each', () => {
+  const { packages } = JSON.parse(readFileSync(join(REPO_ROOT, 'tools/licences.json'), 'utf8'));
+  for (const platform of Object.keys(OUTPUTS)) {
+    const names = new Set(licenceList(platform).components.map((c) => c.name));
+    for (const key of shippedCrates(platform)) {
+      assert.ok(packages[key], `${key} is shipped but not in tools/licences.json`);
+      assert.ok(names.has(key.slice('cargo:'.length)), `${key} is missing from the ${platform} notices`);
+    }
+    for (const tool of ['uniffi_bindgen', 'cargo_metadata', 'syn', 'clap']) assert.ok(!names.has(tool), `${tool} is not in the app`);
+    assert.ok(names.has('ed25519-dalek'));
+    const dalek = licenceList(platform).components.find((c) => c.name === 'ed25519-dalek');
+    assert.match(dalek.text, /^Copyright \(c\) 2017-2019 isis agora lovecruft/);
+    assert.doesNotMatch(dalek.text, /<year>/);
+  }
 });

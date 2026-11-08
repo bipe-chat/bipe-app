@@ -404,19 +404,6 @@
       "checked": "2026-11-07",
       "note": "MIT OR Apache-2.0; Apache-2.0 chosen."
     },
-    "cargo:cargo-platform": {
-      "ecosystem": "cargo",
-      "licence": "Apache-2.0",
-      "source": "https://github.com/rust-lang/cargo",
-      "checked": "2026-11-07",
-      "note": "MIT OR Apache-2.0; Apache-2.0 chosen."
-    },
-    "cargo:cargo_metadata": {
-      "ecosystem": "cargo",
-      "licence": "MIT",
-      "source": "https://github.com/oli-obk/cargo_metadata",
-      "checked": "2026-11-07"
-    },
     "cargo:cfg-if": {
       "ecosystem": "cargo",
       "licence": "Apache-2.0",
@@ -449,7 +436,8 @@
       "ecosystem": "cargo",
       "licence": "BSD-3-Clause",
       "source": "https://github.com/dalek-cryptography/curve25519-dalek/tree/main/curve25519-dalek",
-      "checked": "2026-11-07"
+      "checked": "2026-11-08",
+      "copyright": "Copyright (c) 2016-2021 isis agora lovecruft. All rights reserved.\nCopyright (c) 2016-2021 Henry de Valence. All rights reserved."
     },
     "cargo:curve25519-dalek-derive": {
       "ecosystem": "cargo",
@@ -483,7 +471,8 @@
       "ecosystem": "cargo",
       "licence": "BSD-3-Clause",
       "source": "https://github.com/dalek-cryptography/curve25519-dalek/tree/main/ed25519-dalek",
-      "checked": "2026-11-07"
+      "checked": "2026-11-08",
+      "copyright": "Copyright (c) 2017-2019 isis agora lovecruft. All rights reserved."
     },
     "cargo:equivalent": {
       "ecosystem": "cargo",
@@ -791,7 +780,8 @@
       "ecosystem": "cargo",
       "licence": "BSD-3-Clause",
       "source": "https://github.com/dalek-cryptography/subtle",
-      "checked": "2026-11-07"
+      "checked": "2026-11-08",
+      "copyright": "Copyright (c) 2016-2017 Isis Agora Lovecruft, Henry de Valence. All rights reserved.\nCopyright (c) 2016-2024 Isis Agora Lovecruft. All rights reserved."
     },
     "cargo:syn": {
       "ecosystem": "cargo",
@@ -812,20 +802,6 @@
       "licence": "MIT",
       "source": "https://github.com/mgeisler/textwrap",
       "checked": "2026-11-07"
-    },
-    "cargo:thiserror": {
-      "ecosystem": "cargo",
-      "licence": "Apache-2.0",
-      "source": "https://github.com/dtolnay/thiserror",
-      "checked": "2026-11-07",
-      "note": "MIT OR Apache-2.0; Apache-2.0 chosen."
-    },
-    "cargo:thiserror-impl": {
-      "ecosystem": "cargo",
-      "licence": "Apache-2.0",
-      "source": "https://github.com/dtolnay/thiserror",
-      "checked": "2026-11-07",
-      "note": "MIT OR Apache-2.0; Apache-2.0 chosen."
     },
     "cargo:toml": {
       "ecosystem": "cargo",
