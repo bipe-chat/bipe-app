@@ -2575,6 +2575,7 @@ export const ptBR = {
   bipe_account_status_raise_wait: "O limite volta a subir com o tempo.",
   bipe_reach_limit_body: "Você chegou ao limite de conversas com pessoas que não conhecem você. A próxima libera em %1$s.",
   bipe_reach_limit_body_none: "Esta conta não pode começar conversas com pessoas que não conhecem você.",
+  bipe_avatar_open: "Ver foto",
 } as const;
 
 export type StringKey = keyof typeof ptBR;
@@ -5148,6 +5149,7 @@ export const en: Record<StringKey, string> = {
   bipe_account_status_raise_wait: "The limit goes back up with time.",
   bipe_reach_limit_body: "You reached the limit of chats with people who do not know you. The next one frees up %1$s.",
   bipe_reach_limit_body_none: "This account cannot start chats with people who do not know you.",
+  bipe_avatar_open: "View photo",
 };
 
 export type Locale = "pt-BR" | "en";

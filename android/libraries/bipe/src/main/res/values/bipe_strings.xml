@@ -2570,4 +2570,5 @@
     <string name="bipe_account_status_raise_wait">O limite volta a subir com o tempo.</string>
     <string name="bipe_reach_limit_body">Você chegou ao limite de conversas com pessoas que não conhecem você. A próxima libera em %1$s.</string>
     <string name="bipe_reach_limit_body_none">Esta conta não pode começar conversas com pessoas que não conhecem você.</string>
+    <string name="bipe_avatar_open">Ver foto</string>
 </resources>
