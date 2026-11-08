@@ -92,11 +92,19 @@ export const BETA = {
     { identifier: 'chat.bipe.app.dev.shareextension', name: 'Bipe Chat Share' },
   ],
 };
+// bench: the phone bench of bipe-core (bipe-chat/bipe#1277 item 5, core/release/ios/bench). One bundle ID with no
+// capabilities and no app record; ad hoc profile only, for the devices registered in the team.
+export const BENCH = {
+  name: 'bench', appId: 'chat.bipe.core.bench', appName: 'Bipe Core Bench', profilePrefix: 'Bipe Core Bench CI', manage: true,
+  kinds: ['adhoc'],
+  bundleIds: [{ identifier: 'chat.bipe.core.bench', name: 'Bipe Core Bench' }],
+};
 export function idSet(name = 'next') {
   if (name === 'next') return NEXT;
+  if (name === 'bench') return BENCH;
   if (name === 'beta') return BETA;
   if (name === 'store') return STORE;
-  throw new Error(`unknown ID set ${name} (next, beta or store)`);
+  throw new Error(`unknown ID set ${name} (next, beta, store or bench)`);
 }
 // The build setting of each target's profile, by position: app, NSE, share (ios/project.yml).
 const PROFILE_SETTING_ORDER = ['BIPE_CI_PROFILE_APP', 'BIPE_CI_PROFILE_NSE', 'BIPE_CI_PROFILE_SHARE'];
@@ -426,10 +434,12 @@ export async function signing(call, serial, { home = process.env.HOME, outDir = 
   for (const kind of set.kinds) {
     writeFileSync(join(outDir, `${kind === 'adhoc' ? 'adhoc' : 'upload'}.plist`), exportOptions(kind, TEAM_ID, set));
   }
-  // The archive signs with the App Store profiles; the exports sign again with their own.
+  // The archive signs with the App Store profiles; the exports sign again with their own. A set with no App
+  // Store kind (bench) archives with its ad hoc profile.
+  const archiveKind = set.kinds.includes('appstore') ? 'appstore' : set.kinds[0];
   if (env.GITHUB_ENV) {
     set.bundleIds.forEach(({ identifier }, i) => {
-      appendFileSync(env.GITHUB_ENV, `${PROFILE_SETTING_ORDER[i]}=${profileName('appstore', identifier, set)}\n`);
+      appendFileSync(env.GITHUB_ENV, `${PROFILE_SETTING_ORDER[i]}=${profileName(archiveKind, identifier, set)}\n`);
     });
   }
 }

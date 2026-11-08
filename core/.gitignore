@@ -15,3 +15,6 @@ node_modules/
 /fuzz/corpus/
 /fuzz/artifacts/
 /fuzz/coverage/
+# XcodeGen output of the iOS bench (core/release/README.md).
+/release/ios/bench/*.xcodeproj/
+/release/ios/bench/vectors/
