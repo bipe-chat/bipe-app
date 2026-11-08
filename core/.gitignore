@@ -3,6 +3,8 @@ build/
 generated/
 # bipe-shared tools/gen.mjs output. It is committed (bipe-chat/bipe#1277).
 !/crates/bipe-core/src/generated/
+# The Swift bindings of the pinned release (core/release/README.md).
+!/release/swift/Sources/BipeCore/generated/
 .build/
 .gradle/
 badges.json

@@ -707,6 +707,198 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
           cat "$GITHUB_STEP_SUMMARY"
 
+  # bipe-chat/bipe#1277 items 4, 5 and 8: the pinned release (core/release/release.json), taken from GitHub releases
+  # the way a client takes it, never from this run. Not part of a release build.
+  release-apple:
+    name: core-release-apple
+    if: github.workflow == 'core'
+    runs-on: xcode-27
+    timeout-minutes: 40
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@v4
+      - *shared-branch
+      - *shared-checkout
+      - name: Vectors through the SwiftPM package, macOS arm64
+        working-directory: core/release/swift
+        run: |
+          cp "$GITHUB_WORKSPACE/bipe-shared/test-vectors/badges.json" Tests/BipeCoreReleaseTests/badges.json
+          swift test -c release -Xswiftc -enable-testing 2>&1 | tee "$RUNNER_TEMP/arm64.log"
+          grep -h BIPE_CORE_RELEASE "$RUNNER_TEMP/arm64.log" | head -1 | tee "$RUNNER_TEMP/arm64.line"
+          grep -q '"arch":"arm64"' "$RUNNER_TEMP/arm64.line"
+      - name: Vectors through the SwiftPM package, macOS x86_64 (Rosetta)
+        working-directory: core/release/swift
+        run: |
+          arch -x86_64 /usr/bin/true 2> /dev/null || sudo softwareupdate --install-rosetta --agree-to-license
+          swift build -c release --arch x86_64 --build-tests -Xswiftc -enable-testing
+          bundle=$(find .build -ipath '*release*' -name 'BipeCoreReleaseTests.xctest' -type d -newer Package.swift | head -1)
+          test -n "$bundle"
+          arch -x86_64 xcrun xctest "$bundle" 2>&1 | tee "$RUNNER_TEMP/x86.log"
+          grep -h BIPE_CORE_RELEASE "$RUNNER_TEMP/x86.log" | head -1 | tee "$RUNNER_TEMP/x86.line"
+          grep -q '"arch":"x86_64"' "$RUNNER_TEMP/x86.line"
+      - name: Vectors through the SwiftPM package, iOS simulator
+        working-directory: core/release/swift
+        run: |
+          id=$(xcrun simctl list devices available -j | jq -r '[.devices | to_entries[] | select(.key | test("iOS")) | .value[] | select(.name | test("iPhone"))][0].udid')
+          xcodebuild -list -json | tee "$RUNNER_TEMP/schemes.json"
+          scheme=$(jq -r '(.workspace // .project).schemes[]' "$RUNNER_TEMP/schemes.json" | grep -m1 -E '^BipeCore(-Package)?$')
+          xcodebuild test -scheme "$scheme" -destination "platform=iOS Simulator,id=$id" -configuration Release ENABLE_TESTABILITY=YES CODE_SIGNING_ALLOWED=NO 2>&1 | tee "$RUNNER_TEMP/ios.log" | grep -E "BIPE_CORE_RELEASE|error:|TEST (SUCCEEDED|FAILED)" || true
+          grep -q 'TEST SUCCEEDED' "$RUNNER_TEMP/ios.log"
+          grep -h BIPE_CORE_RELEASE "$RUNNER_TEMP/ios.log" | head -1 > "$RUNNER_TEMP/ios.line"
+          {
+            echo "### Release $(jq -r .tag ../release.json), SwiftPM binaryTarget"
+            echo
+            echo "- macOS arm64: $(cat "$RUNNER_TEMP/arm64.line")"
+            echo "- macOS x86_64 (Rosetta): $(cat "$RUNNER_TEMP/x86.line")"
+            echo "- iOS simulator: $(cat "$RUNNER_TEMP/ios.line")"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  release-android:
+    name: core-release-android
+    if: github.workflow == 'core'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - *shared-branch
+      - *shared-checkout
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Tester key
+        env:
+          TESTER_KEYSTORE_B64: ${{ secrets.TESTER_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$TESTER_KEYSTORE_B64" ]; then
+            printf '%s' "$TESTER_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/tester.keystore"
+            echo "SIGN=-PbipeUploadStoreFile=$RUNNER_TEMP/tester.keystore" >> "$GITHUB_ENV"
+          else
+            echo "::warning::No TESTER_KEYSTORE_B64: the bench APK has the runner's debug key."
+          fi
+      # Gradle takes the AAR from the release and checks it against gradle/verification-metadata.xml.
+      - name: Build the bench APK from the release AAR
+        working-directory: core/release/android
+        env:
+          ORG_GRADLE_PROJECT_bipeUploadStorePassword: ${{ secrets.TESTER_KEYSTORE_PASSWORD }}
+          ORG_GRADLE_PROJECT_bipeUploadKeyPassword: ${{ secrets.TESTER_KEYSTORE_PASSWORD }}
+          ORG_GRADLE_PROJECT_bipeUploadKeyAlias: bipe-tester
+        run: |
+          mkdir -p bench/vectors
+          cp "$GITHUB_WORKSPACE/bipe-shared/test-vectors/badges.json" bench/vectors/
+          ../../../android/gradlew --no-daemon :bench:assembleRelease $SIGN
+          apk=bench/build/outputs/apk/release/bench-release.apk
+          version=$(jq -r .version ../release.json)
+          mkdir -p "$RUNNER_TEMP/apk"
+          cp "$apk" "$RUNNER_TEMP/apk/bipe-core-bench-$version.apk"
+          (cd "$RUNNER_TEMP/apk" && sha256sum "bipe-core-bench-$version.apk" > "bipe-core-bench-$version.apk.sha256")
+          unzip -l "$apk" | grep libbipe_core.so
+          unzip -l "$apk" | grep -q 'lib/arm64-v8a/libbipe_core.so'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: core-bench-apk
+          path: ${{ runner.temp }}/apk
+          if-no-files-found: error
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: The bench APK on the x86_64 emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          script: |
+            adb install -r "$RUNNER_TEMP"/apk/*.apk
+            adb logcat -c
+            adb shell am start -W -n chat.bipe.core.bench/.BenchActivity
+            for i in $(seq 1 60); do adb logcat -d -s BipeCoreBench:I | grep -q BipeCoreBench && break; sleep 2; done
+            adb logcat -d -s BipeCoreBench:I | grep BipeCoreBench | tail -1 | tee /tmp/bench.line
+            grep -q 'BUDGET' /tmp/bench.line
+            echo "### Bench APK, x86_64 emulator: $(cat /tmp/bench.line)" >> "$GITHUB_STEP_SUMMARY"
+
+  release-jvm:
+    name: core-release-jvm-${{ matrix.os }}
+    if: github.workflow == 'core'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    defaults:
+      run:
+        shell: bash
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - *shared-branch
+      - *shared-checkout
+      - name: The jar of the release
+        run: |
+          tag=$(jq -r .tag core/release/release.json); version=$(jq -r .version core/release/release.json)
+          jar="bipe-core-jvm-$version.jar"
+          gh release download "$tag" --repo "$GITHUB_REPOSITORY" --pattern "$jar" --dir "$RUNNER_TEMP"
+          echo "$(jq -r --arg a "$jar" '.assets[$a]' core/release/release.json)  $RUNNER_TEMP/$jar" | sha256sum -c -
+          echo "BIPE_CORE_JAR=$RUNNER_TEMP/$jar" >> "$GITHUB_ENV"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Vectors through the release jar
+        working-directory: core/harness/jvm
+        env:
+          BIPE_VECTORS: ${{ github.workspace }}/bipe-shared/test-vectors/badges.json
+          BIPE_ED25519_CASES: ${{ github.workspace }}/core/harness/ed25519-cases.json
+        run: |
+          ../../../android/gradlew --no-daemon run | tee "$RUNNER_TEMP/jar.log"
+          echo "### Release jar on ${{ matrix.os }}: $(grep -h BIPE_CORE_METRICS "$RUNNER_TEMP/jar.log" | head -1)" >> "$GITHUB_STEP_SUMMARY"
+          grep -q BIPE_CORE_METRICS "$RUNNER_TEMP/jar.log"
+
+  release-web:
+    name: core-release-web
+    if: github.workflow == 'core'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - *shared-branch
+      - *shared-checkout
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: core/harness/web/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: The web bundle of the release
+        working-directory: core/harness/web
+        run: |
+          tag=$(jq -r .tag ../../release/release.json); version=$(jq -r .version ../../release/release.json)
+          tgz="bipe-core-web-$version.tgz"
+          gh release download "$tag" --repo "$GITHUB_REPOSITORY" --pattern "$tgz" --dir "$RUNNER_TEMP"
+          echo "$(jq -r --arg a "$tgz" '.assets[$a]' ../../release/release.json)  $RUNNER_TEMP/$tgz" | sha256sum -c -
+          mkdir -p generated
+          tar -xzf "$RUNNER_TEMP/$tgz" -C generated
+          pnpm install --frozen-lockfile
+      - name: Vectors in Node through the release bundle
+        working-directory: core/harness/web
+        run: |
+          pnpm exec esbuild run.ts --bundle --platform=node --format=esm --outfile=build/run.mjs \
+            --banner:js="import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);"
+          node build/run.mjs "$GITHUB_WORKSPACE/bipe-shared/test-vectors/badges.json" "$PWD/$(ls generated/*.wasm | head -1)" | tee "$RUNNER_TEMP/web.log"
+          echo "### Release web bundle: $(grep -h BIPE_CORE_METRICS "$RUNNER_TEMP/web.log" | head -1)" >> "$GITHUB_STEP_SUMMARY"
+          grep -q BIPE_CORE_METRICS "$RUNNER_TEMP/web.log"
+
   # bipe-chat/bipe#1172 step 4. The answer may be no, and that is a result of the spike, so a failure here does
   # not fail the workflow. The summary says what happened.
   combined:
