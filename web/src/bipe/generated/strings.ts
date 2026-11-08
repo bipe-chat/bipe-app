@@ -2560,6 +2560,21 @@ export const ptBR = {
   bipe_chat_notes_placeholder: "Escreva uma nota",
   bipe_chat_notes_error: "A nota não foi salva. Tente de novo.",
   bipe_chat_reply_by: "por %1$s",
+  bipe_account_status_title: "Status da conta",
+  bipe_account_status_footer: "O Bipe limita quantas conversas uma conta pode começar com pessoas que ainda não conhecem você. Isso dificulta golpes e spam. Conversas com seus contatos e respostas não contam.",
+  bipe_account_status_tier: "Tipo de conta",
+  bipe_account_status_tier_unattested: "Sem verificação do aparelho",
+  bipe_account_status_tier_new: "Nova",
+  bipe_account_status_tier_normal: "Sem verificação",
+  bipe_account_status_tier_verified: "Verificada",
+  bipe_account_status_tier_company: "Empresa verificada",
+  bipe_account_status_tier_slowed: "Com limite menor",
+  bipe_account_status_used: "Conversas novas: %1$s de %2$s",
+  bipe_account_status_resets: "A próxima libera em %1$s",
+  bipe_account_status_raise_verify: "Verifique sua conta para começar mais conversas novas.",
+  bipe_account_status_raise_wait: "O limite volta a subir com o tempo.",
+  bipe_reach_limit_body: "Você chegou ao limite de conversas com pessoas que não conhecem você. A próxima libera em %1$s.",
+  bipe_reach_limit_body_none: "Esta conta não pode começar conversas com pessoas que não conhecem você.",
 } as const;
 
 export type StringKey = keyof typeof ptBR;
@@ -5118,6 +5133,21 @@ export const en: Record<StringKey, string> = {
   bipe_chat_notes_placeholder: "Write a note",
   bipe_chat_notes_error: "The note was not saved. Try again.",
   bipe_chat_reply_by: "by %1$s",
+  bipe_account_status_title: "Account status",
+  bipe_account_status_footer: "Bipe limits how many chats an account can start with people who do not know you yet. This makes scams and spam harder. Chats with your contacts and replies do not count.",
+  bipe_account_status_tier: "Account type",
+  bipe_account_status_tier_unattested: "Device not checked",
+  bipe_account_status_tier_new: "New",
+  bipe_account_status_tier_normal: "Not verified",
+  bipe_account_status_tier_verified: "Verified",
+  bipe_account_status_tier_company: "Verified company",
+  bipe_account_status_tier_slowed: "Lower limit",
+  bipe_account_status_used: "New chats: %1$s of %2$s",
+  bipe_account_status_resets: "The next one frees up %1$s",
+  bipe_account_status_raise_verify: "Verify your account to start more new chats.",
+  bipe_account_status_raise_wait: "The limit goes back up with time.",
+  bipe_reach_limit_body: "You reached the limit of chats with people who do not know you. The next one frees up %1$s.",
+  bipe_reach_limit_body_none: "This account cannot start chats with people who do not know you.",
 };
 
 export type Locale = "pt-BR" | "en";

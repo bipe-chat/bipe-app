@@ -25,6 +25,9 @@ enum class BipeScreen(val id: String) {
     /** Account start (flow launch). Spec: bipe-shared/product/screens/account-start.json */
     ACCOUNT_START("account-start"),
 
+    /** Account status (flow settings). Spec: bipe-shared/product/screens/account-status.json */
+    ACCOUNT_STATUS("account-status"),
+
     /** Account switcher (flow home). Spec: bipe-shared/product/screens/account-switcher.json */
     ACCOUNT_SWITCHER("account-switcher"),
 

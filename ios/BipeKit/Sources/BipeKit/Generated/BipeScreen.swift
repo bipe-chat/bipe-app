@@ -19,6 +19,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Account start (flow launch). Spec: bipe-shared/product/screens/account-start.json
     case accountStart = "account-start"
 
+    /// Account status (flow settings). Spec: bipe-shared/product/screens/account-status.json
+    case accountStatus = "account-status"
+
     /// Account switcher (flow home). Spec: bipe-shared/product/screens/account-switcher.json
     case accountSwitcher = "account-switcher"
 

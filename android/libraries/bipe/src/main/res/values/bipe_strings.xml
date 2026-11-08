@@ -2555,4 +2555,19 @@
     <string name="bipe_chat_notes_placeholder">Escreva uma nota</string>
     <string name="bipe_chat_notes_error">A nota não foi salva. Tente de novo.</string>
     <string name="bipe_chat_reply_by">por %1$s</string>
+    <string name="bipe_account_status_title">Status da conta</string>
+    <string name="bipe_account_status_footer">O Bipe limita quantas conversas uma conta pode começar com pessoas que ainda não conhecem você. Isso dificulta golpes e spam. Conversas com seus contatos e respostas não contam.</string>
+    <string name="bipe_account_status_tier">Tipo de conta</string>
+    <string name="bipe_account_status_tier_unattested">Sem verificação do aparelho</string>
+    <string name="bipe_account_status_tier_new">Nova</string>
+    <string name="bipe_account_status_tier_normal">Sem verificação</string>
+    <string name="bipe_account_status_tier_verified">Verificada</string>
+    <string name="bipe_account_status_tier_company">Empresa verificada</string>
+    <string name="bipe_account_status_tier_slowed">Com limite menor</string>
+    <string name="bipe_account_status_used">Conversas novas: %1$s de %2$s</string>
+    <string name="bipe_account_status_resets">A próxima libera em %1$s</string>
+    <string name="bipe_account_status_raise_verify">Verifique sua conta para começar mais conversas novas.</string>
+    <string name="bipe_account_status_raise_wait">O limite volta a subir com o tempo.</string>
+    <string name="bipe_reach_limit_body">Você chegou ao limite de conversas com pessoas que não conhecem você. A próxima libera em %1$s.</string>
+    <string name="bipe_reach_limit_body_none">Esta conta não pode começar conversas com pessoas que não conhecem você.</string>
 </resources>
