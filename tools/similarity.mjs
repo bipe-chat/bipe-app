@@ -24,6 +24,10 @@
 // Matched tokens: JPlag's average similarity is 2 * matched / (tokens of the
 // first file + tokens of the second file), so matched = average * (sum) / 2.
 // The token counts come from submissionFileIndex.json in the JPlag report.
+// JPlag writes that index only for the submissions in its shown comparisons
+// (the top pairs by average similarity, 2500 by default). Android has more
+// pairs than that near 0.5, so a pair past the cutoff had no token count and
+// failed. SHOWN_COMPARISONS keeps every pair above THRESHOLD in the index.
 
 import { execFileSync } from 'node:child_process';
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
@@ -33,6 +37,7 @@ import { walk, isMain, REPO_ROOT } from './lib.mjs';
 
 export const THRESHOLD = 0.5;
 export const MIN_MATCHED_TOKENS = 100;
+export const SHOWN_COMPARISONS = 20000;
 
 export const LANGS = {
   swift: { jplag: 'swift', ext: '.swift' },
@@ -148,7 +153,7 @@ export function runJplag({ jar, lang, ours, theirs, oursRoot, theirsRoot, work }
   stage(ours, oursRoot, oursDir);
   stage(theirs, theirsRoot, theirsDir);
   const result = join(work, 'report');
-  const args = ['-Xmx6g', '-jar', jar, '-M', 'RUN', '-l', LANGS[lang].jplag, '--csv-export', '--cluster-skip', '--overwrite'];
+  const args = ['-Xmx6g', '-jar', jar, '-M', 'RUN', '-l', LANGS[lang].jplag, '--csv-export', '--cluster-skip', '--overwrite', '-n', String(SHOWN_COMPARISONS)];
   args.push('-new', oursDir, '-old', theirsDir, '-r', result);
   try {
     execFileSync('java', args, { stdio: 'inherit' });
@@ -176,8 +181,11 @@ function report(result, label, threshold) {
     );
   }
   for (const p of result.failures) {
+    const tokens = Number.isFinite(p.matched)
+      ? `${p.matched} matched tokens`
+      : `no token count in the JPlag report (more than SHOWN_COMPARISONS=${SHOWN_COMPARISONS} pairs above ${threshold}?)`;
     console.log(
-      `::error title=similarity::${p.ours} ~ ${label}:${p.theirs} average similarity ${p.avg.toFixed(2)} > ${threshold} with ${p.matched} matched tokens (max ${p.max.toFixed(2)})`,
+      `::error title=similarity::${p.ours} ~ ${label}:${p.theirs} average similarity ${p.avg.toFixed(2)} > ${threshold} with ${tokens} (max ${p.max.toFixed(2)})`,
     );
   }
 }
