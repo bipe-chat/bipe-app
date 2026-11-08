@@ -123,6 +123,13 @@
       "source": "https://github.com/Kotlin/kotlinx.coroutines/blob/master/LICENSE.txt",
       "checked": "2026-10-22"
     },
+    "net.java.dev.jna:jna": {
+      "ecosystem": "gradle",
+      "licence": "Apache-2.0",
+      "source": "https://github.com/java-native-access/jna/blob/master/LICENSE",
+      "checked": "2026-11-08",
+      "note": "Dual licensed, LGPL-2.1-or-later or Apache-2.0; Bipe uses it under Apache-2.0."
+    },
     "com.google.crypto.tink:tink-android": {
       "ecosystem": "gradle",
       "licence": "Apache-2.0",

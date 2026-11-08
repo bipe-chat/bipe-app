@@ -25,6 +25,14 @@ dependencyResolutionManagement {
             url = uri("https://jitpack.io")
             content { includeGroup("com.github.davidliu") }
         }
+        // bipe-core from its GitHub release (core/release/README.md, ADR 0267). gradle/verification-metadata.xml pins
+        // the SHA-256 of each asset of ../core/release/release.json.
+        ivy {
+            url = uri("https://github.com/bipe-chat/bipe-app/releases/download")
+            patternLayout { artifact("core-[revision]/[artifact]-[revision].[ext]") }
+            metadataSources { artifact() }
+            content { includeGroup("chat.bipe.core") }
+        }
     }
 }
 

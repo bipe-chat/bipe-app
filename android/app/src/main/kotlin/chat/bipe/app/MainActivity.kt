@@ -190,6 +190,8 @@ class MainActivity : ComponentActivity() {
         (application as BipeApplication).activityVisible = true
         accountStart.resume()
         LinkWebFlow.appResumed()
+        // The signed lists (bipe-chat/bipe#645): fetch from the core when the last fetch is old.
+        chat.bipe.shared.SignedLists.shared.appBecameActive()
     }
 
     override fun onStop() {

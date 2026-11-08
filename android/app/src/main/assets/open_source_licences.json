@@ -214,6 +214,10 @@
       "licence": "MIT"
     },
     {
+      "name": "net.java.dev.jna:jna",
+      "licence": "Apache-2.0"
+    },
+    {
       "name": "once_cell",
       "licence": "Apache-2.0"
     },
