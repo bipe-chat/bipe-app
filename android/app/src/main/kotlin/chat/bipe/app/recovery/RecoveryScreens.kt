@@ -4,6 +4,7 @@
 
 package chat.bipe.app.recovery
 
+import chat.bipe.app.common.PinHaptics
 import android.text.format.DateUtils
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
@@ -247,6 +248,7 @@ private fun RecoveryPinScreen(model: RecoveryFlowModel) {
             return@RecoveryStep
         }
         val progress = stringResource(R.string.bipe_a11y_pin_progress, pin.length.toString(), BipeRegistries.PIN_LENGTH.toString())
+        PinHaptics(pin.length, error = error != null)
         // The system digit keyboard brings delete and paste. The field stays one dot wide; the dots show the count.
         BasicTextField(
             value = pin,

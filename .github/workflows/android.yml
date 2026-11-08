@@ -38,7 +38,10 @@ jobs:
       run:
         working-directory: android
     steps:
+      # The build number counts the commits (tools/version.mjs), so the job needs the full history and the tags.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       # The bipe-shared branch of the same name when it exists, else main (bipe-shared AGENTS.md): a change that
       # adds vectors in bipe-shared and their tests here is green before bipe-shared merges.
       - name: bipe-shared branch
@@ -65,8 +68,10 @@ jobs:
         env:
           BIPE_SHARED: ${{ github.workspace }}/bipe-shared
         run: ./gradlew --no-daemon :libraries:bipe:testDebugUnitTest
+      # The version name, build number and commit, as the tester build has them, so the debug APK of a PR shows
+      # its build on the welcome cover and in Settings instead of the placeholder 0.1.0 (1).
       - name: Build debug and release (play and foss)
-        run: ./gradlew --no-daemon assembleDebug assembleRelease
+        run: ./gradlew --no-daemon assembleDebug assembleRelease $(node ../tools/version.mjs --gradle)
       # The store ID set (bipe-chat/bipe#602): the fork's application ID (ADR 0061), never uploaded before the switch.
       - name: Build release with the store ID set
         run: ./gradlew --no-daemon assemblePlayRelease -PbipeIdSet=store
