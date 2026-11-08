@@ -532,7 +532,7 @@ function validate(reg, phosphor) {
   // gov.br verification (bipe-chat/bipe#544): only the gov.br app's own store pages, and the contract's file limits.
   const gb = reg.govbr;
   if (gb.version !== 1) fail("govbr: version must be 1");
-  if (gb.fileName !== "bipe-verificacao.pdf") fail("govbr: fileName must be the GovbrChallenge fileName bipe-verificacao.pdf");
+  if (gb.fileName !== "bipe_verificacao.pdf") fail("govbr: fileName must be the fallback bipe_verificacao.pdf (bipe-chat/bipe#998)");
   if (!Number.isInteger(gb.maxDocumentBytes) || gb.maxDocumentBytes <= 0 || gb.maxDocumentBytes > 5242880) fail("govbr: maxDocumentBytes must be an integer from 1 to 5242880 (contract maxLength)");
   if (!/^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/.test(gb.androidPackage ?? "")) fail("govbr: androidPackage must be an Android package name");
   if (!/^https:\/\/apps\.apple\.com\/br\/app\/[a-z0-9-]+\/id\d+$/.test(gb.iosStoreUrl ?? "")) fail("govbr: iosStoreUrl must be an apps.apple.com/br app page");
@@ -708,6 +708,7 @@ function validate(reg, phosphor) {
   for (const k of ["pinMaxWrongTries", "pinDateYearMin", "pinDateYearMax", "guardianApprovalsMax", "recoveryLinkMinutes", "emailVerifyLinkHours", "recoveryClaimDays", "maxPersonalAccounts", "workAccountMaxPeople", "workAccountSeatWindowMinutes", "webLinkCooldownSeconds", "deletionCooldownHours", "deletionVerificationKeepDays", "approvalNudgeAgainSeconds", "approvalNudgeMaxPerHour"]) {
     if (!(Number.isInteger(ac[k]) && ac[k] > 0)) fail(`accounts: ${k}`);
   }
+  if (typeof ac.memberLocalpartPrefix !== "string" || !/^[a-z][a-z0-9._=/-]*$/.test(ac.memberLocalpartPrefix) || /^[a-z2-7]+$/.test(ac.memberLocalpartPrefix)) fail("accounts: memberLocalpartPrefix must be lowercase localpart characters with one outside base32");
   const rr = ac.recoveryReminder;
   if (!(rr && Number.isInteger(rr.firstAfterDays) && rr.firstAfterDays >= 0)) fail("accounts: recoveryReminder.firstAfterDays");
   // The card never stops for good while the account has no factor (bipe#531): at least one snooze, every one positive.

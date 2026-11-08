@@ -51,6 +51,13 @@ class BipeGovbrFlow(private val api: BipeApiClient, private val accessToken: sus
 
     private var verificationId: String? = null
 
+    /**
+     * GovbrChallenge.fileName of the newest challenge (bipe_<handle>_<code>.pdf, bipe-chat/bipe#998). It stays after a
+     * rejection, so the wrong_document reason can name the file to use. The registry fallback before any challenge.
+     */
+    var lastFileName: String = chat.bipe.shared.generated.BipeRegistries.GOVBR_FILE_NAME
+        private set
+
     /** Gets a new challenge. Also the "Tentar de novo" action: a new challenge is always valid. */
     suspend fun start() {
         _phase.value = Phase.Preparing
@@ -60,6 +67,7 @@ class BipeGovbrFlow(private val api: BipeApiClient, private val accessToken: sus
             val challenge = BipeApiClient.withTokenRetry(accessToken) { api.startGovbrVerification(it) }
             val pdf = java.util.Base64.getDecoder().decode(challenge.pdf)
             verificationId = challenge.verificationId
+            lastFileName = challenge.fileName
             Phase.WaitingForSignature(pdf, challenge.fileName)
         } catch (_: BipeApiException) {
             Phase.Failed

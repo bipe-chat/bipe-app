@@ -930,6 +930,8 @@ object BipeRegistries {
     const val WORK_REPLY_BY_FIELD = "chat.bipe.reply_by"
     const val WORK_REPLY_BY_BODY = "Resposta enviada"
     const val WORK_NOTE_BODY_MAX_LENGTH = 4000
+    /** Localpart prefix of a member identity (bipe ADR 0284 point 1, registries/accounts.json). */
+    const val MEMBER_LOCALPART_PREFIX = "m_"
 
     /** Assistant sends (bipe ADR 0210, bipe-chat/bipe#439; registries/mcp-tools.json personalSend). Rules: test-vectors/assistant-send.json. */
     const val ASSISTANT_SEND_ACCOUNT_DATA_TYPE = "chat.bipe.assistant_send"
@@ -1118,7 +1120,7 @@ object BipeRegistries {
     const val MAPS_LIVE_MAX_INTERVAL_SECONDS = 120
 
     /** Verificar com gov.br (bipe-chat/bipe#544; registries/govbr.json). Rules: BipeGovbrFlow, test-vectors/govbr-verify.json. */
-    const val GOVBR_FILE_NAME = "bipe-verificacao.pdf"
+    const val GOVBR_FILE_NAME = "bipe_verificacao.pdf"
     const val GOVBR_MAX_DOCUMENT_BYTES = 5242880
     const val GOVBR_ANDROID_PACKAGE = "br.gov.meugovbr"
     const val GOVBR_ANDROID_STORE_URL = "https://play.google.com/store/apps/details?id=br.gov.meugovbr"
