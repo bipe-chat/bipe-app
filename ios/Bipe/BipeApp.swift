@@ -37,7 +37,11 @@ struct BipeApp: App {
                 .preferredColorScheme(Appearance(rawValue: appearance)?.colorScheme)
         }
         .onChange(of: scenePhase, initial: true) { _, phase in
-            if phase == .active { SignedLists.shared.appBecameActive() }
+            if phase == .active {
+                SignedLists.shared.appBecameActive()
+                // Settings that follow the account (ADR 0273): another device's change shows when the phone comes to the front.
+                SyncedSettings.refresh()
+            }
         }
     }
 }
