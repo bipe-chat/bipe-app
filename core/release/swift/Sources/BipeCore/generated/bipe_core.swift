@@ -859,6 +859,126 @@ public func FfiConverterTypeBoundSenderBadge_lower(_ value: BoundSenderBadge) ->
 }
 
 
+public struct CvmLine: Equatable, Hashable {
+    public var key: CvmLineKey
+    /**
+     * A category, or a date as DD/MM/AAAA.
+     */
+    public var arg: String?
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(key: CvmLineKey, 
+        /**
+         * A category, or a date as DD/MM/AAAA.
+         */arg: String?) {
+        self.key = key
+        self.arg = arg
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension CvmLine: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeCvmLine: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> CvmLine {
+        return
+            try CvmLine(
+                key: FfiConverterTypeCvmLineKey.read(from: &buf), 
+                arg: FfiConverterOptionString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: CvmLine, into buf: inout [UInt8]) {
+        FfiConverterTypeCvmLineKey.write(value.key, into: &buf)
+        FfiConverterOptionString.write(value.arg, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeCvmLine_lift(_ buf: RustBuffer) throws -> CvmLine {
+    return try FfiConverterTypeCvmLine.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeCvmLine_lower(_ value: CvmLine) -> RustBuffer {
+    return FfiConverterTypeCvmLine.lower(value)
+}
+
+
+public struct CvmLines: Equatable, Hashable {
+    public var lines: [CvmLine]
+    /**
+     * A stop order: the line is red and chats from the account show bipe_cvm_stop_order_card.
+     */
+    public var danger: Bool
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(lines: [CvmLine], 
+        /**
+         * A stop order: the line is red and chats from the account show bipe_cvm_stop_order_card.
+         */danger: Bool) {
+        self.lines = lines
+        self.danger = danger
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension CvmLines: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeCvmLines: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> CvmLines {
+        return
+            try CvmLines(
+                lines: FfiConverterSequenceTypeCvmLine.read(from: &buf), 
+                danger: FfiConverterBool.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: CvmLines, into buf: inout [UInt8]) {
+        FfiConverterSequenceTypeCvmLine.write(value.lines, into: &buf)
+        FfiConverterBool.write(value.danger, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeCvmLines_lift(_ buf: RustBuffer) throws -> CvmLines {
+    return try FfiConverterTypeCvmLines.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeCvmLines_lower(_ value: CvmLines) -> RustBuffer {
+    return FfiConverterTypeCvmLines.lower(value)
+}
+
+
 /**
  * A badge that passed every step, with the issuer the app names in the profile and the seal sheet.
  */
@@ -2596,6 +2716,112 @@ public func FfiConverterTypeBoundBadgeResult_lower(_ value: BoundBadgeResult) ->
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * The string key of a line. The app shows the bipe-shared string of that key.
+ */
+
+public enum CvmLineKey: Equatable, Hashable {
+    
+    /**
+     * bipe_cvm_registered, with a category.
+     */
+    case registered
+    /**
+     * bipe_cvm_cancelled, with a date.
+     */
+    case cancelled
+    /**
+     * bipe_cvm_no_registration.
+     */
+    case noRegistration
+    /**
+     * bipe_cvm_bank_note.
+     */
+    case bankNote
+    /**
+     * bipe_cvm_stop_order, with a date.
+     */
+    case stopOrder
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension CvmLineKey: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeCvmLineKey: FfiConverterRustBuffer {
+    typealias SwiftType = CvmLineKey
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> CvmLineKey {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .registered
+        
+        case 2: return .cancelled
+        
+        case 3: return .noRegistration
+        
+        case 4: return .bankNote
+        
+        case 5: return .stopOrder
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: CvmLineKey, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .registered:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .cancelled:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .noRegistration:
+            writeInt(&buf, Int32(3))
+        
+        
+        case .bankNote:
+            writeInt(&buf, Int32(4))
+        
+        
+        case .stopOrder:
+            writeInt(&buf, Int32(5))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeCvmLineKey_lift(_ buf: RustBuffer) throws -> CvmLineKey {
+    return try FfiConverterTypeCvmLineKey.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeCvmLineKey_lower(_ value: CvmLineKey) -> RustBuffer {
+    return FfiConverterTypeCvmLineKey.lower(value)
+}
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 
 public enum IssuedBadgeResult: Equatable, Hashable {
     
@@ -3846,6 +4072,31 @@ fileprivate struct FfiConverterSequenceString: FfiConverterRustBuffer {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterSequenceTypeCvmLine: FfiConverterRustBuffer {
+    typealias SwiftType = [CvmLine]
+
+    public static func write(_ value: [CvmLine], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeCvmLine.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [CvmLine] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [CvmLine]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypeCvmLine.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterSequenceTypeListKey: FfiConverterRustBuffer {
     typealias SwiftType = [ListKey]
 
@@ -4073,6 +4324,16 @@ public func verifyPublicIssuerStatement(envelopeJson: String, homeserver: String
         FfiConverterString.lower(homeserver),
         FfiConverterSequenceTypeTrustedKey.lower(trustedKeys),
         FfiConverterInt64.lower(nowSeconds),$0
+    )
+})
+}
+/**
+ * The lines of the `cvm` field, given as JSON text. None, or text that is not a JSON object, shows nothing.
+ */
+public func cvmLines(fieldJson: String?) -> CvmLines  {
+    return try!  FfiConverterTypeCvmLines_lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_cvm_lines(
+        FfiConverterOptionString.lower(fieldJson),$0
     )
 })
 }
@@ -4384,6 +4645,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_bipe_core_checksum_func_verify_public_issuer_statement() != 24673) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_bipe_core_checksum_func_cvm_lines() != 47403) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_bipe_core_checksum_func_badge_class() != 56843) {
