@@ -62,7 +62,7 @@ final class MacVideoTests: XCTestCase {
     }
 
     private func content(caption: String? = nil) throws -> VideoMessageContent {
-        VideoMessageContent(filename: "urgent.mov", caption: caption,
+        VideoMessageContent(filename: "urgente.mov", caption: caption,
             formattedCaption: FormattedBody(format: .html, body: "<a href='https://example.invalid/payment'>Read this</a>"),
             source: try MediaSource.fromUrl(url: "mxc://example.invalid/video"),
             info: VideoInfo(duration: 65, height: 900, width: 1600, mimetype: "video/quicktime", size: 42,
@@ -129,8 +129,8 @@ final class MacVideoTests: XCTestCase {
         let video = try content(caption: "Read this")
         let payload = MacMessagePayload(type: .video(content: video), fallback: "video", eventJson: nil)
         XCTAssertEqual(payload.body, "Read this")
-        XCTAssertEqual(payload.video?.content.filename, "urgent.mov")
-        XCTAssertTrue(payload.safetyText.contains("urgent.mov"))
+        XCTAssertEqual(payload.video?.content.filename, "urgente.mov")
+        XCTAssertTrue(payload.safetyText.contains("urgente.mov"))
         XCTAssertTrue(payload.safetyText.contains("https://example.invalid/payment"))
         XCTAssertNotNil(payload.warning(including: nil, isOwn: false, eventID: "$video"))
         XCTAssertNil(MacMessagePayload(kind: .redacted, eventJson: nil)?.video)
