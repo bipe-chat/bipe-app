@@ -2,45 +2,28 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
-import BipeCore
 import CryptoKit
 import Foundation
 
-/// Verifies signed badge envelopes (bipe-shared/docs/badge-attestation.md, v1) through bipe-core (ADR 0267).
-/// ``bipeTrusted()`` checks against the current signed issuer registry (bipe-core `verifyIssuedBadge`, every step of
-/// the verification order, bipe-chat/bipe#637). A verifier with a flat key list (tests, test-vectors/badges.json) uses
-/// `verifyBoundSenderBadge`, which knows one issuer. Either way the app then reads the payload it shows.
+/// Verifies signed badge envelopes (bipe-shared/docs/badge-attestation.md, v1).
+/// Must match bipe-shared/test-vectors/badges.json.
 public nonisolated struct BadgeVerifier: Sendable {
     public enum KeyError: Error, Equatable {
         case invalidPublicKey(kid: String)
     }
-
-    private enum Trust: Sendable {
-        case keys([String: Data])
-        case registry(String)
-    }
-
-    private let trust: Trust
-
+    
+    private let trustedKeys: [String: Data]
+    
     /// - Parameter trustedKeys: `kid` to raw 32-byte Ed25519 public key. Release builds must not include `test-only-*` keys.
     public init(trustedKeys: [String: Data]) throws(KeyError) {
         for (kid, key) in trustedKeys where (try? Curve25519.Signing.PublicKey(rawRepresentation: key)) == nil {
             throw .invalidPublicKey(kid: kid)
         }
-        trust = .keys(trustedKeys)
+        self.trustedKeys = trustedKeys
     }
-
-    /// - Parameter issuerRegistryJSON: the payload JSON of a valid issuer registry (`VerifiedList.payloadJson`).
-    public init(issuerRegistryJSON: String) {
-        trust = .registry(issuerRegistryJSON)
-    }
-
-    /// The release trust: the newest valid issuer registry, bundled or fetched (``SignedLists``, bipe-chat/bipe#637).
-    /// An app build always bundles one; the flat keys of `registries/badge-keys.json` (ADR 0123) are the last fallback.
+    
+    /// The release trust list from bipe-shared `registries/badge-keys.json` (ADR 0123).
     public static func bipeTrusted() throws(KeyError) -> BadgeVerifier {
-        if let registry = SignedLists.shared.current(.issuers)?.payloadJson {
-            return BadgeVerifier(issuerRegistryJSON: registry)
-        }
         var keys: [String: Data] = [:]
         for (kid, key) in BipeRegistries.badgeKeys {
             guard let raw = Data(base64URLEncoded: key) else { throw .invalidPublicKey(kid: kid) }
@@ -48,47 +31,59 @@ public nonisolated struct BadgeVerifier: Sendable {
         }
         return try BadgeVerifier(trustedKeys: keys)
     }
-
-    /// Verifies envelope JSON and returns the first failure of the verification order.
+    
+    /// Decodes and verifies envelope JSON. Undecodable JSON is `malformed`.
     /// - Parameter senderMasterKey: the sender's cross-signing master key from the SDK (`UserIdentity.masterKey()`), nil when unknown.
     public func verify(envelopeJSON: Data, sender: String, senderMasterKey: String?, now: Date = .now) -> BadgeVerificationResult {
-        guard let text = String(data: envelopeJSON, encoding: .utf8) else { return .invalid(.malformed) }
-        let nowSeconds = Int64(now.timeIntervalSince1970.rounded(.down))
-        switch trust {
-        case .keys(let keys):
-            let trusted = keys.map { TrustedKey(kid: $0.key, publicKey: $0.value) }
-            switch verifyBoundSenderBadge(envelopeJson: text, sender: sender, senderMasterKey: senderMasterKey, trustedKeys: trusted, nowSeconds: nowSeconds) {
-            case .valid: return Self.shown(envelopeJSON, issuerName: nil)
-            case .invalid(let failure): return .invalid(Self.failure(badgeFailureCode(failure: failure)))
-            }
-        case .registry(let registry):
-            switch verifyIssuedBadge(envelopeJson: text, sender: sender, senderMasterKey: senderMasterKey, issuerRegistryJson: registry,
-                                     lifeDays: UInt32(BipeRegistries.badgeLifeDays), nowSeconds: nowSeconds) {
-            case .valid(let badge): return Self.shown(envelopeJSON, issuerName: badge.issuerName)
-            case .invalid(let failure): return .invalid(Self.failure(badgeFailureCode(failure: failure)))
-            }
-        }
-    }
-
-    /// The envelope as the server sends it. Its `payload` and `sig` are the exact base64url text, so re-encoding is safe.
-    public func verify(_ envelope: BadgeEnvelope, sender: String, senderMasterKey: String?, now: Date = .now) -> BadgeVerificationResult {
-        guard let json = try? JSONEncoder().encode(envelope) else { return .invalid(.malformed) }
-        return verify(envelopeJSON: json, sender: sender, senderMasterKey: senderMasterKey, now: now)
-    }
-
-    private static func failure(_ code: String) -> BadgeVerificationFailure {
-        BadgeVerificationFailure(rawValue: code) ?? .malformed
-    }
-
-    /// The payload of an envelope that bipe-core accepted, as the app shows it. A level the app cannot show yet
-    /// (`person`, `org`, ADR 0272) is no seal: `malformed`, fail closed.
-    private static func shown(_ envelopeJSON: Data, issuerName: String?) -> BadgeVerificationResult {
-        guard let envelope = try? JSONDecoder().decode(BadgeEnvelope.self, from: envelopeJSON),
-              let bytes = Data(base64URLEncoded: envelope.payload),
-              var payload = try? JSONDecoder().decode(BadgePayload.self, from: bytes) else {
+        // Check `v` before the full shape: a future version may have other fields.
+        guard let probe = try? JSONDecoder().decode(VersionProbe.self, from: envelopeJSON) else {
             return .invalid(.malformed)
         }
-        payload.issuerName = issuerName
+        guard probe.v == BadgeEnvelope.supportedVersion else {
+            return .invalid(.unsupportedVersion)
+        }
+        guard let envelope = try? JSONDecoder().decode(BadgeEnvelope.self, from: envelopeJSON) else {
+            return .invalid(.malformed)
+        }
+        return verify(envelope, sender: sender, senderMasterKey: senderMasterKey, now: now)
+    }
+    
+    /// Runs the documented checks in order and returns the first failure.
+    public func verify(_ envelope: BadgeEnvelope, sender: String, senderMasterKey: String?, now: Date = .now) -> BadgeVerificationResult {
+        guard envelope.v == BadgeEnvelope.supportedVersion else {
+            return .invalid(.unsupportedVersion)
+        }
+        guard let keyData = trustedKeys[envelope.kid],
+              let publicKey = try? Curve25519.Signing.PublicKey(rawRepresentation: keyData) else {
+            return .invalid(.unknownKID)
+        }
+        // Undecodable base64url is not a signature over any payload bytes, so it fails closed as malformed.
+        guard let payloadBytes = Data(base64URLEncoded: envelope.payload),
+              let signature = Data(base64URLEncoded: envelope.sig) else {
+            return .invalid(.malformed)
+        }
+        // Verify the exact bytes. Never re-serialise the JSON before this check.
+        guard publicKey.isValidSignature(signature, for: payloadBytes) else {
+            return .invalid(.invalidSignature)
+        }
+        guard let payload = try? JSONDecoder().decode(BadgePayload.self, from: payloadBytes) else {
+            return .invalid(.malformed)
+        }
+        
+        let nowSeconds = now.timeIntervalSince1970
+        if nowSeconds >= Double(payload.exp) {
+            return .invalid(.expired)
+        }
+        if nowSeconds < Double(payload.iat) {
+            return .invalid(.notYetValid)
+        }
+        guard payload.sub == sender else {
+            return .invalid(.subjectMismatch)
+        }
+        // Every badge binds to the account (ADR 0239), so any of its cross-signed devices may send. No known master key fails closed.
+        guard let senderMasterKey, payload.msk == senderMasterKey else {
+            return .invalid(.masterKeyMismatch)
+        }
         return .valid(payload)
     }
 }
@@ -169,13 +164,9 @@ public nonisolated struct BadgePayload: Sendable, Equatable, Decodable {
     public let iat: Int64
     /// Expires at, Unix seconds.
     public let exp: Int64
-    /// The issuer ID (`iss`). Absent means `bipe` (docs/badge-attestation.md "Issuer").
-    public let issuer: String
-    /// The issuer `name` from the signed issuer registry; nil when a flat key list checked the badge.
-    public internal(set) var issuerName: String?
     
     private enum CodingKeys: String, CodingKey {
-        case sub, lvl, name, cnpj, dev, msk, iat, exp, iss
+        case sub, lvl, name, cnpj, dev, msk, iat, exp
         case legalName = "legal_name"
         case tradeName = "trade_name"
         case method
@@ -197,8 +188,6 @@ public nonisolated struct BadgePayload: Sendable, Equatable, Decodable {
         guard (0...253_402_300_799).contains(iat), (0...253_402_300_799).contains(exp) else {
             throw DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: "time out of range"))
         }
-        issuer = try container.decodeIfPresent(String.self, forKey: .iss) ?? "bipe"
-        issuerName = nil
         msk = try container.decode(String.self, forKey: .msk)
         guard !msk.isEmpty else {
             throw DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: "empty msk"))
@@ -261,18 +250,13 @@ public nonisolated enum BadgeVerificationFailure: String, Sendable, Equatable, E
     case notYetValid = "not_yet_valid"
     case subjectMismatch = "subject_mismatch"
     case masterKeyMismatch = "master_key_mismatch"
-    // Steps 2, 6 to 9 and 12: only a check against the issuer registry gives these (bipe-chat/bipe#637).
-    case unknownIssuer = "unknown_issuer"
-    case issuerMismatch = "issuer_mismatch"
-    case levelNotAllowed = "level_not_allowed"
-    case unknownScheme = "unknown_scheme"
-    case schemeNotAllowed = "scheme_not_allowed"
-    case schemeMismatch = "scheme_mismatch"
-    case lifeTooLong = "life_too_long"
-    case regionMismatch = "region_mismatch"
 }
 
 // MARK: - Private
+
+private nonisolated struct VersionProbe: Decodable {
+    let v: Int
+}
 
 nonisolated extension Data {
     /// Strict base64url without padding (RFC 4648 section 5). Rejects padding and the standard alphabet.

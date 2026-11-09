@@ -440,40 +440,6 @@ struct SharedVectorTests {
         }
     }
     
-    /// test-vectors/badge-issuers.json through the release path: bipe-core against an issuer registry (bipe-chat/bipe#637).
-    /// The app shows no `person` or `org` seal yet (ADR 0272), so a valid badge of those levels is no seal here: `malformed`.
-    @Test
-    func badgeIssuers() throws {
-        let file = try SharedVectors.object("badge-issuers.json")
-        let now = try Date(timeIntervalSince1970: #require(file["now"] as? Double))
-        let registry = try JSONSerialization.data(withJSONObject: [
-            "issuers": #require(file["trustedIssuers"]), "schemes": #require(file["schemes"]), "regions": #require(file["regions"]),
-        ])
-        let verifier = try BadgeVerifier(issuerRegistryJSON: #require(String(data: registry, encoding: .utf8)))
-        let vectors = try #require(file["vectors"] as? [[String: Any]])
-        #expect(!vectors.isEmpty)
-        for vector in vectors {
-            let name = try #require(vector["name"] as? String)
-            let envelopeObject = try #require(vector["envelope"] as? [String: Any])
-            let payload = try #require(Data(base64URL: #require(envelopeObject["payload"] as? String)))
-            let level = try (JSONSerialization.jsonObject(with: payload) as? [String: Any])?["lvl"] as? String
-            let expect = try #require(vector["expect"] as? String)
-            let expected = expect == "valid" && (level == "person" || level == "org") ? "malformed" : expect
-            let result = try verifier.verify(envelopeJSON: JSONSerialization.data(withJSONObject: envelopeObject),
-                                             sender: #require(vector["sender"] as? String),
-                                             senderMasterKey: vector["senderMasterKey"] as? String,
-                                             now: now)
-            let outcome = switch result {
-            case .valid: "valid"
-            case .invalid(let failure): failure.rawValue
-            }
-            #expect(outcome == expected, "badge issuer \(name)")
-            if name == "other issuer: valid", case .valid(let shown) = result {
-                #expect(shown.issuerName == "Banco Exemplo")
-            }
-        }
-    }
-    
     @Test
     func profileFacts() throws {
         let file = try SharedVectors.object("profile-facts.json")

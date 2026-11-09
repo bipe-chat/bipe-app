@@ -351,34 +351,6 @@ class SharedVectorTest {
         }
     }
 
-    /**
-     * test-vectors/badge-issuers.json through the release path: bipe-core against an issuer registry (bipe-chat/bipe#637).
-     * The app shows no `person` or `org` seal yet (ADR 0272), so a valid badge of those levels is no seal here: `malformed`.
-     */
-    @Test
-    fun badgeIssuers() {
-        val file = load("badge-issuers.json")
-        val nowMillis = file.getValue("now").jsonPrimitive.long * 1000
-        val registry = JsonObject(mapOf("issuers" to file.getValue("trustedIssuers"), "schemes" to file.getValue("schemes"), "regions" to file.getValue("regions"))).toString()
-        val verifier = BadgeVerifier(issuerRegistryJson = registry)
-        val vectors = file.getValue("vectors").jsonArray.map { it.jsonObject }
-        assertWithMessage("badge-issuers vectors").that(vectors).isNotEmpty()
-        for (vector in vectors) {
-            val envelope = vector.getValue("envelope").jsonObject
-            val level = Json.parseToJsonElement(Base64Url.decode(envelope.string("payload")!!)!!.decodeToString()).jsonObject.string("lvl")
-            val expected = vector.string("expect").takeUnless { it == "valid" && (level == "person" || level == "org") } ?: "malformed"
-            val result = verifier.verify(envelope.toString(), vector.string("sender")!!, vector.string("senderMasterKey"), nowMillis)
-            val outcome = when (result) {
-                is BadgeVerificationResult.Valid -> "valid"
-                is BadgeVerificationResult.Invalid -> result.failure.code
-            }
-            assertWithMessage("badge issuer ${vector.string("name")}").that(outcome).isEqualTo(expected)
-            if (vector.string("name") == "other issuer: valid") {
-                assertWithMessage("issuer name").that((result as BadgeVerificationResult.Valid).payload.issuerName).isEqualTo("Banco Exemplo")
-            }
-        }
-    }
-
     @Test
     fun profileFacts() {
         val now = BipeProfileFactLines.parse(load("profile-facts.json").string("now")!!)!!
