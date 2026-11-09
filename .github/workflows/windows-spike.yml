@@ -91,12 +91,14 @@ jobs:
           mkdir -p "$RUNNER_TEMP/windows-spike/natives"
           cp sdk-source/target/x86_64-pc-windows-msvc/release/matrix_sdk_ffi.dll "$RUNNER_TEMP/windows-spike/natives/"
           cp core/target/x86_64-pc-windows-msvc/release/bipe_core.dll "$RUNNER_TEMP/windows-spike/natives/"
-          cargo run --locked --release --manifest-path core/tools/uniffi-bindgen/Cargo.toml -- generate \
-            --library sdk-source/target/x86_64-pc-windows-msvc/release/matrix_sdk_ffi.dll \
-            --config android/desktop-spike/sdk-uniffi.toml --language kotlin --out-dir android/desktop-spike/generated
-          cargo run --locked --release --manifest-path core/tools/uniffi-bindgen/Cargo.toml -- generate \
-            --library core/target/x86_64-pc-windows-msvc/release/bipe_core.dll \
-            --language kotlin --out-dir android/desktop-spike/generated
+          # --library runs `cargo metadata` in the working directory, so each generate runs in its crate's workspace.
+          cargo build --locked --release --manifest-path core/tools/uniffi-bindgen/Cargo.toml
+          bindgen="$PWD/core/tools/uniffi-bindgen/target/release/uniffi-bindgen.exe"
+          out="$PWD/android/desktop-spike/generated"
+          (cd sdk-source && "$bindgen" generate --library target/x86_64-pc-windows-msvc/release/matrix_sdk_ffi.dll \
+            --config ../android/desktop-spike/sdk-uniffi.toml --language kotlin --out-dir "$out")
+          (cd core && "$bindgen" generate --library target/x86_64-pc-windows-msvc/release/bipe_core.dll \
+            --language kotlin --out-dir "$out")
           echo "BIPE_NATIVE_DIR=$(cygpath -m "$RUNNER_TEMP/windows-spike/natives")" >> "$GITHUB_ENV"
       - name: Load both DLLs and test the encrypted store through Kotlin/JVM
         env:
