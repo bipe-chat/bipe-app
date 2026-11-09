@@ -156,7 +156,7 @@ fn get<'a>(fields: &'a [(String, String)], id: &str) -> Option<&'a str> {
 }
 
 /// JavaScript `trim()`: White_Space and U+FEFF.
-fn js_trim(text: &str) -> &str {
+pub(crate) fn js_trim(text: &str) -> &str {
     text.trim_matches(|c: char| c.is_whitespace() || c == '\u{FEFF}')
 }
 
