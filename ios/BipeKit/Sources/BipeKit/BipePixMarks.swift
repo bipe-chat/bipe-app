@@ -2,11 +2,13 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
+import BipeCore
 import Foundation
 
 /// Pix request marks (ADR 0046, bipe-chat/bipe#130; registries/pix-marks.json): the payer marks "enviei", the requester
 /// marks "recebi" or "não recebi". Bipe moves no money (ADR 0012); a line is paid only after "recebi". Matches
-/// pixMarkLines and pixTxid in bipe-shared tools/lib/pix.mjs and test-vectors/pix-marks.json.
+/// pixMarkLines and pixTxid in bipe-shared tools/lib/pix.mjs and test-vectors/pix-marks.json. The rules run in
+/// bipe-core (`pixMarkLines`, ADR 0267).
 public enum BipePixMarks {
     public enum State: String, Sendable {
         case issued
@@ -71,85 +73,68 @@ public enum BipePixMarks {
 
     /// The lines of a request card from its mark events. Marks that break a rule are rejected and change nothing.
     public static func lines(card: Card, events: [Event]) -> Result {
-        var lines = card.payers.map { Line(payer: $0) }
-        var rejected: [String] = []
-        let ordered = events.sorted { $0.ts != $1.ts ? $0.ts < $1.ts : $0.eventId.utf16.lexicographicallyPrecedes($1.eventId.utf16) }
-        for event in ordered {
-            guard let hit = accepted(card: card, event: event, lines: lines) else {
-                rejected.append(event.eventId)
-                continue
-            }
-            let (index, mark, e2eId) = hit
-            lines[index].state = State(rawValue: mark.rawValue) ?? .issued
-            if mark == .sent { lines[index].e2eId = e2eId }
-            lines[index].history.append(HistoryEntry(eventId: event.eventId, mark: mark))
+        let result = pixMarkLines(
+            card: PixMarkCard(eventId: card.eventId, requester: card.requester, payers: card.payers),
+            events: events.map { PixMarkEvent(eventId: $0.eventId, sender: $0.sender, ts: $0.ts, contentJson: json($0.content)) }
+        )
+        let lines = result.lines.map { line in
+            Line(payer: line.payer, state: State(line.state), e2eId: line.e2eId,
+                 history: line.history.map { HistoryEntry(eventId: $0.eventId, mark: Mark($0.mark)) })
         }
-        return Result(lines: lines, rejected: rejected)
+        return Result(lines: lines, rejected: result.rejected)
     }
 
     /// The content of a mark event, ready for Room.sendRaw with eventType BipeRegistries.pixMarkEventType.
     /// nil when the E2E ID is given and malformed, or given on another mark than sent.
     public static func content(cardEventId: String, mark: Mark, payer: String?, e2eId: String?) -> [String: Any]? {
-        if let e2eId, mark != .sent || !isValidE2eId(e2eId) { return nil }
-        var content: [String: Any] = [
-            "m.relates_to": ["rel_type": BipeRegistries.pixMarkRelType, "event_id": cardEventId],
-            "mark": mark.rawValue,
-        ]
-        if let payer { content["payer"] = payer }
-        if let e2eId { content["e2e_id"] = e2eId }
-        return content
+        guard let text = pixMarkContent(cardEventId: cardEventId, mark: mark.core, payer: payer, e2eId: e2eId),
+              let data = text.data(using: .utf8) else { return nil }
+        return (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
     }
 
     /// The format of a Pix end-to-end ID: E, the 8-digit ISPB, 23 letters or digits (BipeRegistries.pixE2eIdPattern).
     public static func isValidE2eId(_ id: String) -> Bool {
-        let scalars = Array(id.unicodeScalars)
-        guard scalars.count == 32, scalars[0] == "E" else { return false }
-        let digits = scalars[1...8].allSatisfy { ("0"..."9").contains($0) }
-        let rest = scalars[9...].allSatisfy(isAsciiAlphanumeric)
-        return digits && rest
+        pixE2eIdValid(id: id)
     }
 
     /// The BR Code txid of a card: the request ID with ASCII letters and digits only, at most pixTxidMaxLength.
     public static func txid(requestId: String) -> String {
-        var txid = ""
-        txid.unicodeScalars.append(contentsOf: requestId.unicodeScalars.filter(isAsciiAlphanumeric).prefix(BipeRegistries.pixTxidMaxLength))
-        return txid
+        pixTxid(requestId: requestId)
     }
 
-    private static func isAsciiAlphanumeric(_ scalar: Unicode.Scalar) -> Bool {
-        ("0"..."9").contains(scalar) || ("a"..."z").contains(scalar) || ("A"..."Z").contains(scalar)
+    /// Content that is not a JSON object is "null": the core rejects that mark.
+    private static func json(_ content: Any?) -> String {
+        guard let content, JSONSerialization.isValidJSONObject(content),
+              let data = try? JSONSerialization.data(withJSONObject: content) else { return "null" }
+        return String(decoding: data, as: UTF8.self)
+    }
+}
+
+extension BipePixMarks.State {
+    init(_ state: PixMarkState) {
+        switch state {
+        case .issued: self = .issued
+        case .sent: self = .sent
+        case .received: self = .received
+        case .notReceived: self = .notReceived
+        }
+    }
+}
+
+extension BipePixMarks.Mark {
+    init(_ mark: PixMark) {
+        switch mark {
+        case .sent: self = .sent
+        case .received: self = .received
+        case .notReceived: self = .notReceived
+        }
     }
 
-    private static let allowedFrom: [Mark: Set<State>] = [
-        .sent: [.issued, .sent, .notReceived],
-        .received: [.issued, .sent, .notReceived],
-        .notReceived: [.sent, .received],
-    ]
-
-    private static func accepted(card: Card, event: Event, lines: [Line]) -> (Int, Mark, String?)? {
-        guard let content = event.content as? [String: Any],
-              let relation = content["m.relates_to"] as? [String: Any],
-              relation["rel_type"] as? String == BipeRegistries.pixMarkRelType,
-              relation["event_id"] as? String == card.eventId,
-              let raw = content["mark"] as? String, let mark = Mark(rawValue: raw) else { return nil }
-        let payerField = content["payer"]
-        if payerField != nil, !(payerField is String) { return nil }
-        let namedPayer = payerField as? String
-        var e2eId: String?
-        if let value = content["e2e_id"] {
-            guard mark == .sent, let id = value as? String, isValidE2eId(id) else { return nil }
-            e2eId = id
+    var core: PixMark {
+        switch self {
+        case .sent: .sent
+        case .received: .received
+        case .notReceived: .notReceived
         }
-        let payer: String?
-        if mark == .sent {
-            if let namedPayer, namedPayer != event.sender { return nil }
-            payer = event.sender
-        } else {
-            guard event.sender == card.requester else { return nil }
-            payer = namedPayer ?? (lines.count == 1 ? lines[0].payer : nil)
-        }
-        guard let index = lines.firstIndex(where: { $0.payer == payer }),
-              allowedFrom[mark]?.contains(lines[index].state) == true else { return nil }
-        return (index, mark, e2eId)
     }
 }
