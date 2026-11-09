@@ -25,8 +25,10 @@ extension AccountSession {
         }
     }
 
-    /// The OAuth client of this phone (MAS dynamic client registration). The device code grant never opens the
-    /// redirect URI; MAS needs one, as the reverse domain of clientUri.
+    /// The OAuth client of this phone: the static client of the iPhone app on Bipe's server (bipe-chat/bipe#914),
+    /// which closes dynamic registration. The other fields are only for a QR code from another server, where the SDK
+    /// registers a client. The device code grant never opens the redirect URI; MAS needs one, as the reverse domain
+    /// of clientUri.
     static var qrLoginOAuthConfiguration: OAuthConfiguration {
         OAuthConfiguration(clientName: "Bipe (\(PhoneModel.identifier))",
                            redirectUri: "chat.bipe:/callback",
@@ -34,7 +36,8 @@ extension AccountSession {
                            logoUri: nil,
                            tosUri: nil,
                            policyUri: nil,
-                           staticRegistrations: [:])
+                           staticRegistrations: [AppConfig.oauthIssuer: AppConfig.oauthClientID,
+                                                 AppConfig.homeserver: AppConfig.oauthClientID])
     }
 
     /// After LoginWithQrCodeHandler.scan finished: saves the session, moves the fresh store to the account's folder

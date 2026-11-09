@@ -107,10 +107,13 @@ async function buildClient(slot: Stores, restored?: Session): Promise<Client> {
     .build();
 }
 
-// The SDK registers a native client (ApplicationType::Native) with MAS, so
-// the values match the phones (AccountSession+QRLogin.swift, QrLogin.kt): a
-// private-use redirect scheme and the public site as client URI. The QR flow
-// uses the device grant and never opens the redirect URI.
+// The static OAuth client of the web app (bipe-chat/bipe#914). MAS closes
+// dynamic registration, so the QR sign-in starts only from a static client.
+// Same ID as bipe-infra ess/bipe-security.yaml. The other fields match the
+// phones (AccountSession+QRLogin.swift, QrLogin.kt) and the SDK uses them only
+// for a server with no static client. The QR flow uses the device grant and
+// never opens the redirect URI.
+const OAUTH_CLIENT_ID = '01M70XQV1WKBZ8S9DASDS73MJG';
 export function oauthConfiguration(): OAuthConfiguration {
   return {
     clientName: 'Bipe Web',
@@ -119,7 +122,10 @@ export function oauthConfiguration(): OAuthConfiguration {
     logoUri: undefined,
     tosUri: undefined,
     policyUri: undefined,
-    staticRegistrations: new Map(),
+    staticRegistrations: new Map([
+      ['https://account.bipe.net.br/', OAUTH_CLIENT_ID],
+      ['https://matrix.bipe.net.br', OAUTH_CLIENT_ID],
+    ]),
   };
 }
 
@@ -215,9 +221,45 @@ export async function forgetSlot(slot: Stores): Promise<void> {
  * then only its records and stores go. The next account becomes current; with none left, the QR code shows.
  */
 export async function signOutAccount(accounts: Accounts, opened: Slot, client: Client): Promise<void> {
+  await client.logout();
+  await dropSlot(accounts, opened);
+  window.location.reload();
+}
+
+/**
+ * Spec soft-logout on the web (bipe-chat/bipe#1338): the server ended this account's session, because another
+ * device removed this browser or the account went. The SDK calls this only for an unknown token, never when
+ * offline, and it refreshes an expired token by itself. The web signs in only by QR, so it cannot sign in again
+ * by itself: a soft logout counts the same. The session is already gone, so there is no logout call. The notice
+ * waits in sessionStorage for the reload that wipes the stores.
+ */
+export async function dropEndedAccount(accounts: Accounts, opened: Slot, notice: string): Promise<void> {
+  await dropSlot(accounts, opened);
+  try {
+    sessionStorage.setItem(NOTICE, notice);
+  } catch {
+    // No sessionStorage: the account still goes, without the notice.
+  }
+  window.location.reload();
+}
+
+/** The notice of an account that dropEndedAccount removed before this load, once. */
+export function takeNotice(): string | undefined {
+  try {
+    const notice = sessionStorage.getItem(NOTICE) ?? undefined;
+    sessionStorage.removeItem(NOTICE);
+    return notice;
+  } catch {
+    return undefined;
+  }
+}
+
+const NOTICE = 'bipe.web.notice';
+
+/** Removes one account from this browser: its member session, records, page keys and (on the next load) stores. */
+async function dropSlot(accounts: Accounts, opened: Slot): Promise<void> {
   // The list has the newest record of the slot, with a member session made after it opened.
   const slot = accounts.list.find((s) => s.id === opened.id) ?? opened;
-  await client.logout();
   if (slot.member) await endMember(slot.member);
   await deleteSecrets(slot.sessionKey, slot.passphraseKey);
   if (slot.userId) {
@@ -227,7 +269,6 @@ export async function signOutAccount(accounts: Accounts, opened: Slot, client: C
   const list = accounts.list.filter((s) => s.id !== slot.id);
   await saveAccounts({ current: list[0]?.userId, list });
   markWipe([slot.storeName]);
-  window.location.reload();
 }
 
 /**

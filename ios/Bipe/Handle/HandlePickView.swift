@@ -5,6 +5,11 @@
 import BipeKit
 import SwiftUI
 
+extension Notification.Name {
+    /// Posted in this process after a saved or removed @. Screens that show the @ reload on it (bipe-chat/bipe#1328).
+    static let bipeHandleChanged = Notification.Name("bipe.handle.changed")
+}
+
 /// Spec handle-pick (bipe-shared product/screens/handle-pick.json).
 @MainActor
 final class HandlePickModel: ObservableObject {
@@ -42,6 +47,15 @@ final class HandlePickModel: ObservableObject {
     @Published private(set) var promptDismissed: Bool
     /// Escolha seu @ (bipe-chat/bipe#200): free handles from the display name, while the account has no @.
     @Published private(set) var suggestions: [String] = []
+    /// Action moveToWork (bipe ADR 0287): the work accounts on this phone with no @, while this account is personal and
+    /// has an @.
+    @Published private(set) var moveTargets: [MoveTarget] = []
+
+    struct MoveTarget: Identifiable, Equatable {
+        let userId: String
+        let name: String
+        var id: String { userId }
+    }
 
     private let api: BipeAPIClient
     private let session: AccountSession
@@ -126,6 +140,7 @@ final class HandlePickModel: ObservableObject {
             status = .unchanged
             phase = .saved
             doneMessage = BipeStrings.handleSaved
+            NotificationCenter.default.post(name: .bipeHandleChanged, object: nil)
         } catch {
             fail(error)
         }
@@ -145,9 +160,61 @@ final class HandlePickModel: ObservableObject {
             status = .empty
             phase = .saved
             doneMessage = BipeStrings.handleRemoveDone
+            NotificationCenter.default.post(name: .bipeHandleChanged, object: nil)
         } catch {
             fail(error)
         }
+    }
+
+    /// The work accounts on this phone that can take this account's @ (bipe ADR 0287 point 12). Empty for a work account.
+    func loadMoveTargets() async {
+        guard currentHandle != nil, (try? await api.accountType(userID: session.userId)) != .company else {
+            moveTargets = []
+            return
+        }
+        var found: [MoveTarget] = []
+        for other in AccountStartModel.shared.sessions where other.userId != session.userId {
+            guard (try? await api.accountType(userID: other.userId)) == .company, let token = other.accessToken(),
+                  let theirs = try? await api.myHandle(accessToken: token), theirs.handle == nil else { continue }
+            let name = ((try? await other.client.displayName()) ?? nil)?.nilIfBlank ?? other.userId
+            found.append(MoveTarget(userId: other.userId, name: name))
+        }
+        moveTargets = found
+    }
+
+    /// Action moveToWork, after the confirm: this account asks for a code, the work account claims it (bipe ADR 0287).
+    func move(to target: MoveTarget) async {
+        guard let handle = currentHandle,
+              let other = AccountStartModel.shared.sessions.first(where: { $0.userId == target.userId }) else { return }
+        phase = .saving
+        do {
+            let code = try await BipeAPIClient.withTokenRetry(accessToken: { self.session.accessToken() }) { (token: String) async throws(BipeAPIError) -> BipeHandleMoveCode in
+                try await self.api.startHandleMove(accessToken: token)
+            }
+            _ = try await BipeAPIClient.withTokenRetry(accessToken: { other.accessToken() }) { (token: String) async throws(BipeAPIError) -> BipeMyHandle in
+                try await self.api.claimHandleMove(code: code.code, accessToken: token)
+            }
+        } catch {
+            phase = .failed
+            self.error = BipeStrings.handleMoveFailed
+            return
+        }
+        currentHandle = nil
+        input = ""
+        status = .empty
+        moveTargets = []
+        doneMessage = await moveDoneMessage(handle: handle, target: target, other: other)
+        phase = .saved
+        NotificationCenter.default.post(name: .bipeHandleChanged, object: nil)
+    }
+
+    /// Point 16: a feed that moved with the @ needs the work account as an admin of its group.
+    private func moveDoneMessage(handle: String, target: MoveTarget, other: AccountSession) async -> String {
+        guard let token = other.accessToken(), let feed = try? await api.myFeed(accessToken: token),
+              let group = (try? session.client.getRoom(roomId: feed.roomId))?.displayName()?.nilIfBlank else {
+            return BipeStrings.handleMoveDone(handle, target.name)
+        }
+        return BipeStrings.handleMoveDone(handle, target.name) + " " + BipeStrings.handleMoveAddAdmin(handle, target.name, group)
     }
 
     /// Action dismissPrompt: hides the card on this phone.
@@ -223,6 +290,7 @@ struct HandlePickView: View {
     @ObservedObject var model: HandlePickModel
     @Environment(\.dismiss) private var dismiss
     @State private var confirmsRemove = false
+    @State private var confirmsMove: HandlePickModel.MoveTarget?
 
     var body: some View {
         NavigationStack {
@@ -292,6 +360,27 @@ struct HandlePickView: View {
                         Button(role: .cancel) { } label: { Text(BipeStrings.appCancel) }
                     }
                 }
+                if let current = model.currentHandle {
+                    ForEach(model.moveTargets) { target in
+                        Button { confirmsMove = target } label: {
+                            VStack(spacing: 2) {
+                                Text(BipeStrings.handleMoveAction)
+                                Text(verbatim: target.name).font(.footnote).foregroundStyle(BipeColor.inkSecondary)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                        }
+                        .disabled(model.phase == .saving)
+                    }
+                    .alert(BipeStrings.handleMoveConfirmTitle(current, confirmsMove?.name ?? ""),
+                           isPresented: Binding(get: { confirmsMove != nil }, set: { if !$0 { confirmsMove = nil } }),
+                           presenting: confirmsMove) { target in
+                        Button(BipeStrings.handleMoveAction) { Task { await model.move(to: target) } }
+                        Button(BipeStrings.appCancel, role: .cancel) {}
+                    } message: { _ in
+                        Text(BipeStrings.handleMoveConfirmBody)
+                    }
+                }
                 Spacer()
             }
             .padding(24)
@@ -307,5 +396,6 @@ struct HandlePickView: View {
         .tint(BipeColor.accentFill)
         .accessibilityIdentifier(BipeScreen.handlePick.rawValue)
         .task { await model.loadSuggestions() }
+        .task(id: model.currentHandle) { await model.loadMoveTargets() }
     }
 }
