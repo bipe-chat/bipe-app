@@ -876,6 +876,9 @@ object BipeRegistries {
         "prod-2026-10" to "9j3_slBroZbxa3B6Tdgcm_U-O_LIdrNFXzDgY8oLwxE",
     )
 
+    /** Badge life from iat to exp, in days (registries/badge-keys.json). A badge from an issuer other than bipe may not live longer (docs/badge-attestation.md step 9). */
+    const val BADGE_LIFE_DAYS = 7
+
     /** Cleared DMs (bipe-chat/bipe#464; registries/cleared-chats.json): the global account data event with the markers. */
     const val CLEARED_CHATS_EVENT_TYPE = "chat.bipe.cleared_chats"
 
