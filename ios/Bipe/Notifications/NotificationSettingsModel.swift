@@ -174,6 +174,12 @@ final class NotificationSettingsModel: ObservableObject {
         }
     }
 
+    /// Action openSystemSettings: the notification settings of this app in the system settings.
+    func openSystemSettings() async {
+        guard let url = URL(string: UIApplication.openNotificationSettingsURLString) else { return }
+        await UIApplication.shared.open(url)
+    }
+
     /// Action setChatsMode: all or off, for one-to-one rooms, encrypted and not.
     func setChatsMode(_ mode: NotificationMode) async {
         let old = chatsMode
