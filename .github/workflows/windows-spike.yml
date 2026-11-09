@@ -1,0 +1,127 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
+# Copyright 2026 Bipe contributors
+
+name: windows-spike
+
+on:
+  pull_request:
+    paths:
+      - "android/desktop-spike/**"
+      - "android/gradle/libs.versions.toml"
+      - "core/**"
+      - "sdk-version"
+      - ".github/workflows/windows-spike.yml"
+  push:
+    branches: [main]
+    paths:
+      - "android/desktop-spike/**"
+      - "android/gradle/libs.versions.toml"
+      - "core/**"
+      - "sdk-version"
+      - ".github/workflows/windows-spike.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-spike-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sdk-jvm:
+    name: windows-sdk-core-x64
+    runs-on: windows-2025
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: bash
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Pin the SDK to the other clients' release
+        id: sdk
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          rev=$(sed -n 's/^matrix-sdk-ffi = .*rev = "\([0-9a-f]*\)".*/\1/p' core/spike/combined/Cargo.toml)
+          test "${#rev}" = 40
+          version=$(tr -d '[:space:]' < sdk-version)
+          gh release view "$version" --repo matrix-org/matrix-rust-components-swift --json body --jq .body | grep -Fq "$rev"
+          echo "rev=$rev" >> "$GITHUB_OUTPUT"
+          echo "BIPE_SDK_REV=$rev" >> "$GITHUB_ENV"
+      - uses: actions/checkout@v4
+        with:
+          repository: matrix-org/matrix-rust-sdk
+          ref: ${{ steps.sdk.outputs.rev }}
+          path: sdk-source
+      - uses: actions/checkout@v4
+        with:
+          repository: bipe-chat/bipe-shared
+          ref: main
+          path: bipe-shared
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.95.0"
+          targets: x86_64-pc-windows-msvc
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            sdk-source
+            core
+            core/tools/uniffi-bindgen
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build the unmodified SDK DLL
+        working-directory: sdk-source
+        run: cargo build --locked --release -p matrix-sdk-ffi --target x86_64-pc-windows-msvc
+      - name: Build core and generate both Kotlin bindings
+        run: |
+          set -euo pipefail
+          cargo build --locked --release --manifest-path core/Cargo.toml -p bipe-core --target x86_64-pc-windows-msvc
+          mkdir -p "$RUNNER_TEMP/windows-spike/natives"
+          cp sdk-source/target/x86_64-pc-windows-msvc/release/matrix_sdk_ffi.dll "$RUNNER_TEMP/windows-spike/natives/"
+          cp core/target/x86_64-pc-windows-msvc/release/bipe_core.dll "$RUNNER_TEMP/windows-spike/natives/"
+          cargo run --locked --release --manifest-path core/tools/uniffi-bindgen/Cargo.toml -- generate \
+            --library sdk-source/target/x86_64-pc-windows-msvc/release/matrix_sdk_ffi.dll \
+            --config android/desktop-spike/sdk-uniffi.toml --language kotlin --out-dir android/desktop-spike/generated
+          cargo run --locked --release --manifest-path core/tools/uniffi-bindgen/Cargo.toml -- generate \
+            --library core/target/x86_64-pc-windows-msvc/release/bipe_core.dll \
+            --language kotlin --out-dir android/desktop-spike/generated
+          echo "BIPE_NATIVE_DIR=$(cygpath -m "$RUNNER_TEMP/windows-spike/natives")" >> "$GITHUB_ENV"
+      - name: Load both DLLs and test the encrypted store through Kotlin/JVM
+        env:
+          BIPE_VECTORS: ${{ github.workspace }}/bipe-shared/test-vectors/badges.json
+        run: |
+          set -euo pipefail
+          android/gradlew -p android/desktop-spike --no-daemon run | tee "$RUNNER_TEMP/windows-spike/jvm.log"
+          grep '^BIPE_WINDOWS_SPIKE ' "$RUNNER_TEMP/windows-spike/jvm.log" > "$RUNNER_TEMP/windows-spike/result.txt"
+          test -s "$RUNNER_TEMP/windows-spike/result.txt"
+      - name: Record source and limits
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/windows-spike"
+          node tools/version.mjs --json > "$RUNNER_TEMP/windows-spike/version.json"
+          git rev-parse HEAD > "$RUNNER_TEMP/windows-spike/app-source.txt"
+          git -C bipe-shared rev-parse HEAD > "$RUNNER_TEMP/windows-spike/shared-source.txt"
+          printf '%s\n' "$BIPE_SDK_REV" > "$RUNNER_TEMP/windows-spike/sdk-source.txt"
+          cp android/desktop-spike/README.md "$RUNNER_TEMP/windows-spike/README.md"
+          {
+            echo '### Windows SDK/core feasibility — x64 only'
+            echo 'CI harness only. No Compose app, phone linking, real-account sync, DPAPI/Credential Manager, installer or Windows on Arm acceptance.'
+            if [ -f "$RUNNER_TEMP/windows-spike/result.txt" ]; then cat "$RUNNER_TEMP/windows-spike/result.txt"; fi
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bipe-windows-sdk-spike-x64
+          path: ${{ runner.temp }}/windows-spike
+          if-no-files-found: error

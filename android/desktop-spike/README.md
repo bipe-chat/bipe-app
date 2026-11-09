@@ -1,0 +1,18 @@
+# Windows SDK/core feasibility
+
+This standalone Kotlin/JVM harness is the first checkpoint of [bipe#1019](https://github.com/bipe-chat/bipe/issues/1019), under ADRs 0238, 0267 and 0288. It uses the Android version catalogue and Gradle wrapper without applying an Android plugin or requiring the Android SDK.
+
+`windows-spike.yml` builds the unmodified Matrix SDK at the commit corresponding to the other clients' `sdk-version`, plus `bipe-core`. UniFFI generates Kotlin bindings for both DLLs. The SDK binding configuration keeps its namespace and library name, with Java cleanup instead of Android cleanup. Existing independent badge vectors run before and after SDK calls in the same JVM.
+
+The native test creates an encrypted SQLite store with a random in-memory key, restores a synthetic session, closes and reopens it, and requires a typed SDK failure with a different key. Temporary files must be released and removed. The session is synthetic; the harness does not sign in or sync with a server. It contains no account credentials and makes no real-client acceptance claim.
+
+Builds run only in GitHub CI. The job `windows-sdk-core-x64` must pass before this checkpoint can merge. Its `bipe-windows-sdk-spike-x64` artifact records source revisions, the shared version/build, native DLLs and test output. It is a diagnostic artifact, not an installable Bipe application. Windows stays planned in the parity ledger.
+
+## Next checkpoints
+
+- Native Windows secure-storage adapter, encrypted-store key lifetime, missing-key refusal and per-account isolation. Never persist the synthetic harness approach in a production client.
+- Compose for Desktop packaging, generated Bipe strings/tokens/registries and the same navigation hierarchy as the other clients.
+- Phone-approved QR linking and encrypted sync/history, with released iOS and Android; same-device restart, phone-offline use, revocation and reconnect.
+- Windows on Arm build/runtime proof, native dependencies, signed installer/update path and real Windows 11 device acceptance.
+
+Mac features are paused at build712. Their open acceptance and parity gaps remain in #1018; the pause does not mark them passed.
