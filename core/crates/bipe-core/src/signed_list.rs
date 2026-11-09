@@ -243,9 +243,9 @@ fn into_result(verdict: Result<VerifiedList, ListFailure>) -> SignedListResult {
     }
 }
 
+/// Exact match, case kept: `server_name` in a list is lower case, so `BIPE.NET.BR` is `unknown`.
 fn lookup(list: &OperatorList, server_name: &str) -> BipeServerStatus {
-    let name = server_name.to_lowercase();
-    match list.operators.iter().find(|o| o.server_name == name).map(|o| o.state) {
+    match list.operators.iter().find(|o| o.server_name == server_name).map(|o| o.state) {
         Some(OperatorState::Valid) => BipeServerStatus::Valid,
         Some(OperatorState::Removed) => BipeServerStatus::Removed,
         None => BipeServerStatus::Unknown,
