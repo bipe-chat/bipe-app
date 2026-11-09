@@ -21,6 +21,11 @@ export const DENIED = [
   'element-call',
   'element-hq/',
   'io.element',
+  // Web packages (bipe-chat/bipe#1127): Element Web's design system and its
+  // former React SDK.
+  'compound-web',
+  '@vector-im/',
+  'matrix-react-sdk',
 ];
 
 // Dependency manifests. A file that does not exist passes.
@@ -31,7 +36,10 @@ export function manifests(root) {
   const android = walk(root, 'android').filter(
     (f) => f.endsWith('.gradle.kts') || f.endsWith('.gradle') || f === 'android/gradle/libs.versions.toml',
   );
-  return [...ios, ...android];
+  // The web client's manifest (bipe-chat/bipe#1127). Its lockfile is not
+  // read: a transitive name there is not a choice this repo made.
+  const web = walk(root, 'web').filter((f) => f === 'web/package.json');
+  return [...ios, ...android, ...web];
 }
 
 export function checkDenyList(root) {
