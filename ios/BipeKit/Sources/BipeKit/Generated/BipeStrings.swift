@@ -2378,6 +2378,8 @@ public enum BipeStrings {
         String(format: NSLocalizedString("bipe_account_company_owner", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
 
+    public static var accountWorkLine: String { NSLocalizedString("bipe_account_work_line", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static func accountNewCompanyOwner(_ p1: String) -> String {
         String(format: NSLocalizedString("bipe_account_new_company_owner", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
@@ -5709,6 +5711,24 @@ public enum BipeStrings {
     public static func feedNotify(_ p1: String) -> String {
         String(format: NSLocalizedString("bipe_feed_notify", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
+
+    public static var handleMoveAction: String { NSLocalizedString("bipe_handle_move_action", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func handleMoveConfirmTitle(_ p1: String, _ p2: String) -> String {
+        String(format: NSLocalizedString("bipe_handle_move_confirm_title", tableName: "Bipe", bundle: .module, comment: ""), p1, p2)
+    }
+
+    public static var handleMoveConfirmBody: String { NSLocalizedString("bipe_handle_move_confirm_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func handleMoveDone(_ p1: String, _ p2: String) -> String {
+        String(format: NSLocalizedString("bipe_handle_move_done", tableName: "Bipe", bundle: .module, comment: ""), p1, p2)
+    }
+
+    public static func handleMoveAddAdmin(_ p1: String, _ p2: String, _ p3: String) -> String {
+        String(format: NSLocalizedString("bipe_handle_move_add_admin", tableName: "Bipe", bundle: .module, comment: ""), p1, p2, p3)
+    }
+
+    public static var handleMoveFailed: String { NSLocalizedString("bipe_handle_move_failed", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var groupsServiceName: String { NSLocalizedString("bipe_groups_service_name", tableName: "Bipe", bundle: .module, comment: "") }
 
