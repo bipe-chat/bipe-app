@@ -24,6 +24,9 @@ android {
     }
 }
 
+// bipe-core, the release that ../../../core/release/release.json names (signed lists, bipe-chat/bipe#645).
+val coreVersion = (groovy.json.JsonSlurper().parse(rootDir.resolve("../core/release/release.json")) as Map<*, *>)["version"] as String
+
 // SharedVectorTest reads bipe-shared/test-vectors. CI checks bipe-shared out and sets BIPE_SHARED.
 tasks.withType<Test>().configureEach {
     System.getenv("BIPE_SHARED")?.let { environment("BIPE_SHARED", it) }
@@ -48,6 +51,14 @@ dependencies {
     api(platform(libs.androidx.compose.bom))
     api(libs.androidx.compose.runtime)
     api(libs.androidx.compose.ui.graphics)
+
+    // The AAR has no POM: JNA comes from the catalog. The app's matrix-rust-sdk brings the same JNA at run time.
+    implementation("chat.bipe.core:bipe-core:$coreVersion@aar")
+    implementation(libs.jna) { artifact { type = "aar" } }
+    // JVM unit tests load the host library: the release jar has linux-x86-64 and win32-x86-64 natives and the same
+    // Kotlin bindings, and the plain JNA jar has the host dispatch library.
+    testImplementation("chat.bipe.core:bipe-core-jvm:$coreVersion@jar")
+    testImplementation(libs.jna)
 
     testImplementation(libs.junit)
     testImplementation(libs.truth)

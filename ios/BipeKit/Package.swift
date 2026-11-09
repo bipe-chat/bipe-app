@@ -19,11 +19,18 @@ let package = Package(
     products: [
         .library(name: "BipeKit", targets: ["BipeKit"]),
     ],
-    dependencies: [.package(url: "https://github.com/scinfu/SwiftSoup", exact: "2.14.3")],
+    dependencies: [
+        .package(url: "https://github.com/scinfu/SwiftSoup", exact: "2.14.3"),
+        // bipe-core from its pinned GitHub release (core/release/README.md, ADR 0267): the signed lists (SignedLists.swift).
+        .package(path: "../../core/release/swift"),
+    ],
     targets: [
         .target(
             name: "BipeKit",
-            dependencies: [.product(name: "SwiftSoup", package: "SwiftSoup")],
+            dependencies: [
+                .product(name: "SwiftSoup", package: "SwiftSoup"),
+                .product(name: "BipeCore", package: "swift"),
+            ],
             path: "Sources/BipeKit",
             // The app icons belong to the Bipe app target (ios/project.yml), not to the package bundle.
             exclude: ["Generated/AppIcons.xcassets"],
@@ -36,7 +43,7 @@ let package = Package(
         // Reads bipe-shared/test-vectors (ADR 0031 rule 4). BIPE_SHARED points at bipe-shared. Run: swift test
         .testTarget(
             name: "BipeKitTests",
-            dependencies: ["BipeKit"],
+            dependencies: ["BipeKit", .product(name: "BipeCore", package: "swift")],
             path: "Tests/BipeKitTests"
         ),
     ]

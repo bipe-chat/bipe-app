@@ -8,6 +8,8 @@
 -keep class com.sun.jna.** { *; }
 -keep class * implements com.sun.jna.** { *; }
 -keep class org.matrix.rustcomponents.sdk.** { *; }
+# bipe-core: the same uniffi bindings over JNA (core/release/README.md, bipe-chat/bipe#645).
+-keep class chat.bipe.core.** { *; }
 -keep class uniffi.** { *; }
 -dontwarn java.awt.**
 

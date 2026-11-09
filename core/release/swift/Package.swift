@@ -8,8 +8,8 @@
 // tools/core-release.test.mjs checks all three. A client adds this package and the product BipeCore.
 import PackageDescription
 
-let version = "0.1.0"
-let checksum = "7b94794c25a33371bc422d6feed6c33aa08c6d41b870a0ec84e8d9601ff30761"
+let version = "0.1.1"
+let checksum = "337e97dd1c09ef3a02ca57ded5834be6f6ade55390fc271193650493b88dc133"
 
 let package = Package(
     name: "BipeCore",

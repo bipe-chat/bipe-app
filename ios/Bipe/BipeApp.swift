@@ -2,6 +2,7 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
+import BipeKit
 import MatrixRustSDK
 import SwiftUI
 
@@ -11,6 +12,8 @@ struct BipeApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     /// Settings chats.appearance (bipe#676).
     @AppStorage(Appearance.key) private var appearance = Appearance.system.rawValue
+    /// The signed lists fetch from the core on each foreground (bipe-chat/bipe#645, docs/signed-lists.md).
+    @Environment(\.scenePhase) private var scenePhase
 
     init() {
         // Before any SDK call (bipe-chat/bipe#1122): SDK warnings, errors and panics. Only developer builds write them,
@@ -32,6 +35,9 @@ struct BipeApp: App {
                 .modifier(AppLockGate())
                 .bipeRoundedType()
                 .preferredColorScheme(Appearance(rawValue: appearance)?.colorScheme)
+        }
+        .onChange(of: scenePhase, initial: true) { _, phase in
+            if phase == .active { SignedLists.shared.appBecameActive() }
         }
     }
 }

@@ -36,6 +36,8 @@ struct BipeMacApp: App {
                 .preferredColorScheme(appearance == "light" ? .light : appearance == "dark" ? .dark : nil)
                 .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
                     SyncedSettings.refresh()
+                    // The signed lists (bipe-chat/bipe#645): fetch from the core when the last fetch is old.
+                    SignedLists.shared.appBecameActive()
                 }
                 .macFont(.body)
                 .tint(BipeColor.accentFill)
