@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.AlertDialog
-import chat.bipe.app.common.BipeButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -42,6 +41,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.FileProvider
 import chat.bipe.app.BipeTheme
+import chat.bipe.app.common.BipeButton
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 import chat.bipe.shared.account.BipePinProblem
@@ -49,6 +49,7 @@ import chat.bipe.shared.api.BipeApiErrorCode
 import chat.bipe.shared.api.BipeApiException
 import chat.bipe.shared.bipeHaptic
 import chat.bipe.shared.generated.BipeHaptic
+import chat.bipe.shared.generated.BipeRegistries
 import chat.bipe.shared.generated.BipeScreen
 import chat.bipe.shared.settings.checkPin
 import chat.bipe.shared.settings.exportMyData
@@ -117,6 +118,8 @@ fun PinChangeScreen(model: SettingsModel, onClose: () -> Unit) {
         PinChangePhase.CONFIRM_IDENTITY -> Surface(Modifier.fillMaxSize().testTag(BipeScreen.PIN_CHANGE.id), color = colors.surfaceBase) {}
         PinChangePhase.PIN_CHECK -> AccountPinCheck(
             title = stringResource(R.string.bipe_pin_change_title),
+            reason = stringResource(R.string.bipe_pin_reason_change, BipeRegistries.PIN_LENGTH.toString()),
+            account = { model.authorized { model.api.account(it) } },
             check = { pin ->
                 model.authorized { model.api.checkPin(pin, it) }
                 oldPin = pin

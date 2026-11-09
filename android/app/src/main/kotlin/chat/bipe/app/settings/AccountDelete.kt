@@ -75,6 +75,7 @@ fun AccountDeleteDialog(model: SettingsModel, onDismiss: () -> Unit) {
     var redactMessages by remember { mutableStateOf(false) }
     var pin by remember { mutableStateOf("") }
     var pinError by remember { mutableStateOf<String?>(null) }
+    var showsForgot by remember { mutableStateOf(false) }
     val ownerReason = stringResource(R.string.bipe_deletion_owner_reason)
     val isLastAccount = remember { AccountList(context).order.size <= 1 }
 
@@ -96,7 +97,13 @@ fun AccountDeleteDialog(model: SettingsModel, onDismiss: () -> Unit) {
                         pinError = error.localizedMessage(context)
                         DeletePhase.EnterPin
                     }
-                    BipeApiErrorCode.PIN_BLOCKED, BipeApiErrorCode.PIN_NOT_SET, BipeApiErrorCode.RATE_LIMITED ->
+                    // The pad stays, so "Esqueci minha senha" shows the ways out (ADR 0283 rules 12 and 14).
+                    BipeApiErrorCode.PIN_BLOCKED -> {
+                        view.bipeHaptic(BipeHaptic.Error)
+                        pinError = error.localizedMessage(context)
+                        DeletePhase.EnterPin
+                    }
+                    BipeApiErrorCode.PIN_NOT_SET, BipeApiErrorCode.RATE_LIMITED ->
                         DeletePhase.Failed(error.localizedMessage(context))
                     BipeApiErrorCode.DELETION_PENDING -> {
                         // Another device asked first: the banner or the alert shows it.
@@ -165,8 +172,10 @@ fun AccountDeleteDialog(model: SettingsModel, onDismiss: () -> Unit) {
                 DeletePhase.EnterPin, DeletePhase.Requesting -> PinPad(
                     title = stringResource(R.string.bipe_deletion_pin_title),
                     pin = pin,
+                    message = stringResource(R.string.bipe_pin_reason_delete, BipeRegistries.PIN_LENGTH.toString()),
                     error = pinError,
                     isBusy = current == DeletePhase.Requesting,
+                    onForgot = { showsForgot = true },
                     onDigit = { digit ->
                         if (current == DeletePhase.EnterPin && pin.length < BipeRegistries.PIN_LENGTH) {
                             if (pin.isEmpty()) pinError = null
@@ -189,6 +198,7 @@ fun AccountDeleteDialog(model: SettingsModel, onDismiss: () -> Unit) {
             }
         }
     }
+    if (showsForgot) PinForgotDialog({ model.authorized { model.api.account(it) } }) { showsForgot = false }
 }
 
 private sealed interface DeletePhase {

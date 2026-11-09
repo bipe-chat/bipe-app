@@ -100,7 +100,9 @@ final class RecoveryKeySaveModel: ObservableObject {
             let session = self.session
             let api = self.api
             let reason = BipeStrings.appRecoveryKeyBiometric
-            let check = await ApprovalCheck.run(reason: reason, pinTitle: reason, prompt: pinPrompt) { (pin: String) async throws(BipeAPIError) in
+            let check = await ApprovalCheck.run(reason: reason, pinTitle: BipeStrings.pinEnterTitle,
+                                                pinReason: BipeStrings.pinReasonRecoveryKey(String(BipeRegistries.pinLength)),
+                                                prompt: pinPrompt, account: session.accountRead(api)) { (pin: String) async throws(BipeAPIError) in
                 try await BipeAPIClient.withTokenRetry(accessToken: { session.accessToken() }) { (token: String) async throws(BipeAPIError) in
                     try await api.checkPIN(pin, accessToken: token)
                 }

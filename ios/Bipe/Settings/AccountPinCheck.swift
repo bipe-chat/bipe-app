@@ -16,14 +16,49 @@ enum ApprovalCheck {
         case noScreenLock
     }
 
+    /// pinReason: the pad's reason line, one of `BipeStrings.pinReason*` (ADR 0283 rule 11).
     @MainActor
-    static func run(reason: String, pinTitle: String, prompt: AccountPinPrompt,
+    static func run(reason: String, pinTitle: String, pinReason: String, prompt: AccountPinPrompt, account: @escaping AccountRead,
                     checkPIN: @escaping @MainActor (String) async throws(BipeAPIError) -> Void) async -> Result {
         guard OwnerCheck.canCheckOwner else { return .noScreenLock }
         if OwnerCheck.biometricKind != .none {
             return await OwnerCheck.biometrics(reason: reason) ? .passed : .failed
         }
-        return await prompt.ask(title: pinTitle, check: checkPIN) ? .passed : .failed
+        return await prompt.ask(title: pinTitle, reason: pinReason, account: account, check: checkPIN) ? .passed : .failed
+    }
+}
+
+/// Reads GET /v1/me/account for the ways out of the Bipe PIN pad (ADR 0283 rule 12).
+typealias AccountRead = @MainActor () async throws(BipeAPIError) -> BipeAccountStatus
+
+extension AccountSession {
+    /// GET /v1/me/account with this account's token, for the forgot sheet of the Bipe PIN pad.
+    @MainActor
+    func accountRead(_ api: BipeAPIClient) -> AccountRead {
+        { () async throws(BipeAPIError) -> BipeAccountStatus in
+            try await BipeAPIClient.withTokenRetry(accessToken: { self.accessToken() }) { (token: String) async throws(BipeAPIError) in
+                try await api.account(accessToken: token)
+            }
+        }
+    }
+}
+
+/// The ways out of a forgotten Bipe PIN that an account has (ADR 0283 rules 12 and 14). A linked Apple or Google
+/// account never resets the PIN (ADR 0096), so it is not a way out.
+enum PinWayOut: Equatable {
+    /// The verified recovery email.
+    case email(String)
+    case none
+
+    init(_ account: BipeAccountStatus) {
+        if let email = account.email { self = .email(email) } else { self = .none }
+    }
+
+    var text: String {
+        switch self {
+        case .email(let address): BipeStrings.pinForgotEmail(address, String(BipeRegistries.recoveryDelayHoursEmail))
+        case .none: BipeStrings.pinForgotNone
+        }
     }
 }
 
@@ -31,6 +66,9 @@ enum ApprovalCheck {
 struct AccountPinRequest: Identifiable {
     let id = UUID()
     let title: String
+    /// One line on why the app asks now (ADR 0283 rule 11).
+    let reason: String
+    let account: AccountRead
     let check: @MainActor (String) async throws(BipeAPIError) -> Void
 }
 
@@ -42,11 +80,12 @@ final class AccountPinPrompt: ObservableObject {
     private var continuation: CheckedContinuation<Bool, Never>?
 
     /// True when the server accepted the PIN; false on cancel.
-    func ask(title: String, check: @escaping @MainActor (String) async throws(BipeAPIError) -> Void) async -> Bool {
+    func ask(title: String, reason: String, account: @escaping AccountRead,
+             check: @escaping @MainActor (String) async throws(BipeAPIError) -> Void) async -> Bool {
         finish(false)
         return await withCheckedContinuation { continuation in
             self.continuation = continuation
-            request = AccountPinRequest(title: title, check: check)
+            request = AccountPinRequest(title: title, reason: reason, account: account, check: check)
         }
     }
 
@@ -83,14 +122,16 @@ struct AccountPinCheckView: View {
     @State private var error: String?
     @State private var checking = false
     @State private var blocked = false
+    @State private var showsForgot = false
 
     var body: some View {
         NavigationStack {
             PinPadView(title: request.title,
-                       message: BipeStrings.pinEnterTitle,
+                       message: request.reason,
                        error: error,
                        pin: pin,
                        isBusy: checking,
+                       onForgot: { showsForgot = true },
                        onDigit: type,
                        onDelete: { if !pin.isEmpty { pin.removeLast() } })
                 .toolbar {
@@ -104,6 +145,9 @@ struct AccountPinCheckView: View {
                 }
         }
         .interactiveDismissDisabled(checking)
+        .sheet(isPresented: $showsForgot) {
+            PinForgotView(account: request.account)
+        }
     }
 
     private func type(_ digit: String) {
@@ -138,6 +182,68 @@ struct AccountPinCheckView: View {
             } catch {
                 BipeHaptics.play(.error)
                 self.error = BipeStrings.errorGeneric
+            }
+        }
+    }
+}
+
+/// The forgot sheet of a Bipe PIN pad (spec account-pin-check forgot): only the ways out that the account has.
+struct PinForgotView: View {
+    enum Phase: Equatable {
+        case loading
+        case loaded(PinWayOut)
+        case failed(String)
+    }
+
+    let account: AccountRead
+    @Environment(\.dismiss) private var dismiss
+    @State private var phase = Phase.loading
+
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 16) {
+                Text(BipeStrings.pinForgotTitle)
+                    .font(.title3.bold())
+                    .foregroundStyle(BipeColor.inkPrimary)
+                switch phase {
+                case .loading:
+                    ProgressView().frame(maxWidth: .infinity)
+                case .loaded(let way):
+                    Text(way.text)
+                        .font(.body)
+                        .foregroundStyle(BipeColor.inkSecondary)
+                case .failed(let message):
+                    Text(message)
+                        .font(.body)
+                        .foregroundStyle(BipeColor.trustDangerInk)
+                }
+                Spacer()
+            }
+            .padding(24)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(BipeColor.surfaceBase.ignoresSafeArea())
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Text(BipeStrings.appClose)
+                    }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .task { await load() }
+    }
+
+    private func load() async {
+        do {
+            phase = .loaded(PinWayOut(try await account()))
+        } catch {
+            if case .network = error {
+                phase = .failed(BipeStrings.errorNetwork)
+            } else {
+                phase = .failed(BipeStrings.errorGeneric)
             }
         }
     }

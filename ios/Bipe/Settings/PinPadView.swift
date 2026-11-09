@@ -15,6 +15,8 @@ struct PinPadView: View {
     var isBusy = false
     /// Shows the biometrics key; nil hides it.
     var onBiometrics: (() -> Void)?
+    /// Shows "Esqueci minha senha" under the keys (ADR 0283 rule 12); nil hides it.
+    var onForgot: (() -> Void)?
     let onDigit: (String) -> Void
     let onDelete: () -> Void
 
@@ -74,6 +76,16 @@ struct PinPadView: View {
             .frame(minHeight: 40)
             Spacer(minLength: 8)
             keys(size: keySize)
+            if let onForgot {
+                Button {
+                    onForgot()
+                } label: {
+                    Text(BipeStrings.pinForgot)
+                        .font(.body)
+                        .foregroundStyle(BipeColor.accentInk)
+                }
+                .disabled(isBusy)
+            }
         }
     }
 
