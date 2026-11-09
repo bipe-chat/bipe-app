@@ -69,15 +69,16 @@ fun AccountMenu(tabs: AppTabsModel, fallbackMedia: MediaLoader, onNewAccount: ()
                 text = {
                     Column {
                         Text(name, style = MaterialTheme.typography.bodyLarge)
-                        val owner = account.ownerName
+                        val handle = account.handle?.let { "@$it" }?.takeIf { it != name }
+                        // The indent already shows the owner (spec account-switcher, ADR 0287).
                         if (account.seatRole == "attendant") {
                             Text(stringResource(R.string.bipe_team_you_here), style = MaterialTheme.typography.bodyMedium,
                                 color = BipeTheme.colors.inkSecondary)
-                        } else if (owner != null) {
-                            Text(stringResource(R.string.bipe_account_company_owner, owner), style = MaterialTheme.typography.bodyMedium,
+                        } else if (handle != null) {
+                            Text(handle, style = MaterialTheme.typography.bodyMedium, color = BipeTheme.colors.inkSecondary)
+                        } else if (account.isCompany) {
+                            Text(stringResource(R.string.bipe_account_work_line), style = MaterialTheme.typography.bodyMedium,
                                 color = BipeTheme.colors.inkSecondary)
-                        } else account.handle?.takeIf { "@$it" != name }?.let {
-                            Text("@$it", style = MaterialTheme.typography.bodyMedium, color = BipeTheme.colors.inkSecondary)
                         }
                     }
                 },
@@ -130,14 +131,16 @@ fun AccountRows(tabs: AppTabsModel, fallbackMedia: MediaLoader) {
             Avatar(name, account.avatarUrl, tabs.media(account.userId) ?: fallbackMedia, userId = account.userId, isCompany = account.isCompany)
             Column(Modifier.weight(1f)) {
                 Text(name, style = MaterialTheme.typography.titleMedium, color = BipeTheme.colors.inkPrimary)
-                val owner = account.ownerName
+                val handle = account.handle?.let { "@$it" }?.takeIf { it != name }
                 if (account.seatRole == "attendant") {
                     Text(stringResource(R.string.bipe_team_you_here), color = BipeTheme.colors.inkSecondary,
                         style = MaterialTheme.typography.bodyMedium)
-                } else if (owner != null) {
-                    Text(stringResource(R.string.bipe_account_company_owner, owner), color = BipeTheme.colors.inkSecondary,
+                } else if (handle != null) {
+                    Text(handle, color = BipeTheme.colors.inkSecondary, style = MaterialTheme.typography.bodyMedium)
+                } else if (account.isCompany) {
+                    Text(stringResource(R.string.bipe_account_work_line), color = BipeTheme.colors.inkSecondary,
                         style = MaterialTheme.typography.bodyMedium)
-                } else account.handle?.takeIf { "@$it" != name }?.let { Text("@$it", color = BipeTheme.colors.inkSecondary, style = MaterialTheme.typography.bodyMedium) }
+                }
             }
             if (account.hasUnread) Box(Modifier.size(8.dp).background(BipeTheme.colors.accentFill, CircleShape))
             if (account.isCurrent) Icon(painterResource(PhosphorIcon.CHECK.drawable), contentDescription = null, tint = BipeTheme.colors.accentInk)

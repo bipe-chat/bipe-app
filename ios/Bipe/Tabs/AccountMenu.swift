@@ -27,11 +27,12 @@ struct AccountRows: View {
                         if account.seatRole == "attendant" {
                             Text(BipeStrings.teamYouHere).font(.footnote).foregroundStyle(BipeColor.inkSecondary)
                                 .lineLimit(1)
-                        } else if let owner = account.ownerName {
-                            Text(BipeStrings.accountCompanyOwner(owner)).font(.footnote).foregroundStyle(BipeColor.inkSecondary)
-                                .lineLimit(1)
                         } else if let handle = account.handleLine {
                             Text(verbatim: handle).font(.footnote).foregroundStyle(BipeColor.inkSecondary).lineLimit(1)
+                        } else if account.isCompany {
+                            // The indent already shows the owner (spec account-switcher, ADR 0287).
+                            Text(BipeStrings.accountWorkLine).font(.footnote).foregroundStyle(BipeColor.inkSecondary)
+                                .lineLimit(1)
                         }
                     }
                     Spacer(minLength: 8)
