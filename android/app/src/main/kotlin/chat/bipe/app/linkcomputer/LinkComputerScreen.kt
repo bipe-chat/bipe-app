@@ -319,7 +319,7 @@ private fun ApproveContent(state: LinkComputerModel.State, model: LinkComputerMo
         reason = reason,
         pinTitle = stringResource(R.string.bipe_pin_enter_title),
         pinReason = stringResource(if (phone) R.string.bipe_pin_reason_approve_device else R.string.bipe_pin_reason_link_computer, BipeRegistries.PIN_LENGTH.toString()),
-        account = model::readAccount,
+        account = model.pinAccount,
         checkPin = model::checkAccountPin,
     )
     Column(

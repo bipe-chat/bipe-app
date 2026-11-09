@@ -198,7 +198,7 @@ fun AccountDeleteDialog(model: SettingsModel, onDismiss: () -> Unit) {
             }
         }
     }
-    if (showsForgot) PinForgotDialog({ model.authorized { model.api.account(it) } }) { showsForgot = false }
+    if (showsForgot) PinForgotDialog(model.session.pinAccount(model.api)) { showsForgot = false }
 }
 
 private sealed interface DeletePhase {

@@ -119,7 +119,7 @@ fun PinChangeScreen(model: SettingsModel, onClose: () -> Unit) {
         PinChangePhase.PIN_CHECK -> AccountPinCheck(
             title = stringResource(R.string.bipe_pin_change_title),
             reason = stringResource(R.string.bipe_pin_reason_change, BipeRegistries.PIN_LENGTH.toString()),
-            account = { model.authorized { model.api.account(it) } },
+            account = model.session.pinAccount(model.api),
             check = { pin ->
                 model.authorized { model.api.checkPin(pin, it) }
                 oldPin = pin

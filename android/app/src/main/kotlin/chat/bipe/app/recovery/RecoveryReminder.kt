@@ -49,6 +49,7 @@ import chat.bipe.app.common.bipeTapTarget
 import chat.bipe.app.settings.AppLockModel
 import chat.bipe.app.settings.AppLockPinCheck
 import chat.bipe.app.settings.OwnerCheck
+import chat.bipe.app.settings.pinAccount
 import chat.bipe.app.settings.rememberAccountPinCheck
 import chat.bipe.shared.BipeSignupRules
 import chat.bipe.shared.R
@@ -212,7 +213,7 @@ fun RecoveryEmailAddScreen(
     val askPin = rememberAccountPinCheck(
         title = stringResource(R.string.bipe_email_title),
         reason = stringResource(R.string.bipe_pin_reason_email_set, BipeRegistries.PIN_LENGTH.toString()),
-        account = { BipeApiClient.withTokenRetry({ session.accessToken() }) { api.account(it) } },
+        account = session.pinAccount(api),
     ) { pin ->
         val address = email.trim()
         try {

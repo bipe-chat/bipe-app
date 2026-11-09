@@ -272,7 +272,7 @@ fun TheftProtectionScreen(model: SettingsModel, onBack: () -> Unit) {
         AccountPinCheck(
             title = stringResource(R.string.bipe_theft_title),
             reason = stringResource(R.string.bipe_pin_reason_guardians, BipeRegistries.PIN_LENGTH.toString()),
-            account = { model.authorized { model.api.account(it) } },
+            account = model.session.pinAccount(model.api),
             check = theft::savePin,
             onPass = {},
             onCancel = theft::cancelPin,

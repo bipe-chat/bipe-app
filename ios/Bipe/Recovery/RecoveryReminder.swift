@@ -242,7 +242,7 @@ struct RecoveryEmailAddView: View {
     /// on the form.
     private func sendWithPIN(_ address: String) async {
         let passed = await pinPrompt.ask(title: BipeStrings.emailTitle, reason: BipeStrings.pinReasonEmailSet(String(BipeRegistries.pinLength)),
-                                         account: session.accountRead(api)) { (pin: String) async throws(BipeAPIError) in
+                                         account: session.pinAccount(api)) { (pin: String) async throws(BipeAPIError) in
             do throws(BipeAPIError) {
                 try await put(address, pin: pin)
             } catch {

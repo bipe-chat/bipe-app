@@ -38,6 +38,7 @@ import chat.bipe.app.BipeTheme
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.settings.DeletionDates
 import chat.bipe.app.settings.OwnerCheck
+import chat.bipe.app.settings.PinResetKeeper
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 import chat.bipe.shared.account.BipeLinkEvent
@@ -86,6 +87,11 @@ class RecoveryAlertModel(
         data class Deletion(val deletion: BipeAccountDeletion) : Notice {
             override val id: String get() = deletion.id
         }
+
+        /** A PIN reset this phone started took effect (ADR 0283 rule 13). Never dismissed by id: [close] ends it. */
+        data class PinResetDone(val hasEmail: Boolean) : Notice {
+            override val id: String get() = "pin-reset-done"
+        }
     }
 
     private val appContext = context.applicationContext
@@ -102,9 +108,17 @@ class RecoveryAlertModel(
     fun check() {
         if (_notice.value != null && _phase.value != Phase.CANCELLED) return
         scope.launch {
-            val status = runCatching {
+            // ADR 0283 rule 13: a PIN reset this phone started takes effect when this phone claims it after the wait.
+            val resetDone = PinResetKeeper.claim(appContext, session.userId, api) == PinResetKeeper.Outcome.Done
+            val read = runCatching {
                 BipeApiClient.withTokenRetry({ session.accessToken() }) { token -> api.account(token) }
-            }.getOrNull() ?: return@launch
+            }.getOrNull()
+            if (resetDone) {
+                _notice.value = Notice.PinResetDone(read?.email != null)
+                _phase.value = Phase.SHOWN
+                return@launch
+            }
+            val status = read ?: return@launch
             val since = alertsSince()
             val dismissed = dismissedIds()
             // A completed recovery older than this phone's session is this phone's own sign-in, or an old one.
@@ -168,7 +182,7 @@ class RecoveryAlertModel(
     /** Action keep: it was me. Dismisses the notice on this phone; the recovery or the deletion goes on. */
     fun keep() {
         val current = _notice.value ?: return
-        dismiss(current.id)
+        if (current !is Notice.PinResetDone) dismiss(current.id)
         _notice.value = null
     }
 
@@ -242,12 +256,16 @@ private fun linkMessage(context: Context, event: BipeLinkEvent): String = contex
 
 /** The alert covers the screen while a recovery waits: it is not a banner the person can miss. */
 @Composable
-fun RecoveryAlertScreen(model: RecoveryAlertModel) {
+fun RecoveryAlertScreen(model: RecoveryAlertModel, addEmail: () -> Unit) {
     val context = LocalContext.current
     val colors = BipeTheme.colors
     val notice by model.notice.collectAsState()
     val phase by model.phase.collectAsState()
     val current = notice ?: return
+    if (current is RecoveryAlertModel.Notice.PinResetDone) {
+        PinResetDoneScreen(current.hasEmail, onAddEmail = { model.close(); addEmail() }, onClose = model::close)
+        return
+    }
     val recovery = (current as? RecoveryAlertModel.Notice.Recovery)?.recovery
     val deletion = (current as? RecoveryAlertModel.Notice.Deletion)?.deletion
     val title = stringResource(if (deletion != null) R.string.bipe_deletion_alert_title else R.string.bipe_recovery_alert_title)
@@ -298,6 +316,32 @@ fun RecoveryAlertScreen(model: RecoveryAlertModel) {
             }
             TextButton(onClick = model::keep, enabled = phase != RecoveryAlertModel.Phase.CANCELLING, modifier = Modifier.fillMaxWidth()) {
                 Text(stringResource(R.string.bipe_recovery_alert_keep), color = colors.accentInk)
+            }
+        }
+    }
+}
+
+/** Spec account-pin-check claim and addEmail: the new PIN works; an account with no recovery email gets the offer. */
+@Composable
+private fun PinResetDoneScreen(hasEmail: Boolean, onAddEmail: () -> Unit, onClose: () -> Unit) {
+    val colors = BipeTheme.colors
+    BackHandler(onBack = onClose)
+    Surface(modifier = Modifier.fillMaxSize().testTag(BipeScreen.ACCOUNT_PIN_CHECK.id), color = colors.surfaceBase) {
+        Column(
+            modifier = Modifier.fillMaxSize().safeDrawingPadding().padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Icon(painterResource(PhosphorIcon.CHECK_CIRCLE.drawable), contentDescription = null, tint = colors.accentInk, modifier = Modifier.size(48.dp))
+            Text(stringResource(R.string.bipe_recovery_pin_ready), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = colors.inkPrimary)
+            if (!hasEmail) Text(stringResource(R.string.bipe_pin_reset_add_email), color = colors.inkPrimary)
+            Spacer(Modifier.weight(1f))
+            if (!hasEmail) {
+                BipeButton(onClick = onAddEmail, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.bipe_fallback_email))
+                }
+            }
+            TextButton(onClick = onClose, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.bipe_action_continue), color = colors.accentInk)
             }
         }
     }

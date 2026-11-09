@@ -18,7 +18,7 @@ enum ApprovalCheck {
 
     /// pinReason: the pad's reason line, one of `BipeStrings.pinReason*` (ADR 0283 rule 11).
     @MainActor
-    static func run(reason: String, pinTitle: String, pinReason: String, prompt: AccountPinPrompt, account: @escaping AccountRead,
+    static func run(reason: String, pinTitle: String, pinReason: String, prompt: AccountPinPrompt, account: PinAccount,
                     checkPIN: @escaping @MainActor (String) async throws(BipeAPIError) -> Void) async -> Result {
         guard OwnerCheck.canCheckOwner else { return .noScreenLock }
         if OwnerCheck.biometricKind != .none {
@@ -28,47 +28,13 @@ enum ApprovalCheck {
     }
 }
 
-/// Reads GET /v1/me/account for the ways out of the Bipe PIN pad (ADR 0283 rule 12).
-typealias AccountRead = @MainActor () async throws(BipeAPIError) -> BipeAccountStatus
-
-extension AccountSession {
-    /// GET /v1/me/account with this account's token, for the forgot sheet of the Bipe PIN pad.
-    @MainActor
-    func accountRead(_ api: BipeAPIClient) -> AccountRead {
-        { () async throws(BipeAPIError) -> BipeAccountStatus in
-            try await BipeAPIClient.withTokenRetry(accessToken: { self.accessToken() }) { (token: String) async throws(BipeAPIError) in
-                try await api.account(accessToken: token)
-            }
-        }
-    }
-}
-
-/// The ways out of a forgotten Bipe PIN that an account has (ADR 0283 rules 12 and 14). A linked Apple or Google
-/// account never resets the PIN (ADR 0096), so it is not a way out.
-enum PinWayOut: Equatable {
-    /// The verified recovery email.
-    case email(String)
-    case none
-
-    init(_ account: BipeAccountStatus) {
-        if let email = account.email { self = .email(email) } else { self = .none }
-    }
-
-    var text: String {
-        switch self {
-        case .email(let address): BipeStrings.pinForgotEmail(address, String(BipeRegistries.recoveryDelayHoursEmail))
-        case .none: BipeStrings.pinForgotNone
-        }
-    }
-}
-
 /// One request for the Bipe PIN.
 struct AccountPinRequest: Identifiable {
     let id = UUID()
     let title: String
     /// One line on why the app asks now (ADR 0283 rule 11).
     let reason: String
-    let account: AccountRead
+    let account: PinAccount
     let check: @MainActor (String) async throws(BipeAPIError) -> Void
 }
 
@@ -80,7 +46,7 @@ final class AccountPinPrompt: ObservableObject {
     private var continuation: CheckedContinuation<Bool, Never>?
 
     /// True when the server accepted the PIN; false on cancel.
-    func ask(title: String, reason: String, account: @escaping AccountRead,
+    func ask(title: String, reason: String, account: PinAccount,
              check: @escaping @MainActor (String) async throws(BipeAPIError) -> Void) async -> Bool {
         finish(false)
         return await withCheckedContinuation { continuation in
@@ -145,7 +111,8 @@ struct AccountPinCheckView: View {
                 }
         }
         .interactiveDismissDisabled(checking)
-        .sheet(isPresented: $showsForgot) {
+        // A reset may have applied a new PIN while the sheet was open: the pad takes digits again; the server decides.
+        .sheet(isPresented: $showsForgot, onDismiss: { blocked = false }) {
             PinForgotView(account: request.account)
         }
     }
@@ -182,68 +149,6 @@ struct AccountPinCheckView: View {
             } catch {
                 BipeHaptics.play(.error)
                 self.error = BipeStrings.errorGeneric
-            }
-        }
-    }
-}
-
-/// The forgot sheet of a Bipe PIN pad (spec account-pin-check forgot): only the ways out that the account has.
-struct PinForgotView: View {
-    enum Phase: Equatable {
-        case loading
-        case loaded(PinWayOut)
-        case failed(String)
-    }
-
-    let account: AccountRead
-    @Environment(\.dismiss) private var dismiss
-    @State private var phase = Phase.loading
-
-    var body: some View {
-        NavigationStack {
-            VStack(alignment: .leading, spacing: 16) {
-                Text(BipeStrings.pinForgotTitle)
-                    .font(.title3.bold())
-                    .foregroundStyle(BipeColor.inkPrimary)
-                switch phase {
-                case .loading:
-                    ProgressView().frame(maxWidth: .infinity)
-                case .loaded(let way):
-                    Text(way.text)
-                        .font(.body)
-                        .foregroundStyle(BipeColor.inkSecondary)
-                case .failed(let message):
-                    Text(message)
-                        .font(.body)
-                        .foregroundStyle(BipeColor.trustDangerInk)
-                }
-                Spacer()
-            }
-            .padding(24)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(BipeColor.surfaceBase.ignoresSafeArea())
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button {
-                        dismiss()
-                    } label: {
-                        Text(BipeStrings.appClose)
-                    }
-                }
-            }
-        }
-        .presentationDetents([.medium, .large])
-        .task { await load() }
-    }
-
-    private func load() async {
-        do {
-            phase = .loaded(PinWayOut(try await account()))
-        } catch {
-            if case .network = error {
-                phase = .failed(BipeStrings.errorNetwork)
-            } else {
-                phase = .failed(BipeStrings.errorGeneric)
             }
         }
     }
