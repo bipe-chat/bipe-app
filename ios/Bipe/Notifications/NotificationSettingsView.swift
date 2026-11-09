@@ -22,6 +22,15 @@ struct NotificationSettingsView: View {
         List {
             if !model.phoneEnabled {
                 phoneCard
+            } else {
+                // Action openSystemSettings: this app's page in the system Notifications settings.
+                Section {
+                    Button {
+                        Task { await model.openSystemSettings() }
+                    } label: {
+                        Text(BipeStrings.notificationsOpenSystem)
+                    }
+                }
             }
             Section {
                 modePicker(BipeStrings.notificationsChats,

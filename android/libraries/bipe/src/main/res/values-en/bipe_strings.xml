@@ -1301,6 +1301,7 @@
     <string name="bipe_notifications_account_footer">These choices are for the account %1$s.</string>
     <string name="bipe_notifications_preview">Show the message text</string>
     <string name="bipe_notifications_preview_footer">Off, a notification only says that a message arrived.</string>
+    <string name="bipe_notifications_open_system">Open notification settings</string>
     <string name="bipe_focus_filter_title">Bipe accounts</string>
     <string name="bipe_focus_filter_description">Choose which Bipe accounts can notify in this Focus.</string>
     <string name="bipe_focus_filter_accounts">Accounts</string>
