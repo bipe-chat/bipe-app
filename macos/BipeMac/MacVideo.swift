@@ -43,7 +43,7 @@ final class MacPreparedVideo: Identifiable, Sendable {
 
     static func prepare(_ source: URL, highQuality: Bool, maxUploadSize: UInt64?, under root: URL = MacTransferFiles.root) async throws -> MacPreparedVideo {
         // A private copy keeps security-scoped picker/provider URLs alive through export and SDK upload.
-        let copy = try MacTransferFiles.prepare(source, maxUploadSize: nil, under: root)
+        let copy = try MacTransferFiles.prepare(source, maxUploadSize: maxUploadSize, under: root)
         do {
             let video = try await VideoPreparation.prepare(copy.file, highQuality: highQuality, folder: copy.folder)
             try MacTransferFiles.checkSize(video.info.size ?? 0, limit: maxUploadSize)
