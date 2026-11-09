@@ -11,11 +11,12 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AccountsContext, type AccountsApi } from './accounts-context';
-import { type ClientLike as Client } from './generated/matrix_sdk_ffi';
+import { type ClientLike as Client, type TaskHandleLike as TaskHandle } from './generated/matrix_sdk_ffi';
 import { Chats } from './Chats';
 import { QrLogin } from './QrLogin';
 import {
   addAccount,
+  dropEndedAccount,
   forgetSlot,
   loadAccountList,
   newSlot,
@@ -23,6 +24,7 @@ import {
   saveAccountList,
   signOutAccount,
   signOutAll,
+  takeNotice,
   type Accounts,
   type Slot,
 } from './sdk';
@@ -42,6 +44,13 @@ export function App() {
   const [accounts, setAccounts] = useState<Accounts>({ list: [] });
   const accountsRef = useRef(accounts);
   accountsRef.current = accounts;
+  // The notice of an account that the server signed out before this load (bipe-chat/bipe#1338).
+  const [notice, setNotice] = useState(takeNotice);
+  useEffect(() => {
+    if (!notice) return;
+    const timer = setTimeout(() => setNotice(undefined), 6000);
+    return () => clearTimeout(timer);
+  }, [notice]);
 
   const open = useCallback(async (list: Accounts, userId: string | undefined) => {
     const slot = list.list.find((s) => s.userId === userId) ?? list.list[0];
@@ -75,6 +84,35 @@ export function App() {
       cancelled = true;
     };
   }, [open]);
+
+  // Spec soft-logout on the web (bipe-chat/bipe#1338): when the server ends the open account's session, drop that
+  // account and say so. One drop per client; a later phase drops the delegate.
+  useEffect(() => {
+    if (phase.kind !== 'chats') return;
+    const { client, slot } = phase;
+    let done = false;
+    let handle: TaskHandle | undefined;
+    try {
+      handle = client.setDelegate({
+        didReceiveAuthError: () => {
+          if (done) return;
+          done = true;
+          const name = accountsRef.current.list.find((s) => s.id === slot.id)?.name ?? slot.userId ?? '';
+          dropEndedAccount(accountsRef.current, slot, s('bipe_web_signed_out_elsewhere', name)).catch((e) =>
+            setPhase({ kind: 'error', message: describe(e) }),
+          );
+        },
+        onBackgroundTaskErrorReport: () => {},
+      });
+    } catch (e) {
+      // A client has one delegate; the SDK refuses a second one.
+      console.warn('[trace] client delegate not set', e);
+    }
+    return () => {
+      done = true;
+      handle?.cancel();
+    };
+  }, [phase]);
 
   const remember = useCallback((patch: Partial<Slot>) => {
     const list = accountsRef.current;
@@ -145,6 +183,14 @@ export function App() {
         <AccountsContext value={api}>
           <Chats key={phase.slot.id} client={phase.client} />
         </AccountsContext>
+      )}
+      {notice && (
+        <p
+          role="status"
+          className="fixed inset-x-0 bottom-6 z-50 mx-auto w-max max-w-[90vw] rounded-full bg-surface-raised px-4 py-2 text-center text-subheadline text-ink-primary shadow"
+        >
+          {notice}
+        </p>
       )}
     </div>
   );
