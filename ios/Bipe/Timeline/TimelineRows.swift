@@ -275,6 +275,8 @@ enum TimelineRowBuilder {
             case .message(let messageContent):
                 var message = base
                 message.forwardCount = forwardCount
+                // bipe-chat/bipe#1260: the SDK types have no field for the public feed mark.
+                message.isPublicFeed = BipeFeedPostMark.postId(eventJson: event.lazyProvider.debugInfo().originalJson) != nil
                 // The SDK types have no field for chat.bipe.assistant; it comes from the event JSON (ADR 0210).
                 if BipeAssistantSend.sender(eventId: eventId(event), json: { event.lazyProvider.debugInfo().originalJson }) != nil {
                     message.assistantLabel = BipeStrings.appAssistantSentLabel(event.senderProfile.realName(of: event.sender) ?? name(event.sender))

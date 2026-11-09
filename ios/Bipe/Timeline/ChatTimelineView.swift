@@ -813,6 +813,15 @@ private struct ComposerBar: View {
                 VoiceRecordingView(model: recording) { model.recording = nil }
                     .background(BipeColor.surfaceRaised.ignoresSafeArea(edges: .bottom))
             } else {
+                // Spec composer feedHandle (bipe-chat/bipe#1260): a top-level post here also goes to the public page.
+                if let handle = model.feedHandle, model.replyingTo == nil, model.editing == nil {
+                    Text(BipeStrings.groupPublicFeedComposer(handle))
+                        .font(.footnote)
+                        .foregroundStyle(BipeColor.inkSecondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 4)
+                }
                 // Spec composer: Liquid Glass controls over the scrolling messages; the bars that replace them stay solid.
                 composer
             }
