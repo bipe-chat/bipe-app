@@ -1354,6 +1354,78 @@ public func FfiConverterTypeStoredList_lower(_ value: StoredList) -> RustBuffer 
 
 
 /**
+ * A valid mark: the app shows the theft banner in chats with `sub`, and the marker on its messages sent from
+ * `stolen_at - markedMessageMinutes` on.
+ */
+public struct TheftStatement: Equatable, Hashable {
+    public var sub: String
+    /**
+     * When a guardian set the mark, Unix seconds.
+     */
+    public var stolenAt: Int64
+    public var iat: Int64
+    public var exp: Int64
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(sub: String, 
+        /**
+         * When a guardian set the mark, Unix seconds.
+         */stolenAt: Int64, iat: Int64, exp: Int64) {
+        self.sub = sub
+        self.stolenAt = stolenAt
+        self.iat = iat
+        self.exp = exp
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension TheftStatement: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeTheftStatement: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> TheftStatement {
+        return
+            try TheftStatement(
+                sub: FfiConverterString.read(from: &buf), 
+                stolenAt: FfiConverterInt64.read(from: &buf), 
+                iat: FfiConverterInt64.read(from: &buf), 
+                exp: FfiConverterInt64.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: TheftStatement, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.sub, into: &buf)
+        FfiConverterInt64.write(value.stolenAt, into: &buf)
+        FfiConverterInt64.write(value.iat, into: &buf)
+        FfiConverterInt64.write(value.exp, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeTheftStatement_lift(_ buf: RustBuffer) throws -> TheftStatement {
+    return try FfiConverterTypeTheftStatement.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeTheftStatement_lower(_ value: TheftStatement) -> RustBuffer {
+    return FfiConverterTypeTheftStatement.lower(value)
+}
+
+
+/**
  * One trusted Ed25519 public key.
  */
 public struct TrustedKey: Equatable, Hashable {
@@ -2609,6 +2681,82 @@ public func FfiConverterTypeSignedListResult_lower(_ value: SignedListResult) ->
 }
 
 
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+
+public enum TheftMarkResult: Equatable, Hashable {
+    
+    case valid(statement: TheftStatement
+    )
+    /**
+     * The codes are the badge codes (docs/theft-mark.md, verification order). Any error is no mark.
+     */
+    case invalid(failure: BadgeFailure
+    )
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension TheftMarkResult: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeTheftMarkResult: FfiConverterRustBuffer {
+    typealias SwiftType = TheftMarkResult
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> TheftMarkResult {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .valid(statement: try FfiConverterTypeTheftStatement.read(from: &buf)
+        )
+        
+        case 2: return .invalid(failure: try FfiConverterTypeBadgeFailure.read(from: &buf)
+        )
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: TheftMarkResult, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case let .valid(statement):
+            writeInt(&buf, Int32(1))
+            FfiConverterTypeTheftStatement.write(statement, into: &buf)
+            
+        
+        case let .invalid(failure):
+            writeInt(&buf, Int32(2))
+            FfiConverterTypeBadgeFailure.write(failure, into: &buf)
+            
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeTheftMarkResult_lift(_ buf: RustBuffer) throws -> TheftMarkResult {
+    return try FfiConverterTypeTheftMarkResult.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeTheftMarkResult_lower(_ value: TheftMarkResult) -> RustBuffer {
+    return FfiConverterTypeTheftMarkResult.lower(value)
+}
+
+
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
@@ -3107,6 +3255,29 @@ public func verifySignedList(envelopeJson: String, listType: ListType, signerSet
     )
 })
 }
+/**
+ * `valid`, or the failure code. The vector harnesses use it on every client.
+ */
+public func theftMarkResultCode(result: TheftMarkResult) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_theft_mark_result_code(
+        FfiConverterTypeTheftMarkResult_lower(result),$0
+    )
+})
+}
+/**
+ * Verifies a theft statement for `subject`, the account the app asked about. `trusted_keys` are the badge keys.
+ */
+public func verifyTheftMark(envelopeJson: String, subject: String, trustedKeys: [TrustedKey], nowSeconds: Int64) -> TheftMarkResult  {
+    return try!  FfiConverterTypeTheftMarkResult_lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_verify_theft_mark(
+        FfiConverterString.lower(envelopeJson),
+        FfiConverterString.lower(subject),
+        FfiConverterSequenceTypeTrustedKey.lower(trustedKeys),
+        FfiConverterInt64.lower(nowSeconds),$0
+    )
+})
+}
 
 private enum InitializationResult {
     case ok
@@ -3172,6 +3343,12 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_bipe_core_checksum_func_verify_signed_list() != 37185) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_bipe_core_checksum_func_theft_mark_result_code() != 3400) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_bipe_core_checksum_func_verify_theft_mark() != 16530) {
         return InitializationResult.apiChecksumMismatch
     }
 
