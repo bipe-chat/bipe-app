@@ -1,7 +1,7 @@
 ---
 id: 2026-11-09-switcher-work-line
 date: 2026-11-09
-kind: changed
+kind: improved
 platforms: [ios, android]
 refs: [bipe#1333]
 ---
