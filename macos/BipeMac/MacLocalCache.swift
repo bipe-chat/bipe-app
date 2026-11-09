@@ -8,9 +8,9 @@ import Foundation
 /// would list the people the app looked up, and no prepared attachments or decrypted previews after a quit or a crash.
 enum MacLocalCache {
     /// Call at launch and normal quit. Launch also removes files left by a crash.
-    static func clean() {
+    static func clean(caches: URL? = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first) {
         URLCache.shared = URLCache(memoryCapacity: 4 * 1024 * 1024, diskCapacity: 0)
-        guard let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first else { return }
+        guard let caches else { return }
         let folder = caches.appendingPathComponent("chat.bipe.app.mac", isDirectory: true)
         for name in ["Uploads", "Cache.db", "Cache.db-shm", "Cache.db-wal", "fsCachedData"] {
             try? FileManager.default.removeItem(at: folder.appendingPathComponent(name))

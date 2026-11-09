@@ -41,12 +41,14 @@ struct MacMessage: Identifiable {
     var isEdited = false
     var isDeleted = false
     var file: MacFile? = nil
+    var video: MacVideo? = nil
     var isSent: Bool { eventID != nil && !pending && !failed && !isDeleted }
-    var hasMediaCaption: Bool { isImage || file != nil }
+    var hasMediaCaption: Bool { isImage || file != nil || video != nil }
     var composerPreview: String {
         if !body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return body }
         if photo != nil { return BipeStrings.appMediaImage }
         if file != nil { return BipeStrings.appMediaFile }
+        if video != nil { return BipeStrings.appMediaVideo }
         return BipeStrings.appMessageReplyUnavailable
     }
 
@@ -82,7 +84,8 @@ final class MacTimeline: ObservableObject {
     @Published private(set) var rows: [MacTimelineRow] = []
     @Published private(set) var messages: [MacMessage] = []
     @Published private(set) var failed = false
-    @Published private(set) var sending = false
+    @Published private var sendingText = false
+    var sending: Bool { sendingText || attachmentPhase.sending }
     @Published private(set) var loadingHistory = false
     @Published private(set) var reachedStart = false
     @Published private(set) var scrollTarget: MacTimelineScroll?
@@ -107,12 +110,15 @@ final class MacTimeline: ObservableObject {
     private var canRedactOther = false
     private var draftBeforeEdit = ""
     @Published private(set) var reacting: Set<String> = []
-    @Published private(set) var preparing = false
-    @Published private(set) var attachment: MacPreparedImage?
-    @Published private(set) var fileAttachment: MacPreparedFile?
+    @Published private(set) var attachmentPhase: MacAttachmentPhase = .idle
+    var preparing: Bool { attachmentPhase.preparing }
+    var preparedAttachment: MacPreparedAttachment? { attachmentPhase.media }
+    var attachment: MacPreparedImage? { if case .image(let image)? = preparedAttachment { image } else { nil } }
+    var fileAttachment: MacPreparedFile? { if case .file(let file)? = preparedAttachment { file } else { nil } }
+    var videoAttachment: MacPreparedVideo? { if case .video(let video)? = preparedAttachment { video } else { nil } }
     @Published var imageCaption = ""
     @Published var imageDescription = ""
-    @Published private(set) var uploadError: String?
+    var uploadError: String? { attachmentPhase.error }
     @Published var draft = "" { didSet { persistDraft() } }
     @Published private(set) var replyID: String? { didSet { persistDraft() } }
     var lastRowIsOwnMessage: Bool {
@@ -133,9 +139,8 @@ final class MacTimeline: ObservableObject {
     private var listener: TaskHandle?
     private var items: [TimelineItem] = []
     private var moneyPause = BipeMoneyPause()
-    private var attachmentSend: SendAttachmentJoinHandle?
-    private var attachmentCancelled = false
-    private var attachmentRevision = UUID()
+    private var preparationTask: Task<MacPreparedAttachment, Error>?
+    private var providerRequest: Progress?
     private var lookalikeSenders: Set<String> = []
     private var senderRoles: [String: GroupRole] = [:]
     private var memberNames: [String: String] = [:]
@@ -305,9 +310,9 @@ final class MacTimeline: ObservableObject {
         guard !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         let text = draft
         let reply = replyID
-        sending = true
+        sendingText = true
         failed = false
-        defer { sending = false }
+        defer { sendingText = false }
         do {
             if let reply {
                 try await timeline.sendReply(msg: messageEventContentFromMarkdown(md: text), eventId: reply)
@@ -414,8 +419,8 @@ final class MacTimeline: ObservableObject {
         guard !message.isDeleted else { cancelEdit(); return }
         guard !text.isEmpty || message.hasMediaCaption else { return }
         guard text != message.body else { cancelEdit(); return }
-        sending = true
-        defer { sending = false }
+        sendingText = true
+        defer { sendingText = false }
         do {
             let content = try message.editedContent(text)
             try await timeline.edit(eventOrTransactionId: event.eventOrTransactionId, newContent: content)
@@ -448,149 +453,142 @@ final class MacTimeline: ObservableObject {
         catch { if !Task.isCancelled { reactionFailed = true } }
     }
 
-    func pasteImage(_ provider: NSItemProvider) {
-        guard !preparing, !sending, let type = provider.registeredTypeIdentifiers.first(where: {
-            UTType($0)?.conforms(to: .image) == true
-        }) else { return }
-        provider.loadDataRepresentation(forTypeIdentifier: type) { [weak self] data, _ in
-            Task { @MainActor in
-                guard let self else { return }
-                guard let data else { self.uploadError = BipeStrings.appUploadFailed; return }
-                do {
-                    let folder = try MacTransferFiles.folder()
-                    defer { try? FileManager.default.removeItem(at: folder) }
-                    let url = folder.appendingPathComponent("image")
-                    try data.write(to: url, options: .atomic)
-                    await self.prepareImage(url)
-                } catch { self.uploadError = BipeStrings.appUploadFailed }
+    private func beginPreparation() -> UUID? {
+        guard !preparing, !sending, preparedAttachment == nil else { return nil }
+        let revision = UUID()
+        attachmentPhase = .preparing(revision)
+        return revision
+    }
+
+    func pasteImage(_ provider: NSItemProvider) { pasteMedia(provider, maxUploadSize: nil) }
+    func pasteFile(_ provider: NSItemProvider, maxUploadSize: UInt64?) { pasteMedia(provider, maxUploadSize: maxUploadSize) }
+
+    func pasteMedia(_ provider: NSItemProvider, maxUploadSize: UInt64?) {
+        guard let revision = beginPreparation() else { return }
+        if provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) {
+            provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { [weak self] item, _ in
+                let url = (item as? URL) ?? (item as? Data).flatMap { URL(dataRepresentation: $0, relativeTo: nil) }
+                Task { @MainActor in
+                    guard let self, self.attachmentPhase.matches(revision) else { return }
+                    guard let url, url.isFileURL else { self.preparationFailed(revision, error: CocoaError(.fileReadCorruptFile)); return }
+                    await self.prepareSelection(url, kind: MacAttachmentKind.of(url), revision: revision, maxUploadSize: maxUploadSize)
+                }
             }
-        }
+        } else if let type = provider.registeredTypeIdentifiers.first(where: {
+            guard let value = UTType($0) else { return false }
+            return value.conforms(to: .movie) || value.conforms(to: .video)
+        }) {
+            // Provider files exist only during this callback. Copy before hopping to the main actor.
+            providerRequest = provider.loadFileRepresentation(forTypeIdentifier: type) { [weak self] url, _ in
+                let filename = "video." + (UTType(type)?.preferredFilenameExtension ?? "mov")
+                let copy = url.flatMap { try? MacTransferFiles.prepare($0, maxUploadSize: nil, filename: filename) }
+                Task { @MainActor in
+                    defer { copy?.remove() }
+                    guard let self, self.attachmentPhase.matches(revision) else { return }
+                    guard let copy else { self.preparationFailed(revision, error: CocoaError(.fileReadCorruptFile)); return }
+                    await self.prepareSelection(copy.file, kind: .video, revision: revision, maxUploadSize: maxUploadSize)
+                }
+            }
+        } else if let type = provider.registeredTypeIdentifiers.first(where: { UTType($0)?.conforms(to: .image) == true }) {
+            providerRequest = provider.loadDataRepresentation(forTypeIdentifier: type) { [weak self] data, _ in
+                Task { @MainActor in
+                    guard let self, self.attachmentPhase.matches(revision) else { return }
+                    do {
+                        guard let data else { throw CocoaError(.fileReadCorruptFile) }
+                        let folder = try MacTransferFiles.folder()
+                        defer { try? FileManager.default.removeItem(at: folder) }
+                        let url = folder.appendingPathComponent("image")
+                        try data.write(to: url, options: .atomic)
+                        await self.prepareSelection(url, kind: .image, revision: revision, maxUploadSize: maxUploadSize)
+                    } catch { self.preparationFailed(revision, error: error) }
+                }
+            }
+        } else { preparationFailed(revision, error: CocoaError(.fileReadUnsupportedScheme)) }
     }
 
-    func prepareImage(_ url: URL) async {
-        guard !preparing, !sending else { return }
-        let revision = attachmentRevision
-        preparing = true
-        uploadError = nil
-        defer { preparing = false }
-        let accessed = url.startAccessingSecurityScopedResource()
-        defer { if accessed { url.stopAccessingSecurityScopedResource() } }
-        do {
-            let highQuality = UserDefaults.standard.string(forKey: BipeSettingsRow.chatsMediaQuality.rawValue) == "high"
-            let image = try await Task.detached(priority: .userInitiated) { try MacImagePreparation.prepare(url, highQuality: highQuality) }.value
-            guard !Task.isCancelled, attachmentRevision == revision else { image.remove(); return }
-            attachment?.remove()
-            fileAttachment?.remove(); fileAttachment = nil
-            attachment = image
-            imageCaption = ""
-            imageDescription = ""
-        } catch { if !Task.isCancelled, attachmentRevision == revision { uploadError = BipeStrings.appUploadFailed } }
-    }
-
+    func prepareImage(_ url: URL) async { await prepare(url, kind: .image, maxUploadSize: nil) }
+    func prepareVideo(_ url: URL, maxUploadSize: UInt64?) async { await prepare(url, kind: .video, maxUploadSize: maxUploadSize) }
+    func prepareFile(_ url: URL, maxUploadSize: UInt64?) async { await preparePickedURL(url, maxUploadSize: maxUploadSize) }
     func preparePickedURL(_ url: URL, maxUploadSize: UInt64?) async {
-        if UTType(filenameExtension: url.pathExtension)?.conforms(to: .image) == true { await prepareImage(url) }
-        else { await prepareFile(url, maxUploadSize: maxUploadSize) }
+        await prepare(url, kind: MacAttachmentKind.of(url), maxUploadSize: maxUploadSize)
     }
 
-    func pasteFile(_ provider: NSItemProvider, maxUploadSize: UInt64?) {
-        provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { [weak self] item, _ in
-            let url = (item as? URL) ?? (item as? Data).flatMap { URL(dataRepresentation: $0, relativeTo: nil) }
-            Task { @MainActor in
-                guard let self, self.ready else { return }
-                guard let url, url.isFileURL else { self.uploadError = BipeStrings.appUploadFailed; return }
-                await self.preparePickedURL(url, maxUploadSize: maxUploadSize)
-            }
-        }
+    private func prepare(_ url: URL, kind: MacAttachmentKind, maxUploadSize: UInt64?) async {
+        guard let revision = beginPreparation() else { return }
+        await prepareSelection(url, kind: kind, revision: revision, maxUploadSize: maxUploadSize)
     }
 
-    func prepareFile(_ url: URL, maxUploadSize: UInt64?) async {
-        guard !preparing, !sending else { return }
-        let revision = attachmentRevision
-        preparing = true; uploadError = nil
-        defer { preparing = false }
+    private func prepareSelection(_ url: URL, kind: MacAttachmentKind, revision: UUID, maxUploadSize: UInt64?) async {
+        guard attachmentPhase.matches(revision) else { return }
         let accessed = url.startAccessingSecurityScopedResource()
         defer { if accessed { url.stopAccessingSecurityScopedResource() } }
-        do {
-            let file = try await Task.detached(priority: .userInitiated) {
-                try MacTransferFiles.prepare(url, maxUploadSize: maxUploadSize)
-            }.value
-            guard !Task.isCancelled, attachmentRevision == revision else { file.remove(); return }
-            attachment?.remove(); attachment = nil
-            fileAttachment?.remove(); fileAttachment = file
-            imageCaption = ""; imageDescription = ""
-        } catch {
-            guard !Task.isCancelled, attachmentRevision == revision else { return }
-            if case MacTransferFiles.Failure.tooLarge(let limit) = error {
-                uploadError = BipeStrings.appUploadTooLarge(ByteCountFormatter.string(fromByteCount: Int64(clamping: limit), countStyle: .file))
-            } else { uploadError = BipeStrings.appUploadFailed }
+        let high = UserDefaults.standard.string(forKey: BipeSettingsRow.chatsMediaQuality.rawValue) == "high"
+        let task = Task.detached(priority: .userInitiated) { () async throws -> MacPreparedAttachment in
+            switch kind {
+            case .image: return .image(try MacImagePreparation.prepare(url, highQuality: high))
+            case .video: return .video(try await MacPreparedVideo.prepare(url, highQuality: high, maxUploadSize: maxUploadSize))
+            case .file: return .file(try MacTransferFiles.prepare(url, maxUploadSize: maxUploadSize))
+            }
         }
+        preparationTask = task
+        do {
+            let media = try await withTaskCancellationHandler { try await task.value } onCancel: { task.cancel() }
+            guard !Task.isCancelled, attachmentPhase.matches(revision) else { media.remove(); return }
+            preparationTask = nil; providerRequest = nil
+            imageCaption = ""; imageDescription = ""
+            attachmentPhase = .prepared(media)
+        } catch { preparationFailed(revision, error: error) }
+    }
+
+    private func preparationFailed(_ revision: UUID, error: Error) {
+        guard attachmentPhase.matches(revision) else { return }
+        preparationTask = nil; providerRequest = nil
+        attachmentPhase = error is CancellationError ? .idle : .failed(nil, uploadFailure(error))
+    }
+
+    private func uploadFailure(_ error: Error) -> String {
+        if case MacTransferFiles.Failure.tooLarge(let limit) = error {
+            return BipeStrings.appUploadTooLarge(ByteCountFormatter.string(fromByteCount: Int64(clamping: limit), countStyle: .file))
+        }
+        return BipeStrings.appUploadFailed
     }
 
     func cancelAttachment() {
-        attachmentRevision = UUID()
-        if sending {
-            guard let attachmentSend else { return }
-            attachmentCancelled = true
-            attachmentSend.cancel()
-            return
-        }
-        attachment?.remove(); attachment = nil
-        fileAttachment?.remove(); fileAttachment = nil
-        imageCaption = ""; imageDescription = ""; uploadError = nil
-    }
-
-    func sendFile(maxUploadSize: UInt64?) async {
-        guard let timeline, let file = fileAttachment, !sending else { return }
-        if let maxUploadSize, (file.info.size ?? 0) > maxUploadSize {
-            uploadError = BipeStrings.appUploadTooLarge(ByteCountFormatter.string(fromByteCount: Int64(clamping: maxUploadSize), countStyle: .file))
-            return
-        }
-        sending = true; attachmentCancelled = false; uploadError = nil
-        let reply = replyID
-        defer { sending = false; attachmentSend = nil }
-        do {
-            let caption = imageCaption.trimmingCharacters(in: .whitespacesAndNewlines)
-            let params = UploadParameters(source: .file(filename: file.file.path), caption: caption.isEmpty ? nil : caption,
-                formattedCaption: nil, mentions: nil, inReplyTo: reply, extraContentJson: nil)
-            let handle = try timeline.sendFile(params: params, fileInfo: file.info)
-            attachmentSend = handle
-            try await handle.join()
-            file.remove(); fileAttachment = nil; imageCaption = ""; imageDescription = ""
-            if !attachmentCancelled, replyID == reply { replyID = nil }
-        } catch {
-            if attachmentCancelled {
-                file.remove(); fileAttachment = nil; imageCaption = ""; imageDescription = ""
-            } else { uploadError = BipeStrings.appUploadFailed }
-        }
-    }
-
-    func sendImage(maxUploadSize: UInt64?) async {
-        guard let timeline, let image = attachment, !sending else { return }
-        if let maxUploadSize, (image.info.size ?? 0) > maxUploadSize {
-            uploadError = BipeStrings.appUploadTooLarge(ByteCountFormatter.string(fromByteCount: Int64(clamping: maxUploadSize), countStyle: .file))
-            return
-        }
-        sending = true
-        attachmentCancelled = false
-        uploadError = nil
-        let reply = replyID
-        defer { sending = false; attachmentSend = nil }
-        do {
-            let caption = imageCaption.trimmingCharacters(in: .whitespacesAndNewlines)
-            let params = UploadParameters(source: .file(filename: image.file.path), caption: caption.isEmpty ? nil : caption,
-                                          formattedCaption: nil, mentions: nil, inReplyTo: reply,
-                                          extraContentJson: BipeImageDescription.extraContentJson(imageDescription))
-            let handle = try timeline.sendImage(params: params, thumbnailSource: .file(filename: image.thumbnail.path), imageInfo: image.info)
-            attachmentSend = handle
-            try await handle.join()
-            image.remove()
-            attachment = nil
+        switch attachmentPhase {
+        case .sending(let media, let handle):
+            attachmentPhase = .cancelling(media, handle)
+            handle.cancel()
+        case .cancelling: return
+        default:
+            preparationTask?.cancel(); preparationTask = nil
+            providerRequest?.cancel(); providerRequest = nil
+            preparedAttachment?.remove()
+            attachmentPhase = .idle
             imageCaption = ""; imageDescription = ""
-            if !attachmentCancelled, replyID == reply { replyID = nil }
+        }
+    }
+
+    func sendFile(maxUploadSize: UInt64?) async { await sendAttachment(maxUploadSize: maxUploadSize) }
+    func sendImage(maxUploadSize: UInt64?) async { await sendAttachment(maxUploadSize: maxUploadSize) }
+
+    func sendAttachment(maxUploadSize: UInt64?) async {
+        guard let timeline, let media = preparedAttachment, !sending, !preparing else { return }
+        let reply = replyID
+        do {
+            try MacTransferFiles.checkSize(media.size, limit: maxUploadSize)
+            let handle = try media.send(on: timeline, caption: imageCaption, reply: reply, description: imageDescription)
+            attachmentPhase = .sending(media, handle)
+            try await handle.join()
+            let cancelled: Bool
+            if case .cancelling = attachmentPhase { cancelled = true } else { cancelled = false }
+            media.remove(); attachmentPhase = .idle
+            imageCaption = ""; imageDescription = ""
+            if !cancelled, replyID == reply { replyID = nil }
         } catch {
-            if attachmentCancelled {
-                image.remove(); attachment = nil; imageCaption = ""; imageDescription = ""
-            } else { uploadError = BipeStrings.appUploadFailed }
+            if case .cancelling = attachmentPhase {
+                media.remove(); attachmentPhase = .idle
+                imageCaption = ""; imageDescription = ""
+            } else { attachmentPhase = .failed(media, uploadFailure(error)) }
         }
     }
 
@@ -723,7 +721,7 @@ final class MacTimeline: ObservableObject {
                           isUndecryptable: payload.isUndecryptable,
                           isImage: payload.photo != nil,
                           forwardJson: forwardJson, reply: reply, isEdited: payload.isEdited, isDeleted: payload.isDeleted,
-                          file: payload.file)
+                          file: payload.file, video: payload.video)
     }
 }
 

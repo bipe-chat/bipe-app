@@ -133,6 +133,10 @@ struct MacMessageView: View {
                         MacPhotoView(photo: photo, eventID: message.id, isOwn: message.isOwn,
                                      isPrivate: isPrivateRoom, fromRequest: fromRequest, richText: message.richText,
                                      pauseSecondsLeft: pauseSecondsLeft, media: media)
+                    } else if let video = message.video {
+                        MacVideoView(video: video, eventID: message.id, isOwn: message.isOwn,
+                                     isPrivate: isPrivateRoom, fromRequest: fromRequest, richText: message.richText,
+                                     pauseSecondsLeft: pauseSecondsLeft, media: media)
                     } else if let file = message.file {
                         MacFileView(file: file, media: media).disabled(secondsLeft > 0)
                     }

@@ -193,15 +193,15 @@ struct MacChatView: View {
     @StateObject private var model: MacTimeline
     @Environment(\.scenePhase) private var scenePhase
     @FocusState private var composerFocused: Bool
-    @State private var pickingImage: Bool
-    @State private var pickingFile = false
+    private enum Picker { case media, file }
+    @State private var picker: Picker?
     @State private var reportReason = ""
     @State private var reportFailed = false
     let forwardTargets: [MacRoomSummary]
 
     init(room: Room, name: String, drafts: MacDrafts, media: MacMedia, face: MacAvatarDescriptor? = nil, forwardTargets: [MacRoomSummary] = [], opensPhotoPicker: Bool = false) {
         self.forwardTargets = forwardTargets
-        _pickingImage = State(initialValue: opensPhotoPicker)
+        _picker = State(initialValue: opensPhotoPicker ? .media : nil)
         self.room = room
         self.name = name
         self.face = face
@@ -212,7 +212,7 @@ struct MacChatView: View {
     private var composer: some View {
         VStack(spacing: 0) {
             if model.failed { MacNotice(text: BipeStrings.errorGeneric, danger: true).padding() }
-            if let error = model.uploadError, model.attachment == nil, model.fileAttachment == nil {
+            if let error = model.uploadError, model.preparedAttachment == nil {
                 MacNotice(text: error, danger: true).padding()
             }
             if model.editingID != nil {
@@ -233,8 +233,7 @@ struct MacChatView: View {
                         canAttach: model.ready && !model.preparing && !model.sending,
                         preparing: model.preparing,
                         choose: { choice in
-                            pickingFile = choice == .file
-                            pickingImage = true
+                            picker = choice == .file ? .file : .media
                         }, send: { Task { await model.send() } }) {
                 TextField(BipeStrings.appTimelineComposerPlaceholder, text: $model.draft, axis: .vertical)
                     .focused($composerFocused)
@@ -360,25 +359,25 @@ struct MacChatView: View {
             Task { await model.preparePickedURL(url, maxUploadSize: await media.maxUploadSize()) }
             return true
         }
-        .onPasteCommand(of: [.fileURL, .image]) { providers in
+        .onPasteCommand(of: [.fileURL, .movie, .video, .image]) { providers in
             if model.ready, let provider = providers.first {
-                if provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) {
-                    Task { model.pasteFile(provider, maxUploadSize: await media.maxUploadSize()) }
-                } else { model.pasteImage(provider) }
+                Task { model.pasteMedia(provider, maxUploadSize: await media.maxUploadSize()) }
             }
         }
-        .fileImporter(isPresented: $pickingImage, allowedContentTypes: pickingFile ? [.data] : [.image]) { result in
-            let asFile = pickingFile
+        .fileImporter(isPresented: Binding(get: { picker != nil }, set: { if !$0 { picker = nil } }),
+                      allowedContentTypes: picker == .file ? [.data] : [.image, .movie, .video]) { result in
             if case .success(let url) = result {
                 Task {
-                    if asFile { await model.prepareFile(url, maxUploadSize: await media.maxUploadSize()) }
-                    else { await model.prepareImage(url) }
+                    await model.preparePickedURL(url, maxUploadSize: await media.maxUploadSize())
                 }
             }
         }
-        .sheet(isPresented: Binding(get: { model.attachment != nil || model.fileAttachment != nil }, set: { if !$0 { model.cancelAttachment() } })) {
+        .sheet(isPresented: Binding(get: { model.preparedAttachment != nil }, set: { if !$0 { model.cancelAttachment() } })) {
             if let image = model.attachment {
                 MacImageComposer(image: image, model: model, maxUploadSize: { await media.maxUploadSize() })
+                    .interactiveDismissDisabled(model.sending)
+            } else if let video = model.videoAttachment {
+                MacVideoComposer(video: video, model: model, maxUploadSize: { await media.maxUploadSize() })
                     .interactiveDismissDisabled(model.sending)
             } else if let file = model.fileAttachment {
                 MacFileComposer(file: file, model: model, maxUploadSize: { await media.maxUploadSize() })

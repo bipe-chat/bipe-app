@@ -3,7 +3,12 @@
 // Copyright 2026 Bipe contributors
 
 import Foundation
+import CoreGraphics
+#if canImport(UIKit)
 import UIKit
+#else
+import AppKit
+#endif
 
 /// Decodes the blurred placeholder of a media event (the blurhash format: base 83 digits holding
 /// a DC colour and AC cosine components). The result is a small image that the row scales up.
@@ -11,7 +16,17 @@ enum Blurhash {
     private static let digits = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz#$%*+,-.:;=?@[]^_{|}~")
     private static let digitValues: [Character: Int] = Dictionary(uniqueKeysWithValues: digits.enumerated().map { ($1, $0) })
 
+    #if canImport(UIKit)
     static func image(_ hash: String, width: Int = 32, height: Int = 32) -> UIImage? {
+        cgImage(hash, width: width, height: height).map { UIImage(cgImage: $0) }
+    }
+    #else
+    static func image(_ hash: String, width: Int = 32, height: Int = 32) -> NSImage? {
+        cgImage(hash, width: width, height: height).map { NSImage(cgImage: $0, size: .zero) }
+    }
+    #endif
+
+    private static func cgImage(_ hash: String, width: Int, height: Int) -> CGImage? {
         guard let pixels = decode(hash, width: width, height: height) else { return nil }
         let data = Data(pixels) as CFData
         guard let provider = CGDataProvider(data: data),
@@ -26,7 +41,7 @@ enum Blurhash {
                                     decode: nil,
                                     shouldInterpolate: true,
                                     intent: .defaultIntent) else { return nil }
-        return UIImage(cgImage: cgImage)
+        return cgImage
     }
 
     /// RGB bytes, row by row.

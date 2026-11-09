@@ -161,52 +161,9 @@ enum MediaPreparation {
     // MARK: Videos
 
     private static func prepareVideo(_ source: URL, quality: MediaQuality, folder: URL) async throws -> PreparedMedia {
-        let name = source.deletingPathExtension().lastPathComponent
-        var output = source
-        if quality == .standard {
-            let asset = AVURLAsset(url: source)
-            let target = folder.appendingPathComponent(name).appendingPathExtension("mp4")
-            try? FileManager.default.removeItem(at: target)
-            if let export = AVAssetExportSession(asset: asset, presetName: AVAssetExportPreset1280x720) {
-                export.outputURL = target
-                export.outputFileType = .mp4
-                export.shouldOptimizeForNetworkUse = true
-                // No location or other metadata in the sent file.
-                export.metadata = []
-                export.metadataItemFilter = .forSharing()
-                await export.export()
-                if export.status == .completed {
-                    output = target
-                }
-            }
-        }
-        let asset = AVURLAsset(url: output)
-        let duration = try await asset.load(.duration).seconds
-        var width = 0, height = 0
-        if let track = try await asset.loadTracks(withMediaType: .video).first {
-            let natural = try await track.load(.naturalSize)
-            let transform = try await track.load(.preferredTransform)
-            let size = natural.applying(transform)
-            width = Int(abs(size.width))
-            height = Int(abs(size.height))
-        }
-        let generator = AVAssetImageGenerator(asset: asset)
-        generator.appliesPreferredTrackTransform = true
-        generator.maximumSize = CGSize(width: thumbnailSide, height: thumbnailSide)
-        var thumbnail: (url: URL, info: ThumbnailInfo, blurhash: String?)?
-        if let frame = try? await generator.image(at: .zero).image {
-            thumbnail = try self.thumbnail(frame, folder: folder, name: name)
-        }
-        let size = fileSize(output)
-        let info = VideoInfo(duration: duration.isFinite ? duration : nil,
-                             height: UInt64(height),
-                             width: UInt64(width),
-                             mimetype: mimeType(output),
-                             size: size,
-                             thumbnailInfo: thumbnail?.info,
-                             thumbnailSource: nil,
-                             blurhash: thumbnail?.blurhash)
-        return PreparedMedia(file: output, filename: output.lastPathComponent, size: size, info: .video(info), thumbnail: thumbnail?.url)
+        let video = try await VideoPreparation.prepare(source, highQuality: quality == .high, folder: folder)
+        return PreparedMedia(file: video.file, filename: video.file.lastPathComponent,
+                             size: video.info.size ?? 0, info: .video(video.info), thumbnail: video.thumbnail)
     }
 
     // MARK: Files
