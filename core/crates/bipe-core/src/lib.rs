@@ -7,6 +7,7 @@
 mod badge;
 mod issuer;
 mod signed_list;
+mod theft;
 
 /// bipe-shared tools/gen.mjs output (bipe-chat/bipe#1277). Never edit by hand.
 mod generated {
@@ -16,6 +17,7 @@ mod generated {
 pub use badge::*;
 pub use issuer::*;
 pub use signed_list::*;
+pub use theft::*;
 
 uniffi::setup_scaffolding!("bipe_core");
 
