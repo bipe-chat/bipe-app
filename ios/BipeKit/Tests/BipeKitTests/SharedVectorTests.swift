@@ -455,7 +455,8 @@ struct SharedVectorTests {
         for vector in vectors {
             let name = try #require(vector["name"] as? String)
             let envelopeObject = try #require(vector["envelope"] as? [String: Any])
-            let payload = try #require(Data(base64URL: #require(envelopeObject["payload"] as? String)))
+            let payloadText = try #require(envelopeObject["payload"] as? String)
+            let payload = try #require(Data(base64URL: payloadText))
             let level = try (JSONSerialization.jsonObject(with: payload) as? [String: Any])?["lvl"] as? String
             let expect = try #require(vector["expect"] as? String)
             let expected = expect == "valid" && (level == "person" || level == "org") ? "malformed" : expect
