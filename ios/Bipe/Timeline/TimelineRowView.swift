@@ -141,6 +141,15 @@ private struct ForwardLine: View {
     }
 }
 
+/// bipe-chat/bipe#1260: this post also shows at bipe.chat/@handle (bipe_feed_public_label).
+private struct PublicFeedLine: View {
+    var body: some View {
+        Text(BipeStrings.feedPublicLabel)
+            .font(.caption.bold())
+            .foregroundStyle(BipeColor.inkSecondary)
+    }
+}
+
 /// kind message: sender, reply quote, text, time, edited label, receipt, reactions. Long press opens
 /// message-actions; a swipe right starts a reply.
 private struct MessageBubbleRow: View {
@@ -176,6 +185,9 @@ private struct MessageBubbleRow: View {
                     // Spec chat-timeline notes (bipe-chat/bipe#933): voice rows keep their own source line.
                     if message.voice == nil, let line = BipeForwardMark.line(count: message.forwardCount) {
                         ForwardLine(source: line)
+                    }
+                    if message.isPublicFeed {
+                        PublicFeedLine()
                     }
                     if let reply = details.reply {
                         ReplyQuote(reply: reply)

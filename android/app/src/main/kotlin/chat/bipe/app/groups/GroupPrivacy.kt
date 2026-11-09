@@ -194,11 +194,14 @@ fun GroupPrivacyScreen(session: AccountSession, media: MediaLoader, roomId: Stri
     val colors = BipeTheme.colors
     val scope = rememberCoroutineScope()
     val model = remember(session, roomId) { GroupPrivacyModel(session, roomId, scope) }
+    val publicFeed = remember(session, roomId) { GroupPublicFeedModel(session, roomId, scope) }
     DisposableEffect(model) {
         model.start()
+        publicFeed.appear()
         onDispose { model.close() }
     }
     val state by model.state.collectAsState()
+    val feedState by publicFeed.state.collectAsState()
     BackHandler(onBack = onBack)
     Surface(modifier = Modifier.fillMaxSize().testTag(BipeScreen.GROUP_PRIVACY.id), color = colors.surfaceBase) {
         Column(modifier = Modifier.fillMaxSize().safeDrawingPadding().verticalScroll(rememberScrollState())) {
@@ -234,6 +237,7 @@ fun GroupPrivacyScreen(session: AccountSession, media: MediaLoader, roomId: Stri
                 }
                 GroupFooter(stringResource(R.string.bipe_group_publication_only_footer))
             }
+            GroupPublicFeedRows(feedState.phase, publicFeed::set)
             if (state.requests.isNotEmpty()) {
                 GroupSectionHeader(stringResource(R.string.bipe_group_requests))
                 state.requests.forEach { request ->
@@ -258,6 +262,13 @@ fun GroupPrivacyScreen(session: AccountSession, media: MediaLoader, roomId: Stri
                 }
             }
         }
+    }
+    if (feedState.failed) {
+        AlertDialog(
+            onDismissRequest = publicFeed::dismissError,
+            text = { Text(stringResource(R.string.bipe_error_generic)) },
+            confirmButton = { TextButton(onClick = publicFeed::dismissError) { Text(stringResource(R.string.bipe_app_close)) } },
+        )
     }
     if (state.failed) {
         AlertDialog(

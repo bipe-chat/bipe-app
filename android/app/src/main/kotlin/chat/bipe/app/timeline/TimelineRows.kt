@@ -14,6 +14,7 @@ import chat.bipe.app.media.MediaFormat
 import chat.bipe.app.location.LiveLocationMessage
 import chat.bipe.app.location.LocationMessage
 import chat.bipe.app.media.MediaMessage
+import chat.bipe.shared.api.BipeFeedPostMark
 import chat.bipe.shared.media.BipeForwardMark
 import chat.bipe.shared.media.BipeImageDescription
 import chat.bipe.shared.drafts.BipeAssistantSend
@@ -339,7 +340,11 @@ object TimelineRowBuilder {
                                 built.copy(assistantLabel = strings.format(R.string.bipe_app_assistant_sent_label, event.senderProfile.realName(event.sender) ?: name(event.sender)))
                             } else {
                                 built
-                            }.copy(forwardCount = forwardCount)
+                            }.copy(
+                                forwardCount = forwardCount,
+                                // bipe-chat/bipe#1260: the SDK types have no field for the public feed mark.
+                                isPublicFeed = BipeFeedPostMark.postId(event.lazyProvider.debugInfo().originalJson) != null,
+                            )
                             val isEdited = (kind as? MsgLikeKind.Message)?.content?.isEdited ?: false
                             val isSent = event.localSendState.let { it == null || it is EventSendState.Sent }
                             val details = MessageDetails(

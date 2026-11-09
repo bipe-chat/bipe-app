@@ -26,6 +26,8 @@ public enum BipeGroupPowerLevels {
     public static let publicationOnlyEvent = "chat.bipe.publication_only"
     /// Below this level a member of a publication-only group sends only thread replies, edits, reactions and redactions.
     public static let publicationOnlyMinPostLevel: Int64 = 50
+    /// The content key of a group post that also went to the public feed (bipe-chat/bipe#1260): {id, url} of the feed post.
+    public static let feedPostKey = "chat.bipe.feed_post"
     public static let events: [String: Int64] = [
         "chat.bipe.assistant": 0,
         "m.call.member": 0,
