@@ -272,10 +272,15 @@ pub(crate) fn key_for(keys: &[TrustedKey], kid: &str) -> Result<VerifyingKey, Ba
 
 /// Step 10.
 pub(crate) fn check_time(claims: &BadgeClaims, now: i64) -> Result<(), BadgeFailure> {
-    if now >= claims.exp {
+    check_time_range(claims.iat, claims.exp, now)
+}
+
+/// `iat <= now < exp`, else `expired` or `not_yet_valid`. Badges and theft marks share it.
+pub(crate) fn check_time_range(iat: i64, exp: i64, now: i64) -> Result<(), BadgeFailure> {
+    if now >= exp {
         return Err(BadgeFailure::Expired);
     }
-    if now < claims.iat {
+    if now < iat {
         return Err(BadgeFailure::NotYetValid);
     }
     Ok(())
@@ -373,7 +378,7 @@ fn optional_text<'a>(payload: &'a Map<String, Value>, key: &str) -> Result<Optio
 }
 
 /// Parser rules: a JSON integer in the range. A quoted number, a fraction and an exponent fail.
-fn badge_time(value: &Value) -> Option<i64> {
+pub(crate) fn badge_time(value: &Value) -> Option<i64> {
     value.as_i64().filter(|time| (0..=MAX_BADGE_TIME).contains(time))
 }
 
