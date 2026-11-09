@@ -61,6 +61,7 @@ import type {
   SlotDays,
   WebSettings,
   WorkGeral,
+  WorkMemberRecovery,
   WorkMembers,
   WorkMemberSession,
   WorkSetup,
@@ -258,10 +259,12 @@ export class BusinessClient {
     this.put<ChatAssignment>(`/v1/me/business/chats/${enc(roomId)}`, update);
   // Spec interno (bipe ADR 0284 phase B): the member identities and Geral. 403 seat_required for a device without a
   // person. The session password is new on each call and the caller forgets it after the sign-in. 409 geral_exists
-  // when another member's app claimed Geral first.
+  // when another member's app claimed Geral first. The session can carry the recovery key of the member identity, and
+  // PUT .../recovery stores a new one (204; 404 not_found without a member identity): never logged or kept.
   members = () => this.get<WorkMembers>('/v1/me/business/members');
   memberSession = () => this.post<WorkMemberSession>('/v1/me/business/members/session');
   claimGeral = (geral: WorkGeral) => this.put<WorkMembers>('/v1/me/business/members/geral', geral);
+  storeMemberRecovery = (recovery: WorkMemberRecovery) => this.put<void>('/v1/me/business/members/recovery', recovery);
   workLinkOpened = () => this.post<WorkSetup>('/v1/me/business/setup/link-opened');
   workSuggestions = () => this.get<WorkSuggestions>('/v1/me/business/suggestions');
   dismissWorkSuggestion = (id: string) => this.post<WorkSuggestions>(`/v1/me/business/suggestions/${enc(id)}/dismiss`);

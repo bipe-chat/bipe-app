@@ -270,8 +270,9 @@ final class AccountStartModel: ObservableObject {
         Task { await KeychainMove.report(session, api: api) }
         Task { await PhoneReport.report(session, api: api) }
         Task { await LiveLocationCenter.shared.cleanUp(session) }
-        // Spec interno: a work account's member session restores like other sessions, with no bipe-api call.
-        Task { await InternoSessions.shared.restore(forWork: session) }
+        // Spec interno: a work account's member session restores like other sessions. Until this phone has stored a
+        // working recovery key, the key steps call bipe-api in the background, once per launch.
+        Task { await InternoSessions.shared.restore(forWork: session, api: session.business(api)) }
         sessions.append(session)
         sessions.sort { (order.firstIndex(of: $0.userId) ?? .max) < (order.firstIndex(of: $1.userId) ?? .max) }
     }

@@ -17,6 +17,7 @@ import chat.bipe.shared.BipePushMessage
 import chat.bipe.shared.R
 import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.api.BipeApiException
+import chat.bipe.shared.api.storeWorkMemberRecovery
 import chat.bipe.shared.api.workMemberSession
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,11 +31,16 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONObject
+import org.matrix.rustcomponents.sdk.EnableRecoveryProgress
+import org.matrix.rustcomponents.sdk.EnableRecoveryProgressListener
 import org.matrix.rustcomponents.sdk.HttpPusherData
 import org.matrix.rustcomponents.sdk.Membership
 import org.matrix.rustcomponents.sdk.PushFormat
 import org.matrix.rustcomponents.sdk.PusherIdentifiers
 import org.matrix.rustcomponents.sdk.PusherKind
+import org.matrix.rustcomponents.sdk.RecoveryState
+import org.matrix.rustcomponents.sdk.VerificationState
+import java.util.Collections
 
 /**
  * The member identity sessions of Interno (spec interno, bipe ADR 0284 points 4 to 6 and 21): one second SDK session
@@ -55,6 +61,12 @@ class InternoSessions(private val app: BipeApplication) {
 
     /** Member user ID to the registration time of the pusher it got, so each registration sets its pusher once. */
     private val pushed = mutableMapOf<String, Long>()
+
+    /** Member user IDs whose key steps run now, so a second open does not start them again. */
+    private val linking = Collections.synchronizedSet(mutableSetOf<String>())
+
+    /** Member user IDs whose key steps ran after a restore in this process: at most one run each. */
+    private val restoreLinked = Collections.synchronizedSet(mutableSetOf<String>())
 
     /** The member identity of [workUserId] on this phone, once it signed in here. */
     fun memberOf(workUserId: String): String? = prefs.getString(KEY_MEMBER + workUserId, null)
@@ -116,6 +128,7 @@ class InternoSessions(private val app: BipeApplication) {
             error("work account gone")
         }
         attach(work.userId, member)
+        app.scope.launch { linkKeys(work, member, grant.recoveryKey, mayReset = true) }
         member
     }
 
@@ -140,7 +153,12 @@ class InternoSessions(private val app: BipeApplication) {
         val memberId = memberOf(work.userId) ?: return null
         val saved = store.load(memberId) ?: return null
         return try {
-            AccountSession.restore(app, saved, store).also { attach(work.userId, it) }
+            AccountSession.restore(app, saved, store).also {
+                attach(work.userId, it)
+                if (!prefs.getBoolean(KEY_RECOVERY + it.userId, false) && restoreLinked.add(it.userId)) {
+                    app.scope.launch { linkKeysAfterRestore(work, it) }
+                }
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (e: AccountStep.NoStore) {
@@ -204,6 +222,7 @@ class InternoSessions(private val app: BipeApplication) {
         } catch (e: Exception) {
             Log.w(TAG, "member session: local cleanup failed")
         }
+        prefs.edit().remove(KEY_RECOVERY + member.userId).apply()
         if (memberOf(workUserId) == member.userId) prefs.edit().remove(KEY_MEMBER + workUserId).apply()
     }
 
@@ -234,6 +253,85 @@ class InternoSessions(private val app: BipeApplication) {
         }
     }
 
+    /**
+     * Spec interno action open, the key steps (bipe ADR 0284 point 34), with no prompt. [recoveryKey] is the key bipe-api
+     * holds for the member identity; it stays in memory only. (1) Only after a fresh sign-in ([mayReset]): a read that
+     * succeeds and finds no identity resets it. (2) This device not verified and a key: recover with it, which verifies
+     * the device and opens the key backup. (3) This device verified: a key with recovery enabled is done; else a new
+     * key goes to bipe-api (PUT members/recovery). Each finished run sets [KEY_RECOVERY]. A failure logs one line
+     * without the key, keeps the session and retries on the next open.
+     */
+    private suspend fun linkKeys(work: AccountSession, member: AccountSession, recoveryKey: String?, mayReset: Boolean) {
+        if (!linking.add(member.userId)) return
+        try {
+            val encryption = member.client.encryption()
+            encryption.waitForE2eeInitializationTasks()
+            var verified = encryption.verificationState() == VerificationState.VERIFIED
+            var keyWorks = recoveryKey != null
+            if (mayReset && encryption.userIdentity(member.userId, true) == null) {
+                encryption.resetIdentity()?.reset(null)
+                // A key on bipe-api belonged to the old identity.
+                verified = true
+                keyWorks = false
+            }
+            if (!verified) {
+                if (recoveryKey != null) {
+                    encryption.recover(recoveryKey)
+                    keysDone(member)
+                }
+                return
+            }
+            val state = encryption.recoveryState()
+            if (keyWorks && state == RecoveryState.ENABLED) {
+                keysDone(member)
+                return
+            }
+            // Same choice as RecoveryKeySave: a first key, or a new key in place of one that exists.
+            val key = when (state) {
+                RecoveryState.DISABLED -> encryption.enableRecovery(
+                    waitForBackupsToUpload = false,
+                    passphrase = null,
+                    progressListener = object : EnableRecoveryProgressListener {
+                        override fun onUpdate(status: EnableRecoveryProgress) = Unit
+                    },
+                )
+                RecoveryState.ENABLED, RecoveryState.INCOMPLETE -> encryption.resetRecoveryKey()
+                RecoveryState.UNKNOWN -> return
+            }
+            if (!isActive(member)) return
+            BipeApiClient.withTokenRetry({ work.accessToken() }) { app.accountStart.api.storeWorkMemberRecovery(key, it) }
+            keysDone(member)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // Never the message: an SDK or HTTP error must not carry the key into the log.
+            Log.w(TAG, "member keys: ${e::class.simpleName}, retried on the next open")
+        } finally {
+            linking.remove(member.userId)
+        }
+    }
+
+    /**
+     * A restored member session whose key steps did not finish: one POST members/session for the key bipe-api holds.
+     * The new one-use password in the answer is never used or kept; it does not end other sessions.
+     */
+    private suspend fun linkKeysAfterRestore(work: AccountSession, member: AccountSession) {
+        val grant = try {
+            BipeApiClient.withTokenRetry({ work.accessToken() }) { app.accountStart.api.workMemberSession(it) }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "member keys: grant not read (${e::class.simpleName}), retried on the next start")
+            return
+        }
+        if (grant.userId != member.userId || !isActive(member)) return
+        linkKeys(work, member, grant.recoveryKey, mayReset = false)
+    }
+
+    private fun keysDone(member: AccountSession) {
+        prefs.edit().putBoolean(KEY_RECOVERY + member.userId, true).apply()
+    }
+
     /** The homeserver of the work account: the member identity lives on the same one. */
     private fun homeserver(work: AccountSession): String =
         runCatching { work.client.session().homeserverUrl }.getOrNull() ?: AppConfig.HOMESERVER
@@ -241,6 +339,9 @@ class InternoSessions(private val app: BipeApplication) {
     companion object {
         private const val TAG = "interno"
         private const val KEY_MEMBER = "member."
+
+        /** Per member user ID: true once this phone's key steps finished (a PUT members/recovery or a recover). */
+        private const val KEY_RECOVERY = "recovery."
 
         /** Joins the rooms the member identity is invited to. The homeserver lets only members of the account invite it. */
         suspend fun acceptInvites(member: AccountSession, from: Set<String>) {

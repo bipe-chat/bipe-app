@@ -355,10 +355,13 @@ public struct BipeWorkMembers: Decodable, Sendable, Equatable {
     public let geralRoomId: String?
 }
 
-/// Contract `WorkMemberSession`: a one-use password for m.login.password. The app never stores it.
+/// Contract `WorkMemberSession`: a one-use password for m.login.password. The app never stores it. recoveryKey: the
+/// member identity's recovery key when a device of this person stored one; used once with Encryption.recover, never
+/// stored or logged.
 public struct BipeWorkMemberSession: Decodable, Sendable {
     public let userId: String
     public let password: String
+    public let recoveryKey: String?
 }
 
 /// The member identity rule of registries/accounts.json `memberLocalpartPrefix` (ADR 0284 point 1). The Swift generator
@@ -373,6 +376,7 @@ public enum BipeMemberIdentity {
 }
 
 private struct WorkGeral: Encodable { let roomId: String }
+private struct WorkMemberRecovery: Encodable { let recoveryKey: String }
 
 extension BipeBusinessAPI {
     /// `GET /v1/me/business/members`. A device of the work account with a person, else 403 `seat_required`.
@@ -389,5 +393,12 @@ extension BipeBusinessAPI {
     /// `PUT /v1/me/business/members/geral`. The first claim wins; 409 `geral_exists` after that.
     public func claimGeral(roomId: String) async throws(BipeAPIError) -> BipeWorkMembers {
         try await request("PUT", ["v1", "me", "business", "members", "geral"], json: WorkGeral(roomId: roomId))
+    }
+
+    /// `PUT /v1/me/business/members/recovery`. Stores the member identity's recovery key for the person's next device.
+    /// 404 `not_found` when the seat has no member identity. Never log the key.
+    public func putMemberRecovery(recoveryKey: String) async throws(BipeAPIError) {
+        let _: BipeAPIClient.NoContent = try await request("PUT", ["v1", "me", "business", "members", "recovery"],
+                                                           json: WorkMemberRecovery(recoveryKey: recoveryKey))
     }
 }
