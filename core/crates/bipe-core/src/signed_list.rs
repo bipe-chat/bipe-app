@@ -7,7 +7,7 @@
 //! The reference is bipe-shared tools/lib/signed-lists.mjs. Its JavaScript semantics decide every edge case here.
 //! No production client calls this code until bipe-chat/bipe#1277 closes (ADR 0267).
 
-use crate::badge::TrustedKey;
+use crate::badge::{TrustedKey, is_scheme_id};
 use base64::Engine;
 use base64::alphabet;
 use base64::engine::{DecodePaddingMode, GeneralPurpose, GeneralPurposeConfig};
@@ -602,15 +602,6 @@ fn issuers_well_formed(p: &Map<String, Value>) -> Option<()> {
         key_map(i.get("keys"), &mut kids)?;
     }
     Some(())
-}
-
-/// `^[a-z]{2}\.[a-z0-9-]{1,30}$`
-fn is_scheme_id(id: &str) -> bool {
-    let b = id.as_bytes();
-    (4..=33).contains(&b.len())
-        && b[..2].iter().all(u8::is_ascii_lowercase)
-        && b[2] == b'.'
-        && b[3..].iter().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || *c == b'-')
 }
 
 /// `^[a-z0-9][a-z0-9-]{1,31}$`
