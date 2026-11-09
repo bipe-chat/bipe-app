@@ -27,6 +27,10 @@ final class InternoSessions: ObservableObject {
     private var opening: Set<String> = []
     /// Work accounts whose launch restore runs or ran in this process.
     private var restoring: Set<String> = []
+    /// Member identities whose key steps run now.
+    private var keying: Set<String> = []
+    /// Member identities whose restore key run started in this process: at most one per launch.
+    private var restoreKeyed: Set<String> = []
 
     enum Failure: Error {
         case notMember
@@ -74,9 +78,10 @@ final class InternoSessions: ObservableObject {
 
     // MARK: Open
 
-    /// Later launches: restores the saved member session of the work account, when this phone has one. No call to
-    /// bipe-api. A restore that fails for a local reason keeps everything for the next open.
-    func restore(forWork work: AccountSession) async {
+    /// Later launches: restores the saved member session of the work account, when this phone has one. Until bipe-api
+    /// holds a working recovery key for this phone, restoreKeys runs in the background once per launch. A restore that
+    /// fails for a local reason keeps everything for the next open.
+    func restore(forWork work: AccountSession, api: BipeBusinessAPI) async {
         guard sessions[work.userId] == nil, !restoring.contains(work.userId),
               let memberId = Self.memberId(forWork: work.userId), BipeMemberIdentity.isMember(memberId),
               let saved = SessionStore.load(userId: memberId) else { return }
@@ -86,6 +91,9 @@ final class InternoSessions: ObservableObject {
             let member = try await AccountSession.restore(saved)
             guard sessions[work.userId] == nil else { return }
             add(member, work: work)
+            if !Self.recoveryStored(member.userId), restoreKeyed.insert(member.userId).inserted {
+                Task { await self.restoreKeys(member, api: api) }
+            }
         } catch AccountStep.Failure.noStore {
             // A saved session from an earlier install: the next open signs in again.
             SessionStore.delete(userId: memberId)
@@ -104,7 +112,7 @@ final class InternoSessions: ObservableObject {
         for _ in 0..<600 where restoring.contains(workId) {
             try await Task.sleep(for: .milliseconds(100))
         }
-        await restore(forWork: work)
+        await restore(forWork: work, api: api)
         if let member = sessions[workId] { return member }
         guard !opening.contains(workId) else {
             // Another screen signs in now: wait for it.
@@ -123,32 +131,131 @@ final class InternoSessions: ObservableObject {
         let member = try await AccountSession.signIn(userId: grant.userId, password: grant.password,
                                                      homeserverURL: work.client.homeserver())
         Self.remember(member.userId, forWork: workId)
-        await Self.setUpCrossSigning(member)
+        // The recovery key goes no further than these steps: never saved, logged or shown.
+        let grantKey = grant.recoveryKey
+        await keySteps(member) { encryption in
+            await Self.setUpKeys(member, encryption: encryption, grantKey: grantKey, api: api)
+        }
         if let existing = sessions[workId] { return existing }
         add(member, work: work)
         return member
     }
 
-    /// Spec interno open: the person's phone makes the member identity's cross-signing keys (ADR 0284 point 4), with no
-    /// recovery key prompt. The client builder already does it at sign-in (autoEnableCrossSigning); this covers a
-    /// sign-in where that step did not finish. Only a read that succeeds and finds no identity makes one: an identity
-    /// made on another surface stays.
-    private static func setUpCrossSigning(_ member: AccountSession) async {
+    // MARK: Keys (spec interno open, bipe ADR 0284 point 34)
+
+    /// Runs key steps for one member identity at a time, after the SDK's own encryption setup.
+    private func keySteps(_ member: AccountSession, _ steps: (Encryption) async -> Void) async {
+        guard keying.insert(member.userId).inserted else { return }
+        defer { keying.remove(member.userId) }
         let encryption = member.client.encryption()
         await encryption.waitForE2eeInitializationTasks()
+        await steps(encryption)
+    }
+
+    /// Restore with no stored key: POST members/session once for its recovery key, then steps 2 and 3, never a reset.
+    /// The new password in the grant is not used and not kept; it ends no other session.
+    private func restoreKeys(_ member: AccountSession, api: BipeBusinessAPI) async {
+        let grantKey: String?
+        do {
+            let grant = try await api.memberSession()
+            guard grant.userId == member.userId else { return }
+            grantKey = grant.recoveryKey
+        } catch {
+            AccountStep.log.error("interno: member grant read failed")
+            return
+        }
+        await keySteps(member) { encryption in
+            await Self.useGrantKey(member, encryption: encryption, grantKey: grantKey, api: api)
+        }
+    }
+
+    /// After a fresh sign-in, with no prompt. (1) A read that succeeds and finds no identity: reset the identity, then
+    /// step 3. An identity made on another surface stays. (2) The grant had a recovery key and this device is not
+    /// verified: recover with it, so the device is verified and gets the history from the key backup. (3) Then
+    /// storeRecovery. Any failure keeps the session open; the next open tries again.
+    private static func setUpKeys(_ member: AccountSession, encryption: Encryption, grantKey: String?,
+                                  api: BipeBusinessAPI) async {
+        // The grant says now whether bipe-api holds a key: an older flag of this phone no longer counts.
+        setRecoveryStored(false, memberId: member.userId)
         let identity: UserIdentity?
         do {
             identity = try await encryption.userIdentity(userId: member.userId, fallbackToServer: true)
         } catch {
+            AccountStep.log.error("interno: identity read failed")
             return
         }
-        guard identity == nil else { return }
-        do {
-            if let handle = try await encryption.resetIdentity() {
-                try await handle.reset(auth: nil)
+        if identity == nil {
+            do {
+                if let handle = try await encryption.resetIdentity() {
+                    try await handle.reset(auth: nil)
+                }
+            } catch {
+                AccountStep.log.error("interno: cross-signing setup failed")
+                return
             }
+            // A key stored for an older identity does not open the new one.
+            await storeRecovery(member, encryption: encryption, serverHasKey: false, api: api)
+            return
+        }
+        await useGrantKey(member, encryption: encryption, grantKey: grantKey, api: api)
+    }
+
+    /// Steps 2 and 3, for a fresh sign-in and for a restore. Not verified with a key: recover, and the key in bipe-api
+    /// works. Not verified with no key: nothing. Verified: storeRecovery.
+    private static func useGrantKey(_ member: AccountSession, encryption: Encryption, grantKey: String?,
+                                    api: BipeBusinessAPI) async {
+        guard encryption.verificationState() == .verified else {
+            guard let grantKey else { return }
+            do {
+                try await encryption.recover(recoveryKey: grantKey)
+                setRecoveryStored(true, memberId: member.userId)
+            } catch {
+                AccountStep.log.error("interno: recover failed")
+            }
+            return
+        }
+        await storeRecovery(member, encryption: encryption, serverHasKey: grantKey != nil, api: api)
+    }
+
+    /// Step 3: this device is verified and bipe-api holds no working key: make one and PUT it. serverHasKey with
+    /// recovery enabled here means the key in bipe-api works: nothing to send. Recovery enabled or incomplete without
+    /// a key in bipe-api makes a new key (the old one is in no hands). Runs until one PUT succeeds.
+    private static func storeRecovery(_ member: AccountSession, encryption: Encryption, serverHasKey: Bool,
+                                      api: BipeBusinessAPI) async {
+        guard !recoveryStored(member.userId), encryption.verificationState() == .verified else { return }
+        let state = encryption.recoveryState()
+        if state == .unknown { return }
+        if serverHasKey, state == .enabled {
+            setRecoveryStored(true, memberId: member.userId)
+            return
+        }
+        do {
+            let key: String
+            if state == .disabled {
+                key = try await encryption.enableRecovery(waitForBackupsToUpload: false, passphrase: nil,
+                                                          progressListener: NoRecoveryProgress())
+            } else {
+                key = try await encryption.resetRecoveryKey()
+            }
+            try await api.putMemberRecovery(recoveryKey: key)
+            setRecoveryStored(true, memberId: member.userId)
         } catch {
-            AccountStep.log.error("interno: cross-signing setup failed")
+            AccountStep.log.error("interno: recovery key not stored")
+        }
+    }
+
+    private static func recoveryStoredKey(_ memberId: String) -> String { "bipe.interno.recoveryStored.\(memberId)" }
+
+    /// true once bipe-api holds a recovery key that works for this member identity (step 3 done on this phone).
+    private static func recoveryStored(_ memberId: String) -> Bool {
+        UserDefaults.standard.bool(forKey: recoveryStoredKey(memberId))
+    }
+
+    private static func setRecoveryStored(_ stored: Bool, memberId: String) {
+        if stored {
+            UserDefaults.standard.set(true, forKey: recoveryStoredKey(memberId))
+        } else {
+            UserDefaults.standard.removeObject(forKey: recoveryStoredKey(memberId))
         }
     }
 
@@ -188,6 +295,7 @@ final class InternoSessions: ObservableObject {
         let memberId = sessions[workId]?.userId ?? Self.memberId(forWork: workId)
         Self.remember(nil, forWork: workId)
         guard let memberId else { return }
+        Self.setRecoveryStored(false, memberId: memberId)
         if let member = sessions[workId] {
             await remove(member, workId: workId)
             await member.signOut(alreadyLoggedOut: alreadyLoggedOut)
@@ -214,6 +322,11 @@ final class InternoSessions: ObservableObject {
             await member.resumeSending()
         }
     }
+}
+
+/// enableRecovery in the background shows no progress.
+private final class NoRecoveryProgress: EnableRecoveryProgressListener {
+    func onUpdate(status: EnableRecoveryProgress) {}
 }
 
 /// Spec interno state and actions for one work account.
