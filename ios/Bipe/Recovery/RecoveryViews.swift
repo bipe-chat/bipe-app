@@ -243,6 +243,7 @@ private struct RecoveryPinView: View {
                     .accessibilityAction { focused = true }
                 }
                 .disabled(model.pinPhase == .checking)
+                .bipePinHaptics(count: model.pin.count, error: errorText != nil)
                 if model.pinPhase == .checking {
                     ProgressView().frame(maxWidth: .infinity)
                 }

@@ -60,8 +60,11 @@ fun AccountStartScreen(model: AccountStartModel, tabs: AppTabsModel) {
     val sessions by model.sessions.collectAsState()
     LaunchedEffect(notificationTarget, sessions) {
         val target = notificationTarget ?: return@LaunchedEffect
-        if (sessions.any { it.userId == target.accountUserId }) {
-            model.switchAccount(target.accountUserId)
+        // Spec interno: a notification of a member identity opens its work account.
+        val owner = target.accountUserId.takeIf { id -> sessions.any { it.userId == id } }
+            ?: app.interno.workAccountOf(target.accountUserId)?.takeIf { id -> sessions.any { it.userId == id } }
+        if (owner != null) {
+            model.switchAccount(owner)
             tabs.selectTab(if (target.destination == BipeNotificationDestination.GROUPS) AppTabsModel.Tab.GRUPOS else AppTabsModel.Tab.CONVERSAS)
         }
     }

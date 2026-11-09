@@ -5927,4 +5927,36 @@ public enum BipeStrings {
     public static var reachLimitBodyNone: String { NSLocalizedString("bipe_reach_limit_body_none", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var avatarOpen: String { NSLocalizedString("bipe_avatar_open", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var internoTitle: String { NSLocalizedString("bipe_interno_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func internoRowBody(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_interno_row_body", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var internoGeral: String { NSLocalizedString("bipe_interno_geral", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func internoGeralBody(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_interno_geral_body", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var internoNew: String { NSLocalizedString("bipe_interno_new", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var internoPickTitle: String { NSLocalizedString("bipe_interno_pick_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var internoPrivateHint: String { NSLocalizedString("bipe_interno_private_hint", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var internoSetup: String { NSLocalizedString("bipe_interno_setup", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var internoError: String { NSLocalizedString("bipe_interno_error", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var internoEmpty: String { NSLocalizedString("bipe_interno_empty", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func govbrStepSignFile(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_govbr_step_sign_file", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func govbrReasonWrongDocumentFile(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_govbr_reason_wrong_document_file", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
 }

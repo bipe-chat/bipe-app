@@ -235,6 +235,7 @@ struct MacRequestRow: View {
     let request: MacChatRequest
     @ObservedObject var media: MacMedia
     let seals: BipeCompanySeals?
+    let isSelected: Bool
 
     var body: some View {
         HStack(spacing: 12) {
@@ -243,11 +244,11 @@ struct MacRequestRow: View {
                 Text(request.name).macFont(.headline).lineLimit(1)
                 switch MacRequestTrust.of(request, seals: seals) {
                 case .verified:
-                    Text(BipeStrings.badgeVerified).macFont(.subheadline).foregroundStyle(BipeColor.trustVerifiedInk)
+                    Text(BipeStrings.badgeVerified).macFont(.subheadline).foregroundStyle(isSelected ? BipeColor.inkOnAccent : BipeColor.trustVerifiedInk)
                 case .unverified:
-                    Text(BipeStrings.bannerUnverifiedTitle).macFont(.subheadline).foregroundStyle(BipeColor.trustCautionInk)
+                    Text(BipeStrings.bannerUnverifiedTitle).macFont(.subheadline).foregroundStyle(isSelected ? BipeColor.inkOnAccent : BipeColor.trustCautionInk)
                 case .external:
-                    Text(BipeStrings.bannerExternal).macFont(.subheadline).foregroundStyle(BipeColor.trustNeutralInk)
+                    Text(BipeStrings.bannerExternal).macFont(.subheadline).foregroundStyle(isSelected ? BipeColor.inkOnAccent : BipeColor.trustNeutralInk)
                 }
             }
         }.frame(minHeight: 56).contentShape(Rectangle())

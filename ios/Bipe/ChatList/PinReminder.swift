@@ -78,6 +78,7 @@ struct PinReminderView: View {
                         .padding(14)
                         .background(RoundedRectangle(cornerRadius: 12).fill(BipeColor.surfaceSunken))
                         .disabled(phase == .checking)
+                        .bipePinHaptics(count: pin.count)
                     if phase == .checking { ProgressView().frame(maxWidth: .infinity) }
                     if phase == .failed {
                         Text(BipeStrings.errorNetwork).font(.footnote).foregroundStyle(BipeColor.trustDangerInk)
@@ -111,6 +112,14 @@ struct PinReminderView: View {
         .tint(BipeColor.accentFill)
         .accessibilityIdentifier(BipeScreen.pinReminder.rawValue)
         .onAppear { focused = true }
+        // The answer of the check: pin_wrong buzzes, a right PIN is the success haptic.
+        .onChange(of: phase) { _, new in
+            switch new {
+            case .right: BipeHaptics.play(.success)
+            case .wrong, .blocked: BipeHaptics.play(.error)
+            default: break
+            }
+        }
     }
 
     private func edit(_ text: String) {

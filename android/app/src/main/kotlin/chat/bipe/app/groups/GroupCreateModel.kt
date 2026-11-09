@@ -4,6 +4,10 @@
 
 package chat.bipe.app.groups
 
+import chat.bipe.shared.api.BipeApiClient
+import chat.bipe.shared.R
+import chat.bipe.app.people.reachNoticeFor
+import android.content.Context
 import android.net.Uri
 import chat.bipe.app.account.AccountSession
 import kotlinx.coroutines.CoroutineScope
@@ -75,8 +79,12 @@ class GroupCreateModel(
         _people.value = _people.value.filterNot { it.userId == userId }
     }
 
-    /** Action create. onCreated gets the new room ID and whether every invite went out. */
-    fun create(onCreated: (roomId: String, allInvited: Boolean) -> Unit) {
+    /**
+     * Action create. onCreated gets the new room ID and the notice to show after it opens: null when every invite
+     * went out, the reach notice when the server answered M_LIMIT_EXCEEDED to one (spec group-create, bipe-chat/bipe#1299),
+     * else bipe_app_group_create_invites_failed.
+     */
+    fun create(context: Context, api: BipeApiClient?, onCreated: (roomId: String, notice: String?) -> Unit) {
         if (!canCreate(_name.value, _phase.value)) return
         _phase.value = Phase.CREATING
         scope.launch {
@@ -99,20 +107,30 @@ class GroupCreateModel(
                 val room = runCatching { session.client.getRoom(roomId) }.getOrNull()
                     ?: runCatching { session.client.awaitRoomRemoteEcho(roomId) }.getOrNull()
                 var allInvited = room != null || _people.value.isEmpty()
+                var limited = false
                 if (room != null) {
                     // One call each, so one refused invite does not stop the group.
                     for (person in _people.value) {
-                        if (runCatching { room.inviteUserById(person.userId) }.isFailure) allInvited = false
+                        val error = runCatching { room.inviteUserById(person.userId) }.exceptionOrNull() ?: continue
+                        allInvited = false
+                        if (InviteOutcome.of(error) == InviteOutcome.LIMITED) limited = true
                     }
                 }
-                roomId to allInvited
+                Triple(roomId, allInvited, limited)
             }
-            result.onSuccess { (roomId, allInvited) ->
-                _phase.value = Phase.EDITING
-                onCreated(roomId, allInvited)
-            }.onFailure {
+            val created = result.getOrNull()
+            if (created == null) {
                 _phase.value = Phase.FAILED
+                return@launch
             }
+            val (roomId, allInvited, limited) = created
+            val notice = when {
+                limited && api != null -> reachNoticeFor(context, session, api)
+                !allInvited -> context.getString(R.string.bipe_app_group_create_invites_failed)
+                else -> null
+            }
+            _phase.value = Phase.EDITING
+            onCreated(roomId, notice)
         }
     }
 }

@@ -53,6 +53,10 @@ struct SignupFlowView: View {
         }
         .tint(BipeColor.accentFill)
         .interactiveDismissDisabled(model.path.contains(.create))
+        // pin_set: the confirm step matched and the flow moved on.
+        .onChange(of: model.path) { old, new in
+            if old.last == .pinConfirm, new.last == .fallback || new.last == .create { BipeHaptics.play(.success) }
+        }
         .sheet(isPresented: $model.showsWaitlist) {
             SignupWaitlistView(model: model)
         }
@@ -89,111 +93,19 @@ private extension View {
     }
 }
 
-/// A sign-up step: title, optional body, content, the one filled button and text buttons under it.
-private struct StepLayout<Content: View>: View {
-    let screen: BipeScreen
-    let title: String
-    var message: String?
-    @ViewBuilder let content: Content
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    Text(title)
-                        .font(.largeTitle.bold())
-                        .foregroundStyle(BipeColor.inkPrimary)
-                    if let message {
-                        Text(message)
-                            .font(.body)
-                            .foregroundStyle(BipeColor.inkSecondary)
-                    }
-                    content
-                }
-                .padding(24)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-        }
-        .accessibilityIdentifier(screen.rawValue)
-    }
-}
-
-/// The one filled button of a step.
-private struct PrimaryButton: View {
-    let title: String
-    var enabled = true
-    var busy = false
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            ZStack {
-                Text(title).opacity(busy ? 0 : 1)
-                if busy {
-                    ProgressView().tint(BipeColor.inkOnAccent)
-                }
-            }
-            .font(.headline)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
-            .foregroundStyle(enabled ? BipeColor.inkOnAccent : BipeColor.inkDisabled)
-            .background(RoundedRectangle(cornerRadius: 14).fill(enabled ? BipeColor.accentFill : BipeColor.surfaceSunken))
-        }
-        .disabled(!enabled || busy)
-    }
-}
-
-/// A text button under the filled button.
-private struct TextButton: View {
-    let title: String
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Text(title)
-                .font(.body.weight(.semibold))
-                .foregroundStyle(BipeColor.accentInk)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 10)
-        }
-    }
-}
-
-private struct FieldFooter: View {
-    let text: String
-    var isError = false
-
-    var body: some View {
-        Text(text)
-            .font(.footnote)
-            .foregroundStyle(isError ? BipeColor.trustDangerInk : BipeColor.inkSecondary)
-    }
-}
-
-private struct BipeTextField: View {
-    let label: String
-    let text: String
-    let onChange: (String) -> Void
-    var keyboard: UIKeyboardType = .default
-    var contentType: UITextContentType?
-    var isCode = false
-
-    var body: some View {
-        TextField(label, text: Binding(get: { text }, set: onChange))
-            .keyboardType(keyboard)
-            .textContentType(contentType)
-            .textInputAutocapitalization(isCode ? .characters : keyboard == .emailAddress ? .never : .words)
-            .autocorrectionDisabled(isCode || keyboard == .emailAddress)
-            .padding(14)
-            .background(RoundedRectangle(cornerRadius: 12).fill(BipeColor.surfaceSunken))
-            .foregroundStyle(BipeColor.inkPrimary)
-    }
-}
+// The pieces of each step (buttons, fields, header, backdrop) are in OnboardingKit.swift.
+private typealias PrimaryButton = OnboardingPrimaryButton
+private typealias SecondaryButton = OnboardingSecondaryButton
+private typealias TextButton = OnboardingTextButton
+private typealias FieldFooter = OnboardingFieldFooter
+private typealias BipeTextField = OnboardingTextField
 
 // MARK: - onboarding-welcome
 
 struct OnboardingWelcomeView: View {
     @ObservedObject var model: SignupFlowModel
+    /// How far the button sheet reaches over the cover.
+    private static let sheetOverlap: CGFloat = 28
     @State private var showsSite = false
     /// The wordmark follows the system text size.
     @ScaledMetric(relativeTo: .largeTitle) private var wordmarkSize: CGFloat = 52
@@ -216,12 +128,23 @@ struct OnboardingWelcomeView: View {
                 }
             } else {
                 // Tall: the cover takes everything above the two buttons.
+                // The buttons sit on a sheet with round top corners that overlaps the cover's lower edge.
                 VStack(spacing: 0) {
                     cover(edges: [.top, .horizontal])
+                        .padding(.bottom, Self.sheetOverlap)
                     actions
                         .frame(maxWidth: 480)
-                        .padding(24)
+                        .padding(.horizontal, 24)
+                        .padding(.top, 28)
+                        .padding(.bottom, 16)
                         .frame(maxWidth: .infinity)
+                        .background {
+                            UnevenRoundedRectangle(topLeadingRadius: 28, topTrailingRadius: 28, style: .continuous)
+                                .fill(BipeColor.surfaceBase)
+                                .shadow(color: BipeColor.accentFillPressed.opacity(0.18), radius: 18, y: -4)
+                                .ignoresSafeArea(edges: .bottom)
+                        }
+                        .padding(.top, -Self.sheetOverlap)
                 }
             }
         }
@@ -242,7 +165,8 @@ struct OnboardingWelcomeView: View {
             // The horizontal lockup of artwork-brief.md: mark, then the lowercase wordmark.
             HStack(spacing: 12) {
                 BipeMark()
-                    .frame(width: 40, height: 40)
+                    .frame(width: 44, height: 44)
+                    .shadow(color: BipeColor.accentFillPressed.opacity(0.4), radius: 8, y: 3)
                     .accessibilityHidden(true)
                 Text(BipeStrings.appName.lowercased())
                     .font(.system(size: wordmarkSize, weight: .heavy, design: .rounded))
@@ -289,7 +213,7 @@ struct OnboardingWelcomeView: View {
         VStack(spacing: 12) {
             if model.variant == .loading {
                 // Keeps the height of the two buttons, so the cover does not jump when the variant arrives.
-                ProgressView().frame(maxWidth: .infinity, minHeight: 112)
+                ProgressView().frame(maxWidth: .infinity, minHeight: OnboardingMetrics.buttonHeight * 2 + 12)
             } else {
                 let start = model.startVariant
                 PrimaryButton(title: start.primary.title, busy: model.checkingInvite) { Task { await model.primary() } }
@@ -308,23 +232,6 @@ struct OnboardingWelcomeView: View {
             return BipeStrings.onboardingInvitedBy("@" + handle)
         }
         return BipeLocalized.string(start.titleKey)
-    }
-}
-
-/// The second choice next to a filled button: same size, açaí wash.
-private struct SecondaryButton: View {
-    let title: String
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Text(title)
-                .font(.headline)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
-                .foregroundStyle(BipeColor.accentInk)
-                .background(RoundedRectangle(cornerRadius: 14).fill(BipeColor.accentWash))
-        }
     }
 }
 
@@ -365,34 +272,38 @@ struct SignupInviteCodeView: View {
 
     var body: some View {
         let step = BipeOnboardingStep.inviteCode
-        StepLayout(screen: .signupInviteCode,
-                   title: BipeLocalized.string(step.titleKey),
-                   message: step.bodyKey.map { BipeLocalized.string($0) }) {
-            BipeTextField(label: BipeStrings.signupInviteCode, text: model.code, onChange: model.editCode, isCode: true)
+        let checking = model.inviteCodePhase == .checking
+        OnboardingStepLayout(screen: .signupInviteCode,
+                             icon: .handshake,
+                             title: BipeLocalized.string(step.titleKey),
+                             message: step.bodyKey.map { BipeLocalized.string($0) }) {
+            BipeTextField(label: BipeStrings.signupInviteCode, text: model.code, onChange: model.editCode,
+                          icon: .key, isCode: true, isError: model.inviteCodeError != nil)
                 .textInputAutocapitalization(.characters)
-            // Action pasteCode: the system paste button reads the clipboard only on a tap, with no paste prompt,
-            // and continues at once. A whole invite link or message is fine.
-            PasteButton(payloadType: String.self) { texts in
-                guard let text = texts.first else { return }
-                Task { @MainActor in await model.pasteCode(text) }
-            }
-            .tint(BipeColor.accentFill)
-            .disabled(model.inviteCodePhase == .checking)
-            // Action scanCode: the QR code on the inviter's phone holds the invite link.
-            Button { scanning = true } label: {
-                Label { Text(BipeStrings.onboardingScanInvite) } icon: { PhosphorIcon.qrCode.image.resizable().frame(width: 20, height: 20) }
-            }
-            .buttonStyle(.bipeBordered)
-            .tint(BipeColor.accentFill)
-            .disabled(model.inviteCodePhase == .checking)
-            if model.inviteCodePhase == .checking {
+            if checking {
                 FieldFooter(text: BipeStrings.appInviteChecking)
             } else if let error = model.inviteCodeError {
                 FieldFooter(text: error, isError: true)
             }
+            HStack(spacing: 12) {
+                // Action pasteCode: the system paste button reads the clipboard only on a tap, with no paste prompt,
+                // and continues at once. A whole invite link or message is fine.
+                PasteButton(payloadType: String.self) { texts in
+                    guard let text = texts.first else { return }
+                    Task { @MainActor in await model.pasteCode(text) }
+                }
+                .labelStyle(.titleAndIcon)
+                .buttonBorderShape(.roundedRectangle(radius: OnboardingMetrics.buttonCorner))
+                .controlSize(.large)
+                .tint(BipeColor.accentFill)
+                // Action scanCode: the QR code on the inviter's phone holds the invite link.
+                SecondaryButton(title: BipeStrings.onboardingScanInvite, icon: .qrCode) { scanning = true }
+            }
+            .disabled(checking)
+        } actions: {
             PrimaryButton(title: step.primary.title,
                           enabled: !model.code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-                          busy: model.inviteCodePhase == .checking) {
+                          busy: checking) {
                 Task { await model.submitCode() }
             }
             ForEach(step.text, id: \.titleKey) { button in
@@ -472,22 +383,36 @@ struct SignupWaitlistView: View {
     @ObservedObject var model: SignupFlowModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Spacer()
+        VStack(alignment: .leading, spacing: 20) {
+            HStack(alignment: .top) {
+                OnboardingStepHeader(icon: .bell)
                 Button { model.closeWaitlist() } label: {
-                    Text(BipeStrings.appClose).foregroundStyle(BipeColor.accentInk)
+                    Text(BipeStrings.appClose)
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(BipeColor.accentInk)
+                        .bipeTapTarget()
                 }
             }
             Text(BipeLocalized.string(BipeOnboarding.waitlistBodyKey))
+                .font(.title3.weight(.semibold))
                 .foregroundStyle(BipeColor.inkPrimary)
+                .fixedSize(horizontal: false, vertical: true)
             if model.waitlistPhase == .done {
-                Text(BipeLocalized.string(BipeOnboarding.waitlistDoneKey))
-                    .font(.headline)
-                    .foregroundStyle(BipeColor.statusSuccess)
+                HStack(spacing: 10) {
+                    PhosphorIcon.checkCircle.image
+                        .resizable()
+                        .frame(width: 24, height: 24)
+                    Text(BipeLocalized.string(BipeOnboarding.waitlistDoneKey))
+                        .font(.headline)
+                }
+                .foregroundStyle(BipeColor.statusSuccess)
+                .padding(16)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(BipeColor.accentWash, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             } else {
                 BipeTextField(label: BipeStrings.signupEmail, text: model.waitlistEmail, onChange: model.editWaitlistEmail,
-                              keyboard: .emailAddress, contentType: .emailAddress)
+                              icon: .bell, keyboard: .emailAddress, contentType: .emailAddress,
+                              isError: model.waitlistEmailInvalid || model.waitlistError != nil)
                 if model.waitlistEmailInvalid {
                     FieldFooter(text: BipeStrings.signupEmailInvalid, isError: true)
                 } else if let error = model.waitlistError {
@@ -500,9 +425,10 @@ struct SignupWaitlistView: View {
             Spacer()
         }
         .padding(24)
-        .background(BipeColor.surfaceBase.ignoresSafeArea())
+        .background(OnboardingBackdrop())
         .accessibilityIdentifier(BipeScreen.signupWaitlist.rawValue)
         .presentationDetents([.medium, .large])
+        .presentationCornerRadius(28)
     }
 }
 
@@ -513,40 +439,66 @@ struct SignupNameView: View {
 
     var body: some View {
         let step = BipeOnboardingStep.name
-        StepLayout(screen: .signupName, title: BipeLocalized.string(step.titleKey)) {
+        OnboardingStepLayout(screen: .signupName, icon: model.isCompany ? .briefcase : .userCircle, step: 1,
+                             title: BipeLocalized.string(step.titleKey)) {
             if let handle = model.invite?.inviterHandle, model.invite?.isValid == true {
-                Text(BipeStrings.signupInvitedBy(handle))
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(BipeColor.accentInk)
+                HStack(spacing: 8) {
+                    PhosphorIcon.handshake.image
+                        .resizable()
+                        .frame(width: 18, height: 18)
+                    Text(BipeStrings.signupInvitedBy(handle))
+                        .font(.subheadline.weight(.semibold))
+                }
+                .foregroundStyle(BipeColor.accentInk)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .background(BipeColor.accentWash, in: Capsule())
             }
-            BipeTextField(label: model.isCompany ? BipeStrings.companyName : BipeStrings.signupDisplayName,
-                          text: model.displayName, onChange: model.editName,
-                          contentType: model.isCompany ? UITextContentType.organizationName : .name)
-            FieldFooter(text: BipeStrings.signupDisplayNameFooter)
+            VStack(alignment: .leading, spacing: 8) {
+                BipeTextField(label: model.isCompany ? BipeStrings.companyName : BipeStrings.signupDisplayName,
+                              text: model.displayName, onChange: model.editName,
+                              icon: model.isCompany ? .briefcase : .userCircle,
+                              contentType: model.isCompany ? UITextContentType.organizationName : .name)
+                FieldFooter(text: BipeStrings.signupDisplayNameFooter)
+            }
             // The person's region, read-only (ADR 0197).
-            FieldFooter(text: BipeStrings.onboardingPointBrazil)
-            termsRow
-            if model.showTermsRequired {
-                FieldFooter(text: BipeStrings.signupTermsRequired, isError: true)
+            HStack(alignment: .top, spacing: 10) {
+                PhosphorIcon.lockSimple.image
+                    .resizable()
+                    .frame(width: 18, height: 18)
+                    .foregroundStyle(BipeColor.accentInk)
+                Text(BipeStrings.onboardingPointBrazil)
+                    .font(.footnote)
+                    .foregroundStyle(BipeColor.inkSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
+            OnboardingCard {
+                termsRow
+                if model.showTermsRequired {
+                    FieldFooter(text: BipeStrings.signupTermsRequired, isError: true)
+                }
+            }
+        } actions: {
             PrimaryButton(title: step.primary.title, enabled: model.canContinueName) { model.continueFromName() }
         }
     }
 
     /// Each link text opens its page in the browser; the box flips the acceptance (ADR 0113).
     private var termsRow: some View {
-        HStack(alignment: .top, spacing: 10) {
+        HStack(alignment: .top, spacing: 12) {
             Button { model.toggleTerms() } label: {
-                RoundedRectangle(cornerRadius: 5)
-                    .strokeBorder(model.termsAccepted ? BipeColor.accentFill : BipeColor.lineStrong, lineWidth: 2)
-                    .background(RoundedRectangle(cornerRadius: 5).fill(model.termsAccepted ? BipeColor.accentFill : Color.clear))
-                    .frame(width: 22, height: 22)
+                OnboardingCheckbox(checked: model.termsAccepted)
+                    .bipeTapTarget()
             }
+            .buttonStyle(.plain)
             .accessibilityLabel(BipeStrings.signupTermsAccept(BipeStrings.signupTermsLink, BipeStrings.signupPrivacyLink))
             .accessibilityAddTraits(model.termsAccepted ? .isSelected : [])
             Text(TermsText.attributed)
+                .font(.subheadline)
                 .foregroundStyle(BipeColor.inkPrimary)
                 .tint(BipeColor.accentInk)
+                .padding(.top, 11)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 }
@@ -559,9 +511,9 @@ struct SignupPinView: View {
     @FocusState private var focused: Bool
 
     var body: some View {
-        StepLayout(screen: .signupPin,
-                   title: confirm ? BipeStrings.pinConfirmTitle : BipeStrings.pinCreateTitle,
-                   message: confirm ? nil : BipeStrings.pinCreateBody(String(BipeRegistries.pinLength))) {
+        OnboardingStepLayout(screen: .signupPin, icon: .lockSimple, step: 2,
+                             title: confirm ? BipeStrings.pinConfirmTitle : BipeStrings.pinCreateTitle,
+                             message: confirm ? nil : BipeStrings.pinCreateBody(String(BipeRegistries.pinLength))) {
             ZStack {
                 // The system digit keyboard (spec: the fallback of the number pad). It brings delete and paste.
                 TextField("", text: Binding(get: { model.pin }, set: model.editPin))
@@ -570,30 +522,36 @@ struct SignupPinView: View {
                     .focused($focused)
                     .opacity(0.02)
                     .accessibilityHidden(true)
-                HStack(spacing: 10) {
-                    ForEach(0..<BipeRegistries.pinLength, id: \.self) { index in
-                        Circle()
-                            .fill(index < model.pin.count ? BipeColor.accentFill : BipeColor.surfaceSunken)
-                            .frame(width: 14, height: 14)
-                    }
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .contentShape(Rectangle())
-                .onTapGesture { focused = true }
-                // The field is hidden from VoiceOver: the dots are the PIN field, a tap opens the keyboard (bipe#495).
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel(confirm ? BipeStrings.pinConfirmTitle : BipeStrings.pinCreateTitle)
-                .accessibilityValue(BipeStrings.a11yPinProgress(String(model.pin.count), String(BipeRegistries.pinLength)))
-                .accessibilityAddTraits(.isButton)
-                .accessibilityAction { focused = true }
+                PinCells(count: model.pin.count, focused: focused, isError: model.pinProblem != .none)
+                    .contentShape(Rectangle())
+                    .onTapGesture { focused = true }
+                    // The field is hidden from VoiceOver: the cells are the PIN field, a tap opens the keyboard (bipe#495).
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(confirm ? BipeStrings.pinConfirmTitle : BipeStrings.pinCreateTitle)
+                    .accessibilityValue(BipeStrings.a11yPinProgress(String(model.pin.count), String(BipeRegistries.pinLength)))
+                    .accessibilityAddTraits(.isButton)
+                    .accessibilityAction { focused = true }
             }
+            .padding(.vertical, 8)
             if let problem = problemText {
                 FieldFooter(text: problem, isError: true)
             }
-            FieldFooter(text: BipeStrings.pinNeverAsked)
+            HStack(alignment: .top, spacing: 10) {
+                PhosphorIcon.lockSimple.image
+                    .resizable()
+                    .frame(width: 18, height: 18)
+                    .foregroundStyle(BipeColor.accentInk)
+                Text(BipeStrings.pinNeverAsked)
+                    .font(.footnote)
+                    .foregroundStyle(BipeColor.inkSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(BipeColor.accentWash, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
         .onAppear { focused = true }
+        .bipePinHaptics(count: model.pin.count, error: model.pinProblem != .none)
     }
 
     private var problemText: String? {
@@ -607,6 +565,47 @@ struct SignupPinView: View {
     }
 }
 
+/// One cell per digit, in two groups of four so the eight digits read in halves. A filled cell holds an açaí dot,
+/// the next cell has the açaí ring while the keyboard is up.
+private struct PinCells: View {
+    let count: Int
+    let focused: Bool
+    let isError: Bool
+
+    var body: some View {
+        HStack(spacing: 14) {
+            group(0..<BipeRegistries.pinLength / 2)
+            group(BipeRegistries.pinLength / 2..<BipeRegistries.pinLength)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func group(_ range: Range<Int>) -> some View {
+        HStack(spacing: 6) {
+            ForEach(range, id: \.self) { index in
+                let filled = index < count
+                let current = focused && index == count
+                let shape = RoundedRectangle(cornerRadius: 12, style: .continuous)
+                ZStack {
+                    shape.fill(filled ? BipeColor.accentWash : BipeColor.surfaceRaised)
+                    shape.strokeBorder(isError ? BipeColor.trustDangerLine
+                                       : current ? BipeColor.accentFill
+                                       : filled ? BipeColor.accentFill.opacity(0.35) : BipeColor.lineSubtle,
+                                       lineWidth: current || isError ? 2 : 1)
+                    Circle()
+                        .fill(BipeColor.accentFill)
+                        .frame(width: 12, height: 12)
+                        .scaleEffect(filled ? 1 : 0.01)
+                        .opacity(filled ? 1 : 0)
+                }
+                .frame(maxWidth: 44)
+                .frame(height: 52)
+                .bipeAnimation(.spring(duration: 0.22, bounce: 0.4), value: filled)
+            }
+        }
+    }
+}
+
 // MARK: - signup-fallback
 
 struct SignupFallbackView: View {
@@ -614,24 +613,32 @@ struct SignupFallbackView: View {
 
     var body: some View {
         let step = BipeOnboardingStep.fallback
-        StepLayout(screen: .signupFallback,
-                   title: BipeLocalized.string(step.titleKey),
-                   message: step.bodyKey.map { BipeLocalized.string($0) }) {
+        OnboardingStepLayout(screen: .signupFallback, icon: .key, step: 3,
+                             title: BipeLocalized.string(step.titleKey),
+                             message: step.bodyKey.map { BipeLocalized.string($0) }) {
+            if model.fallbackPhase == .email {
+                VStack(alignment: .leading, spacing: 8) {
+                    BipeTextField(label: BipeStrings.signupEmailOptional, text: model.fallbackEmail,
+                                  onChange: model.editFallbackEmail, icon: .key,
+                                  keyboard: .emailAddress, contentType: .emailAddress,
+                                  isError: model.fallbackEmailInvalid)
+                    FieldFooter(text: model.fallbackEmailInvalid ? BipeStrings.signupEmailInvalid : BipeStrings.signupEmailOptionalFooter,
+                                isError: model.fallbackEmailInvalid)
+                }
+            }
+        } actions: {
             switch model.fallbackPhase {
             case .choose:
                 PrimaryButton(title: step.primary.title) { model.addEmail() }
                 // ADR 0096: the platform's own provider next to the e-mail, when the server offers it.
                 if model.fallbackLinkProvider == .apple {
-                    TextButton(title: BipeStrings.linkApple) { Task { await model.linkAccount() } }
+                    SecondaryButton(title: BipeStrings.linkApple) { Task { await model.linkAccount() } }
+                        .padding(.top, 8)
                 }
                 ForEach(step.text, id: \.titleKey) { button in
                     TextButton(title: button.title) { Task { await model.skipEmail() } }
                 }
             case .email:
-                BipeTextField(label: BipeStrings.signupEmailOptional, text: model.fallbackEmail, onChange: model.editFallbackEmail,
-                              keyboard: .emailAddress, contentType: .emailAddress)
-                FieldFooter(text: model.fallbackEmailInvalid ? BipeStrings.signupEmailInvalid : BipeStrings.signupEmailOptionalFooter,
-                            isError: model.fallbackEmailInvalid)
                 PrimaryButton(title: BipeStrings.actionContinue) { Task { await model.submitEmail() } }
                 ForEach(step.text, id: \.titleKey) { button in
                     TextButton(title: button.title) { Task { await model.skipEmail() } }
@@ -648,15 +655,18 @@ struct SignupCreateView: View {
     @ObservedObject var model: SignupFlowModel
 
     var body: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 24) {
             Spacer()
             if model.createPhase == .failed {
                 PhosphorIcon.warningCircle.image
                     .resizable()
-                    .frame(width: 48, height: 48)
+                    .frame(width: 36, height: 36)
                     .foregroundStyle(BipeColor.trustDangerInk)
+                    .frame(width: 72, height: 72)
+                    .background(BipeColor.trustDangerWash, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
                     .accessibilityHidden(true)
                 Text(model.createErrorText)
+                    .font(.title3.weight(.semibold))
                     .multilineTextAlignment(.center)
                     .foregroundStyle(BipeColor.inkPrimary)
                 Spacer()
@@ -666,14 +676,17 @@ struct SignupCreateView: View {
                     PrimaryButton(title: BipeStrings.appRetry) { Task { await model.retryCreate() } }
                 }
             } else {
-                ProgressView()
+                OnboardingBusyMark()
                 Text(BipeStrings.appSignupCreating)
-                    .foregroundStyle(BipeColor.inkSecondary)
+                    .font(.title3.weight(.semibold))
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(BipeColor.inkPrimary)
                 Spacer()
             }
         }
         .padding(24)
         .frame(maxWidth: .infinity)
+        .background(OnboardingBackdrop())
         .accessibilityIdentifier(BipeScreen.signupCreate.rawValue)
     }
 }

@@ -122,7 +122,9 @@ final class AccountStartModel: ObservableObject {
             if !Task.isCancelled { phase = .failed }
             return
         }
-        let saved = snapshot.saved
+        // Spec interno notes: a member identity's session is a second session under its work account, never an account
+        // of its own (ADR 0284 point 5). InternoSessions restores it.
+        let saved = snapshot.saved.filter { !BipeMemberIdentity.isMember($0.key) }
         let credentials = snapshot.credentials
         let found = credentials.map(\.userId) + saved.keys.sorted().filter { id in !credentials.contains { $0.userId == id } }
         let accounts = AccountList.merge(found: found)
@@ -176,6 +178,7 @@ final class AccountStartModel: ObservableObject {
                 await session.resumeSending()
             }
         }
+        await InternoSessions.shared.resume()
         await PushRegistration.shared.appBecameActive()
     }
 
@@ -231,6 +234,8 @@ final class AccountStartModel: ObservableObject {
         sessions.removeAll { $0 === session }
         // Spec location-send notes, end: sign-out stops this account's live location shares.
         await LiveLocationCenter.shared.stopAll(userId: session.userId)
+        // Spec interno: the member session of a work account leaves with it, before the account's pusher goes.
+        await InternoSessions.shared.signOut(forWork: session.userId, alreadyLoggedOut: alreadyLoggedOut)
         if attachedUserId == session.userId {
             // Spec push-registration, action signOut: the pusher goes before the session ends.
             attachedUserId = nil
@@ -265,6 +270,8 @@ final class AccountStartModel: ObservableObject {
         Task { await KeychainMove.report(session, api: api) }
         Task { await PhoneReport.report(session, api: api) }
         Task { await LiveLocationCenter.shared.cleanUp(session) }
+        // Spec interno: a work account's member session restores like other sessions, with no bipe-api call.
+        Task { await InternoSessions.shared.restore(forWork: session) }
         sessions.append(session)
         sessions.sort { (order.firstIndex(of: $0.userId) ?? .max) < (order.firstIndex(of: $1.userId) ?? .max) }
     }

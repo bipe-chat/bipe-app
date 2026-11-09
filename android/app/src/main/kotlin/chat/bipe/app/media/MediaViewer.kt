@@ -332,7 +332,7 @@ internal fun MediaPage(media: MediaMessage, loader: MediaLoader, onTap: () -> Un
 
 /** Pinch and double tap zoom for a photo; a single tap hides the bars. */
 @Composable
-private fun ZoomableImage(image: LoadedImage, label: String, onTap: () -> Unit) {
+internal fun ZoomableImage(image: LoadedImage, label: String, onTap: () -> Unit) {
     var scale by remember { mutableFloatStateOf(1f) }
     var offsetX by remember { mutableFloatStateOf(0f) }
     var offsetY by remember { mutableFloatStateOf(0f) }

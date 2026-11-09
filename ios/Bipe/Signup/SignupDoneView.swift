@@ -72,6 +72,8 @@ struct SignupDoneView: View {
     @StateObject private var model: SignupDoneModel
     /// The room to open: a chat ID, or `nil` for the chat list.
     let onContinue: (String?) -> Void
+    /// The check badge pops in once the screen shows.
+    @State private var shown = false
 
     init(session: AccountSession, outcome: SignupOutcome, onContinue: @escaping (String?) -> Void) {
         _model = StateObject(wrappedValue: SignupDoneModel(session: session, outcome: outcome))
@@ -79,24 +81,44 @@ struct SignupDoneView: View {
     }
 
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 24) {
             Spacer()
-            BipeMark()
-                .fill(BipeColor.accentFill)
-                .frame(width: 56, height: 56)
-                .accessibilityHidden(true)
+            ZStack(alignment: .bottomTrailing) {
+                Circle()
+                    .fill(BipeColor.accentWash)
+                    .frame(width: 140, height: 140)
+                    .overlay {
+                        BipeMark()
+                            .fill(LinearGradient(colors: [BipeColor.accentFill, BipeColor.accentFillPressed],
+                                                 startPoint: .topLeading, endPoint: .bottomTrailing))
+                            .frame(width: 76, height: 76)
+                            .shadow(color: BipeColor.accentFill.opacity(0.3), radius: 12, y: 6)
+                    }
+                PhosphorIcon.check.image
+                    .resizable()
+                    .frame(width: 22, height: 22)
+                    .foregroundStyle(BipeColor.inkOnAccent)
+                    .frame(width: 44, height: 44)
+                    .background(BipeColor.statusSuccess, in: Circle())
+                    .overlay(Circle().strokeBorder(BipeColor.surfaceBase, lineWidth: 4))
+                    .offset(x: -4, y: -4)
+                    .scaleEffect(shown ? 1 : 0.3)
+                    .opacity(shown ? 1 : 0)
+            }
+            .accessibilityHidden(true)
             Text(BipeLocalized.string(BipeOnboarding.createdKey))
-                .font(.title2.bold())
+                .font(.largeTitle.bold())
                 .multilineTextAlignment(.center)
                 .foregroundStyle(BipeColor.inkPrimary)
             if model.phase == .openingChat {
-                ProgressView()
+                ProgressView().tint(BipeColor.accentFill)
             }
             Spacer()
         }
         .padding(24)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(BipeColor.surfaceBase.ignoresSafeArea())
+        .background(OnboardingBackdrop())
+        .onAppear { withBipeAnimation(.spring(duration: 0.45, bounce: 0.45).delay(0.15)) { shown = true } }
         .contentShape(Rectangle())
         .onTapGesture {
             Task { finish(await model.continueFlow()) }

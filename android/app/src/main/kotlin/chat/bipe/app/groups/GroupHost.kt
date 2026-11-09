@@ -79,7 +79,6 @@ fun GroupHost(
     var detailsRoom by rememberSaveable(session.userId) { mutableStateOf<String?>(null) }
     var deletingDm by rememberSaveable(session.userId) { mutableStateOf<String?>(null) }
     var showingInvites by rememberSaveable { mutableStateOf(false) }
-    val invitesFailed = stringResource(R.string.bipe_app_group_create_invites_failed)
     LaunchedEffect(session) { QuietGroups.applyOnce(context, session) }
     LaunchedEffect(session, foregroundCount) { ClearedChatsStore.refresh(session.client) }
     // Spec drafts appear: the drafts room of the account, at start and on each return to the foreground.
@@ -114,11 +113,11 @@ fun GroupHost(
                     creating = false
                     creatingWith = emptyList()
                 },
-                onCreated = { newRoomId, allInvited ->
+                onCreated = { newRoomId, notice ->
                     creating = false
                     creatingWith = emptyList()
                     onOpenRoom(newRoomId)
-                    if (!allInvited) BipeToasts.show(invitesFailed)
+                    notice?.let { BipeToasts.show(it) }
                 },
                 people = creatingWith,
             )

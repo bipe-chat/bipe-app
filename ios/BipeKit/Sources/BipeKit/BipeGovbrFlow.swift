@@ -45,6 +45,9 @@ public final class BipeGovbrFlow: Identifiable {
     public private(set) var verifiedLevel: BadgeLevel?
     /// A signed file came while no check was open (rule noOpenVerification). The screen shows bipe_govbr_no_open_verification.
     public private(set) var showsNoOpenVerification = false
+    /// GovbrChallenge.fileName of the newest challenge (bipe_<handle>_<code>.pdf, bipe-chat/bipe#998). It stays after a
+    /// rejection, so the wrong_document reason can name the file to use. The registry fallback before any challenge.
+    public private(set) var lastFileName = BipeRegistries.govbrFileName
     
     private let apiClient: BipeAPIClient
     private let accessToken: @MainActor () -> String?
@@ -65,6 +68,7 @@ public final class BipeGovbrFlow: Identifiable {
                 try await apiClient.startGovbrVerification(accessToken: token)
             }
             verificationID = challenge.verificationId
+            lastFileName = challenge.fileName
             phase = .waitingForSignature(pdf: challenge.pdf, fileName: challenge.fileName)
         } catch {
             phase = .failed

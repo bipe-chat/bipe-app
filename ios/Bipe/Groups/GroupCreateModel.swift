@@ -59,8 +59,9 @@ final class GroupCreateModel: ObservableObject {
         people.removeAll { $0.userId == userId }
     }
 
-    /// Action create. Returns the new room ID and whether every invite went out.
-    func create() async -> (roomId: String, allInvited: Bool)? {
+    /// Action create. Returns the new room ID, whether every invite went out, and whether the server answered
+    /// M_LIMIT_EXCEEDED to one of them (spec group-create reach notice, bipe-chat/bipe#1299).
+    func create() async -> (roomId: String, allInvited: Bool, limited: Bool)? {
         guard canCreate else { return nil }
         phase = .creating
         do {
@@ -79,6 +80,7 @@ final class GroupCreateModel: ObservableObject {
                                                   powerLevelContentOverride: GroupPeople.newGroupPowerLevels)
             let roomId = try await session.client.createRoom(request: parameters)
             var allInvited = true
+            var limited = false
             // The room reaches the store with the next sync.
             var room = try? session.client.getRoom(roomId: roomId)
             if room == nil {
@@ -91,13 +93,14 @@ final class GroupCreateModel: ObservableObject {
                         try await room.inviteUserById(userId: person.userId)
                     } catch {
                         allInvited = false
+                        if case .limited = InviteOutcome(error: error) { limited = true }
                     }
                 }
             } else if !people.isEmpty {
                 allInvited = false
             }
             phase = .editing
-            return (roomId, allInvited)
+            return (roomId, allInvited, limited)
         } catch {
             phase = .failed
             return nil

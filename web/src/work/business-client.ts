@@ -60,6 +60,9 @@ import type {
   ServiceInput,
   SlotDays,
   WebSettings,
+  WorkGeral,
+  WorkMembers,
+  WorkMemberSession,
   WorkSetup,
   WorkSuggestions,
 } from '../bipe/generated/business-api';
@@ -253,6 +256,12 @@ export class BusinessClient {
   chats = () => this.get<ChatAssignmentList>('/v1/me/business/chats');
   setChat = (roomId: string, update: ChatAssignmentUpdate) =>
     this.put<ChatAssignment>(`/v1/me/business/chats/${enc(roomId)}`, update);
+  // Spec interno (bipe ADR 0284 phase B): the member identities and Geral. 403 seat_required for a device without a
+  // person. The session password is new on each call and the caller forgets it after the sign-in. 409 geral_exists
+  // when another member's app claimed Geral first.
+  members = () => this.get<WorkMembers>('/v1/me/business/members');
+  memberSession = () => this.post<WorkMemberSession>('/v1/me/business/members/session');
+  claimGeral = (geral: WorkGeral) => this.put<WorkMembers>('/v1/me/business/members/geral', geral);
   workLinkOpened = () => this.post<WorkSetup>('/v1/me/business/setup/link-opened');
   workSuggestions = () => this.get<WorkSuggestions>('/v1/me/business/suggestions');
   dismissWorkSuggestion = (id: string) => this.post<WorkSuggestions>(`/v1/me/business/suggestions/${enc(id)}/dismiss`);

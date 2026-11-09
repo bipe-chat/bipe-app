@@ -867,7 +867,7 @@
   ]
  },
  "accounts": {
-  "$comment": "Device-first accounts: ADR 0057 and ADR 0059 (bipe/docs/adr), security.md rules 5 and 6. PIN rule, reference pinProblem() in tools/lib/registries.mjs, cases in test-vectors/pins.json. A PIN is exactly pinLength ASCII digits. It is weak when all digits are the same (repeated_digit), when each digit is the previous digit plus 1 or minus 1 modulo 10 (sequence: 12345678, 87654321, 90123456), or when it is a real calendar date as DDMMYYYY or YYYYMMDD with the year from pinDateYearMin to pinDateYearMax (date). Check order: not_digits, wrong_length, repeated_digit, sequence, date. pinMaxWrongTries: wrong PINs in total, over every recovery path, before the server blocks the PIN until a reset; a correct PIN sets the count to 0. recoveryDelayHours: wait between the factor plus PIN and access (or the new PIN). guardianApprovalsMax: approvals needed = min(guardians, guardianApprovalsMax). recoveryLinkMinutes: life of the recovery link in the email. emailVerifyLinkHours: life of the link that confirms a fallback email. recoveryClaimDays: after the delay ends, the new device has this long to collect the result. Linked recovery (ADR 0096): providers are recovery factors, need the existing PIN after provider proof, wait 24 hours, and cannot reset a PIN. One account of each provider per Bipe account. flowMinutes: life of a link nonce, of a web flow and of its handoff. maxPersonalAccounts (ADR 0086): personal accounts one phone holds at most. Company accounts do not count. The API returns the live cap as max_accounts in GET /v1/me/account; this value is the fallback when the app has no answer. webLinkCooldownSeconds (ADR 0116, ADR 0118, security.md rule 5): the wait on the phone after the full-access warning and before the biometric check that approves a web sign-in by QR code. Keep it short: the Synapse rendezvous session lives 60 seconds from the QR code, and the whole approval must fit in it. recoveryReminder (bipe#531, bipe/docs/team-transfer-recovery.md section 5): the recovery-reminder card shows for an account without a Team-ID-independent factor (independent_recovery false) from firstAfterDays after the account came to this phone. Each \"Agora não\" hides it for the next value of snoozeDays; the last value repeats, so the card never stops for good while the account has no factor. Account deletion (ADR 0140): deletionCooldownHours is the wait between the request and the deletion; every signed-in device can cancel during it. deletionVerificationKeepDays: after a deletion the server keeps only the CPF hash and the badge record for this long, so a deleted account cannot verify again at once to get around a block (bipe-chat/bipe#528). Approval nudge (bipe-chat/bipe#628, spec device-verification): a new phone that waits for approval can send the nudge push again after approvalNudgeAgainSeconds; the server sends at most approvalNudgeMaxPerHour nudges per account. workAccountMaxPeople: people on phones of one work account until assignment ships (ADR 0252 point 13). workAccountSeatWindowMinutes: how long a device can join a seat after the Responsável opens it (ADR 0251 point 4).",
+  "$comment": "Device-first accounts: ADR 0057 and ADR 0059 (bipe/docs/adr), security.md rules 5 and 6. PIN rule, reference pinProblem() in tools/lib/registries.mjs, cases in test-vectors/pins.json. A PIN is exactly pinLength ASCII digits. It is weak when all digits are the same (repeated_digit), when each digit is the previous digit plus 1 or minus 1 modulo 10 (sequence: 12345678, 87654321, 90123456), or when it is a real calendar date as DDMMYYYY or YYYYMMDD with the year from pinDateYearMin to pinDateYearMax (date). Check order: not_digits, wrong_length, repeated_digit, sequence, date. pinMaxWrongTries: wrong PINs in total, over every recovery path, before the server blocks the PIN until a reset; a correct PIN sets the count to 0. recoveryDelayHours: wait between the factor plus PIN and access (or the new PIN). guardianApprovalsMax: approvals needed = min(guardians, guardianApprovalsMax). recoveryLinkMinutes: life of the recovery link in the email. emailVerifyLinkHours: life of the link that confirms a fallback email. recoveryClaimDays: after the delay ends, the new device has this long to collect the result. Linked recovery (ADR 0096): providers are recovery factors, need the existing PIN after provider proof, wait 24 hours, and cannot reset a PIN. One account of each provider per Bipe account. flowMinutes: life of a link nonce, of a web flow and of its handoff. maxPersonalAccounts (ADR 0086): personal accounts one phone holds at most. Company accounts do not count. The API returns the live cap as max_accounts in GET /v1/me/account; this value is the fallback when the app has no answer. webLinkCooldownSeconds (ADR 0116, ADR 0118, security.md rule 5): the wait on the phone after the full-access warning and before the biometric check that approves a web sign-in by QR code. Keep it short: the Synapse rendezvous session lives 60 seconds from the QR code, and the whole approval must fit in it. recoveryReminder (bipe#531, bipe/docs/team-transfer-recovery.md section 5): the recovery-reminder card shows for an account without a Team-ID-independent factor (independent_recovery false) from firstAfterDays after the account came to this phone. Each \"Agora não\" hides it for the next value of snoozeDays; the last value repeats, so the card never stops for good while the account has no factor. Account deletion (ADR 0140): deletionCooldownHours is the wait between the request and the deletion; every signed-in device can cancel during it. deletionVerificationKeepDays: after a deletion the server keeps only the CPF hash and the badge record for this long, so a deleted account cannot verify again at once to get around a block (bipe-chat/bipe#528). Approval nudge (bipe-chat/bipe#628, spec device-verification): a new phone that waits for approval can send the nudge push again after approvalNudgeAgainSeconds; the server sends at most approvalNudgeMaxPerHour nudges per account. workAccountMaxPeople: people on phones of one work account until assignment ships (ADR 0252 point 13). workAccountSeatWindowMinutes: how long a device can join a seat after the Responsável opens it (ADR 0251 point 4). memberLocalpartPrefix (ADR 0284 point 1): the localpart of a member identity starts with it; the rest is random lowercase base32. It must have a character outside base32 so no other localpart can match. The bipe_messaging module (bipe-infra) has the same value as member_prefix.",
   "version": 1,
   "pinLength": 8,
   "pinMaxWrongTries": 5,
@@ -885,6 +885,7 @@
   "recoveryClaimDays": 7,
   "maxPersonalAccounts": 2,
   "workAccountMaxPeople": 5,
+  "memberLocalpartPrefix": "m_",
   "workAccountSeatWindowMinutes": 15,
   "webLinkCooldownSeconds": 5,
   "deletionCooldownHours": 72,
@@ -4116,9 +4117,9 @@
   ]
  },
  "govbr": {
-  "$comment": "Trust step 5, Verificar com gov.br (bipe-chat/bipe#544, spec product/screens/govbr-verify.json). The apps send the user to the gov.br app to sign the challenge PDF of POST /v1/verifications/govbr. fileName is the GovbrChallenge fileName of api/openapi.yaml. maxDocumentBytes is the maxLength of PUT /v1/verifications/govbr/{verificationId}/document: the apps do not upload a bigger file. iosStoreUrl: the gov.br app has no documented URL scheme, so iOS opens its App Store page, which shows Abrir when the app is installed. androidPackage: Android opens the app by this package name when it is installed, else androidStoreUrl. Both store pages checked on 29 Oct 2026.",
+  "$comment": "Trust step 5, Verificar com gov.br (bipe-chat/bipe#544, spec product/screens/govbr-verify.json). The apps send the user to the gov.br app to sign the challenge PDF of POST /v1/verifications/govbr. fileName is the fallback name: the apps show GovbrChallenge.fileName (bipe_<handle>_<code>.pdf, api/openapi.yaml) and use this one only when a challenge has none (bipe-chat/bipe#998). maxDocumentBytes is the maxLength of PUT /v1/verifications/govbr/{verificationId}/document: the apps do not upload a bigger file. iosStoreUrl: the gov.br app has no documented URL scheme, so iOS opens its App Store page, which shows Abrir when the app is installed. androidPackage: Android opens the app by this package name when it is installed, else androidStoreUrl. Both store pages checked on 29 Oct 2026.",
   "version": 1,
-  "fileName": "bipe-verificacao.pdf",
+  "fileName": "bipe_verificacao.pdf",
   "maxDocumentBytes": 5242880,
   "iosStoreUrl": "https://apps.apple.com/br/app/gov-br/id1506827551",
   "androidPackage": "br.gov.meugovbr",
@@ -7001,7 +7002,19 @@
    "bipe_account_status_raise_wait": "O limite volta a subir com o tempo.",
    "bipe_reach_limit_body": "Você chegou ao limite de conversas com pessoas que não conhecem você. A próxima libera em %1$s.",
    "bipe_reach_limit_body_none": "Esta conta não pode começar conversas com pessoas que não conhecem você.",
-   "bipe_avatar_open": "Ver foto"
+   "bipe_avatar_open": "Ver foto",
+   "bipe_interno_title": "Interno",
+   "bipe_interno_row_body": "Conversas só entre quem atende por %1$s.",
+   "bipe_interno_geral": "Geral",
+   "bipe_interno_geral_body": "Todo mundo que atende por %1$s.",
+   "bipe_interno_new": "Nova conversa",
+   "bipe_interno_pick_title": "Conversar com quem?",
+   "bipe_interno_private_hint": "Só vocês dois veem esta conversa. Nem a pessoa responsável vê.",
+   "bipe_interno_setup": "Preparando o Interno",
+   "bipe_interno_error": "Não deu para abrir o Interno. Tente de novo.",
+   "bipe_interno_empty": "Ninguém mais atende por esta conta ainda.",
+   "bipe_govbr_step_sign_file": "No app gov.br, toque em assinar documento e escolha %1$s.",
+   "bipe_govbr_reason_wrong_document_file": "Esse não é o documento desta verificação. Use o arquivo %1$s."
   }
  },
  "stringsEn": {
@@ -9576,7 +9589,19 @@
    "bipe_account_status_raise_wait": "The limit goes back up with time.",
    "bipe_reach_limit_body": "You reached the limit of chats with people who do not know you. The next one frees up %1$s.",
    "bipe_reach_limit_body_none": "This account cannot start chats with people who do not know you.",
-   "bipe_avatar_open": "View photo"
+   "bipe_avatar_open": "View photo",
+   "bipe_interno_title": "Interno",
+   "bipe_interno_row_body": "Chats only between the people who answer for %1$s.",
+   "bipe_interno_geral": "General",
+   "bipe_interno_geral_body": "Everyone who answers for %1$s.",
+   "bipe_interno_new": "New chat",
+   "bipe_interno_pick_title": "Chat with whom?",
+   "bipe_interno_private_hint": "Only you two see this chat. Not even the person in charge sees it.",
+   "bipe_interno_setup": "Setting up Interno",
+   "bipe_interno_error": "Could not open Interno. Try again.",
+   "bipe_interno_empty": "Nobody else answers for this account yet.",
+   "bipe_govbr_step_sign_file": "In the gov.br app, tap sign document and pick %1$s.",
+   "bipe_govbr_reason_wrong_document_file": "This is not the document of this check. Use the file %1$s."
   }
  }
 }

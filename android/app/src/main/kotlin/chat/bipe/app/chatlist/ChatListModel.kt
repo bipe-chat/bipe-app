@@ -24,6 +24,7 @@ import chat.bipe.shared.BipeRowActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -179,7 +180,7 @@ class ChatListModel(
             AssistantDraftsStore.learnRoomId(null, session)
             chat.bipe.app.business.WorkNotesRooms.learn(session)
             session.delivered.start()
-            val roomList = runCatching { session.syncService.roomListService().allRooms() }.getOrNull() ?: return@launch
+            val roomList = allRoomsRetrying()
             val loading = Channel<RoomListLoadingState>(Channel.UNLIMITED)
             runCatching {
                 roomList.loadingState(object : RoomListLoadingStateListener {
@@ -234,6 +235,19 @@ class ChatListModel(
                 // A first DM can come after start: the ack receiver binds to it (no work while one runs).
                 session.delivered.start()
             }
+        }
+    }
+
+    /**
+     * allRooms fails while the sync service is not ready. Before, start returned and the list stayed LOADING
+     * for ever. Now it tries again after 1, 2, 4 ... 30 s; the model scope ends the loop when the screen goes.
+     */
+    private suspend fun allRoomsRetrying(): org.matrix.rustcomponents.sdk.RoomList {
+        var waitMs = 1_000L
+        while (true) {
+            runCatching { session.syncService.roomListService().allRooms() }.getOrNull()?.let { return it }
+            delay(waitMs)
+            waitMs = (waitMs * 2).coerceAtMost(30_000L)
         }
     }
 

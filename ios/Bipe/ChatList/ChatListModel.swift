@@ -168,7 +168,11 @@ final class ChatListModel: ObservableObject {
         await AssistantDraftsStore.shared.learnRoomId(session: session)
         await WorkNotesStore.shared.learnRoomId(session: session)
         await delivered.start()
-        guard let roomList = try? await session.syncService.roomListService().allRooms() else { return }
+        guard let roomList = await allRoomsRetrying() else {
+            // The task was cancelled (the list left the screen): the next appearance starts again.
+            started = false
+            return
+        }
 
         let loading = RoomListLoadingStream()
         if let result = try? roomList.loadingState(listener: loading) {
@@ -217,6 +221,18 @@ final class ChatListModel: ObservableObject {
     }
 
     /// A room list stream of joined rooms with one tag (m.lowpriority or m.favourite).
+    /// allRooms fails while the sync service is not ready. Before, start returned and the list stayed in
+    /// .loading for ever. Now it tries again after 1, 2, 4 ... 30 s until it gets the list or the task is cancelled.
+    private func allRoomsRetrying() async -> RoomList? {
+        var wait: UInt64 = 1
+        while !Task.isCancelled {
+            if let roomList = try? await session.syncService.roomListService().allRooms() { return roomList }
+            try? await Task.sleep(nanoseconds: wait * 1_000_000_000)
+            wait = min(wait * 2, 30)
+        }
+        return nil
+    }
+
     private func tagStream(_ roomList: RoomList, tag: RoomListEntriesDynamicFilterKind,
                            onUpdate: (@MainActor (ChatListModel) async -> Void)? = nil,
                            apply: @escaping @MainActor (ChatListModel, VectorDiff<Room>) -> Void)

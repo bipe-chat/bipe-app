@@ -948,6 +948,8 @@ public enum BipeRegistries {
     public static let workReplyByField = "chat.bipe.reply_by"
     public static let workReplyByBody = "Resposta enviada"
     public static let workNoteBodyMaxLength = 4000
+    /// Localpart prefix of a member identity (bipe ADR 0284 point 1, registries/accounts.json).
+    public static let memberLocalpartPrefix = "m_"
 
     /// Assistant sends (bipe ADR 0210, bipe-chat/bipe#439; registries/mcp-tools.json personalSend). Rules: test-vectors/assistant-send.json.
     public static let assistantSendAccountDataType = "chat.bipe.assistant_send"
@@ -1144,7 +1146,7 @@ public enum BipeRegistries {
     public static let mapsLiveMaxIntervalSeconds = 120
 
     /// Verificar com gov.br (bipe-chat/bipe#544; registries/govbr.json). Rules: BipeGovbrFlow, test-vectors/govbr-verify.json.
-    public static let govbrFileName = "bipe-verificacao.pdf"
+    public static let govbrFileName = "bipe_verificacao.pdf"
     public static let govbrMaxDocumentBytes = 5242880
     public static let govbrIosStoreUrl = "https://apps.apple.com/br/app/gov-br/id1506827551"
 

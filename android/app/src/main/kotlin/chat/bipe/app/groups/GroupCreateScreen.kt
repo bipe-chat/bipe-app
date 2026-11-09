@@ -71,10 +71,12 @@ fun GroupCreateScreen(
     session: AccountSession,
     media: MediaLoader,
     onClose: () -> Unit,
-    onCreated: (roomId: String, allInvited: Boolean) -> Unit,
+    /** The new group, and the notice to show after it opens (null: every invite went out). */
+    onCreated: (roomId: String, notice: String?) -> Unit,
     people: List<Person> = emptyList(),
 ) {
     val scope = rememberCoroutineScope()
+    val api = LocalBipeApi.current
     val model = remember(session) { GroupCreateModel(session, scope, people) }
     LaunchedEffect(model) { model.appear() }
     var picking by remember { mutableStateOf(false) }
@@ -116,7 +118,7 @@ fun GroupCreateScreen(
                 if (creating) {
                     CircularProgressIndicator(color = colors.accentFill, modifier = Modifier.size(24.dp).padding(end = 4.dp))
                 } else {
-                    TextButton(onClick = { model.create(onCreated) }, enabled = model.canCreate(name, phase)) {
+                    TextButton(onClick = { model.create(context, api, onCreated) }, enabled = model.canCreate(name, phase)) {
                         Text(stringResource(R.string.bipe_groups_empty_action))
                     }
                 }

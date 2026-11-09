@@ -217,7 +217,14 @@ fun GovbrVerifyScreen(session: AccountSession, api: BipeApiClient, onVerified: (
                     }
                     else -> {
                         when (current) {
-                            is BipeGovbrFlow.Phase.Rejected -> Text(stringResource(reasonText(current.reason)), color = colors.inkPrimary)
+                            is BipeGovbrFlow.Phase.Rejected -> Text(
+                                if (current.reason == BipeGovbrReason.WRONG_DOCUMENT) {
+                                    stringResource(R.string.bipe_govbr_reason_wrong_document_file, flow.lastFileName)
+                                } else {
+                                    stringResource(reasonText(current.reason))
+                                },
+                                color = colors.inkPrimary,
+                            )
                             BipeGovbrFlow.Phase.Failed -> Text(stringResource(R.string.bipe_error_generic), color = colors.inkPrimary)
                             else -> {}
                         }

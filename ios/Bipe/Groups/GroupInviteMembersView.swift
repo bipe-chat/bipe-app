@@ -26,6 +26,14 @@ struct GroupInviteMembersView: View {
 
     var body: some View {
         List {
+            // Spec group-invite-members reachNotice (bipe-chat/bipe#1299): once, above the list.
+            if let notice = model.reachNotice {
+                Section {
+                    Text(notice)
+                        .font(.subheadline)
+                        .foregroundStyle(BipeColor.trustCautionInk)
+                }
+            }
             Section {
                 if let match = model.handleMatch {
                     Button {

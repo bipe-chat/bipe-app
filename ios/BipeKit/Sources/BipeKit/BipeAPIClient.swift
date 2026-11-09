@@ -1291,6 +1291,8 @@ public enum BipeAPIErrorCode: String, Sendable {
     case chatTaken = "chat_taken"
     /// 403. A device of the work account that belongs to no person (ADR 0284).
     case seatRequired = "seat_required"
+    /// 409. The work account already has a Geral room (ADR 0284); the app joins that one.
+    case geralExists = "geral_exists"
 }
 
 public enum BipeAPIError: Error, Sendable, Equatable {
@@ -1367,6 +1369,7 @@ public enum BipeAPIError: Error, Sendable, Equatable {
             case .seatLimit, .seatWindowOpen: BipeStrings.teamError
             case .seatWindowClosed: BipeStrings.teamAddExpired
             case .chatTaken, .seatRequired: BipeStrings.chatAssignError
+            case .geralExists: BipeStrings.internoError
             case .badRequest, .notFound, .internal: BipeStrings.errorGeneric
             }
         case .network:

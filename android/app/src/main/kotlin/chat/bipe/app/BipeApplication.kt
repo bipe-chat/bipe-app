@@ -35,6 +35,9 @@ class BipeApplication : Application() {
     /** Spec push-registration. */
     val push: PushRegistration by lazy { PushRegistration(this, scope) }
 
+    /** Spec interno: the member identity sessions under the work accounts (bipe ADR 0284 point 5). */
+    val interno: chat.bipe.app.business.InternoSessions by lazy { chat.bipe.app.business.InternoSessions(this) }
+
     /** Spec notification-service. */
     val notifications: PhoneNotifications by lazy { PhoneNotifications(this) }
 

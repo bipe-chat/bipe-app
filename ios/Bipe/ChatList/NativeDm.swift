@@ -5,6 +5,7 @@
 import BipeKit
 import Foundation
 import MatrixRustSDK
+import os
 
 /// The SDK half of a DM that the phone and the Mac share: the rooms of one person, and a new DM (ADR 0141).
 @MainActor
@@ -65,16 +66,26 @@ enum NativeDm {
         return roomId
     }
 
-    /// Room.sendStateEventRaw with the m.room.power_levels content of a new DM (ADR 0141, bipe-chat/bipe#532).
+    private static let log = Logger(subsystem: "chat.bipe.app", category: "dm-lock")
+
+    /// Room.sendStateEventRaw with the m.room.power_levels content of a new DM (ADR 0141, bipe-chat/bipe#532). A failed
+    /// write is tried again, and the last failure goes to the log with its type only (bipe-chat/bipe#1125). The DM stays
+    /// usable without the lock.
     private static func lock(roomId: String, client: Client) async {
+        var lastError: Error?
         for attempt in 1...5 {
             if let room = try? client.getRoom(roomId: roomId) {
-                _ = try? await room.sendStateEventRaw(eventType: "m.room.power_levels", stateKey: "",
-                                                      content: BipeDmPowerLevels.content(userIds: []))
-                return
+                do {
+                    _ = try await room.sendStateEventRaw(eventType: "m.room.power_levels", stateKey: "",
+                                                         content: BipeDmPowerLevels.content(userIds: []))
+                    return
+                } catch {
+                    lastError = error
+                }
             }
             // The created room reaches the local store with the next sync.
             try? await Task.sleep(nanoseconds: UInt64(attempt) * 300_000_000)
         }
+        log.error("DM power levels not written: \(lastError.map { String(describing: type(of: $0)) } ?? "room not found", privacy: .public)")
     }
 }
