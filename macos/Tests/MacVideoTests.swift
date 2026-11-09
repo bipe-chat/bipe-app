@@ -272,6 +272,26 @@ final class MacVideoTests: XCTestCase {
     }
 
     @MainActor
+    func testCancelDuringUploadLimitLookupDropsTheLatePickerResult() async throws {
+        let model = MacTimeline(drafts: MacDrafts())
+        let started = expectation(description: "upload limit lookup")
+        var continuation: CheckedContinuation<UInt64?, Never>?
+        let prepare = Task {
+            await model.preparePickedURL(URL(fileURLWithPath: "/not-opened.mov"), maxUploadSize: {
+                await withCheckedContinuation { continuation = $0; started.fulfill() }
+            })
+        }
+        await fulfillment(of: [started], timeout: 3)
+        XCTAssertTrue(model.preparing)
+        model.cancelAttachment()
+        continuation?.resume(returning: 1024)
+        await prepare.value
+        XCTAssertFalse(model.preparing)
+        XCTAssertNil(model.preparedAttachment)
+        XCTAssertNil(model.uploadError, "Cancelled selection must never read the old picker URL")
+    }
+
+    @MainActor
     func testVideoComposerRendersWithTheSharedCaptionAndSendSurface() async throws {
         let root = try folder(); defer { try? FileManager.default.removeItem(at: root) }
         let source = try await movie(in: root)

@@ -356,19 +356,19 @@ struct MacChatView: View {
         .task(id: room.id()) { await media.checkRequestRooms(for: room.id()) }
         .dropDestination(for: URL.self) { urls, _ in
             guard let url = urls.first, url.isFileURL, model.ready, !model.preparing, !model.sending else { return false }
-            Task { await model.preparePickedURL(url, maxUploadSize: await media.maxUploadSize()) }
+            Task { await model.preparePickedURL(url, maxUploadSize: { await media.maxUploadSize() }) }
             return true
         }
         .onPasteCommand(of: [.fileURL, .movie, .video, .image]) { providers in
             if model.ready, let provider = providers.first {
-                Task { model.pasteMedia(provider, maxUploadSize: await media.maxUploadSize()) }
+                Task { await model.pasteMedia(provider, maxUploadSize: { await media.maxUploadSize() }) }
             }
         }
         .fileImporter(isPresented: Binding(get: { picker != nil }, set: { if !$0 { picker = nil } }),
                       allowedContentTypes: picker == .file ? [.data] : [.image, .movie, .video]) { result in
             if case .success(let url) = result {
                 Task {
-                    await model.preparePickedURL(url, maxUploadSize: await media.maxUploadSize())
+                    await model.preparePickedURL(url, maxUploadSize: { await media.maxUploadSize() })
                 }
             }
         }

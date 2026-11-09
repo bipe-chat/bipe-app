@@ -465,6 +465,18 @@ final class MacTimeline: ObservableObject {
 
     func pasteMedia(_ provider: NSItemProvider, maxUploadSize: UInt64?) {
         guard let revision = beginPreparation() else { return }
+        loadProvider(provider, revision: revision, maxUploadSize: maxUploadSize)
+    }
+
+    func pasteMedia(_ provider: NSItemProvider, maxUploadSize: () async -> UInt64?) async {
+        guard let revision = beginPreparation() else { return }
+        let limit = await maxUploadSize()
+        guard attachmentPhase.matches(revision) else { return }
+        guard !Task.isCancelled else { preparationFailed(revision, error: CancellationError()); return }
+        loadProvider(provider, revision: revision, maxUploadSize: limit)
+    }
+
+    private func loadProvider(_ provider: NSItemProvider, revision: UUID, maxUploadSize: UInt64?) {
         if provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) {
             provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { [weak self] item, _ in
                 let url = (item as? URL) ?? (item as? Data).flatMap { URL(dataRepresentation: $0, relativeTo: nil) }
@@ -511,6 +523,14 @@ final class MacTimeline: ObservableObject {
     func prepareFile(_ url: URL, maxUploadSize: UInt64?) async { await preparePickedURL(url, maxUploadSize: maxUploadSize) }
     func preparePickedURL(_ url: URL, maxUploadSize: UInt64?) async {
         await prepare(url, kind: MacAttachmentKind.of(url), maxUploadSize: maxUploadSize)
+    }
+
+    func preparePickedURL(_ url: URL, maxUploadSize: () async -> UInt64?) async {
+        guard let revision = beginPreparation() else { return }
+        let limit = await maxUploadSize()
+        guard attachmentPhase.matches(revision) else { return }
+        guard !Task.isCancelled else { preparationFailed(revision, error: CancellationError()); return }
+        await prepareSelection(url, kind: MacAttachmentKind.of(url), revision: revision, maxUploadSize: limit)
     }
 
     private func prepare(_ url: URL, kind: MacAttachmentKind, maxUploadSize: UInt64?) async {
