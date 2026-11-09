@@ -2460,6 +2460,12 @@
     <string name="bipe_group_link_open_history">Você vai ver as mensagens enviadas depois que entrar.</string>
     <string name="bipe_group_link_preview_title">Grupo %1$s no Bipe</string>
     <string name="bipe_group_link_preview_count">Pessoas no grupo: %1$s. Toque para entrar.</string>
+    <string name="bipe_feed_page_title">%1$s no Bipe</string>
+    <string name="bipe_feed_public_label">Público</string>
+    <string name="bipe_feed_empty">Ainda não há publicações.</string>
+    <string name="bipe_feed_older">Publicações anteriores</string>
+    <string name="bipe_feed_all_posts">Todas as publicações</string>
+    <string name="bipe_feed_notify">Instale o Bipe para receber um aviso quando %1$s publicar.</string>
     <string name="bipe_groups_service_name">Bipe Grupos</string>
     <string name="bipe_groups_service_about">Esta conta convida quem abre o link do grupo. Ela não lê as mensagens.</string>
     <string name="bipe_year_recap_title">Suas estatísticas</string>
