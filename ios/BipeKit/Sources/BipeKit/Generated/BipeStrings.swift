@@ -5864,6 +5864,10 @@ public enum BipeStrings {
 
     public static var webSignOutAll: String { NSLocalizedString("bipe_web_sign_out_all", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static func webSignedOutElsewhere(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_web_signed_out_elsewhere", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
     public static func appAssistantReads(_ p1: String) -> String {
         String(format: NSLocalizedString("bipe_app_assistant_reads", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
