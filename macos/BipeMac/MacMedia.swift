@@ -25,7 +25,7 @@ final class MacMedia: ObservableObject {
     private let images = NSCache<NSString, NSImage>()
     private let accountTypes = NSCache<NSString, NSNumber>()
     private let api = BipeAPIClient(baseURL: URL(string: "https://api.bipe.net.br")!)
-    private var generation = UUID()
+    @Published private(set) var generation = UUID()
     /// Spec chat-requests hidePhotos: false until the account says InviteAvatars.on.
     @Published private(set) var showsInvitePhotos = false
     /// Spec timeline-media fromStranger: the account's list, with the rooms this Mac accepted and has not written yet.
@@ -209,6 +209,24 @@ final class MacMedia: ObservableObject {
         guard self.generation == generation else { throw CancellationError() }
         let image = NSImage(cgImage: cgImage, size: .zero)
         images.setObject(image, forKey: key, cost: cgImage.bytesPerRow * cgImage.height)
+        return image
+    }
+
+    /// A video poster never downloads the full movie automatically.
+    func videoThumbnail(_ video: MacVideo, eventID: String) async throws -> NSImage? {
+        guard let source = video.content.info?.thumbnailSource else { return nil }
+        guard let client else { throw CancellationError() }
+        let generation = generation
+        let key = "video|" + eventID + "|" + source.url() as NSString
+        if let image = images.object(forKey: key) { return image }
+        let data = try await client.getMediaContent(mediaSource: source)
+        try Task.checkCancellation()
+        guard self.generation == generation else { throw CancellationError() }
+        let frame = try await Task.detached(priority: .userInitiated) { try MacImagePreparation.decode(data, maxPixel: 1000) }.value
+        try Task.checkCancellation()
+        guard self.generation == generation else { throw CancellationError() }
+        let image = NSImage(cgImage: frame, size: .zero)
+        images.setObject(image, forKey: key, cost: frame.bytesPerRow * frame.height)
         return image
     }
 

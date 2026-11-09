@@ -58,7 +58,8 @@ final class MacDownloadedFile {
     let file: URL
     private let handle: MediaFileHandle
     init(folder: URL, file: URL, handle: MediaFileHandle) { self.folder = folder; self.file = file; self.handle = handle }
-    deinit { try? FileManager.default.removeItem(at: folder) }
+    func remove() { try? FileManager.default.removeItem(at: folder) }
+    deinit { remove() }
 }
 
 enum MacTransferFiles {
@@ -79,7 +80,7 @@ enum MacTransferFiles {
         } catch { try? FileManager.default.removeItem(at: url); throw error }
     }
 
-    static func prepare(_ source: URL, maxUploadSize: UInt64?, under root: URL = MacTransferFiles.root) throws -> MacPreparedFile {
+    static func prepare(_ source: URL, maxUploadSize: UInt64?, under root: URL = MacTransferFiles.root, filename: String? = nil) throws -> MacPreparedFile {
         let values = try source.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey])
         guard source.isFileURL, values.isRegularFile == true, values.isSymbolicLink != true,
               let size = values.fileSize, size >= 0 else { throw CocoaError(.fileReadUnsupportedScheme) }
@@ -87,7 +88,7 @@ enum MacTransferFiles {
         try Task.checkCancellation()
         let folder = try Self.folder(under: root)
         do {
-            let name = MacFileName(source.lastPathComponent)
+            let name = MacFileName(filename ?? source.lastPathComponent)
             let file = folder.appendingPathComponent(name.filename)
             try FileManager.default.copyItem(at: source, to: file)
             try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: file.path)
