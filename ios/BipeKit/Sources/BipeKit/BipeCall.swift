@@ -40,9 +40,10 @@ public struct BipeCallMember: Equatable, Sendable {
 /// test-vectors/calls/matrixrtc.json; Android has the same rules in BipeCall.kt.
 public enum BipeCall {
     public static let memberEventType = "org.matrix.msc3401.call.member"
+    /// The MatrixRTC key event of the protocol. Its namespaced name stays: every MatrixRTC client sends it.
     public static let keyEventType = "io.element.call.encryption_keys"
     public static let fociKey = "org.matrix.msc4143.rtc_foci"
-    /// LiveKit key provider settings. Element Web uses the same key ring.
+    /// LiveKit key provider settings. Other MatrixRTC clients use the same key ring.
     public static let keyRingSize: Int32 = 16
     public static let ratchetWindowSize: Int32 = 10
     /// The delayed leave (MSC4140): sent before the join, restarted while in the call.

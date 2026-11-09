@@ -40,10 +40,11 @@ data class BipeCallMember(val userId: String, val deviceId: String, val createdT
  */
 object BipeCall {
     const val MEMBER_EVENT_TYPE = "org.matrix.msc3401.call.member"
+    /** The MatrixRTC key event of the protocol. Its namespaced name stays: every MatrixRTC client sends it. */
     const val KEY_EVENT_TYPE = "io.element.call.encryption_keys"
     const val FOCI_KEY = "org.matrix.msc4143.rtc_foci"
 
-    /** LiveKit key provider settings. Element Web uses the same key ring. */
+    /** LiveKit key provider settings. Other MatrixRTC clients use the same key ring. */
     const val KEY_RING_SIZE = 16
     const val RATCHET_WINDOW_SIZE = 10
 

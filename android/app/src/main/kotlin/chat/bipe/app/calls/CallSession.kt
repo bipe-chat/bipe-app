@@ -461,7 +461,7 @@ class CallSession(
 
 /**
  * Per-participant keys as raw bytes (spec call). LiveKit's BaseKeyProvider takes keys as strings, which loses bytes
- * that are not UTF-8, so this provider gives the bytes to WebRTC itself. HKDF, like Element Web.
+ * that are not UTF-8, so this provider gives the bytes to WebRTC itself. HKDF, as other MatrixRTC clients use.
  */
 class CallKeyProvider : KeyProvider {
     override var enableSharedKey: Boolean = false
