@@ -401,14 +401,22 @@ data class BipeWorkMembers(
     @SerialName("geral_room_id") val geralRoomId: String? = null,
 )
 
-/** Contract `WorkMemberSession`. [password] works for one sign-in; the app never stores or logs it. */
+/**
+ * Contract `WorkMemberSession`. [password] works for one sign-in. [recoveryKey]: the member identity's recovery key once
+ * a device of the person stored it (PUT members/recovery). The app never stores, logs or shows either.
+ */
 @Serializable
 class BipeWorkMemberSession(
     @SerialName("user_id") val userId: String,
     @SerialName("password") val password: String,
+    @SerialName("recovery_key") val recoveryKey: String? = null,
 ) {
     override fun toString() = "BipeWorkMemberSession($userId)"
 }
+
+/** Body of PUT members/recovery. Not a data class, so toString never prints the key. */
+@Serializable
+private class WorkMemberRecovery(@SerialName("recovery_key") val recoveryKey: String)
 
 @Serializable
 private data class WorkGeral(@SerialName("room_id") val roomId: String)
@@ -424,6 +432,20 @@ suspend fun BipeApiClient.workMembers(accessToken: String): BipeWorkMembers =
 suspend fun BipeApiClient.workMemberSession(accessToken: String): BipeWorkMemberSession =
     send("POST", listOf("v1", "me", "business", "members", "session"), body = "{}", accessToken = accessToken,
         response = BipeWorkMemberSession.serializer())
+
+/**
+ * `PUT /v1/me/business/members/recovery` (bipe ADR 0284 point 34): stores the member identity's recovery key, so the
+ * person's next device verifies itself. 204; 404 not_found when the seat has no member identity; 403 seat_required.
+ */
+suspend fun BipeApiClient.storeWorkMemberRecovery(recoveryKey: String, accessToken: String) {
+    send<Unit>(
+        "PUT",
+        listOf("v1", "me", "business", "members", "recovery"),
+        body = encode(WorkMemberRecovery.serializer(), WorkMemberRecovery(recoveryKey)),
+        accessToken = accessToken,
+        response = null,
+    )
+}
 
 /** `PUT /v1/me/business/members/geral`. The first claim wins; 409 geral_exists when the account has Geral. */
 suspend fun BipeApiClient.claimWorkGeral(roomId: String, accessToken: String): BipeWorkMembers = send(

@@ -37,6 +37,8 @@ struct MacMessage: Identifiable {
     var isUndecryptable = false
     var isImage = false
     var forwardJson: String? = nil
+    /// The typed content a forward sends through the send queue, with the Bipe fields of forwardJson (bipe-chat/bipe#1124).
+    var forwardMessage: MessageContent? = nil
     var reply: MessageReply? = nil
     var isEdited = false
     var isDeleted = false
@@ -346,7 +348,7 @@ final class MacTimeline: ObservableObject {
             case .copyLink: !isDm && message.isSent
             case .pin: canPin && message.isSent && !pinned.contains(eventID)
             case .unpin: canPin && message.isSent && pinned.contains(eventID)
-            case .forward: message.isSent && message.forwardJson != nil
+            case .forward: message.isSent && message.forwardJson != nil && message.forwardMessage != nil
             case .retry: message.isOwn && message.failed
             case .delete: message.canDelete
             case .report: !message.isOwn && message.isSent
@@ -703,8 +705,10 @@ final class MacTimeline: ObservableObject {
         guard let payload = MacMessagePayload(kind: content.kind, eventJson: debugInfo.originalJson) else { return nil }
         let decryptable = !payload.isUndecryptable && !payload.isDeleted
         var forwardJson: String?
-        if decryptable {
+        var forwardMessage: MessageContent?
+        if decryptable, case .message(let message) = content.kind {
             forwardJson = BipeForwardMark.forwardedContentJson(originalJson: debugInfo.originalJson, latestEditJson: debugInfo.latestEditJson)
+            forwardMessage = message
         }
         let reply = decryptable ? content.inReplyTo.map {
             MessageReply.make($0, ownUserID: room?.ownUserId() ?? "",
@@ -740,7 +744,7 @@ final class MacTimeline: ObservableObject {
                           canDelete: !payload.isDeleted && (event.isOwn ? (canRedactOwn || eventID == nil) : (!isDm && canRedactOther)),
                           isUndecryptable: payload.isUndecryptable,
                           isImage: payload.photo != nil,
-                          forwardJson: forwardJson, reply: reply, isEdited: payload.isEdited, isDeleted: payload.isDeleted,
+                          forwardJson: forwardJson, forwardMessage: forwardMessage, reply: reply, isEdited: payload.isEdited, isDeleted: payload.isDeleted,
                           file: payload.file, video: payload.video)
     }
 }

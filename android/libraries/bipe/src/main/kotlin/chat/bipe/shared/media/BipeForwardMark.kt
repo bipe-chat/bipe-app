@@ -4,6 +4,7 @@
 
 package chat.bipe.shared.media
 
+import chat.bipe.shared.generated.BipeGroupPowerLevels
 import chat.bipe.shared.generated.BipeRegistries
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -44,10 +45,12 @@ object BipeForwardMark {
 
     /**
      * The content a forward sends: [newContent] (m.new_content of the latest edit) or else [original], without
-     * m.relates_to, m.new_content and m.mentions, with the mark set to the original count plus 1.
+     * m.relates_to, m.new_content, m.mentions and the public feed mark, with the mark set to the original count plus 1.
      */
     fun forwardedContent(original: JsonObject, newContent: JsonObject?): JsonObject {
-        val base = (newContent ?: original).filterKeys { it != "m.relates_to" && it != "m.new_content" && it != "m.mentions" }
+        // bipe-chat/bipe#1260: a copy in another chat is not the public feed post.
+        val dropped = setOf("m.relates_to", "m.new_content", "m.mentions", BipeGroupPowerLevels.FEED_POST_KEY)
+        val base = (newContent ?: original).filterKeys { it !in dropped }
         val next = count(original).coerceAtMost(MAX_COUNT - 1) + 1
         return JsonObject(base + (BipeRegistries.FORWARD_KEY to buildJsonObject { put("count", next) }))
     }
@@ -61,6 +64,19 @@ object BipeForwardMark {
         val newContent = (content(latestEditJson)?.get("m.new_content") as? JsonObject)?.takeIf { it.hasMsgType() }
         return forwardedContent(original, newContent).toString()
     }
+
+    /**
+     * The Bipe fields of forwarded content (keys that start with "chat.bipe.", the forward mark among them) as a JSON
+     * object, for Timeline.sendWithExtraContent: the typed message content carries the rest (bipe-chat/bipe#1124).
+     * null when the JSON cannot be read or has no forward mark, so that no copy goes out without its mark.
+     */
+    fun extraContentJson(contentJson: String): String? {
+        val content = content(contentJson)?.takeIf { it.containsKey(BipeRegistries.FORWARD_KEY) } ?: return null
+        return JsonObject(content.filterKeys { it.startsWith(BIPE_FIELD_PREFIX) }).toString()
+    }
+
+    /** The prefix of Bipe's own content fields (registries: FORWARD_KEY, IMAGE_DESCRIPTION_FIELD, ...). */
+    private const val BIPE_FIELD_PREFIX = "chat.bipe."
 
     /** The source line for a voice message (voice marker) or audio file with this forward count. */
     fun source(isVoice: Boolean, count: Int): Source = when {

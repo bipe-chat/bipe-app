@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  SPDX-License-Identifier: AGPL-3.0-only
+  Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
+  Copyright 2026 Bipe contributors
+
+  bipe-chat/bipe#645, core/release/README.md: Gradle refuses a bipe-core asset unless its SHA-256 is the one in
+  ../../core/release/release.json (tools/core-release.test.mjs checks that the two agree). Every other dependency of
+  the app is trusted here, as before this file: the app has no other dependency verification.
+-->
+<verification-metadata xmlns="https://schema.gradle.org/dependency-verification" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="https://schema.gradle.org/dependency-verification https://schema.gradle.org/dependency-verification/dependency-verification-1.3.xsd">
+   <configuration>
+      <verify-metadata>false</verify-metadata>
+      <verify-signatures>false</verify-signatures>
+      <trusted-artifacts>
+         <trust group="^(?!chat\.bipe\.core$).*$" regex="true"/>
+      </trusted-artifacts>
+   </configuration>
+   <components>
+      <component group="chat.bipe.core" name="bipe-core" version="0.1.3">
+         <artifact name="bipe-core-0.1.3.aar">
+            <sha256 value="74bc87f7f6acfc021fb0be7e5922b0677d8571c78bcbdf02e47890737fdaebeb" origin="core/release/release.json"/>
+         </artifact>
+      </component>
+      <component group="chat.bipe.core" name="bipe-core-jvm" version="0.1.3">
+         <artifact name="bipe-core-jvm-0.1.3.jar">
+            <sha256 value="315984668cb87b9a4bee625c3b9a083271f1e994778e3e5a00ac2575ef6ed422" origin="core/release/release.json"/>
+         </artifact>
+      </component>
+   </components>
+</verification-metadata>

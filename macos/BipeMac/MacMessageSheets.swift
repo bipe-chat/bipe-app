@@ -6,7 +6,8 @@ import BipeKit
 import MatrixRustSDK
 import SwiftUI
 
-/// Spec message-forward: Room.sendRaw encrypts in an encrypted room. Media keeps its source: nothing is uploaded again.
+/// Spec message-forward: the room's send queue encrypts, shows the local echo and retries after the connection comes back
+/// (bipe-chat/bipe#1124). Media keeps its source: nothing is uploaded again.
 struct MacForwardSheet: View {
     let message: MacMessage
     let targets: [MacRoomSummary]
@@ -37,12 +38,16 @@ struct MacForwardSheet: View {
     }
 
     private func send() async {
-        guard let json = message.forwardJson else { return }
+        guard let json = message.forwardJson, let forwardMessage = message.forwardMessage,
+              let extra = BipeForwardMark.extraContentJson(contentJson: json) else { return }
         sending = true
         defer { sending = false }
         var anyFailed = false
         for row in targets where picked.contains(row.id) {
-            do { try await row.room.sendRaw(eventType: "m.room.message", content: json) }
+            do {
+                let timeline = try await row.room.timeline()
+                _ = try await timeline.sendWithExtraContent(msg: contentWithoutRelationFromMessage(message: forwardMessage), extraContentJson: extra)
+            }
             catch { anyFailed = true }
         }
         if anyFailed { failed = true } else { close() }

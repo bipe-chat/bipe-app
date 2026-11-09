@@ -480,8 +480,10 @@ function ItemEditor({
   const pickPhoto = async (file: File | undefined) => {
     if (!file) return;
     setConverting(true);
-    const jpeg = await jpegPhoto(file);
-    setConverting(false);
+    // A conversion that throws is a failed photo, and converting always ends.
+    const jpeg = await jpegPhoto(file)
+      .catch(() => undefined)
+      .finally(() => setConverting(false));
     if (!jpeg) {
       setError(s('bipe_catalog_photo_failed'));
       return;

@@ -83,6 +83,8 @@ struct TimelineMessage: Identifiable, Equatable {
     var assistantLabel: String? = nil
     /// Spec chat-timeline forwardCount (bipe-chat/bipe#933): the count of the forward mark, 0 without one.
     var forwardCount = 0
+    /// bipe-chat/bipe#1260: the post also went to the public feed (publicationOnly.feedPostKey): the bubble shows Público.
+    var isPublicFeed = false
     /// Spec work-chat-bar notes (ADR 0284 point 19): bipe_chat_reply_by with the seat name, inside a work account only.
     var replyByLabel: String? = nil
 }
@@ -133,9 +135,12 @@ enum TimelineNotice: Equatable {
     /// Spec chat-timeline jumpToDate: the picked day has no message.
     case jumpEmpty
     case jumpFailed
+    /// Spec composer send (bipe-chat/bipe#1260): the public copy failed, so nothing was sent.
+    case feedPostFailed(String)
 
     var text: String {
         switch self {
+        case .feedPostFailed(let handle): BipeStrings.groupPublicFeedFailed(handle)
         case .jumpEmpty: BipeStrings.jumpToDateEmpty
         case .jumpFailed: BipeStrings.errorGeneric
         case .forwarded: BipeStrings.forwardDone
@@ -235,6 +240,10 @@ final class ChatTimelineModel: ObservableObject {
     @Published private(set) var publicationClosed = false
     private var levelsAllowPost = true
     private var isPublicationOnly = false
+    /// Spec composer feedHandle (bipe-chat/bipe#1260): this group posts to bipe.chat/@feedHandle and the user is an admin there.
+    @Published private(set) var feedHandle: String?
+    private var feedTask: Task<Void, Never>?
+    private let feedApi = BipeAPIClient(baseURL: AppConfig.apiBaseURL)
     /// The poll row of attachment-picker. Never in a DM (ADR 0192).
     @Published private(set) var canPoll = true
     /// Spec message-pins (bipe#665): RoomPowerLevels.canOwnUserPinUnpin, groups only.
@@ -726,6 +735,20 @@ final class ChatTimelineModel: ObservableObject {
             isClaimingSend = false
             guard goes else { return }
         }
+        // Spec composer send (bipe-chat/bipe#1260): a top-level post of a group that posts to a public feed goes to the
+        // feed first. A failure keeps the draft and sends nothing, so the group and the page never differ.
+        var feedPost: BipeFeedPost?
+        if let feedHandle, replyingTo == nil, threadRoot == nil, !isClaimingSend {
+            isClaimingSend = true
+            feedPost = try? await withFeedToken { (token: String) async throws(BipeAPIError) -> BipeFeedPost in
+                try await self.feedApi.publishFeedPost(text: text, accessToken: token)
+            }
+            isClaimingSend = false
+            guard feedPost != nil else {
+                show(.feedPostFailed(feedHandle))
+                return
+            }
+        }
         // Spec composer send: Markdown with the pills as matrix.to links, then the mentions.
         let content = ComposerMarkdown.content(text: text, mentions: mentions)
         draft = ""
@@ -738,9 +761,48 @@ final class ChatTimelineModel: ObservableObject {
             self.replyingTo = nil
             replyingToRowId = nil
             try? await timeline.sendReply(msg: content, eventId: replyingTo.eventId)
+        } else if let feedPost {
+            do {
+                _ = try await timeline.sendWithExtraContent(msg: content, extraContentJson: BipeFeedPostMark.extraContentJson(post: feedPost))
+            } catch {
+                await deleteFeedPost(id: feedPost.id)
+            }
         } else {
             _ = try? await timeline.send(msg: content)
         }
+    }
+
+    /// Spec composer feedHandle: asks the API whether this group posts to a public feed, in a publication-only group on
+    /// the main timeline. Any failure means no feed.
+    private func refreshFeedHandle() {
+        feedTask?.cancel()
+        guard isPublicationOnly, threadRoot == nil, dayFocus == nil, !facts.isDm else {
+            feedHandle = nil
+            return
+        }
+        feedTask = Task { [weak self, roomId] in
+            guard let self else { return }
+            let room = try? await self.withFeedToken { (token: String) async throws(BipeAPIError) -> BipeFeedRoom in
+                try await self.feedApi.feedRoom(roomId: roomId, accessToken: token)
+            }
+            if !Task.isCancelled { self.feedHandle = room?.handle }
+        }
+    }
+
+    /// The feed post of a message that carries the mark (bipe-chat/bipe#1260), from the event JSON.
+    private func feedPostId(_ event: EventTimelineItem) -> String? {
+        BipeFeedPostMark.postId(eventJson: event.lazyProvider.debugInfo().originalJson)
+    }
+
+    /// Deletes the public copy. A failure is silent: the group message is the one people see first.
+    private func deleteFeedPost(id: String) async {
+        _ = try? await withFeedToken { (token: String) async throws(BipeAPIError) in
+            try await self.feedApi.deleteFeedPost(id: id, accessToken: token)
+        }
+    }
+
+    private func withFeedToken<T>(_ operation: @MainActor (String) async throws(BipeAPIError) -> T) async throws(BipeAPIError) -> T {
+        try await BipeAPIClient.withTokenRetry(accessToken: { self.session.accessToken() }, operation)
     }
 
     /// Action pickSuggestion of spec composer: the @word becomes a pill.
@@ -1139,8 +1201,10 @@ final class ChatTimelineModel: ObservableObject {
     func confirmDelete(rowId: String) async {
         confirmDeleteRowId = nil
         guard let timeline, let event = item(rowId)?.asEvent() else { return }
+        let postId = feedPostId(event)
         do {
             try await timeline.redactEvent(eventOrTransactionId: event.eventOrTransactionId, reason: nil)
+            if let postId { await deleteFeedPost(id: postId) }
         } catch {
             show(.deleteFailed)
         }
@@ -1218,16 +1282,19 @@ final class ChatTimelineModel: ObservableObject {
 
     /// The content JSON a forward of a row sends (spec message-forward send, bipe-chat/bipe#83): the original content with
     /// the forward mark. nil without the event JSON (a local echo), so that no copy goes out without its mark.
-    func forwardContent(rowId: String) -> String? {
+    func forwardContent(rowId: String) -> ForwardContent? {
         guard let event = item(rowId)?.asEvent(),
               case .msgLike(let content) = event.content,
-              case .message = content.kind else { return nil }
+              case .message(let message) = content.kind else { return nil }
+        // The SDK has no typed access to Bipe's own content fields, so the debug JSON stays the source of the mark
+        // (bipe-chat/bipe#1124).
         let debugInfo = event.lazyProvider.debugInfo()
-        return BipeForwardMark.forwardedContentJson(originalJson: debugInfo.originalJson, latestEditJson: debugInfo.latestEditJson)
+        guard let json = BipeForwardMark.forwardedContentJson(originalJson: debugInfo.originalJson, latestEditJson: debugInfo.latestEditJson) else { return nil }
+        return ForwardContent(message: message, contentJson: json)
     }
 
     /// The forward contents of rows, in timeline order (spec message-forward send).
-    func forwardContents(rowIds: [String]) -> [String] {
+    func forwardContents(rowIds: [String]) -> [ForwardContent] {
         let wanted = Set(rowIds)
         return rows.filter { wanted.contains($0.id) }.compactMap { forwardContent(rowId: $0.id) }
     }
@@ -1322,13 +1389,15 @@ final class ChatTimelineModel: ObservableObject {
 
     /// The dialog of deleteSelection confirmed: deletes each own picked message for everyone, without a reason.
     func confirmDeleteSelection() async {
-        let targets = selectedRows.filter { deletesInSelection($0) }.compactMap { item($0.id)?.asEvent()?.eventOrTransactionId }
+        let events = selectedRows.filter { deletesInSelection($0) }.compactMap { item($0.id)?.asEvent() }
+        let targets = events.map { (id: $0.eventOrTransactionId, postId: feedPostId($0)) }
         cancelSelection()
         guard let timeline, !targets.isEmpty else { return }
         var failed = false
         for target in targets {
             do {
-                try await timeline.redactEvent(eventOrTransactionId: target, reason: nil)
+                try await timeline.redactEvent(eventOrTransactionId: target.id, reason: nil)
+                if let postId = target.postId { await deleteFeedPost(id: postId) }
             } catch {
                 failed = true
             }
@@ -1380,6 +1449,7 @@ final class ChatTimelineModel: ObservableObject {
             if !Task.isCancelled, let self, let isOn = BipeGroupPublication.isOn(stateJson: state) {
                 self.isPublicationOnly = isOn
                 self.updateCanPost()
+                self.refreshFeedHandle()
             }
             var readers: [AssistantReader] = []
             for userId in BipeAssistantSend.readers(stateJson: state) {

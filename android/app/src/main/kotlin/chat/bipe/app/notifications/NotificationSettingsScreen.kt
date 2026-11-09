@@ -111,6 +111,20 @@ fun NotificationSettingsScreen(session: AccountSession, api: BipeApiClient, onBa
                         Text(stringResource(R.string.bipe_notifications_enable))
                     }
                 }
+            } else {
+                // Action openSystemSettings: this app's page in the system notification settings.
+                Text(
+                    stringResource(R.string.bipe_notifications_open_system),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = colors.inkPrimary,
+                    modifier = Modifier.fillMaxWidth().clickable {
+                        runCatching {
+                            context.startActivity(
+                                Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName),
+                            )
+                        }
+                    }.padding(horizontal = 16.dp, vertical = 12.dp),
+                )
             }
             // Spec notification-checkup (bipe-chat/bipe#823): Android only, under the phone card.
             Text(

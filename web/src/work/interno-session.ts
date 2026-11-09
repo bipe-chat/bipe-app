@@ -14,6 +14,9 @@
 //   joins the claimed one. With Geral, it invites each member that is not in it yet.
 // - A member identity that bipe-api removed (403 seat_required, or `me` is no longer this session's user), or a
 //   session the homeserver refuses (deactivated, unknown token), is dropped here without an error screen.
+// - keys (ADR 0284 point 34): after a first sign-in this browser links itself to the person's other devices with no
+//   prompt (Interno.linkKeys). A later load runs the same steps once, without the identity reset, until bipe-api
+//   holds the key or this device recovered.
 // - The homeserver lets only members of the same account invite a member identity (ADR 0284 point 8), so the
 //   member session joins its invites by itself. Default.
 
@@ -23,10 +26,12 @@ import type { ChatSummary } from '../chat-model';
 import {
   Membership,
   MembershipState,
+  RecoveryState,
   RoomListEntriesDynamicFilterKind,
   RoomListEntriesUpdate,
   RoomPreset,
   RoomVisibility,
+  VerificationState,
   type ClientLike as Client,
   type RoomLike as Room,
   type RoomListEntriesWithDynamicAdaptersResultLike as RoomListEntriesWithDynamicAdaptersResult,
@@ -64,6 +69,16 @@ function seatGone(e: unknown): boolean {
 }
 
 const geralPendingKey = (memberUserId: string) => `bipe.interno.geral.pending.${memberUserId}`;
+/** Set once bipe-api holds the recovery key of this member identity; later loads then skip the key steps. */
+const recoveryStoredKey = (memberUserId: string) => `bipe.interno.recovery.stored.${memberUserId}`;
+
+/** Member user IDs whose key steps ran on a restore in this page load: at most one run each. */
+const restoredKeys = new Set<string>();
+
+/** A failure line for the key steps: the step and the API code, never the error text (it could hold the key). */
+function keysFailed(step: string, e: unknown) {
+  console.warn('[trace] interno keys failed', step, e instanceof WorkError ? e.code : 'sdk');
+}
 
 function readPending(key: string): string | undefined {
   try {
@@ -78,7 +93,7 @@ function writePending(key: string, value: string | undefined) {
     if (value === undefined) localStorage.removeItem(key);
     else localStorage.setItem(key, value);
   } catch {
-    // Without storage a failed claim can make one more room; the next claim still settles Geral.
+    // Without storage a failed claim can make one more room, or a load runs the key steps again; both settle.
   }
 }
 
@@ -127,6 +142,7 @@ export class Interno {
       if (this.slot !== saved) return;
       if (!member) return await this.drop();
       this.set({ phase: 'ready', member });
+      void this.restoreKeys(member);
       await this.refresh();
     } catch (e) {
       console.warn('[trace] interno restore failed', describe(e));
@@ -144,14 +160,15 @@ export class Interno {
   private async setup(): Promise<void> {
     this.set({ phase: 'setup' });
     try {
-      const { member, client } = await (async () => {
+      const { member, client, recoveryKey } = await (async () => {
         // The password stays inside this block: it goes to the sign-in and nowhere else.
         const answer = await this.api.memberSession();
-        return signInMember(answer.user_id, answer.password);
+        return { ...(await signInMember(answer.user_id, answer.password)), recoveryKey: answer.recovery_key };
       })();
       this.slot = member;
       this.save(member);
       this.set({ phase: 'ready', member: client });
+      void this.linkKeys(client, true, recoveryKey);
       await this.refresh();
     } catch (e) {
       console.warn('[trace] interno setup failed', describe(e));
@@ -180,6 +197,82 @@ export class Interno {
       }
     })();
     return this.refreshing;
+  }
+
+  /**
+   * Spec interno open, the keys with no prompt. After a first sign-in (fresh) only: (a) a read that succeeds and finds
+   * no identity makes one and stores its recovery key. Then: (b) this device is not verified and bipe-api gave a key:
+   * recover, so this device is verified and gets the history from the key backup; (c) this device is verified: with a
+   * key from bipe-api and recovery enabled nothing is left, otherwise make a key and store it. A failure leaves the
+   * session open; the next load tries again. The key passes only between bipe-api and the SDK.
+   */
+  private async linkKeys(client: Client, fresh: boolean, recoveryKey?: string): Promise<void> {
+    const userId = client.userId();
+    const stored = recoveryStoredKey(userId);
+    const encryption = client.encryption();
+    let step = 'read';
+    try {
+      await encryption.waitForE2eeInitializationTasks();
+      if (fresh && !(await encryption.userIdentity(userId, true))) {
+        step = 'reset';
+        // A new identity needs no password on upload; a server that asks for one fails here and retries later.
+        await (await encryption.resetIdentity())?.reset(undefined);
+        step = 'store';
+        return await this.storeRecovery(client, stored);
+      }
+      if (encryption.verificationState() !== VerificationState.Verified) {
+        if (!recoveryKey) return;
+        step = 'recover';
+        await encryption.recover(recoveryKey);
+        writePending(stored, '1');
+        return;
+      }
+      if (recoveryKey && encryption.recoveryState() === RecoveryState.Enabled) {
+        writePending(stored, '1');
+        return;
+      }
+      step = 'store';
+      await this.storeRecovery(client, stored);
+    } catch (e) {
+      keysFailed(step, e);
+    }
+  }
+
+  /**
+   * A restored member session whose keys are not settled yet: once per page load, the member session route gives the
+   * current recovery key (its new password is not read; it does not end other sessions), then the key steps run
+   * without the identity reset.
+   */
+  private async restoreKeys(client: Client): Promise<void> {
+    const userId = client.userId();
+    if (readPending(recoveryStoredKey(userId)) || restoredKeys.has(userId)) return;
+    restoredKeys.add(userId);
+    let recoveryKey: string | undefined;
+    try {
+      recoveryKey = (await this.api.memberSession()).recovery_key;
+    } catch (e) {
+      return keysFailed('session', e);
+    }
+    await this.linkKeys(client, false, recoveryKey);
+  }
+
+  /**
+   * A new recovery key, then PUT to bipe-api: enableRecovery (no wait for the backup upload, no passphrase) when
+   * recovery is disabled, resetRecoveryKey when it is enabled or incomplete. An unknown state waits for the next load.
+   */
+  private async storeRecovery(client: Client, stored: string): Promise<void> {
+    const encryption = client.encryption();
+    const state = encryption.recoveryState();
+    let key: string;
+    if (state === RecoveryState.Disabled) {
+      key = await encryption.enableRecovery(false, undefined, { onUpdate: () => undefined });
+    } else if (state === RecoveryState.Enabled || state === RecoveryState.Incomplete) {
+      key = await encryption.resetRecoveryKey();
+    } else {
+      return;
+    }
+    await this.api.storeMemberRecovery({ recovery_key: key });
+    writePending(stored, '1');
   }
 
   /** The member session failed on the homeserver (its sync or a call): an ended session is dropped. */

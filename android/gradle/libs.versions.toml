@@ -14,13 +14,14 @@ matrix-rust-sdk = "26.08.11"
 rustls-platform-verifier = "0.1.1"
 kotlinx-serialization = "1.9.0"
 kotlinx-coroutines = "1.10.2"
+# The JNA that matrix-rust-sdk sdk-android depends on (its POM). bipe-core's bindings compile against it (bipe-chat/bipe#645).
+jna = "5.18.1"
 androidx-annotation = "1.9.1"
 androidx-core = "1.16.0"
 androidx-activity = "1.10.1"
 androidx-browser = "1.8.0"
 compose-bom = "2025.08.00"
 media3 = "1.8.0"
-tink = "1.18.0"
 junit = "4.13.2"
 truth = "1.4.4"
 # The last release of the Material icons; the tab bar uses them (ADR 0149).
@@ -48,7 +49,7 @@ rustls-platform-verifier = { module = "rustls:rustls-platform-verifier", version
 kotlinx-serialization-core = { module = "org.jetbrains.kotlinx:kotlinx-serialization-core", version.ref = "kotlinx-serialization" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
-tink-android = { module = "com.google.crypto.tink:tink-android", version.ref = "tink" }
+jna = { module = "net.java.dev.jna:jna", version.ref = "jna" }
 # Test only (ADR 0148): JUnit is EPL-1.0 and must stay on testImplementation lines.
 junit = { module = "junit:junit", version.ref = "junit" }
 truth = { module = "com.google.truth:truth", version.ref = "truth" }

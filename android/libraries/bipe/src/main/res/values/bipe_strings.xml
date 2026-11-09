@@ -1301,6 +1301,7 @@
     <string name="bipe_notifications_account_footer">Estas escolhas valem para a conta %1$s.</string>
     <string name="bipe_notifications_preview">Mostrar o texto da mensagem</string>
     <string name="bipe_notifications_preview_footer">Desligado, a notificação mostra só que chegou uma mensagem.</string>
+    <string name="bipe_notifications_open_system">Abrir configurações de notificação</string>
     <string name="bipe_focus_filter_title">Contas do Bipe</string>
     <string name="bipe_focus_filter_description">Escolha quais contas do Bipe podem notificar neste Foco.</string>
     <string name="bipe_focus_filter_accounts">Contas</string>
@@ -2336,6 +2337,10 @@
     <string name="bipe_group_publication_only_title">Só admins publicam</string>
     <string name="bipe_group_publication_only_footer">Admins e moderadores publicam. Os outros membros comentam nas conversas.</string>
     <string name="bipe_group_publication_only_bar">Só admins publicam neste grupo. Para comentar, toque e segure uma publicação e escolha Responder em conversa.</string>
+    <string name="bipe_group_public_feed_title">Público em bipe.chat/@%1$s</string>
+    <string name="bipe_group_public_feed_footer">Novas publicações deste grupo aparecem em bipe.chat/@%1$s para qualquer pessoa, e o Bipe consegue ler essas publicações. As publicações antigas continuam privadas. Os comentários ficam só no grupo.</string>
+    <string name="bipe_group_public_feed_composer">Esta publicação também vai para bipe.chat/@%1$s.</string>
+    <string name="bipe_group_public_feed_failed">Não deu para publicar em bipe.chat/@%1$s. A mensagem não foi enviada.</string>
     <string name="bipe_group_requests">Pedidos para entrar</string>
     <string name="bipe_group_request_accept">Aceitar</string>
     <string name="bipe_group_request_decline">Recusar</string>
@@ -2459,6 +2464,12 @@
     <string name="bipe_group_link_open_history">Você vai ver as mensagens enviadas depois que entrar.</string>
     <string name="bipe_group_link_preview_title">Grupo %1$s no Bipe</string>
     <string name="bipe_group_link_preview_count">Pessoas no grupo: %1$s. Toque para entrar.</string>
+    <string name="bipe_feed_page_title">%1$s no Bipe</string>
+    <string name="bipe_feed_public_label">Público</string>
+    <string name="bipe_feed_empty">Ainda não há publicações.</string>
+    <string name="bipe_feed_older">Publicações anteriores</string>
+    <string name="bipe_feed_all_posts">Todas as publicações</string>
+    <string name="bipe_feed_notify">Instale o Bipe para receber um aviso quando %1$s publicar.</string>
     <string name="bipe_groups_service_name">Bipe Grupos</string>
     <string name="bipe_groups_service_about">Esta conta convida quem abre o link do grupo. Ela não lê as mensagens.</string>
     <string name="bipe_year_recap_title">Suas estatísticas</string>

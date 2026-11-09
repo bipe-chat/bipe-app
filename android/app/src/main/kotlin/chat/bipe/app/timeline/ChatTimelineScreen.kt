@@ -754,8 +754,8 @@ fun ChatTimelineScreen(
         )
     }
     ui.reactionSheet?.let { ReactionSendersSheet(it, onDismiss = model::closeSenders) }
-    ui.forwardingRowIds?.let(model::forwardContents)?.takeIf { it.isNotEmpty() }?.let { contentJsons ->
-        MessageForwardSheet(session.client, contentJsons, media, onClose = model::forwardClosed)
+    ui.forwardingRowIds?.let(model::forwardContents)?.takeIf { it.isNotEmpty() }?.let { contents ->
+        MessageForwardSheet(session.client, contents, media, onClose = model::forwardClosed)
     }
     ui.readersSheet?.let { ReadersSheet(it, media, onDismiss = model::closeReaders) }
     ui.report?.let { report ->
@@ -868,6 +868,7 @@ private fun noticeText(notice: TimelineNotice, arg: String?): String = when (not
     TimelineNotice.SELECTION_DELETE_FAILED -> stringResource(R.string.bipe_select_delete_failed)
     TimelineNotice.JUMP_EMPTY -> stringResource(R.string.bipe_jump_to_date_empty)
     TimelineNotice.JUMP_FAILED -> stringResource(R.string.bipe_error_generic)
+    TimelineNotice.FEED_POST_FAILED -> stringResource(R.string.bipe_group_public_feed_failed, arg.orEmpty())
 }
 
 /** Spec typing-indicator: who is typing, above the composer. */
@@ -967,6 +968,15 @@ private fun ComposerBar(
         if (recording != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             VoiceRecordingBar(recording, onClose = onEndRecording)
             return@Column
+        }
+        // Spec composer feedHandle (bipe-chat/bipe#1260): a top-level post here also goes to the public page.
+        composer.feedHandle?.takeIf { ui.replyingTo == null && ui.editing == null }?.let { handle ->
+            Text(
+                stringResource(R.string.bipe_group_public_feed_composer, handle),
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.inkSecondary,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+            )
         }
         val reply = ui.replyingTo
         val editing = ui.editing

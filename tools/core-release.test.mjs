@@ -50,3 +50,18 @@ test('the Gradle consumer pins the release AAR', () => {
   assert.equal(component[1], release.version);
   assert.match(component[2], new RegExp(`<artifact name="bipe-core-${release.version.replace(/\./g, '\\.')}\\.aar">\\s*<sha256 value="${asset(`bipe-core-${release.version}.aar`)}"`));
 });
+
+// bipe-chat/bipe#645: the Android app (libraries/bipe) takes the AAR, and its JVM unit tests the jar, from the same release.
+test('the Android app pins the release AAR and jar', () => {
+  const metadata = read('android/gradle/verification-metadata.xml');
+  for (const [name, file] of [['bipe-core', `bipe-core-${release.version}.aar`], ['bipe-core-jvm', `bipe-core-jvm-${release.version}.jar`]]) {
+    const component = metadata.match(new RegExp(`<component group="chat\\.bipe\\.core" name="${name}" version="([^"]+)">([\\s\\S]*?)</component>`));
+    assert.ok(component, `android/gradle/verification-metadata.xml has no chat.bipe.core:${name} component`);
+    assert.equal(component[1], release.version);
+    assert.match(component[2], new RegExp(`<artifact name="${file.replace(/\./g, '\\.')}">\\s*<sha256 value="${asset(file)}"`));
+  }
+});
+
+test('BipeKit takes BipeCore from the pinned release package', () => {
+  assert.match(read('ios/BipeKit/Package.swift'), /\.package\(path: "\.\.\/\.\.\/core\/release\/swift"\)/);
+});

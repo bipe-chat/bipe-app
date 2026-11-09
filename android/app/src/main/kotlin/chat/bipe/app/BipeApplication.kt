@@ -73,6 +73,8 @@ class BipeApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        // The signed lists (bipe-chat/bipe#645): the stored envelopes before any "is a Bipe user" check.
+        chat.bipe.shared.SignedLists.init(filesDir)
         // People names: the placeholder for a person without a name or @.
         chat.bipe.app.people.Person.noName = { getString(chat.bipe.shared.R.string.bipe_person_no_name) }
         // Spec app-colors: the stored palette before the first screen.

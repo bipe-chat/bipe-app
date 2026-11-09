@@ -6,7 +6,7 @@
 // fields and the two-column layout (a list next to its detail on a wide screen, one column on a narrow one).
 // The screens follow the same bipe-shared specs as the apps; these parts only carry the web layout.
 
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { s } from '../ui/i18n';
 import { Spinner } from '../ui/Spinner';
 import type { BookingCustomer } from '../bipe/generated/business-api';
@@ -41,19 +41,27 @@ export function useLoad<T>(load: () => Promise<T>, deps: unknown[] = []) {
   const [loading, setLoading] = useState(true);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const run = useCallback(load, deps);
+  // Attempt token (AGENTS.md, State): a slow old response must not overwrite the result of a newer load.
+  const attempt = useRef(0);
   const reload = useCallback(async () => {
+    const mine = ++attempt.current;
     setLoading(true);
     try {
-      setData(await run());
+      const value = await run();
+      if (mine !== attempt.current) return;
+      setData(value);
       setError(undefined);
     } catch (e) {
-      setError(e);
+      if (mine === attempt.current) setError(e);
     } finally {
-      setLoading(false);
+      if (mine === attempt.current) setLoading(false);
     }
   }, [run]);
   useEffect(() => {
     void reload();
+    return () => {
+      attempt.current++;
+    };
   }, [reload]);
   return { data, setData, error, loading, reload };
 }
@@ -65,7 +73,11 @@ export function useLoad<T>(load: () => Promise<T>, deps: unknown[] = []) {
 export function useAction() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>();
+  // A second tap while a write runs does nothing (AGENTS.md, State).
+  const running = useRef(false);
   const run = useCallback(async <T,>(fn: () => Promise<T>): Promise<T | undefined> => {
+    if (running.current) return undefined;
+    running.current = true;
     setBusy(true);
     setError(undefined);
     try {
@@ -74,6 +86,7 @@ export function useAction() {
       setError(e);
       return undefined;
     } finally {
+      running.current = false;
       setBusy(false);
     }
   }, []);

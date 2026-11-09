@@ -120,7 +120,7 @@ export function usePeople(chats: ChatSummary[], query: string): { people: Person
     if (!/^[a-z0-9._]{3,}$/i.test(term)) return;
     let stopped = false;
     const timer = setTimeout(async () => {
-      const record = await apiFor(client).lookupHandle(term);
+      const record = await apiFor(client).lookupHandle(term).catch(() => undefined);
       if (!record || stopped) return;
       const profile = await client.getProfile(record.user_id).catch(() => undefined);
       if (!stopped)
@@ -137,7 +137,12 @@ export function usePeople(chats: ChatSummary[], query: string): { people: Person
     };
   }, [client, term]);
   useEffect(() => {
-    if (term.length < 2) return setFound([]);
+    // A term that gets too short ends the search: the cleanup of the last run stopped its own finally.
+    if (term.length < 2) {
+      setFound([]);
+      setSearching(false);
+      return;
+    }
     let stopped = false;
     setSearching(true);
     const timer = setTimeout(() => {

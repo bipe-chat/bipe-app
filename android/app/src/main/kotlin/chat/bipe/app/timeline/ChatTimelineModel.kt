@@ -24,6 +24,13 @@ import chat.bipe.app.media.voice.VoiceMediaExpiry
 import chat.bipe.app.media.voice.VoiceMediaStore
 import chat.bipe.app.media.voice.VoiceRecordingModel
 import chat.bipe.shared.api.BipeKeptMedia
+import chat.bipe.app.common.AppConfig
+import chat.bipe.shared.api.BipeApiClient
+import chat.bipe.shared.api.BipeFeedPost
+import chat.bipe.shared.api.BipeFeedPostMark
+import chat.bipe.shared.api.deleteFeedPost
+import chat.bipe.shared.api.feedRoom
+import chat.bipe.shared.api.publishFeedPost
 import chat.bipe.app.location.LiveLocationMessage
 import chat.bipe.app.location.LocationMessage
 import chat.bipe.app.media.MediaMessage
@@ -58,6 +65,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.matrix.rustcomponents.sdk.DateDividerMode
 import org.matrix.rustcomponents.sdk.EditedContent
+import org.matrix.rustcomponents.sdk.EventTimelineItem
 import org.matrix.rustcomponents.sdk.MessageType
 import org.matrix.rustcomponents.sdk.MsgLikeKind
 import org.matrix.rustcomponents.sdk.OtherState
@@ -110,6 +118,8 @@ data class TimelineMessage(
     val assistantLabel: String? = null,
     /** Spec chat-timeline forwardCount (bipe-chat/bipe#933): the count of the forward mark, 0 without one. */
     val forwardCount: Int = 0,
+    /** bipe-chat/bipe#1260: the post also went to the public feed (publicationOnly.feedPostKey): the bubble shows Público. */
+    val isPublicFeed: Boolean = false,
     /** Spec timeline-rows nameAmbiguous: another member of the room shows the same name (bipe-chat/bipe#825). */
     val senderNameAmbiguous: Boolean = false,
     /** Spec timeline-rows: false only for the one other person of a DM. A room flagged direct can hold messages from people who left. */
@@ -153,7 +163,7 @@ data class MessageReport(
 )
 
 /** One-time notices of the timeline specs. */
-enum class TimelineNotice { PIN_FAILED, STICKER_SAVED, STICKER_SAVE_FAILED, COPIED, REACTION_FAILED, EDIT_FAILED, DELETE_FAILED, REPORTED, INVITE_AGAIN_FAILED, KEEP_LIMIT, KEEP_FAILED, FORWARDED, FORWARD_FAILED, SELECTION_FORWARDED, SELECTION_LIMIT, SELECTION_DELETE_FAILED, JUMP_EMPTY, JUMP_FAILED }
+enum class TimelineNotice { PIN_FAILED, STICKER_SAVED, STICKER_SAVE_FAILED, COPIED, REACTION_FAILED, EDIT_FAILED, DELETE_FAILED, REPORTED, INVITE_AGAIN_FAILED, KEEP_LIMIT, KEEP_FAILED, FORWARDED, FORWARD_FAILED, SELECTION_FORWARDED, SELECTION_LIMIT, SELECTION_DELETE_FAILED, JUMP_EMPTY, JUMP_FAILED, FEED_POST_FAILED }
 
 /** Spec chat-timeline peerAway (ADR 0141): the other person of a DM left, or the account is gone. */
 enum class PeerAway { NONE, LEFT, ACCOUNT_GONE }
@@ -204,6 +214,10 @@ data class ComposerState(
     val canPost: Boolean = true,
     /** Spec composer publicationClosed (bipe-chat/bipe#1263): the reason bar says how to comment. */
     val publicationClosed: Boolean = false,
+    /** Spec composer feedHandle (bipe-chat/bipe#1260): this group posts to bipe.chat/@feedHandle and the user is an admin there. */
+    val feedHandle: String? = null,
+    /** The public copy of a post is on its way: a second send does nothing. */
+    val isPublishing: Boolean = false,
     /** The poll row of attachment-picker. Never in a DM (ADR 0192). */
     val canPoll: Boolean = true,
     /** mode recording: voice-recording replaces the field. */
@@ -348,6 +362,8 @@ class ChatTimelineModel(
     private var facts = RoomFacts(ownUserId = session.userId)
     private var levelsAllowPost = true
     private var isPublicationOnly = false
+    private var feedJob: Job? = null
+    private val feedApi = BipeApiClient(AppConfig.API_BASE_URL)
     private val membersLoading = mutableSetOf<String>()
     private var keptDraft = ""
     private var typingSentAt: Long? = null
@@ -485,6 +501,7 @@ class ChatTimelineModel(
             BipeGroupPublication.isOn(state)?.let { isOn ->
                 isPublicationOnly = isOn
                 updateCanPost()
+                refreshFeedHandle()
             }
             val readers = BipeAssistantSend.readers(state).map { userId ->
                 val name = runCatching { room.memberDisplayName(userId) }.getOrNull()?.takeIf { it.isNotBlank() }
@@ -720,7 +737,28 @@ class ChatTimelineModel(
         }
         val text = _draft.value.trim()
         val timeline = timeline ?: return
-        if (text.isEmpty()) return
+        if (text.isEmpty() || _composer.value.isPublishing) return
+        val feedHandle = _composer.value.feedHandle
+        // Spec composer send (bipe-chat/bipe#1260): a top-level post of a group that posts to a public feed goes to the
+        // feed first. A failure keeps the draft and sends nothing, so the group and the page never differ.
+        if (feedHandle != null && _ui.value.replyingTo == null && threadRoot == null) {
+            _composer.update { it.copy(isPublishing = true) }
+            scope.launch {
+                val post = runCatching { withFeedToken { feedApi.publishFeedPost(text, it) } }.getOrNull()
+                _composer.update { it.copy(isPublishing = false) }
+                if (post == null) {
+                    show(TimelineNotice.FEED_POST_FAILED, feedHandle)
+                } else {
+                    sendNow(text, timeline, post)
+                }
+            }
+            return
+        }
+        sendNow(text, timeline, null)
+    }
+
+    /** The send of action send: clears the composer, then sends the group message (with the feed mark when [post] is set). */
+    private fun sendNow(text: String, timeline: Timeline, post: BipeFeedPost?) {
         // Spec composer send: Markdown with the pills as matrix.to links, then the mentions.
         val mentions = _composer.value.mentions
         draftSave?.cancel()
@@ -732,12 +770,51 @@ class ChatTimelineModel(
         val room = room
         scope.launch {
             room?.let { runCatching { it.clearComposerDraft(threadRoot) } }
-            runCatching {
+            val sent = runCatching {
                 val content = ComposerMarkdown.content(text, mentions)
-                if (replyingTo != null) timeline.sendReply(content, replyingTo.eventId) else timeline.send(content)
+                when {
+                    replyingTo != null -> timeline.sendReply(content, replyingTo.eventId)
+                    post != null -> timeline.sendWithExtraContent(content, BipeFeedPostMark.extraContentJson(post))
+                    else -> timeline.send(content)
+                }
             }
+            if (sent.isFailure && post != null) deleteFeedPost(post.id)
         }
     }
+
+    /**
+     * Spec composer feedHandle: asks the API whether this group posts to a public feed, in a publication-only group on
+     * the main timeline. Any failure means no feed.
+     */
+    private fun refreshFeedHandle() {
+        feedJob?.cancel()
+        if (!isPublicationOnly || !isMainTimeline || facts.isDm) {
+            _composer.update { it.copy(feedHandle = null) }
+            return
+        }
+        feedJob = scope.launch {
+            val room = try {
+                withFeedToken { feedApi.feedRoom(roomId, it) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                null
+            }
+            _composer.update { it.copy(feedHandle = room?.handle) }
+        }
+    }
+
+    /** The feed post of a message that carries the mark (bipe-chat/bipe#1260), from the event JSON. */
+    private fun feedPostId(event: EventTimelineItem): String? =
+        runCatching { BipeFeedPostMark.postId(event.lazyProvider.debugInfo().originalJson) }.getOrNull()
+
+    /** Deletes the public copy. A failure is silent: the group message is the one people see first. */
+    private suspend fun deleteFeedPost(id: String) {
+        runCatching { withFeedToken { feedApi.deleteFeedPost(id, it) } }
+    }
+
+    private suspend fun <T> withFeedToken(request: suspend (String) -> T): T =
+        BipeApiClient.withTokenRetry({ session.accessToken() }, request)
 
     /** Action leave of spec composer: keeps the draft on this device, or clears it. */
     fun leave() {
@@ -1195,8 +1272,10 @@ class ChatTimelineModel(
         cancelDelete()
         val timeline = timeline ?: return
         val event = item(rowId)?.asEvent() ?: return
+        val postId = feedPostId(event)
         scope.launch {
             runCatching { timeline.redactEvent(event.eventOrTransactionId, null) }
+                .onSuccess { if (postId != null) deleteFeedPost(postId) }
                 .onFailure { show(TimelineNotice.DELETE_FAILED) }
         }
     }
@@ -1441,16 +1520,19 @@ class ChatTimelineModel(
      * The content JSON a forward of a row sends (spec message-forward send, bipe-chat/bipe#83): the original content with
      * the forward mark. null without the event JSON (a local echo), so that no copy goes out without its mark.
      */
-    fun forwardContent(rowId: String): String? {
+    fun forwardContent(rowId: String): ForwardContent? {
         val event = item(rowId)?.asEvent() ?: return null
         val content = event.content as? TimelineItemContent.MsgLike ?: return null
-        if (content.content.kind !is MsgLikeKind.Message) return null
+        val message = (content.content.kind as? MsgLikeKind.Message)?.content ?: return null
+        // The SDK has no typed access to Bipe's own content fields, so the debug JSON stays the source of the mark
+        // (bipe-chat/bipe#1124).
         val debugInfo = runCatching { event.lazyProvider.debugInfo() }.getOrNull() ?: return null
-        return BipeForwardMark.forwardedContentJson(debugInfo.originalJson, debugInfo.latestEditJson)
+        val json = BipeForwardMark.forwardedContentJson(debugInfo.originalJson, debugInfo.latestEditJson) ?: return null
+        return ForwardContent(message, json)
     }
 
     /** The forward contents of rows, in timeline order (spec message-forward send). */
-    fun forwardContents(rowIds: List<String>): List<String> {
+    fun forwardContents(rowIds: List<String>): List<ForwardContent> {
         val wanted = rowIds.toSet()
         return _rows.value.filter { it.id in wanted }.mapNotNull { forwardContent(it.id) }
     }
@@ -1539,12 +1621,17 @@ class ChatTimelineModel(
 
     /** The dialog of deleteSelection confirmed: deletes each own picked message for everyone, without a reason. */
     fun confirmDeleteSelection() {
-        val targets = selectedRows().filter(::deletesInSelection).mapNotNull { item(it.id)?.asEvent()?.eventOrTransactionId }
+        val targets = selectedRows().filter(::deletesInSelection).mapNotNull { item(it.id)?.asEvent() }
+            .map { it.eventOrTransactionId to feedPostId(it) }
         cancelSelection()
         val timeline = timeline ?: return
         if (targets.isEmpty()) return
         scope.launch {
-            val failed = targets.count { target -> runCatching { timeline.redactEvent(target, null) }.isFailure }
+            val failed = targets.count { (target, postId) ->
+                runCatching { timeline.redactEvent(target, null) }
+                    .onSuccess { if (postId != null) deleteFeedPost(postId) }
+                    .isFailure
+            }
             if (failed > 0) show(TimelineNotice.SELECTION_DELETE_FAILED)
         }
     }

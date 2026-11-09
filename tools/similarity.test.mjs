@@ -5,7 +5,11 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
+  blockMatches,
+  blockSelfTest,
   checkTokenIndex,
+  codeLines,
+  LANGS,
   evaluate,
   failedSubmissions,
   flatKey,
@@ -87,4 +91,29 @@ test('checkTokenIndex fails a report with pairs and no counts', () => {
   assert.throws(() => checkTokenIndex(parseCsv(CSV), new Map()), /token index empty/);
   assert.doesNotThrow(() => checkTokenIndex(parseCsv(CSV), tokenCounts(INDEX)));
   assert.doesNotThrow(() => checkTokenIndex(parseCsv(CSV.split('\n')[0]), new Map()));
+});
+
+// Maximum-match rule (bipe-chat/bipe#1127).
+
+test('codeLines drops comments, whitespace, imports and short lines', () => {
+  const lines = codeLines('import Foundation\n/* a\n b */\nlet url = "https://bipe.chat" // note\n}\n  values.append(v * 2)\n');
+  assert.deepEqual(lines, [
+    { text: 'leturl="https://bipe.chat"', line: 4 },
+    { text: 'values.append(v*2)', line: 6 },
+  ]);
+});
+
+test('a copied block inside a large file fails the maximum-match rule', () => {
+  for (const lang of Object.keys(LANGS)) assert.ok(blockSelfTest(lang), lang);
+});
+
+test('blockMatches reports the longest run once per file pair', () => {
+  const block = Array.from({ length: 14 }, (_, i) => `  let value${i} = compute(${i})`).join('\n');
+  const ours = new Map([['ios/A.swift', `header line one\n${block}\ntrailer line here`]]);
+  const theirs = new Map([['B.swift', `${block}\n${block}`]]);
+  const result = blockMatches(ours, theirs, 12);
+  assert.equal(result.length, 1);
+  assert.equal(result[0].lines, 14);
+  assert.equal(result[0].oursLine, 2);
+  assert.deepEqual(blockMatches(ours, theirs, 15), []);
 });

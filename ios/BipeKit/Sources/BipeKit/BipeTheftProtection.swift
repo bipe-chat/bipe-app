@@ -2,7 +2,7 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
-import CryptoKit
+import BipeCore
 import Foundation
 import Security
 
@@ -139,14 +139,14 @@ public nonisolated enum BipeTheftMarkResult: Sendable, Equatable {
     case invalid(BadgeVerificationFailure)
 }
 
-/// Verifies signed theft statements (bipe-shared docs/theft-mark.md, v1) with the badge keys.
-/// Must match bipe-shared/test-vectors/theft-marks.json.
+/// Verifies signed theft statements (bipe-shared docs/theft-mark.md, v1) with the badge keys, through bipe-core
+/// `verifyTheftMark` (ADR 0267, bipe-chat/bipe#1330). Must match bipe-shared/test-vectors/theft-marks.json.
 public nonisolated struct BipeTheftMarkVerifier: Sendable {
     private let trustedKeys: [String: Data]
 
     /// - Parameter trustedKeys: `kid` to raw 32-byte Ed25519 public key. Release builds must not include `test-only-*` keys.
     public init(trustedKeys: [String: Data]) throws(BadgeVerifier.KeyError) {
-        for (kid, key) in trustedKeys where (try? Curve25519.Signing.PublicKey(rawRepresentation: key)) == nil {
+        for (kid, key) in trustedKeys where key.count != 32 {
             throw .invalidPublicKey(kid: kid)
         }
         self.trustedKeys = trustedKeys
@@ -162,52 +162,23 @@ public nonisolated struct BipeTheftMarkVerifier: Sendable {
         return try BipeTheftMarkVerifier(trustedKeys: keys)
     }
 
-    /// Decodes and verifies envelope JSON. Undecodable JSON is `malformed`.
+    /// Verifies envelope JSON. Any error is no mark.
+    /// - Parameter subject: the account the app asked about.
     public func verify(envelopeJSON: Data, subject: String, now: Date = .now) -> BipeTheftMarkResult {
-        guard let probe = try? JSONDecoder().decode(TheftVersionProbe.self, from: envelopeJSON) else {
-            return .invalid(.malformed)
+        guard let text = String(data: envelopeJSON, encoding: .utf8) else { return .invalid(.malformed) }
+        let keys = trustedKeys.map { TrustedKey(kid: $0.key, publicKey: $0.value) }
+        switch verifyTheftMark(envelopeJson: text, subject: subject, trustedKeys: keys, nowSeconds: Int64(now.timeIntervalSince1970.rounded(.down))) {
+        case .valid(let statement):
+            return .valid(BipeTheftStatement(sub: statement.sub, stolenAt: statement.stolenAt, iat: statement.iat, exp: statement.exp))
+        case .invalid(let failure):
+            return .invalid(BadgeVerificationFailure(rawValue: badgeFailureCode(failure: failure)) ?? .malformed)
         }
-        guard probe.v == BadgeEnvelope.supportedVersion else {
-            return .invalid(.unsupportedVersion)
-        }
-        guard let envelope = try? JSONDecoder().decode(BadgeEnvelope.self, from: envelopeJSON) else {
-            return .invalid(.malformed)
-        }
-        return verify(envelope, subject: subject, now: now)
     }
 
-    /// Runs the documented checks in order and returns the first failure.
-    /// - Parameter subject: the account the app asked about.
+    /// The envelope as the server sends it. Its `payload` and `sig` are the exact base64url text, so re-encoding is safe.
     public func verify(_ envelope: BadgeEnvelope, subject: String, now: Date = .now) -> BipeTheftMarkResult {
-        guard envelope.v == BadgeEnvelope.supportedVersion else {
-            return .invalid(.unsupportedVersion)
-        }
-        guard let keyData = trustedKeys[envelope.kid],
-              let publicKey = try? Curve25519.Signing.PublicKey(rawRepresentation: keyData) else {
-            return .invalid(.unknownKID)
-        }
-        guard let payloadBytes = Data(base64URLEncoded: envelope.payload),
-              let signature = Data(base64URLEncoded: envelope.sig) else {
-            return .invalid(.malformed)
-        }
-        // Verify the exact bytes. Never re-serialise the JSON before this check.
-        guard publicKey.isValidSignature(signature, for: payloadBytes) else {
-            return .invalid(.invalidSignature)
-        }
-        guard let payload = try? JSONDecoder().decode(TheftPayload.self, from: payloadBytes), payload.typ == "theft" else {
-            return .invalid(.malformed)
-        }
-        let nowSeconds = now.timeIntervalSince1970
-        if nowSeconds >= Double(payload.exp) {
-            return .invalid(.expired)
-        }
-        if nowSeconds < Double(payload.iat) {
-            return .invalid(.notYetValid)
-        }
-        guard payload.sub == subject else {
-            return .invalid(.subjectMismatch)
-        }
-        return .valid(BipeTheftStatement(sub: payload.sub, stolenAt: payload.stolenAt, iat: payload.iat, exp: payload.exp))
+        guard let json = try? JSONEncoder().encode(envelope) else { return .invalid(.malformed) }
+        return verify(envelopeJSON: json, subject: subject, now: now)
     }
 
     /// The valid statement for `subject` among `envelopes`, else `nil`. Any error is no mark.
@@ -218,24 +189,6 @@ public nonisolated struct BipeTheftMarkVerifier: Sendable {
             }
         }
         return nil
-    }
-}
-
-private nonisolated struct TheftVersionProbe: Decodable {
-    let v: Int
-}
-
-/// Integers only: a JSON number with a fraction does not decode as Int64, so it is `malformed`.
-private nonisolated struct TheftPayload: Decodable {
-    let typ: String
-    let sub: String
-    let stolenAt: Int64
-    let iat: Int64
-    let exp: Int64
-
-    private enum CodingKeys: String, CodingKey {
-        case typ, sub, iat, exp
-        case stolenAt = "stolen_at"
     }
 }
 

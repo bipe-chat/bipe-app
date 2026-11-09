@@ -190,6 +190,10 @@ class MainActivity : ComponentActivity() {
         (application as BipeApplication).activityVisible = true
         accountStart.resume()
         LinkWebFlow.appResumed()
+        // The signed lists (bipe-chat/bipe#645): fetch from the core when the last fetch is old.
+        chat.bipe.shared.SignedLists.shared.appBecameActive()
+        // Settings that follow the account (ADR 0273): another device's change shows when the phone comes to the front.
+        chat.bipe.app.common.SyncedSettings.refresh(applicationContext)
     }
 
     override fun onStop() {

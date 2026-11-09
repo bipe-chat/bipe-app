@@ -978,11 +978,15 @@ function ClosePanel({
 
   const send = async () => {
     const body = text.trim();
-    if (!host || !customers || !body) return;
+    if (!host || !customers || !body || sending) return;
     setSending(true);
     let count = 0;
-    for (const userId of customers) if (await host.sendText(userId, body)) count += 1;
-    setSending(false);
+    try {
+      // A send that throws counts as not sent; the others still go, and sending always ends.
+      for (const userId of customers) if (await host.sendText(userId, body).catch(() => false)) count += 1;
+    } finally {
+      setSending(false);
+    }
     setSent(count);
   };
 
