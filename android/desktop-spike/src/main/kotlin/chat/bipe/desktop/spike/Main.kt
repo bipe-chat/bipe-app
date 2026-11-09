@@ -28,7 +28,11 @@ fun main(args: Array<String>) = runBlocking {
     check(System.getProperty("os.arch") in setOf("amd64", "x86_64")) { "Only Windows x64 is tested here" }
     val vectors = File(args[0]).readText()
     // Core -> SDK -> core in one JVM: catch load conflicts and verify the actual SDK revision.
-    println(BadgeHarness.run(vectors) { check(sdkGitSha() == args[1]) { "SDK source pin differs" } })
+    println(BadgeHarness.run(vectors) {
+        // The pinned SDK's build.rs emits GitclBuilder.sha(true), a short Git hash.
+        val sdkHash = sdkGitSha()
+        check(sdkHash.length in 7..40 && args[1].startsWith(sdkHash)) { "SDK source pin differs" }
+    })
 
     val root = Files.createTempDirectory("bipe-windows-spike-").toFile()
     val key = ByteArray(32).also { SecureRandom().nextBytes(it) }
