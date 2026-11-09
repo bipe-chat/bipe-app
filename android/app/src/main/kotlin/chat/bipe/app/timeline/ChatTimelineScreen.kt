@@ -754,8 +754,8 @@ fun ChatTimelineScreen(
         )
     }
     ui.reactionSheet?.let { ReactionSendersSheet(it, onDismiss = model::closeSenders) }
-    ui.forwardingRowIds?.let(model::forwardContents)?.takeIf { it.isNotEmpty() }?.let { contentJsons ->
-        MessageForwardSheet(session.client, contentJsons, media, onClose = model::forwardClosed)
+    ui.forwardingRowIds?.let(model::forwardContents)?.takeIf { it.isNotEmpty() }?.let { contents ->
+        MessageForwardSheet(session.client, contents, media, onClose = model::forwardClosed)
     }
     ui.readersSheet?.let { ReadersSheet(it, media, onDismiss = model::closeReaders) }
     ui.report?.let { report ->

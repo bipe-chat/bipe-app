@@ -1441,16 +1441,19 @@ class ChatTimelineModel(
      * The content JSON a forward of a row sends (spec message-forward send, bipe-chat/bipe#83): the original content with
      * the forward mark. null without the event JSON (a local echo), so that no copy goes out without its mark.
      */
-    fun forwardContent(rowId: String): String? {
+    fun forwardContent(rowId: String): ForwardContent? {
         val event = item(rowId)?.asEvent() ?: return null
         val content = event.content as? TimelineItemContent.MsgLike ?: return null
-        if (content.content.kind !is MsgLikeKind.Message) return null
+        val message = (content.content.kind as? MsgLikeKind.Message)?.content ?: return null
+        // The SDK has no typed access to Bipe's own content fields, so the debug JSON stays the source of the mark
+        // (bipe-chat/bipe#1124).
         val debugInfo = runCatching { event.lazyProvider.debugInfo() }.getOrNull() ?: return null
-        return BipeForwardMark.forwardedContentJson(debugInfo.originalJson, debugInfo.latestEditJson)
+        val json = BipeForwardMark.forwardedContentJson(debugInfo.originalJson, debugInfo.latestEditJson) ?: return null
+        return ForwardContent(message, json)
     }
 
     /** The forward contents of rows, in timeline order (spec message-forward send). */
-    fun forwardContents(rowIds: List<String>): List<String> {
+    fun forwardContents(rowIds: List<String>): List<ForwardContent> {
         val wanted = rowIds.toSet()
         return _rows.value.filter { it.id in wanted }.mapNotNull { forwardContent(it.id) }
     }

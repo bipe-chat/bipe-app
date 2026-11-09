@@ -1218,16 +1218,19 @@ final class ChatTimelineModel: ObservableObject {
 
     /// The content JSON a forward of a row sends (spec message-forward send, bipe-chat/bipe#83): the original content with
     /// the forward mark. nil without the event JSON (a local echo), so that no copy goes out without its mark.
-    func forwardContent(rowId: String) -> String? {
+    func forwardContent(rowId: String) -> ForwardContent? {
         guard let event = item(rowId)?.asEvent(),
               case .msgLike(let content) = event.content,
-              case .message = content.kind else { return nil }
+              case .message(let message) = content.kind else { return nil }
+        // The SDK has no typed access to Bipe's own content fields, so the debug JSON stays the source of the mark
+        // (bipe-chat/bipe#1124).
         let debugInfo = event.lazyProvider.debugInfo()
-        return BipeForwardMark.forwardedContentJson(originalJson: debugInfo.originalJson, latestEditJson: debugInfo.latestEditJson)
+        guard let json = BipeForwardMark.forwardedContentJson(originalJson: debugInfo.originalJson, latestEditJson: debugInfo.latestEditJson) else { return nil }
+        return ForwardContent(message: message, contentJson: json)
     }
 
     /// The forward contents of rows, in timeline order (spec message-forward send).
-    func forwardContents(rowIds: [String]) -> [String] {
+    func forwardContents(rowIds: [String]) -> [ForwardContent] {
         let wanted = Set(rowIds)
         return rows.filter { wanted.contains($0.id) }.compactMap { forwardContent(rowId: $0.id) }
     }
