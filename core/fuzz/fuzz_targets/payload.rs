@@ -25,6 +25,32 @@ fuzz_target!(|payload: &[u8]| {
     })
     .to_string();
     let keys = vec![TrustedKey { kid: "k1".to_owned(), public_key: signer.verifying_key().to_bytes().to_vec() }];
+    // The same key as issuer `bipe` of a registry: every step of "Verification order" (bipe-chat/bipe#637).
+    let registry = serde_json::json!({
+        "issuers": [{ "id": "bipe", "name": "Bipe", "status": "valid", "region": "br",
+            "levels": ["pix", "govbr", "institution", "cnpj", "brand-mark", "person", "org"], "schemes": ["br.pix", "xx.any"],
+            "keys": { "k1": URL_SAFE_NO_PAD.encode(signer.verifying_key().to_bytes()) } }],
+        "schemes": [{ "id": "br.pix", "country": "BR", "class": "person", "assurance": "bank", "alias": "pix" },
+            { "id": "xx.any", "country": "XX", "class": "org", "assurance": "registry+control" }],
+        "regions": [{ "id": "br", "servers": ["bipe.net.br"], "schemes": ["br.pix", "xx.any"] }],
+    })
+    .to_string();
+    let issued = |sub: String, msk: Option<String>| verify_issued_badge(envelope.clone(), sub, msk, registry.clone(), 7, NOW);
+    if let Ok(probe) = serde_json::from_slice::<serde_json::Value>(payload) {
+        let sub = probe["sub"].as_str().unwrap_or("@a:bipe.net.br").to_owned();
+        let msk = probe["msk"].as_str().map(str::to_owned);
+        let first = issued(sub.clone(), msk.clone());
+        assert_eq!(first, issued(sub, msk));
+        if let IssuedBadgeResult::Valid { badge } = &first {
+            assert_eq!((badge.claims.iss.as_str(), badge.issuer_region.as_str()), ("bipe", "br"));
+            assert!(badge.claims.iat <= NOW && NOW < badge.claims.exp && !badge.claims.msk.is_empty());
+            assert!(badge.claims.sub.ends_with(":bipe.net.br"));
+            if matches!(badge.claims.level, BadgeLevel::Person | BadgeLevel::Org) {
+                assert!(badge.claims.country.is_some() && badge.claims.assurance.is_some());
+                assert!(badge.claims.scheme.as_deref().is_some_and(|s| s == "br.pix" || s == "xx.any"));
+            }
+        }
+    }
     let statement = verify_public_issuer_statement(envelope.clone(), "bipe.net.br".to_owned(), keys.clone(), NOW);
     assert_eq!(statement, verify_public_issuer_statement(envelope.clone(), "bipe.net.br".to_owned(), keys.clone(), NOW));
     if let PublicStatementResult::Valid { statement } = &statement {
@@ -32,6 +58,8 @@ fuzz_target!(|payload: &[u8]| {
         assert!(claims.iat <= NOW && NOW < claims.exp);
         assert!(!claims.msk.is_empty());
         assert!(claims.sub.ends_with(":bipe.net.br"));
+        // The flat-key contexts know no `person` or `org` level (`verifierWithoutSchemes`).
+        assert!(!matches!(claims.level, BadgeLevel::Person | BadgeLevel::Org));
         if claims.level != BadgeLevel::Institution {
             assert!(claims.domains.is_empty());
         }
