@@ -25,7 +25,8 @@ android {
 }
 
 // bipe-core, the release that ../../../core/release/release.json names (signed lists, bipe-chat/bipe#645).
-val coreVersion = (groovy.json.JsonSlurper().parse(rootDir.resolve("../core/release/release.json")) as Map<*, *>)["version"] as String
+// projectDir, not rootDir: the core-android harness includes this module from its own root.
+val coreVersion = (groovy.json.JsonSlurper().parse(projectDir.resolve("../../../core/release/release.json")) as Map<*, *>)["version"] as String
 
 // SharedVectorTest reads bipe-shared/test-vectors. CI checks bipe-shared out and sets BIPE_SHARED.
 tasks.withType<Test>().configureEach {
