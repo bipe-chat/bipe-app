@@ -16,6 +16,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// New account (flow home). Spec: bipe-shared/product/screens/account-new.json
     case accountNew = "account-new"
 
+    /// Bipe PIN check (flow settings). Spec: bipe-shared/product/screens/account-pin-check.json
+    case accountPinCheck = "account-pin-check"
+
     /// Account start (flow launch). Spec: bipe-shared/product/screens/account-start.json
     case accountStart = "account-start"
 

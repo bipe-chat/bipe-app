@@ -9,6 +9,7 @@ import chat.bipe.app.account.AccountSession
 import chat.bipe.app.account.AccountStep
 import chat.bipe.app.common.AppConfig
 import chat.bipe.app.settings.OwnerCheck
+import chat.bipe.shared.api.BipeAccountStatus
 import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.generated.BipeRegistries
 import chat.bipe.shared.settings.checkPin
@@ -180,6 +181,9 @@ class DeviceVerificationModel(private val session: AccountSession, private val s
     suspend fun checkAccountPin(pin: String) {
         BipeApiClient.withTokenRetry({ session.accessToken() }) { api.checkPin(pin, it) }
     }
+
+    /** GET /v1/me/account, for the ways out of the Bipe PIN pad (ADR 0283 rule 12). */
+    suspend fun readAccount(): BipeAccountStatus = BipeApiClient.withTokenRetry({ session.accessToken() }) { api.account(it) }
 
     /**
      * Action accept: approver waits through the cooldown, passes the owner check ([OwnerCheck.approval]: strong

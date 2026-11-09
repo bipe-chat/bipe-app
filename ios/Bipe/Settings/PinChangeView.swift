@@ -94,7 +94,8 @@ struct PinChangeView: View {
         }
         let api = model.api
         let model = model
-        let passed = await pinPrompt.ask(title: BipeStrings.pinChangeTitle) { (pin: String) async throws(BipeAPIError) in
+        let passed = await pinPrompt.ask(title: BipeStrings.pinChangeTitle, reason: BipeStrings.pinReasonChange(String(BipeRegistries.pinLength)),
+                                         account: model.session.accountRead(api)) { (pin: String) async throws(BipeAPIError) in
             try await model.authorized { (token: String) async throws(BipeAPIError) in
                 try await api.checkPIN(pin, accessToken: token)
             }

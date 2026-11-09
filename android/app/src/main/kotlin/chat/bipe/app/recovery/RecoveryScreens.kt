@@ -239,7 +239,7 @@ private fun RecoveryPinScreen(model: RecoveryFlowModel) {
         RecoveryFlowModel.PinPhase.NEW_PIN_CONFIRM -> null
         else -> model.softLogoutUserId?.let { userId ->
             val name = AccountList(LocalContext.current).name(userId) ?: stringResource(R.string.bipe_tab_you)
-            stringResource(R.string.bipe_soft_logout_body, name)
+            stringResource(R.string.bipe_pin_reason_soft_logout, name, BipeRegistries.PIN_LENGTH.toString())
         } ?: if (factor == RecoveryFlowModel.Factor.TOKEN) stringResource(R.string.bipe_recovery_token_found) else null
     }
     RecoveryStep(BipeScreen.RECOVERY_PIN, title, message, onBack = { model.back() }) {

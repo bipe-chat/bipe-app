@@ -184,7 +184,8 @@ final class DeviceVerificationModel: ObservableObject {
         let session = self.session
         let api = self.api
         let check = await ApprovalCheck.run(reason: BipeStrings.appVerifyBiometric, pinTitle: BipeStrings.appVerifyIncomingTitle,
-                                            prompt: pinPrompt) { (pin: String) async throws(BipeAPIError) in
+                                            pinReason: BipeStrings.pinReasonApproveDevice(String(BipeRegistries.pinLength)),
+                                            prompt: pinPrompt, account: session.accountRead(api)) { (pin: String) async throws(BipeAPIError) in
             try await BipeAPIClient.withTokenRetry(accessToken: { session.accessToken() }) { (token: String) async throws(BipeAPIError) in
                 try await api.checkPIN(pin, accessToken: token)
             }

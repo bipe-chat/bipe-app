@@ -12,6 +12,8 @@ export const BipeScreen = {
   accountDelete: "account-delete",
   /** New account (flow home). Spec: bipe-shared/product/screens/account-new.json */
   accountNew: "account-new",
+  /** Bipe PIN check (flow settings). Spec: bipe-shared/product/screens/account-pin-check.json */
+  accountPinCheck: "account-pin-check",
   /** Account start (flow launch). Spec: bipe-shared/product/screens/account-start.json */
   accountStart: "account-start",
   /** Account status (flow settings). Spec: bipe-shared/product/screens/account-status.json */

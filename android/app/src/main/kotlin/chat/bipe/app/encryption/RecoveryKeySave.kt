@@ -24,11 +24,9 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
-import chat.bipe.app.common.BipeButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import chat.bipe.app.common.BipeOutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -50,10 +48,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.account.AccountSession
+import chat.bipe.app.common.BipeButton
+import chat.bipe.app.common.BipeOutlinedButton
 import chat.bipe.app.settings.OwnerCheck
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
+import chat.bipe.shared.api.BipeAccountStatus
+import chat.bipe.shared.api.BipeApiClient
+import chat.bipe.shared.generated.BipeRegistries
 import chat.bipe.shared.generated.BipeScreen
+import chat.bipe.shared.settings.checkPin
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
@@ -64,11 +68,9 @@ import kotlinx.coroutines.launch
 import org.matrix.rustcomponents.sdk.EnableRecoveryProgress
 import org.matrix.rustcomponents.sdk.EnableRecoveryProgressListener
 import org.matrix.rustcomponents.sdk.RecoveryState
-import org.matrix.rustcomponents.sdk.VerificationState
 import org.matrix.rustcomponents.sdk.RecoveryStateListener
 import org.matrix.rustcomponents.sdk.TaskHandle
-import chat.bipe.shared.api.BipeApiClient
-import chat.bipe.shared.settings.checkPin
+import org.matrix.rustcomponents.sdk.VerificationState
 
 /**
  * Spec recovery-key-save (bipe-shared product/screens/recovery-key-save.json): makes the recovery key for the message
@@ -145,6 +147,9 @@ class RecoveryKeySaveModel(private val session: AccountSession, private val api:
     suspend fun checkAccountPin(pin: String) {
         BipeApiClient.withTokenRetry({ session.accessToken() }) { api.checkPin(pin, it) }
     }
+
+    /** GET /v1/me/account, for the ways out of the Bipe PIN pad (ADR 0283 rule 12). */
+    suspend fun readAccount(): BipeAccountStatus = BipeApiClient.withTokenRetry({ session.accessToken() }) { api.account(it) }
 
     /**
      * Action create: a first key with enableRecovery; a new key (the old one stops working) after the owner check
@@ -244,7 +249,13 @@ fun RecoveryKeySaveScreen(session: AccountSession, api: BipeApiClient, onClose: 
     val account by model.account.collectAsState()
     var copied by remember { mutableStateOf(false) }
     val exists = model.keyExists(recoveryState)
-    val confirmOwner = rememberApprovalCheck(stringResource(R.string.bipe_app_recovery_key_biometric), model::checkAccountPin)
+    val confirmOwner = rememberApprovalCheck(
+        reason = stringResource(R.string.bipe_app_recovery_key_biometric),
+        pinTitle = stringResource(R.string.bipe_pin_enter_title),
+        pinReason = stringResource(R.string.bipe_pin_reason_recovery_key, BipeRegistries.PIN_LENGTH.toString()),
+        account = model::readAccount,
+        checkPin = model::checkAccountPin,
+    )
     // The key shows only once: leaving before "I saved the key" needs the explicit button.
     BackHandler(enabled = phase != RecoveryKeySaveModel.Phase.SHOW_KEY && phase != RecoveryKeySaveModel.Phase.CREATING) { onClose() }
 
