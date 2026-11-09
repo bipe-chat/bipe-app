@@ -136,6 +136,8 @@ struct ProfileEditView: View {
         .task { await appear() }
         // Back from profile-link or handle-pick: the @ may have changed.
         .onAppear { if phase != .loading { Task { await loadPublic() } } }
+        // handle-pick is a sheet, so this screen does not appear again when it closes (bipe-chat/bipe#1328).
+        .onReceive(NotificationCenter.default.publisher(for: .bipeHandleChanged)) { _ in Task { await loadPublic() } }
     }
 
     // MARK: Sections
