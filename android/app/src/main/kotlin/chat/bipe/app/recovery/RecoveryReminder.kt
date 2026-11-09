@@ -60,6 +60,7 @@ import chat.bipe.shared.api.BipeApiException
 import chat.bipe.shared.bipeHaptic
 import chat.bipe.shared.generated.BipeHaptic
 import chat.bipe.shared.generated.BipeOnboardingPrompt
+import chat.bipe.shared.generated.BipeRegistries
 import chat.bipe.shared.generated.BipeScreen
 import chat.bipe.shared.settings.BipeAccountWays
 import chat.bipe.shared.settings.accountWays
@@ -208,7 +209,11 @@ fun RecoveryEmailAddScreen(
 
     // The PIN pad sends the PUT, so a wrong or blocked PIN stays on the pad. Any other failure closes the pad and shows
     // on the form.
-    val askPin = rememberAccountPinCheck(stringResource(R.string.bipe_email_title)) { pin ->
+    val askPin = rememberAccountPinCheck(
+        title = stringResource(R.string.bipe_email_title),
+        reason = stringResource(R.string.bipe_pin_reason_email_set, BipeRegistries.PIN_LENGTH.toString()),
+        account = { BipeApiClient.withTokenRetry({ session.accessToken() }) { api.account(it) } },
+    ) { pin ->
         val address = email.trim()
         try {
             put(address, pin)

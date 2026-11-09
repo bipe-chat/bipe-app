@@ -154,7 +154,8 @@ final class TheftProtectionModel: ObservableObject {
         let api = settings.api
         let settings = settings
         savedState = nil
-        let passed = await pinPrompt.ask(title: BipeStrings.pinEnterTitle) { (pin: String) async throws(BipeAPIError) in
+        let passed = await pinPrompt.ask(title: BipeStrings.theftTitle, reason: BipeStrings.pinReasonGuardians(String(BipeRegistries.pinLength)),
+                                         account: settings.session.accountRead(api)) { (pin: String) async throws(BipeAPIError) in
             let state = try await settings.authorized { (token: String) async throws(BipeAPIError) -> BipeGuardianState in
                 try await api.setGuardians(userIds, pin: pin, accessToken: token)
             }

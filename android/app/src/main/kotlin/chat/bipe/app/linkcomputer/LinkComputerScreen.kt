@@ -315,7 +315,13 @@ private fun ApproveContent(state: LinkComputerModel.State, model: LinkComputerMo
     val phone = model.mode == LinkComputerModel.Mode.PHONE
     val reason = stringResource(if (phone) R.string.bipe_app_link_phone_biometric else R.string.bipe_link_computer_biometric)
     // Rule 14 tier 3 (bipe-chat/bipe#785): strong biometrics, else the Bipe PIN; never the screen lock.
-    val confirmOwner = rememberApprovalCheck(reason, model::checkAccountPin)
+    val confirmOwner = rememberApprovalCheck(
+        reason = reason,
+        pinTitle = stringResource(R.string.bipe_pin_enter_title),
+        pinReason = stringResource(if (phone) R.string.bipe_pin_reason_approve_device else R.string.bipe_pin_reason_link_computer, BipeRegistries.PIN_LENGTH.toString()),
+        account = model::readAccount,
+        checkPin = model::checkAccountPin,
+    )
     Column(
         modifier = Modifier.fillMaxSize().testTag(if (phone) BipeScreen.LINK_PHONE_APPROVE.id else BipeScreen.LINK_COMPUTER_APPROVE.id),
         horizontalAlignment = Alignment.CenterHorizontally,

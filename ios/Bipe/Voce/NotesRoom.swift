@@ -7,7 +7,7 @@ import Foundation
 import MatrixRustSDK
 
 /// Bipe's self-chat protocol (ADR 0053): an encrypted room with only its owner, saved in global account data.
-/// The wire key and content match the Bipe-owned BipeSelfChat in libraries/bipe, without its Element adapters.
+/// The wire key and content match the Bipe-owned BipeSelfChat in libraries/bipe.
 @MainActor
 final class NotesRoom {
     private struct Content: Codable {

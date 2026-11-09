@@ -15,6 +15,15 @@ object AppConfig {
     /** The public site with the legal pages (PUBLIC_SITE_URL, registries/legal.json). */
     const val PUBLIC_SITE = "https://bipe.chat"
 
+    /** The MAS issuer of Bipe's homeserver. */
+    const val OAUTH_ISSUER = "https://account.bipe.net.br/"
+
+    /**
+     * The static OAuth client of the Android app (bipe-chat/bipe#914). MAS closes dynamic registration, so the QR
+     * sign-in starts only from a static client. Same ID as bipe-infra ess/bipe-security.yaml.
+     */
+    const val OAUTH_CLIENT_ID = "01M70XQV1WC2Z1QGNNKYYCT9G6"
+
     /** The device name the homeserver shows in the session list. */
     const val DEVICE_NAME = "Bipe"
 

@@ -16,6 +16,13 @@ enum AppConfig {
     /// The public site with the legal pages (PUBLIC_SITE_URL, registries/legal.json).
     static let publicSite = URL(string: "https://bipe.chat")!
 
+    /// The MAS issuer of Bipe's homeserver.
+    static let oauthIssuer = "https://account.bipe.net.br/"
+
+    /// The static OAuth client of the iPhone app (bipe-chat/bipe#914). MAS closes dynamic registration, so the QR
+    /// sign-in starts only from a static client. Same ID as bipe-infra ess/bipe-security.yaml.
+    static let oauthClientID = "01M70XQV1WHH63433MNSE34SXX"
+
     /// The bundle ID of the app (project.yml BIPE_APP_ID, bipe-chat/bipe#602): chat.bipe.app.next for tester builds,
     /// the fork's ID for the store set at the switch. Each target's Info.plist carries it.
     static let appID = infoValue("BipeAppID", fallback: "chat.bipe.app.next")

@@ -31,6 +31,13 @@ class BadgeHarnessTest {
         println(currentVerifierMetrics(json))
     }
 
+    @Test
+    fun issuerAndTheftVectors() {
+        val assets = InstrumentationRegistry.getInstrumentation().context.assets
+        fun read(name: String) = assets.open(name).bufferedReader().use { it.readText() }
+        println(IssuerTheftHarness.run(read("badges.json"), read("badge-issuers.json"), read("theft-marks.json")))
+    }
+
     /** BadgeVerifier.kt with Tink, on the same vector, device and build type. It runs second, so its cold time is not comparable. */
     private fun currentVerifierMetrics(json: String): String {
         val file = Json.parseToJsonElement(json).jsonObject

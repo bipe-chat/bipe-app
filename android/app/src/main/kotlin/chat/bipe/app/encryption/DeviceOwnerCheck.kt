@@ -13,17 +13,25 @@ import androidx.compose.ui.res.stringResource
 import chat.bipe.app.settings.OwnerCheck
 import chat.bipe.app.settings.rememberAccountPinCheck
 import chat.bipe.shared.R
+import chat.bipe.shared.api.BipeAccountStatus
 
 /**
  * The owner check before an approval (security.md rules 5 and 14 tier 3, bipe-chat/bipe#785): strong biometrics, or
  * the Bipe PIN checked by the server on a phone without them ([OwnerCheck.approval]). Never the screen lock. A phone
- * with no screen lock gets [OwnerCheck.Approval.NO_SCREEN_LOCK].
+ * with no screen lock gets [OwnerCheck.Approval.NO_SCREEN_LOCK]. [pinTitle] and [pinReason] show on the PIN pad
+ * (ADR 0283 rules 10 and 11); [account] feeds its "Esqueci minha senha" (rule 12).
  */
 @Composable
-fun rememberApprovalCheck(reason: String, checkPin: suspend (String) -> Unit): suspend () -> OwnerCheck.Approval {
+fun rememberApprovalCheck(
+    reason: String,
+    pinTitle: String,
+    pinReason: String,
+    account: suspend () -> BipeAccountStatus,
+    checkPin: suspend (String) -> Unit,
+): suspend () -> OwnerCheck.Approval {
     val context = LocalContext.current
     val cancel = stringResource(R.string.bipe_app_cancel)
-    val askPin = rememberAccountPinCheck(reason, checkPin)
+    val askPin = rememberAccountPinCheck(pinTitle, pinReason, account, checkPin)
     val currentReason by rememberUpdatedState(reason)
     return remember(context, cancel, askPin) {
         val check: suspend () -> OwnerCheck.Approval = { OwnerCheck.approval(context, currentReason, cancel, askPin) }

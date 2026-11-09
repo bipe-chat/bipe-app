@@ -2,24 +2,32 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
-// bipe-shared test-vectors/badges.json through the packaged WASM (bipe-chat/bipe#1172).
+// bipe-shared test-vectors/badges.json through the packaged WASM (bipe-chat/bipe#1172), then badge-issuers.json and
+// theft-marks.json from the same folder.
 // Usage: node build/run.mjs <badges.json> <module.wasm>
 import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
   boundBadgeResultCode,
+  issuedBadgeResultCode,
   publicStatementResultCode,
+  theftMarkResultCode,
   uniffiInitAsync,
   verifyBoundSenderBadge,
+  verifyIssuedBadge,
   verifyPublicIssuerStatement,
+  verifyTheftMark,
 } from './generated/index';
 
 const file = JSON.parse(readFileSync(process.argv[2], 'utf8'));
 const now = BigInt(file.now);
-const keys = Object.entries<string>(file.publicKeys).map(([kid, key]) => {
-  const bytes = Buffer.from(key, 'base64url');
-  return { kid, publicKey: bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) };
-});
+const trustedKeys = (publicKeys: Record<string, string>) =>
+  Object.entries<string>(publicKeys).map(([kid, key]) => {
+    const bytes = Buffer.from(key, 'base64url');
+    return { kid, publicKey: bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) };
+  });
+const keys = trustedKeys(file.publicKeys);
 const bench = file.vectors.find((vector: any) => vector.name === 'cnpj: valid');
 const benchEnvelope = JSON.stringify(bench.envelope);
 
@@ -47,3 +55,30 @@ for (let i = 0; i < 1000; i++) {
 }
 samples.sort((a, b) => a - b);
 console.log(`BIPE_CORE_METRICS ${JSON.stringify({ vectors: file.vectors.length, cold_us: coldMicros, p95_us: samples[949] })}`);
+
+// badge-issuers.json: the issuer registry path, then a verifier from before ADR 0272 with the flat keys.
+const issuers = JSON.parse(readFileSync(join(dirname(process.argv[2]), 'badge-issuers.json'), 'utf8'));
+const registry = JSON.stringify({ issuers: issuers.trustedIssuers, schemes: issuers.schemes, regions: issuers.regions });
+for (const vector of issuers.vectors) {
+  const result = verifyIssuedBadge(
+    JSON.stringify(vector.envelope), vector.sender, vector.senderMasterKey ?? undefined, registry, issuers.lifeDays, BigInt(issuers.now),
+  );
+  const code = issuedBadgeResultCode(result);
+  if (code !== vector.expect) throw new Error(`issued ${vector.name}: ${code}, expected ${vector.expect}`);
+}
+for (const vector of issuers.verifierWithoutSchemes) {
+  const result = verifyBoundSenderBadge(JSON.stringify(vector.envelope), vector.sender, vector.senderMasterKey ?? undefined, keys, BigInt(issuers.now));
+  const code = boundBadgeResultCode(result);
+  if (code !== vector.expect) throw new Error(`flat ${vector.name}: ${code}, expected ${vector.expect}`);
+}
+
+const theft = JSON.parse(readFileSync(join(dirname(process.argv[2]), 'theft-marks.json'), 'utf8'));
+const theftKeys = trustedKeys(theft.publicKeys);
+for (const vector of theft.vectors) {
+  const code = theftMarkResultCode(verifyTheftMark(JSON.stringify(vector.envelope), vector.subject, theftKeys, BigInt(theft.now)));
+  const expected = vector.expected.error ?? 'valid';
+  if (code !== expected) throw new Error(`theft ${vector.name}: ${code}, expected ${expected}`);
+}
+console.log(
+  `BIPE_CORE_VECTORS ${JSON.stringify({ issued: issuers.vectors.length, flat: issuers.verifierWithoutSchemes.length, theft: theft.vectors.length })}`,
+);

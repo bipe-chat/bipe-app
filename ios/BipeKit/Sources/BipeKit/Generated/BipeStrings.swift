@@ -1298,6 +1298,50 @@ public enum BipeStrings {
 
     public static var pinForgot: String { NSLocalizedString("bipe_pin_forgot", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static func pinReasonEmailSet(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_pin_reason_email_set", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func pinReasonEmailRemove(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_pin_reason_email_remove", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func pinReasonLinkComputer(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_pin_reason_link_computer", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func pinReasonApproveDevice(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_pin_reason_approve_device", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func pinReasonRecoveryKey(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_pin_reason_recovery_key", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func pinReasonChange(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_pin_reason_change", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func pinReasonGuardians(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_pin_reason_guardians", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func pinReasonDelete(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_pin_reason_delete", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func pinReasonSoftLogout(_ p1: String, _ p2: String) -> String {
+        String(format: NSLocalizedString("bipe_pin_reason_soft_logout", tableName: "Bipe", bundle: .module, comment: ""), p1, p2)
+    }
+
+    public static var pinForgotTitle: String { NSLocalizedString("bipe_pin_forgot_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func pinForgotEmail(_ p1: String, _ p2: String) -> String {
+        String(format: NSLocalizedString("bipe_pin_forgot_email", tableName: "Bipe", bundle: .module, comment: ""), p1, p2)
+    }
+
+    public static var pinForgotNone: String { NSLocalizedString("bipe_pin_forgot_none", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var pinChangeTitle: String { NSLocalizedString("bipe_pin_change_title", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var pinChangeBiometricReason: String { NSLocalizedString("bipe_pin_change_biometric_reason", tableName: "Bipe", bundle: .module, comment: "") }
@@ -2377,6 +2421,8 @@ public enum BipeStrings {
     public static func accountCompanyOwner(_ p1: String) -> String {
         String(format: NSLocalizedString("bipe_account_company_owner", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
+
+    public static var accountWorkLine: String { NSLocalizedString("bipe_account_work_line", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static func accountNewCompanyOwner(_ p1: String) -> String {
         String(format: NSLocalizedString("bipe_account_new_company_owner", tableName: "Bipe", bundle: .module, comment: ""), p1)
@@ -5710,6 +5756,24 @@ public enum BipeStrings {
         String(format: NSLocalizedString("bipe_feed_notify", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
 
+    public static var handleMoveAction: String { NSLocalizedString("bipe_handle_move_action", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func handleMoveConfirmTitle(_ p1: String, _ p2: String) -> String {
+        String(format: NSLocalizedString("bipe_handle_move_confirm_title", tableName: "Bipe", bundle: .module, comment: ""), p1, p2)
+    }
+
+    public static var handleMoveConfirmBody: String { NSLocalizedString("bipe_handle_move_confirm_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func handleMoveDone(_ p1: String, _ p2: String) -> String {
+        String(format: NSLocalizedString("bipe_handle_move_done", tableName: "Bipe", bundle: .module, comment: ""), p1, p2)
+    }
+
+    public static func handleMoveAddAdmin(_ p1: String, _ p2: String, _ p3: String) -> String {
+        String(format: NSLocalizedString("bipe_handle_move_add_admin", tableName: "Bipe", bundle: .module, comment: ""), p1, p2, p3)
+    }
+
+    public static var handleMoveFailed: String { NSLocalizedString("bipe_handle_move_failed", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var groupsServiceName: String { NSLocalizedString("bipe_groups_service_name", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var groupsServiceAbout: String { NSLocalizedString("bipe_groups_service_about", tableName: "Bipe", bundle: .module, comment: "") }
@@ -5843,6 +5907,10 @@ public enum BipeStrings {
     }
 
     public static var webSignOutAll: String { NSLocalizedString("bipe_web_sign_out_all", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func webSignedOutElsewhere(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_web_signed_out_elsewhere", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
 
     public static func appAssistantReads(_ p1: String) -> String {
         String(format: NSLocalizedString("bipe_app_assistant_reads", tableName: "Bipe", bundle: .module, comment: ""), p1)

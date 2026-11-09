@@ -42,6 +42,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import chat.bipe.app.BipeApplication
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.chatlist.PromptAction
@@ -56,6 +57,11 @@ import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.api.BipeApiErrorCode
 import chat.bipe.shared.api.BipeApiException
 import chat.bipe.shared.api.BipeMyHandle
+import chat.bipe.shared.api.avatarAccountIsCompany
+import chat.bipe.shared.api.claimHandleMove
+import chat.bipe.shared.api.myFeed
+import chat.bipe.shared.api.myHandle
+import chat.bipe.shared.api.startHandleMove
 import chat.bipe.shared.generated.BipeOnboardingPrompt
 import chat.bipe.shared.generated.BipeRegistries
 import chat.bipe.shared.generated.BipeScreen
@@ -76,6 +82,7 @@ class HandlePickModel(
 ) {
     enum class Status { EMPTY, TOO_SHORT, TOO_LONG, INVALID_CHARACTERS, CHECKING, AVAILABLE, RESERVED, TAKEN, UNCHANGED, UNKNOWN }
     enum class Phase { EDITING, SAVING, SAVED, FAILED }
+    data class MoveTarget(val userId: String, val name: String)
 
     data class State(
         val currentHandle: String? = null,
@@ -92,11 +99,18 @@ class HandlePickModel(
         val suggestions: List<String> = emptyList(),
         /** The prompt slot allows the handle prompt (registries/onboarding.json promptSlot). */
         val slotAllows: Boolean = true,
+        /** Action moveToWork (bipe ADR 0287): work accounts on this phone with no @, while this account is personal and has an @. */
+        val moveTargets: List<MoveTarget> = emptyList(),
     ) {
         val inCooldown: Boolean get() = nextChangeAt?.isAfter(Instant.now()) == true
 
         /** Prompt card above chat-list: trigger chatListWithoutHandle (registries/onboarding.json prompts.handle). */
         val showsPrompt: Boolean get() = loaded && currentHandle == null && !promptDismissed && slotAllows
+    }
+
+    companion object {
+        /** Goes up after each saved or removed @ in this process. Screens that show the @ reload on it (bipe-chat/bipe#1328). */
+        val changes = MutableStateFlow(0)
     }
 
     private val preferences = context.getSharedPreferences("bipe.handle", Context.MODE_PRIVATE)
@@ -180,6 +194,63 @@ class HandlePickModel(
         }
     }
 
+    /** The work accounts on this phone that can take this account's @ (bipe ADR 0287 point 12). Empty for a work account. */
+    fun loadMoveTargets() {
+        scope.launch {
+            if (_state.value.currentHandle == null || runCatching { api.avatarAccountIsCompany(session.userId) }.getOrDefault(true)) {
+                _state.value = _state.value.copy(moveTargets = emptyList())
+                return@launch
+            }
+            val found = otherSessions().mapNotNull { other ->
+                val company = runCatching { api.avatarAccountIsCompany(other.userId) }.getOrDefault(false)
+                val token = other.accessToken()
+                if (!company || token == null) return@mapNotNull null
+                val theirs = runCatching { api.myHandle(token) }.getOrNull() ?: return@mapNotNull null
+                if (theirs.handle != null) return@mapNotNull null
+                val name = runCatching { other.client.displayName() }.getOrNull()?.takeIf { it.isNotBlank() } ?: other.userId
+                MoveTarget(other.userId, name)
+            }
+            _state.value = _state.value.copy(moveTargets = found)
+        }
+    }
+
+    /** Action moveToWork, after the confirm: this account asks for a code, the work account claims it (bipe ADR 0287). */
+    fun move(target: MoveTarget) {
+        val handle = _state.value.currentHandle ?: return
+        val other = otherSessions().firstOrNull { it.userId == target.userId } ?: return
+        _state.value = _state.value.copy(phase = Phase.SAVING, error = null)
+        scope.launch {
+            try {
+                val code = BipeApiClient.withTokenRetry({ session.accessToken() }) { api.startHandleMove(it) }
+                BipeApiClient.withTokenRetry({ other.accessToken() }) { api.claimHandleMove(code.code, it) }
+            } catch (error: BipeApiException) {
+                _state.value = _state.value.copy(phase = Phase.FAILED, error = context.getString(R.string.bipe_handle_move_failed))
+                return@launch
+            }
+            changes.value += 1
+            _state.value = _state.value.copy(
+                currentHandle = null,
+                input = "",
+                status = Status.EMPTY,
+                moveTargets = emptyList(),
+                phase = Phase.SAVED,
+                doneMessage = moveDoneMessage(handle, target, other),
+            )
+        }
+    }
+
+    /** Point 16: a feed that moved with the @ needs the work account as an admin of its group. */
+    private suspend fun moveDoneMessage(handle: String, target: MoveTarget, other: AccountSession): String {
+        val done = context.getString(R.string.bipe_handle_move_done, handle, target.name)
+        val token = other.accessToken() ?: return done
+        val feed = runCatching { api.myFeed(token) }.getOrNull() ?: return done
+        val group = runCatching { session.client.getRoom(feed.roomId)?.displayName() }.getOrNull()?.takeIf { it.isNotBlank() } ?: return done
+        return done + " " + context.getString(R.string.bipe_handle_move_add_admin, handle, target.name, group)
+    }
+
+    private fun otherSessions(): List<AccountSession> =
+        (context.applicationContext as BipeApplication).accountStart.sessions.value.filter { it.userId != session.userId }
+
     /** Action dismissPrompt: hides the card on this phone. */
     fun dismissPrompt() {
         preferences.edit().putBoolean(promptKey, true).apply()
@@ -187,6 +258,7 @@ class HandlePickModel(
     }
 
     private fun saved(mine: BipeMyHandle, message: String, status: Status) {
+        changes.value += 1
         _state.value = _state.value.copy(
             currentHandle = mine.handle,
             nextChangeAt = mine.changeableAt,
@@ -262,6 +334,7 @@ fun HandlePickScreen(model: HandlePickModel, onClose: () -> Unit) {
     val colors = BipeTheme.colors
     val state by model.state.collectAsState()
     var confirmsRemove by remember { mutableStateOf(false) }
+    var confirmsMove by remember { mutableStateOf<HandlePickModel.MoveTarget?>(null) }
     Surface(modifier = Modifier.fillMaxSize().testTag(BipeScreen.HANDLE_PICK.id), color = colors.surfaceBase) {
         Column(modifier = Modifier.fillMaxSize().safeDrawingPadding().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -342,7 +415,33 @@ fun HandlePickScreen(model: HandlePickModel, onClose: () -> Unit) {
                         dismissButton = { TextButton(onClick = { confirmsRemove = false }) { Text(stringResource(R.string.bipe_app_cancel)) } },
                     )
                 }
+                state.moveTargets.forEach { target ->
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.fillMaxWidth()
+                            .clickable(enabled = state.phase != HandlePickModel.Phase.SAVING, role = Role.Button) { confirmsMove = target }
+                            .padding(vertical = 10.dp),
+                    ) {
+                        Text(stringResource(R.string.bipe_handle_move_action), color = colors.accentInk)
+                        Text(target.name, style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary)
+                    }
+                }
+                confirmsMove?.let { target ->
+                    AlertDialog(
+                        onDismissRequest = { confirmsMove = null },
+                        title = { Text(stringResource(R.string.bipe_handle_move_confirm_title, current, target.name)) },
+                        text = { Text(stringResource(R.string.bipe_handle_move_confirm_body)) },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                confirmsMove = null
+                                model.move(target)
+                            }) { Text(stringResource(R.string.bipe_handle_move_action)) }
+                        },
+                        dismissButton = { TextButton(onClick = { confirmsMove = null }) { Text(stringResource(R.string.bipe_app_cancel)) } },
+                    )
+                }
             }
+            LaunchedEffect(state.currentHandle) { model.loadMoveTargets() }
         }
     }
 }

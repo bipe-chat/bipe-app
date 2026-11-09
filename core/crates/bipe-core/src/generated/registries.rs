@@ -9,3 +9,11 @@
 
 /// `labels` of registries/brand-marks.json (bipe ADR 0162). A brand-mark badge with another label is `malformed`.
 pub const BRAND_MARK_LABELS: [&str; 4] = ["revendedora", "revendedor", "corretor", "representante"];
+
+/// registries/pix-marks.json (bipe ADR 0046, bipe-chat/bipe#130). Rules: pix_marks.rs, test-vectors/pix-marks.json.
+pub const PIX_MARK_EVENT_TYPE: &str = "chat.bipe.pix_mark";
+pub const PIX_MARK_REL_TYPE: &str = "m.reference";
+pub const PIX_MARKS: [&str; 3] = ["sent", "received", "not_received"];
+/// The core checks this format by hand (no regex crate); a test there fails when the pattern changes.
+pub const PIX_E2E_ID_PATTERN: &str = "^E[0-9]{8}[A-Za-z0-9]{23}$";
+pub const PIX_TXID_MAX_LENGTH: usize = 25;

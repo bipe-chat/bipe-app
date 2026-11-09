@@ -11,11 +11,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import chat.bipe.app.common.BipeButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import chat.bipe.app.common.BipeOutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -36,8 +34,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import chat.bipe.app.BipeTheme
+import chat.bipe.app.common.BipeButton
+import chat.bipe.app.common.BipeOutlinedButton
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
+import chat.bipe.shared.generated.BipeRegistries
 import chat.bipe.shared.generated.BipeScreen
 import kotlinx.coroutines.delay
 
@@ -53,7 +54,13 @@ fun DeviceVerificationScreen(model: DeviceVerificationModel, close: () -> Unit) 
     val secondsLeft by model.secondsLeft.collectAsState()
     val place by model.place.collectAsState()
     val placeKnown by model.placeKnown.collectAsState()
-    val confirmOwner = rememberApprovalCheck(stringResource(R.string.bipe_app_verify_biometric), model::checkAccountPin)
+    val confirmOwner = rememberApprovalCheck(
+        reason = stringResource(R.string.bipe_app_verify_biometric),
+        pinTitle = stringResource(R.string.bipe_app_verify_incoming_title),
+        pinReason = stringResource(R.string.bipe_pin_reason_approve_device, BipeRegistries.PIN_LENGTH.toString()),
+        account = model::readAccount,
+        checkPin = model::checkAccountPin,
+    )
     val colors = BipeTheme.colors
 
     // The flow ends on its own: the screen closes a moment after done.
