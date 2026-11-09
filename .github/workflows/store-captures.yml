@@ -57,3 +57,12 @@ jobs:
           name: play-phone-captures
           path: ${{ runner.temp }}/captures
           if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: play-phone-capture-failures
+          path: |
+            android/app/build/reports/
+            android/app/build/test-results/
+            android/app/build/outputs/screenshotTest-results/
+          if-no-files-found: warn
