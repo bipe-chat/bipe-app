@@ -36,10 +36,11 @@ public enum BipeForwardMark {
     }
 
     /// The content a forward sends: newContent (m.new_content of the latest edit) or else the original content,
-    /// without m.relates_to, m.new_content and m.mentions, with the mark set to the original count plus 1.
+    /// without m.relates_to, m.new_content, m.mentions and the public feed mark, with the mark set to the original count plus 1.
     public static func forwardedContent(original: [String: Any], newContent: [String: Any]?) -> [String: Any] {
         var content = newContent ?? original
-        for key in ["m.relates_to", "m.new_content", "m.mentions"] { content.removeValue(forKey: key) }
+        // bipe-chat/bipe#1260: a copy in another chat is not the public feed post.
+        for key in ["m.relates_to", "m.new_content", "m.mentions", BipeGroupPowerLevels.feedPostKey] { content.removeValue(forKey: key) }
         content[BipeRegistries.forwardKey] = ["count": min(count(content: original), maxCount - 1) + 1]
         return content
     }

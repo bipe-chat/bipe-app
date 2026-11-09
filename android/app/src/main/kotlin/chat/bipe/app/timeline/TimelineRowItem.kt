@@ -391,6 +391,7 @@ private fun MessageBubbleRow(
                 }
                 // Spec chat-timeline notes (bipe-chat/bipe#933): voice rows keep their own source line.
                 if (message.voice == null) BipeForwardMark.line(message.forwardCount)?.let { ForwardLine(it) }
+                if (message.isPublicFeed) PublicFeedLine()
                 details.reply?.let { reply ->
                     LaunchedEffect(row.id, reply.state) { model.loadReply(row.id) }
                     ReplyQuote(reply, Modifier.clickable { model.openOriginal(reply.eventId) })
@@ -559,6 +560,17 @@ private fun ForwardLine(source: BipeForwardMark.Source) {
             color = colors.inkSecondary,
         )
     }
+}
+
+/** bipe-chat/bipe#1260: this post also shows at bipe.chat/@handle (bipe_feed_public_label). */
+@Composable
+private fun PublicFeedLine() {
+    Text(
+        stringResource(R.string.bipe_feed_public_label),
+        style = MaterialTheme.typography.labelSmall,
+        fontWeight = FontWeight.Bold,
+        color = BipeTheme.colors.inkSecondary,
+    )
 }
 
 /** Spec message-reply: the quote of the original inside the reply. */

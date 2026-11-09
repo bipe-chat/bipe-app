@@ -164,10 +164,12 @@ final class GroupPrivacyModel: ObservableObject {
 /// Spec group-privacy.
 struct GroupPrivacyView: View {
     @StateObject private var model: GroupPrivacyModel
+    @StateObject private var publicFeed: GroupPublicFeedModel
     let media: MediaLoader
 
     init(session: AccountSession, media: MediaLoader, roomId: String) {
         _model = StateObject(wrappedValue: GroupPrivacyModel(session: session, roomId: roomId))
+        _publicFeed = StateObject(wrappedValue: GroupPublicFeedModel(session: session, roomId: roomId))
         self.media = media
     }
 
@@ -202,6 +204,7 @@ struct GroupPrivacyView: View {
                     Text(BipeStrings.groupPublicationOnlyFooter)
                 }
             }
+            GroupPublicFeedSection(model: publicFeed)
             if !model.requests.isEmpty {
                 Section {
                     ForEach(model.requests, id: \.eventId) { request in
@@ -218,7 +221,11 @@ struct GroupPrivacyView: View {
         .alert(BipeStrings.errorGeneric, isPresented: $model.failed) {
             Button(BipeStrings.appClose, role: .cancel) {}
         }
+        .alert(BipeStrings.errorGeneric, isPresented: $publicFeed.failed) {
+            Button(BipeStrings.appClose, role: .cancel) {}
+        }
         .task { await model.appear() }
+        .task { await publicFeed.appear() }
     }
 
     private func choiceRow(_ title: String, selected: Bool, action: @escaping () -> Void) -> some View {

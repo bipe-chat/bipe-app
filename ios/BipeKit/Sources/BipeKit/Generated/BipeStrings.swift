@@ -5384,6 +5384,22 @@ public enum BipeStrings {
 
     public static var groupPublicationOnlyBar: String { NSLocalizedString("bipe_group_publication_only_bar", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static func groupPublicFeedTitle(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_group_public_feed_title", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func groupPublicFeedFooter(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_group_public_feed_footer", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func groupPublicFeedComposer(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_group_public_feed_composer", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func groupPublicFeedFailed(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_group_public_feed_failed", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
     public static var groupRequests: String { NSLocalizedString("bipe_group_requests", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var groupRequestAccept: String { NSLocalizedString("bipe_group_request_accept", tableName: "Bipe", bundle: .module, comment: "") }

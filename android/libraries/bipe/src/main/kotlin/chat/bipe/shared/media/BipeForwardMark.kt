@@ -4,6 +4,7 @@
 
 package chat.bipe.shared.media
 
+import chat.bipe.shared.generated.BipeGroupPowerLevels
 import chat.bipe.shared.generated.BipeRegistries
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -44,10 +45,12 @@ object BipeForwardMark {
 
     /**
      * The content a forward sends: [newContent] (m.new_content of the latest edit) or else [original], without
-     * m.relates_to, m.new_content and m.mentions, with the mark set to the original count plus 1.
+     * m.relates_to, m.new_content, m.mentions and the public feed mark, with the mark set to the original count plus 1.
      */
     fun forwardedContent(original: JsonObject, newContent: JsonObject?): JsonObject {
-        val base = (newContent ?: original).filterKeys { it != "m.relates_to" && it != "m.new_content" && it != "m.mentions" }
+        // bipe-chat/bipe#1260: a copy in another chat is not the public feed post.
+        val dropped = setOf("m.relates_to", "m.new_content", "m.mentions", BipeGroupPowerLevels.FEED_POST_KEY)
+        val base = (newContent ?: original).filterKeys { it !in dropped }
         val next = count(original).coerceAtMost(MAX_COUNT - 1) + 1
         return JsonObject(base + (BipeRegistries.FORWARD_KEY to buildJsonObject { put("count", next) }))
     }
