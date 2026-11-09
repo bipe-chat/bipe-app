@@ -62,6 +62,8 @@ data class BipeVaultData(
     @SerialName("pending_inviters") val pendingInviters: Map<String, String> = emptyMap(),
     /** A slow recovery that waits for its claim (spec recovery-waiting). On this device only, until the claim ends. */
     @SerialName("pending_recovery") val pendingRecovery: BipeRecoveryStarted? = null,
+    /** Matrix ID to the PIN reset that this phone started for it (ADR 0283 rule 13). On this device only. */
+    @SerialName("pin_resets") val pinResets: Map<String, BipeRecoveryStarted> = emptyMap(),
     /**
      * Matrix ID ([LEGACY_OWNER] for the entry from before bipe-chat/bipe#265) to the fingerprint
      * ([BipeSyncedTokenCodec.fingerprint]) of a token the API rejected (`recovery_invalid`) or a recovery replaced, until
@@ -141,6 +143,10 @@ class BipeAccountVault(context: Context) : BipeVaultStore {
     suspend fun savePendingRecovery(recovery: BipeRecoveryStarted) = update { it.copy(pendingRecovery = recovery) }
 
     suspend fun deletePendingRecovery() = update { it.copy(pendingRecovery = null) }
+
+    suspend fun savePinReset(userId: String, reset: BipeRecoveryStarted) = update { it.copy(pinResets = it.pinResets + (userId to reset)) }
+
+    suspend fun deletePinReset(userId: String) = update { it.copy(pinResets = it.pinResets - userId) }
 
     /** The pending sign-up, or a new one with a fresh key. The new one is stored before the first request goes out. */
     suspend fun pendingSignup(pin: String): BipePendingSignup {

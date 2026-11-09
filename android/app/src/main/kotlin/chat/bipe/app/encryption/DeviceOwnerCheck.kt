@@ -11,9 +11,9 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import chat.bipe.app.settings.OwnerCheck
+import chat.bipe.app.settings.PinAccount
 import chat.bipe.app.settings.rememberAccountPinCheck
 import chat.bipe.shared.R
-import chat.bipe.shared.api.BipeAccountStatus
 
 /**
  * The owner check before an approval (security.md rules 5 and 14 tier 3, bipe-chat/bipe#785): strong biometrics, or
@@ -26,7 +26,7 @@ fun rememberApprovalCheck(
     reason: String,
     pinTitle: String,
     pinReason: String,
-    account: suspend () -> BipeAccountStatus,
+    account: PinAccount,
     checkPin: suspend (String) -> Unit,
 ): suspend () -> OwnerCheck.Approval {
     val context = LocalContext.current

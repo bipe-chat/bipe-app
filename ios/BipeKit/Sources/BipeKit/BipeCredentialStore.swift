@@ -39,12 +39,13 @@ public nonisolated struct BipeCredentialStore: Sendable {
         case passwordExcluded = "chat.bipe.account.password.excluded"
         case tokenExcluded = "chat.bipe.account.recovery-token.excluded"
         case storeKey = "chat.bipe.account.store-key"
+        case pinReset = "chat.bipe.account.pin-reset"
     }
     
     /// Every service this store writes, sign-out markers first: the app-group move (bipe-chat/bipe#531) copies a marker
     /// before the items it hides.
     public static let keychainServices: [String] = [Service.passwordExcluded, .tokenExcluded, .password, .recoveryToken,
-                                                    .pendingSignup, .pendingRecovery, .storeKey].map(\.rawValue)
+                                                    .pendingSignup, .pendingRecovery, .storeKey, .pinReset].map(\.rawValue)
 
     /// A sign-up whose credentials are not stored yet (ADR 0094). The key makes a retry return the same account.
     /// The PIN is the one the first try sent, so the app lock gets the PIN the account really has.
@@ -183,6 +184,23 @@ public nonisolated struct BipeCredentialStore: Sendable {
     
     public func deletePendingRecovery() {
         delete(.pendingRecovery)
+    }
+
+    // MARK: - PIN reset on this phone (ADR 0283 rule 13)
+
+    /// The PIN reset that this phone started for `userId` (POST /v1/me/pin/reset). This device only, never synced:
+    /// the claim secret proves this phone.
+    public func savePinReset(_ reset: BipeRecoveryStarted, for userId: String) {
+        guard let data = try? Self.encoder.encode(reset) else { return }
+        write(.pinReset, account: userId, value: data, synchronizable: false)
+    }
+
+    public func pinReset(for userId: String) -> BipeRecoveryStarted? {
+        read(.pinReset, account: userId).flatMap { try? Self.decoder.decode(BipeRecoveryStarted.self, from: $0.data) }
+    }
+
+    public func deletePinReset(for userId: String) {
+        delete(.pinReset, account: userId)
     }
     
     // MARK: - SDK store key

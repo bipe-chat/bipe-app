@@ -293,6 +293,18 @@ class BipeApiClient(baseUrl: String) {
     )
 
     /** `POST /v1/recovery/{id}/claim`. No auth. Polls a recovery; the credentials come once when the delay has ended. */
+    /**
+     * `POST /v1/me/pin/reset` (ADR 0283 rule 13). The app ran the biometric owner check first. The new PIN takes effect
+     * when this phone claims the reset after `readyAt` ([claimRecovery]). 409 `pin_reset_pending` when one waits.
+     */
+    suspend fun startPinReset(newPin: String, accessToken: String): BipeRecoveryStarted = send(
+        "POST",
+        listOf("v1", "me", "pin", "reset"),
+        body = encode(BipePinResetRequest.serializer(), BipePinResetRequest(newPin)),
+        accessToken = accessToken,
+        response = BipeRecoveryStarted.serializer(),
+    )
+
     suspend fun claimRecovery(id: String, claimSecret: String): BipeRecoveryClaim = send(
         "POST",
         listOf("v1", "recovery", id, "claim"),
@@ -451,6 +463,9 @@ enum class BipeApiErrorCode(val id: String) {
     /** HTTP 409: an account deletion already waits (ADR 0140). */
     DELETION_PENDING("deletion_pending"),
 
+    /** 409. A PIN reset already waits on the account (POST /v1/me/pin/reset, ADR 0283 rule 13). */
+    PIN_RESET_PENDING("pin_reset_pending"),
+
     /** A JPEG the server cannot take (profile or catalogue photo). */
     PHOTO_INVALID("photo_invalid"),
 
@@ -566,6 +581,7 @@ sealed class BipeApiException(cause: Throwable? = null) : Exception(cause) {
             BipeApiErrorCode.PIN_NOT_SET -> context.getString(R.string.bipe_deletion_pin_not_set)
             BipeApiErrorCode.ALREADY_DEVICE_FIRST -> context.getString(R.string.bipe_error_generic)
             BipeApiErrorCode.DELETION_PENDING -> context.getString(R.string.bipe_deletion_error)
+            BipeApiErrorCode.PIN_RESET_PENDING -> context.getString(R.string.bipe_pin_reset_pending)
             BipeApiErrorCode.RECOVERY_INVALID -> context.getString(R.string.bipe_error_recovery_invalid)
             BipeApiErrorCode.EMAIL_UNAVAILABLE -> context.getString(R.string.bipe_error_email_unavailable)
             BipeApiErrorCode.TERMS_REQUIRED -> context.getString(R.string.bipe_signup_terms_required)

@@ -102,7 +102,7 @@ final class RecoveryKeySaveModel: ObservableObject {
             let reason = BipeStrings.appRecoveryKeyBiometric
             let check = await ApprovalCheck.run(reason: reason, pinTitle: BipeStrings.pinEnterTitle,
                                                 pinReason: BipeStrings.pinReasonRecoveryKey(String(BipeRegistries.pinLength)),
-                                                prompt: pinPrompt, account: session.accountRead(api)) { (pin: String) async throws(BipeAPIError) in
+                                                prompt: pinPrompt, account: session.pinAccount(api)) { (pin: String) async throws(BipeAPIError) in
                 try await BipeAPIClient.withTokenRetry(accessToken: { session.accessToken() }) { (token: String) async throws(BipeAPIError) in
                     try await api.checkPIN(pin, accessToken: token)
                 }
