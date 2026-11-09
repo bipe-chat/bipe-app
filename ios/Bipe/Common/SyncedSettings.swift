@@ -8,7 +8,7 @@ import MatrixRustSDK
 
 /// Spec registries/synced-settings.json (bipe-chat/bipe#1161): keeps this device's copy and the account's settings
 /// together. The copy of the current account applies to the whole app. A failure changes nothing on the server, and
-/// the next attach tries again.
+/// the next attach or foreground tries again.
 @MainActor
 enum SyncedSettings {
     private static var client: Client?
@@ -25,7 +25,7 @@ enum SyncedSettings {
         refresh()
     }
 
-    /// Read the account's settings again.
+    /// Read the account's settings again: when the app comes to the front (ADR 0273), and after a change here.
     static func refresh() {
         guard let client else { return }
         let userId = userId
