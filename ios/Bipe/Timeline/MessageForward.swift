@@ -16,6 +16,13 @@ struct ForwardChat: Identifiable, Equatable {
     var id: String { roomId }
 }
 
+/// One message a forward sends (spec message-forward send): the typed content of the row and the original content JSON
+/// with the forward mark. The typed content goes through the send queue; the JSON gives the Bipe fields and the count.
+struct ForwardContent {
+    let message: MessageContent
+    let contentJson: String
+}
+
 /// Spec message-forward (bipe#664, bipe#860): copies of sent messages to up to 5 chats, 1 for a message forwarded
 /// many times (bipe-chat/bipe#933).
 @MainActor
@@ -30,13 +37,13 @@ final class MessageForwardModel: ObservableObject {
     @Published var showsLimit = false
 
     private let client: Client
-    /// The contents to send, in timeline order: each the original content with the forward mark (BipeForwardMark, bipe-chat/bipe#83).
-    private let contentJsons: [String]
+    /// The contents to send, in timeline order, each with the forward mark (BipeForwardMark, bipe-chat/bipe#83).
+    private let contents: [ForwardContent]
 
-    init(client: Client, contentJsons: [String]) {
+    init(client: Client, contents: [ForwardContent]) {
         self.client = client
-        self.contentJsons = contentJsons
-        limit = BipeForwardMark.chatLimit(sentCounts: contentJsons.map { BipeForwardMark.count(eventJson: $0) })
+        self.contents = contents
+        limit = BipeForwardMark.chatLimit(sentCounts: contents.map { BipeForwardMark.count(eventJson: $0.contentJson) })
     }
 
     /// bipe_forward_limit with the limit, or bipe_forward_limit_many for the many-times limit.
@@ -83,9 +90,12 @@ final class MessageForwardModel: ObservableObject {
         for roomId in picked {
             do {
                 guard let room = try client.getRoom(roomId: roomId) else { throw CancellationError() }
-                // Room.sendRaw encrypts in an encrypted room. Media keeps its source: nothing is uploaded again.
-                for contentJson in contentJsons {
-                    try await room.sendRaw(eventType: "m.room.message", content: contentJson)
+                // The room's send queue (bipe-chat/bipe#1124): local echo, encryption, and a retry after the connection
+                // comes back. Media keeps its source: nothing is uploaded again.
+                let timeline = try await room.timeline()
+                for content in contents {
+                    guard let extra = BipeForwardMark.extraContentJson(contentJson: content.contentJson) else { throw CancellationError() }
+                    _ = try await timeline.sendWithExtraContent(msg: contentWithoutRelationFromMessage(message: content.message), extraContentJson: extra)
                 }
             } catch {
                 failed.append(chats.first { $0.roomId == roomId }?.name ?? roomId)
@@ -102,8 +112,8 @@ struct MessageForwardSheet: View {
     /// Called after the send with the names of the chats that failed; nil when the person cancelled.
     let close: ([String]?) -> Void
 
-    init(client: Client, contentJsons: [String], media: MediaLoader, close: @escaping ([String]?) -> Void) {
-        _model = StateObject(wrappedValue: MessageForwardModel(client: client, contentJsons: contentJsons))
+    init(client: Client, contents: [ForwardContent], media: MediaLoader, close: @escaping ([String]?) -> Void) {
+        _model = StateObject(wrappedValue: MessageForwardModel(client: client, contents: contents))
         self.media = media
         self.close = close
     }
