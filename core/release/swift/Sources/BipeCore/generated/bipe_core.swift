@@ -550,6 +550,30 @@ public struct BadgeClaims: Equatable, Hashable {
      * The `cvm` value as JSON text. A bad value changes nothing in the verdict, so the caller reads it leniently.
      */
     public var cvmJson: String?
+    /**
+     * The payload `iss`. Absent means `bipe`.
+     */
+    public var iss: String
+    /**
+     * `person` and `org` (ADR 0272): ISO 3166-1 alpha-2 country of the scheme.
+     */
+    public var country: String?
+    /**
+     * `person` and `org`: the scheme ID, for example `nl.kvk`.
+     */
+    public var scheme: String?
+    /**
+     * `person` and `org`: the assurance of the scheme.
+     */
+    public var assurance: String?
+    /**
+     * `org`: the company's number in its registry. Opaque.
+     */
+    public var orgId: String?
+    /**
+     * `person` and `org`: the `ext` object as JSON text. Not an object: absent. It never changes the verdict.
+     */
+    public var extJson: String?
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
@@ -559,7 +583,25 @@ public struct BadgeClaims: Equatable, Hashable {
          */domains: [String], 
         /**
          * The `cvm` value as JSON text. A bad value changes nothing in the verdict, so the caller reads it leniently.
-         */cvmJson: String?) {
+         */cvmJson: String?, 
+        /**
+         * The payload `iss`. Absent means `bipe`.
+         */iss: String, 
+        /**
+         * `person` and `org` (ADR 0272): ISO 3166-1 alpha-2 country of the scheme.
+         */country: String?, 
+        /**
+         * `person` and `org`: the scheme ID, for example `nl.kvk`.
+         */scheme: String?, 
+        /**
+         * `person` and `org`: the assurance of the scheme.
+         */assurance: String?, 
+        /**
+         * `org`: the company's number in its registry. Opaque.
+         */orgId: String?, 
+        /**
+         * `person` and `org`: the `ext` object as JSON text. Not an object: absent. It never changes the verdict.
+         */extJson: String?) {
         self.sub = sub
         self.level = level
         self.name = name
@@ -576,6 +618,12 @@ public struct BadgeClaims: Equatable, Hashable {
         self.label = label
         self.domains = domains
         self.cvmJson = cvmJson
+        self.iss = iss
+        self.country = country
+        self.scheme = scheme
+        self.assurance = assurance
+        self.orgId = orgId
+        self.extJson = extJson
     }
 
     
@@ -609,7 +657,13 @@ public struct FfiConverterTypeBadgeClaims: FfiConverterRustBuffer {
                 brand: FfiConverterOptionString.read(from: &buf), 
                 label: FfiConverterOptionString.read(from: &buf), 
                 domains: FfiConverterSequenceString.read(from: &buf), 
-                cvmJson: FfiConverterOptionString.read(from: &buf)
+                cvmJson: FfiConverterOptionString.read(from: &buf), 
+                iss: FfiConverterString.read(from: &buf), 
+                country: FfiConverterOptionString.read(from: &buf), 
+                scheme: FfiConverterOptionString.read(from: &buf), 
+                assurance: FfiConverterOptionString.read(from: &buf), 
+                orgId: FfiConverterOptionString.read(from: &buf), 
+                extJson: FfiConverterOptionString.read(from: &buf)
         )
     }
 
@@ -630,6 +684,12 @@ public struct FfiConverterTypeBadgeClaims: FfiConverterRustBuffer {
         FfiConverterOptionString.write(value.label, into: &buf)
         FfiConverterSequenceString.write(value.domains, into: &buf)
         FfiConverterOptionString.write(value.cvmJson, into: &buf)
+        FfiConverterString.write(value.iss, into: &buf)
+        FfiConverterOptionString.write(value.country, into: &buf)
+        FfiConverterOptionString.write(value.scheme, into: &buf)
+        FfiConverterOptionString.write(value.assurance, into: &buf)
+        FfiConverterOptionString.write(value.orgId, into: &buf)
+        FfiConverterOptionString.write(value.extJson, into: &buf)
     }
 }
 
@@ -646,6 +706,78 @@ public func FfiConverterTypeBadgeClaims_lift(_ buf: RustBuffer) throws -> BadgeC
 #endif
 public func FfiConverterTypeBadgeClaims_lower(_ value: BadgeClaims) -> RustBuffer {
     return FfiConverterTypeBadgeClaims.lower(value)
+}
+
+
+/**
+ * What a level proves for a feature gate (`badgeClass` of the reference). `institution` and
+ * `brand-mark` have no class.
+ */
+public struct BadgeClass: Equatable, Hashable {
+    /**
+     * `person` or `org`.
+     */
+    public var `class`: String
+    public var assurance: String
+    public var country: String
+    public var scheme: String
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(
+        /**
+         * `person` or `org`.
+         */`class`: String, assurance: String, country: String, scheme: String) {
+        self.`class` = `class`
+        self.assurance = assurance
+        self.country = country
+        self.scheme = scheme
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension BadgeClass: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeBadgeClass: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> BadgeClass {
+        return
+            try BadgeClass(
+                class: FfiConverterString.read(from: &buf), 
+                assurance: FfiConverterString.read(from: &buf), 
+                country: FfiConverterString.read(from: &buf), 
+                scheme: FfiConverterString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: BadgeClass, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.`class`, into: &buf)
+        FfiConverterString.write(value.assurance, into: &buf)
+        FfiConverterString.write(value.country, into: &buf)
+        FfiConverterString.write(value.scheme, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeBadgeClass_lift(_ buf: RustBuffer) throws -> BadgeClass {
+    return try FfiConverterTypeBadgeClass.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeBadgeClass_lower(_ value: BadgeClass) -> RustBuffer {
+    return FfiConverterTypeBadgeClass.lower(value)
 }
 
 
@@ -700,6 +832,79 @@ public func FfiConverterTypeBoundSenderBadge_lift(_ buf: RustBuffer) throws -> B
 #endif
 public func FfiConverterTypeBoundSenderBadge_lower(_ value: BoundSenderBadge) -> RustBuffer {
     return FfiConverterTypeBoundSenderBadge.lower(value)
+}
+
+
+/**
+ * A badge that passed every step, with the issuer the app names in the profile and the seal sheet.
+ */
+public struct IssuedBadge: Equatable, Hashable {
+    public var claims: BadgeClaims
+    /**
+     * The issuer `name` from the registry.
+     */
+    public var issuerName: String
+    /**
+     * The region of the issuer, for example `br`.
+     */
+    public var issuerRegion: String
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(claims: BadgeClaims, 
+        /**
+         * The issuer `name` from the registry.
+         */issuerName: String, 
+        /**
+         * The region of the issuer, for example `br`.
+         */issuerRegion: String) {
+        self.claims = claims
+        self.issuerName = issuerName
+        self.issuerRegion = issuerRegion
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension IssuedBadge: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeIssuedBadge: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> IssuedBadge {
+        return
+            try IssuedBadge(
+                claims: FfiConverterTypeBadgeClaims.read(from: &buf), 
+                issuerName: FfiConverterString.read(from: &buf), 
+                issuerRegion: FfiConverterString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: IssuedBadge, into buf: inout [UInt8]) {
+        FfiConverterTypeBadgeClaims.write(value.claims, into: &buf)
+        FfiConverterString.write(value.issuerName, into: &buf)
+        FfiConverterString.write(value.issuerRegion, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeIssuedBadge_lift(_ buf: RustBuffer) throws -> IssuedBadge {
+    return try FfiConverterTypeIssuedBadge.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeIssuedBadge_lower(_ value: IssuedBadge) -> RustBuffer {
+    return FfiConverterTypeIssuedBadge.lower(value)
 }
 
 
@@ -1389,6 +1594,17 @@ public enum BadgeFailure: Equatable, Hashable {
     case notYetValid
     case subjectMismatch
     case masterKeyMismatch
+    /**
+     * Steps 2, 6 to 9 and 12 of "Verification order": only `verify_issued_badge` gives these.
+     */
+    case unknownIssuer
+    case issuerMismatch
+    case levelNotAllowed
+    case unknownScheme
+    case schemeNotAllowed
+    case schemeMismatch
+    case lifeTooLong
+    case regionMismatch
 
 
 
@@ -1425,6 +1641,22 @@ public struct FfiConverterTypeBadgeFailure: FfiConverterRustBuffer {
         case 7: return .subjectMismatch
         
         case 8: return .masterKeyMismatch
+        
+        case 9: return .unknownIssuer
+        
+        case 10: return .issuerMismatch
+        
+        case 11: return .levelNotAllowed
+        
+        case 12: return .unknownScheme
+        
+        case 13: return .schemeNotAllowed
+        
+        case 14: return .schemeMismatch
+        
+        case 15: return .lifeTooLong
+        
+        case 16: return .regionMismatch
         
         default: throw UniffiInternalError.unexpectedEnumCase
         }
@@ -1465,6 +1697,38 @@ public struct FfiConverterTypeBadgeFailure: FfiConverterRustBuffer {
         case .masterKeyMismatch:
             writeInt(&buf, Int32(8))
         
+        
+        case .unknownIssuer:
+            writeInt(&buf, Int32(9))
+        
+        
+        case .issuerMismatch:
+            writeInt(&buf, Int32(10))
+        
+        
+        case .levelNotAllowed:
+            writeInt(&buf, Int32(11))
+        
+        
+        case .unknownScheme:
+            writeInt(&buf, Int32(12))
+        
+        
+        case .schemeNotAllowed:
+            writeInt(&buf, Int32(13))
+        
+        
+        case .schemeMismatch:
+            writeInt(&buf, Int32(14))
+        
+        
+        case .lifeTooLong:
+            writeInt(&buf, Int32(15))
+        
+        
+        case .regionMismatch:
+            writeInt(&buf, Int32(16))
+        
         }
     }
 }
@@ -1495,6 +1759,14 @@ public enum BadgeLevel: Equatable, Hashable {
     case institution
     case cnpj
     case brandMark
+    /**
+     * ADR 0272: a person proved by a scheme of any country.
+     */
+    case person
+    /**
+     * ADR 0272: a company proved by a scheme of any country.
+     */
+    case org
 
 
 
@@ -1526,6 +1798,10 @@ public struct FfiConverterTypeBadgeLevel: FfiConverterRustBuffer {
         
         case 5: return .brandMark
         
+        case 6: return .person
+        
+        case 7: return .org
+        
         default: throw UniffiInternalError.unexpectedEnumCase
         }
     }
@@ -1552,6 +1828,14 @@ public struct FfiConverterTypeBadgeLevel: FfiConverterRustBuffer {
         
         case .brandMark:
             writeInt(&buf, Int32(5))
+        
+        
+        case .person:
+            writeInt(&buf, Int32(6))
+        
+        
+        case .org:
+            writeInt(&buf, Int32(7))
         
         }
     }
@@ -1720,6 +2004,79 @@ public func FfiConverterTypeBoundBadgeResult_lift(_ buf: RustBuffer) throws -> B
 #endif
 public func FfiConverterTypeBoundBadgeResult_lower(_ value: BoundBadgeResult) -> RustBuffer {
     return FfiConverterTypeBoundBadgeResult.lower(value)
+}
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+
+public enum IssuedBadgeResult: Equatable, Hashable {
+    
+    case valid(badge: IssuedBadge
+    )
+    case invalid(failure: BadgeFailure
+    )
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension IssuedBadgeResult: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeIssuedBadgeResult: FfiConverterRustBuffer {
+    typealias SwiftType = IssuedBadgeResult
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> IssuedBadgeResult {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .valid(badge: try FfiConverterTypeIssuedBadge.read(from: &buf)
+        )
+        
+        case 2: return .invalid(failure: try FfiConverterTypeBadgeFailure.read(from: &buf)
+        )
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: IssuedBadgeResult, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case let .valid(badge):
+            writeInt(&buf, Int32(1))
+            FfiConverterTypeIssuedBadge.write(badge, into: &buf)
+            
+        
+        case let .invalid(failure):
+            writeInt(&buf, Int32(2))
+            FfiConverterTypeBadgeFailure.write(failure, into: &buf)
+            
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeIssuedBadgeResult_lift(_ buf: RustBuffer) throws -> IssuedBadgeResult {
+    return try FfiConverterTypeIssuedBadgeResult.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeIssuedBadgeResult_lower(_ value: IssuedBadgeResult) -> RustBuffer {
+    return FfiConverterTypeIssuedBadgeResult.lower(value)
 }
 
 
@@ -2279,6 +2636,30 @@ fileprivate struct FfiConverterOptionString: FfiConverterRustBuffer {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterOptionTypeBadgeClass: FfiConverterRustBuffer {
+    typealias SwiftType = BadgeClass?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeBadgeClass.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeBadgeClass.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterOptionTypeOperatorList: FfiConverterRustBuffer {
     typealias SwiftType = OperatorList?
 
@@ -2580,6 +2961,50 @@ public func verifyPublicIssuerStatement(envelopeJson: String, homeserver: String
 })
 }
 /**
+ * The class of a verified badge. `scheme` counts only for `person` and `org`; the Brazilian levels
+ * `pix`, `govbr` and `cnpj` are aliases of their schemes. `None`: no class, or a scheme the registry
+ * does not have.
+ */
+public func badgeClass(level: BadgeLevel, scheme: String?, issuerRegistryJson: String) -> BadgeClass?  {
+    return try!  FfiConverterOptionTypeBadgeClass.lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_badge_class(
+        FfiConverterTypeBadgeLevel_lower(level),
+        FfiConverterOptionString.lower(scheme),
+        FfiConverterString.lower(issuerRegistryJson),$0
+    )
+})
+}
+/**
+ * `valid`, or the failure code. The vector harnesses use it on every client.
+ */
+public func issuedBadgeResultCode(result: IssuedBadgeResult) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_issued_badge_result_code(
+        FfiConverterTypeIssuedBadgeResult_lower(result),$0
+    )
+})
+}
+/**
+ * Verifies a badge for a message sender against the issuer registry.
+ *
+ * `issuer_registry_json` is the payload JSON of the device's current valid issuer registry
+ * (`VerifiedList.payload_json`; every app build carries a bundled one). Text that is not a registry
+ * trusts no issuer, so every badge is `unknown_issuer` (fail closed). `life_days` is `lifeDays` of
+ * bipe-shared registries/badge-keys.json. `sender_master_key` is absent when the app does not know it.
+ */
+public func verifyIssuedBadge(envelopeJson: String, sender: String, senderMasterKey: String?, issuerRegistryJson: String, lifeDays: UInt32, nowSeconds: Int64) -> IssuedBadgeResult  {
+    return try!  FfiConverterTypeIssuedBadgeResult_lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_verify_issued_badge(
+        FfiConverterString.lower(envelopeJson),
+        FfiConverterString.lower(sender),
+        FfiConverterOptionString.lower(senderMasterKey),
+        FfiConverterString.lower(issuerRegistryJson),
+        FfiConverterUInt32.lower(lifeDays),
+        FfiConverterInt64.lower(nowSeconds),$0
+    )
+})
+}
+/**
  * The status of a server for a device. With no current operator list, or a stale one
  * (`now_seconds >= expires`), only `FALLBACK_BIPE_SERVER` is `valid` (the A-3 default).
  */
@@ -2711,6 +3136,15 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_bipe_core_checksum_func_verify_public_issuer_statement() != 24673) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_bipe_core_checksum_func_badge_class() != 56843) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_bipe_core_checksum_func_issued_badge_result_code() != 55209) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_bipe_core_checksum_func_verify_issued_badge() != 23843) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_bipe_core_checksum_func_bipe_server_status() != 40715) {
