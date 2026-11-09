@@ -130,12 +130,6 @@
       "checked": "2026-11-08",
       "note": "Dual licensed, LGPL-2.1-or-later or Apache-2.0; Bipe uses it under Apache-2.0."
     },
-    "com.google.crypto.tink:tink-android": {
-      "ecosystem": "gradle",
-      "licence": "Apache-2.0",
-      "source": "https://github.com/tink-crypto/tink-java/blob/main/LICENSE",
-      "checked": "2026-10-22"
-    },
     "com.google.truth:truth": {
       "ecosystem": "gradle",
       "licence": "Apache-2.0",

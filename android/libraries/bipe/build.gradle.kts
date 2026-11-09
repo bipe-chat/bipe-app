@@ -45,8 +45,6 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     // Voice transcript session (voice/BipeVoiceTranscriber.kt).
     implementation(libs.kotlinx.coroutines.core)
-    // BadgeVerifier: Ed25519 signatures of Bipe badges.
-    implementation(libs.tink.android)
     implementation(libs.kotlinx.coroutines.android)
     // BipeColors (generated from bipe-shared design/tokens.json) exposes Compose types.
     api(platform(libs.androidx.compose.bom))
