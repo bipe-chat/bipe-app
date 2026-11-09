@@ -279,7 +279,9 @@ jobs:
             -library "target/aarch64-apple-ios-sim/$PROFILE/libbipe_core.a" -headers "$headers" \
             -library target/universal-macos/libbipe_core.a -headers "$headers" \
             -output harness/swift/build/bipe_coreFFI.xcframework
-          cp "$GITHUB_WORKSPACE/bipe-shared/test-vectors/badges.json" harness/swift/Tests/BipeCoreHarnessTests/badges.json
+          for name in badges badge-issuers theft-marks; do
+            cp "$GITHUB_WORKSPACE/bipe-shared/test-vectors/$name.json" "harness/swift/Tests/BipeCoreHarnessTests/$name.json"
+          done
           cp harness/ed25519-cases.json harness/swift/Tests/BipeCoreHarnessTests/ed25519-cases.json
       # The release form (core-release.yml): the zip that SwiftPM's binaryTarget takes, and the Swift bindings.
       - name: Package for SwiftPM
@@ -414,7 +416,9 @@ jobs:
         run: |
           ../../../android/gradlew --no-daemon :bipecore:assembleRelease
           mkdir -p harness/src/androidTest/assets
-          cp "$GITHUB_WORKSPACE/bipe-shared/test-vectors/badges.json" harness/src/androidTest/assets/badges.json
+          for name in badges badge-issuers theft-marks; do
+            cp "$GITHUB_WORKSPACE/bipe-shared/test-vectors/$name.json" "harness/src/androidTest/assets/$name.json"
+          done
           unzip -l bipecore/build/outputs/aar/bipecore-release.aar
           mkdir -p "$RUNNER_TEMP/dist"
           cp bipecore/build/outputs/aar/bipecore-release.aar "$RUNNER_TEMP/dist/bipe-core-$DIST_VERSION.aar"

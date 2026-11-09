@@ -19,7 +19,7 @@ let package = Package(
         .testTarget(
             name: "BipeCoreHarnessTests",
             dependencies: ["BipeCore", .product(name: "MatrixRustSDK", package: "matrix-rust-components-swift")],
-            resources: [.copy("badges.json"), .copy("ed25519-cases.json")],
+            resources: [.copy("badges.json"), .copy("badge-issuers.json"), .copy("theft-marks.json"), .copy("ed25519-cases.json")],
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
     ]
