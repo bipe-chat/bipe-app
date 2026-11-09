@@ -3,7 +3,6 @@
 // Copyright 2026 Bipe contributors
 
 import BipeCore
-import CryptoKit
 import Foundation
 
 /// Verifies signed badge envelopes (bipe-shared/docs/badge-attestation.md, v1) through bipe-core (ADR 0267).
@@ -24,7 +23,7 @@ public nonisolated struct BadgeVerifier: Sendable {
 
     /// - Parameter trustedKeys: `kid` to raw 32-byte Ed25519 public key. Release builds must not include `test-only-*` keys.
     public init(trustedKeys: [String: Data]) throws(KeyError) {
-        for (kid, key) in trustedKeys where (try? Curve25519.Signing.PublicKey(rawRepresentation: key)) == nil {
+        for (kid, key) in trustedKeys where key.count != 32 {
             throw .invalidPublicKey(kid: kid)
         }
         trust = .keys(trustedKeys)

@@ -7,18 +7,16 @@ package chat.bipe.shared
 import android.content.SharedPreferences
 import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.api.BipeOpenIdToken
+import chat.bipe.core.TheftMarkResult
+import chat.bipe.core.TrustedKey
+import chat.bipe.core.badgeFailureCode
+import chat.bipe.core.verifyTheftMark
 import chat.bipe.shared.generated.BipeRegistries
-import com.google.crypto.tink.subtle.Ed25519Verify
-import java.security.GeneralSecurityException
 import java.security.SecureRandom
 import java.time.Instant
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.intOrNull
-import kotlinx.serialization.json.longOrNull
 
 // Theft protection (ADR 0044, ADR 0051, bipe-chat/bipe#600, #268). Contract: GuardianState, Guardian,
 // GuardedAccount and TheftMark in bipe-shared api/openapi.yaml. Statement: bipe-shared docs/theft-mark.md.
@@ -134,74 +132,38 @@ sealed interface BipeTheftMarkResult {
 }
 
 /**
- * Verifies signed theft statements (bipe-shared docs/theft-mark.md, v1) with the badge keys.
- * Must match bipe-shared/test-vectors/theft-marks.json.
+ * Verifies signed theft statements (bipe-shared docs/theft-mark.md, v1) with the badge keys, through bipe-core
+ * `verifyTheftMark` (ADR 0267, bipe-chat/bipe#1330). Must match bipe-shared/test-vectors/theft-marks.json.
  *
  * @param trustedKeys `kid` to raw 32-byte Ed25519 public key. Release builds must not include `test-only-*` keys.
  * @throws IllegalArgumentException when a key is not 32 bytes.
  */
 class BipeTheftMarkVerifier(trustedKeys: Map<String, ByteArray>) {
-    private val verifiers: Map<String, Ed25519Verify> = trustedKeys.mapValues { (kid, key) ->
-        require(key.size == Ed25519Verify.PUBLIC_KEY_LEN) { "invalid public key for kid $kid" }
-        Ed25519Verify(key)
+    private val keys: List<TrustedKey> = trustedKeys.map { (kid, key) ->
+        require(key.size == PUBLIC_KEY_BYTES) { "invalid public key for kid $kid" }
+        TrustedKey(kid, key)
     }
 
-    /** Decodes and verifies envelope JSON. Undecodable JSON is `malformed`. */
-    fun verify(envelopeJson: String, subject: String, nowMillis: Long = System.currentTimeMillis()): BipeTheftMarkResult {
-        val probe = runCatchingExceptions { json.decodeFromString<JsonObject>(envelopeJson) }.getOrNull()
-        val version = (probe?.get("v") as? JsonPrimitive)?.takeUnless { it.isString }?.intOrNull
-            ?: return BipeTheftMarkResult.Invalid(BadgeVerificationFailure.MALFORMED)
-        if (version != BadgeEnvelope.SUPPORTED_VERSION) {
-            return BipeTheftMarkResult.Invalid(BadgeVerificationFailure.UNSUPPORTED_VERSION)
+    /** Verifies envelope JSON. [subject] is the account the app asked about. Any error is no mark. */
+    fun verify(envelopeJson: String, subject: String, nowMillis: Long = System.currentTimeMillis()): BipeTheftMarkResult =
+        when (val result = verifyTheftMark(envelopeJson, subject, keys, Math.floorDiv(nowMillis, 1000L))) {
+            is TheftMarkResult.Valid -> result.statement.let { BipeTheftMarkResult.Valid(BipeTheftStatement(it.sub, it.stolenAt, it.iat, it.exp)) }
+            is TheftMarkResult.Invalid -> BipeTheftMarkResult.Invalid(
+                badgeFailureCode(result.failure).let { code -> BadgeVerificationFailure.entries.firstOrNull { it.code == code } }
+                    ?: BadgeVerificationFailure.MALFORMED,
+            )
         }
-        val envelope = runCatchingExceptions { json.decodeFromJsonElement(BadgeEnvelope.serializer(), probe) }.getOrNull()
-            ?: return BipeTheftMarkResult.Invalid(BadgeVerificationFailure.MALFORMED)
-        return verify(envelope, subject, nowMillis)
-    }
 
-    /** Runs the documented checks in order and returns the first failure. [subject] is the account the app asked about. */
-    fun verify(envelope: BadgeEnvelope, subject: String, nowMillis: Long = System.currentTimeMillis()): BipeTheftMarkResult {
-        fun invalid(failure: BadgeVerificationFailure) = BipeTheftMarkResult.Invalid(failure)
-
-        if (envelope.v != BadgeEnvelope.SUPPORTED_VERSION) return invalid(BadgeVerificationFailure.UNSUPPORTED_VERSION)
-        val verifier = verifiers[envelope.kid] ?: return invalid(BadgeVerificationFailure.UNKNOWN_KID)
-        val payloadBytes = Base64Url.decode(envelope.payload) ?: return invalid(BadgeVerificationFailure.MALFORMED)
-        val signature = Base64Url.decode(envelope.sig) ?: return invalid(BadgeVerificationFailure.MALFORMED)
-        // Verify the exact bytes. Never re-serialise the JSON before this check.
-        try {
-            verifier.verify(signature, payloadBytes)
-        } catch (_: GeneralSecurityException) {
-            return invalid(BadgeVerificationFailure.INVALID_SIGNATURE)
-        }
-        val payload = runCatchingExceptions {
-            json.decodeFromString<JsonObject>(payloadBytes.decodeToString(throwOnInvalidSequence = true))
-        }.getOrNull() ?: return invalid(BadgeVerificationFailure.MALFORMED)
-        val typ = (payload["typ"] as? JsonPrimitive)?.takeIf { it.isString }?.content
-        val sub = (payload["sub"] as? JsonPrimitive)?.takeIf { it.isString }?.content
-        val stolenAt = payload.integer("stolen_at")
-        val iat = payload.integer("iat")
-        val exp = payload.integer("exp")
-        if (typ != "theft" || sub == null || stolenAt == null || iat == null || exp == null) {
-            return invalid(BadgeVerificationFailure.MALFORMED)
-        }
-        if (nowMillis >= exp * 1000) return invalid(BadgeVerificationFailure.EXPIRED)
-        if (nowMillis < iat * 1000) return invalid(BadgeVerificationFailure.NOT_YET_VALID)
-        if (sub != subject) return invalid(BadgeVerificationFailure.SUBJECT_MISMATCH)
-        return BipeTheftMarkResult.Valid(BipeTheftStatement(sub, stolenAt, iat, exp))
-    }
+    /** The envelope as the server sends it. Its `payload` and `sig` are the exact base64url text, so re-encoding is safe. */
+    fun verify(envelope: BadgeEnvelope, subject: String, nowMillis: Long = System.currentTimeMillis()): BipeTheftMarkResult =
+        verify(json.encodeToString(BadgeEnvelope.serializer(), envelope), subject, nowMillis)
 
     /** The valid statement for [subject] among [envelopes], else null. Any error is no mark. */
     fun statement(subject: String, envelopes: List<BadgeEnvelope>, nowMillis: Long = System.currentTimeMillis()): BipeTheftStatement? =
         envelopes.firstNotNullOfOrNull { (verify(it, subject, nowMillis) as? BipeTheftMarkResult.Valid)?.statement }
 
-    /** A JSON integer (no string, no fraction), else null. */
-    private fun JsonObject.integer(key: String): Long? {
-        val primitive = get(key) as? JsonPrimitive ?: return null
-        if (primitive.isString || primitive.content.any { it == '.' || it == 'e' || it == 'E' }) return null
-        return primitive.longOrNull
-    }
-
     companion object {
+        private const val PUBLIC_KEY_BYTES = 32
         private val json = Json { ignoreUnknownKeys = true }
 
         /** The badge trust list from bipe-shared `registries/badge-keys.json` (ADR 0123). */
