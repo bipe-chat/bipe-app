@@ -37,8 +37,9 @@ object QrLogin {
     }
 
     /**
-     * The OAuth client of this phone (MAS dynamic client registration). The device code grant never opens the redirect
-     * URI; MAS needs one, as the reverse domain of clientUri.
+     * The OAuth client of this phone: the static client of the Android app on Bipe's server (bipe-chat/bipe#914), which
+     * closes dynamic registration. The other fields are only for a QR code from another server, where the SDK registers
+     * a client. The device code grant never opens the redirect URI; MAS needs one, as the reverse domain of clientUri.
      */
     val oauthConfiguration: OAuthConfiguration
         get() = OAuthConfiguration(
@@ -48,7 +49,10 @@ object QrLogin {
             logoUri = null,
             tosUri = null,
             policyUri = null,
-            staticRegistrations = emptyMap(),
+            staticRegistrations = mapOf(
+                AppConfig.OAUTH_ISSUER to AppConfig.OAUTH_CLIENT_ID,
+                AppConfig.HOMESERVER to AppConfig.OAUTH_CLIENT_ID,
+            ),
         )
 
     /**
