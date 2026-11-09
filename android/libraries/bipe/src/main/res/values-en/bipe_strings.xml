@@ -2538,6 +2538,7 @@
     <string name="bipe_web_account_unread_last_sync">Unread messages at the last sync</string>
     <string name="bipe_web_account_cap_reached">This browser already has %1$s accounts. That is the limit.</string>
     <string name="bipe_web_sign_out_all">Sign out of all accounts in this browser</string>
+    <string name="bipe_web_signed_out_elsewhere">%1$s was signed out of this browser from another device.</string>
     <string name="bipe_app_assistant_reads">An assistant of %1$s reads this chat</string>
     <string name="bipe_mac_accounts_title">Accounts on this Mac</string>
     <string name="bipe_mac_work_overview">Work overview</string>
