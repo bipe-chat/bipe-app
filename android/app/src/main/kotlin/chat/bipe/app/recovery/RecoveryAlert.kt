@@ -293,6 +293,8 @@ fun RecoveryAlertScreen(model: RecoveryAlertModel, addEmail: () -> Unit) {
                     is RecoveryAlertModel.Notice.Deletion ->
                         stringResource(R.string.bipe_deletion_alert_body, DeletionDates.text(context, current.deletion.dueAt))
                     is RecoveryAlertModel.Notice.Link -> linkMessage(context, current.event)
+                    // Shown by PinResetDoneScreen above; this text never shows.
+                    is RecoveryAlertModel.Notice.PinResetDone -> stringResource(R.string.bipe_recovery_pin_ready)
                 },
                 color = colors.inkPrimary,
             )
