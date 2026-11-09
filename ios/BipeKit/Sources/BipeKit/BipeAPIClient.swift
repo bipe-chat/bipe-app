@@ -1361,6 +1361,7 @@ public enum BipeAPIError: Error, Sendable, Equatable {
             case .termsRequired: BipeStrings.signupTermsRequired
             case .supportUnavailable: BipeStrings.supportOpenFailed
             case .deletionPending: BipeStrings.deletionError
+            case .pinResetPending: BipeStrings.pinResetPending
             case .linkTaken: BipeStrings.linkedAccountTaken
             case .linkUnavailable: BipeStrings.linkedAccountError
             case .slotTaken, .holdExpired, .tooManyOpenBookings, .outsideNotice, .outsideHorizon, .agendaNotPublished,
