@@ -4,13 +4,19 @@
 
 package chat.bipe.shared
 
+import chat.bipe.core.PixCode
+import chat.bipe.core.PixCodeStatus
+import chat.bipe.core.PixKeyType
+import chat.bipe.core.findPixCode
+import chat.bipe.core.pixKeyType
 import chat.bipe.shared.generated.BipeRegistries
 import java.util.regex.Pattern
 
 /**
  * "Conferir no Bipe" phase 1 (bipe ADR 0091): the Pix code and the Pix keys in text that the user
  * shared from another app. Runs on the device only. Must match bipe-shared/test-vectors/pix-check.json.
- * iOS: `PixCheck` in BipeKit.
+ * iOS: `PixCheck` in BipeKit. The BR Code, its CRC and the key type come from bipe-core (`findPixCode`, ADR 0267).
+ * The keys in the text and the warning stay here until scam matching moves to the core.
  */
 data class PixCheck(
     val code: Code?,
@@ -60,111 +66,47 @@ data class PixCheck(
     companion object {
         /** The screen itself explains Pix, so these warnings are not repeated. */
         private val skippedWarnings = setOf(ScamWarningKind.PIX_CODE, ScamWarningKind.PIX_KEY)
-        private const val PIX_GUI = "br.gov.bcb.pix"
 
         fun check(text: String): PixCheck {
-            val points = text.codePoints().toArray().map { String(Character.toChars(it)) }
-            val found = findBrCode(points)
-            val rest = found?.let { points.subList(0, it.start).joinToString("") + " " + points.subList(it.end, points.size).joinToString("") } ?: text
+            val found = findPixCode(text)
+            val rest = found?.let {
+                val points = text.codePoints().toArray()
+                val start = it.start.toInt()
+                val end = it.end.toInt()
+                String(points, 0, start) + " " + String(points, end, points.size - end)
+            } ?: text
             return PixCheck(
-                code = found?.code,
+                code = found?.let { code(it.code) },
                 keys = keys(rest),
                 warning = ScamDetector.warningKind(ScamDetector.matchIds(rest), rest, skipping = skippedWarnings),
             )
         }
 
-        fun keyType(key: String): KeyType = when {
-            key.contains('@') -> KeyType.EMAIL
-            key.matches(Regex("\\+[0-9]{12,13}")) -> KeyType.PHONE
-            key.matches(Regex("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")) -> KeyType.RANDOM
-            key.matches(Regex("[0-9]{11}")) -> KeyType.CPF
-            key.matches(Regex("[0-9A-Z]{12}[0-9]{2}")) -> KeyType.CNPJ
-            else -> KeyType.UNKNOWN
+        fun keyType(key: String): KeyType = keyType(pixKeyType(key))
+
+        private fun keyType(type: PixKeyType): KeyType = when (type) {
+            PixKeyType.CPF -> KeyType.CPF
+            PixKeyType.CNPJ -> KeyType.CNPJ
+            PixKeyType.PHONE -> KeyType.PHONE
+            PixKeyType.EMAIL -> KeyType.EMAIL
+            PixKeyType.RANDOM -> KeyType.RANDOM
+            PixKeyType.UNKNOWN -> KeyType.UNKNOWN
         }
 
-        /** CRC-16/CCITT-FALSE (poly 0x1021, init 0xFFFF) over the UTF-8 bytes, as 4 uppercase hex digits. */
-        internal fun crc16(text: String): String {
-            var crc = 0xFFFF
-            for (byte in text.toByteArray(Charsets.UTF_8)) {
-                crc = crc xor (byte.toInt() and 0xFF shl 8)
-                repeat(8) {
-                    crc = if (crc and 0x8000 != 0) crc shl 1 xor 0x1021 and 0xFFFF else crc shl 1 and 0xFFFF
-                }
-            }
-            return "%04X".format(crc)
-        }
-
-        private data class Field(val id: String, val value: String, val start: Int, val end: Int)
-
-        private data class Found(val start: Int, val end: Int, val code: Code)
-
-        /** EMV TLV: two-digit ID, two-digit length, value. Lengths count code points. Null when the shape is wrong. */
-        private fun readTlv(points: List<String>, from: Int, until: Int): List<Field>? {
-            val fields = mutableListOf<Field>()
-            var index = from
-            while (index < until) {
-                if (index + 4 > until) return null
-                val head = points.subList(index, index + 4).joinToString("")
-                if (!head.matches(Regex("[0-9]{4}"))) return null
-                val id = head.substring(0, 2)
-                val length = head.substring(2).toInt()
-                if (index + 4 + length > until) return null
-                fields += Field(id, points.subList(index + 4, index + 4 + length).joinToString(""), index, index + 4 + length)
-                index += 4 + length
-                if (id == "63") break
-            }
-            return fields
-        }
-
-        private fun subfields(value: String): Map<String, String>? {
-            val points = value.codePoints().toArray().map { String(Character.toChars(it)) }
-            return readTlv(points, 0, points.size)?.associate { it.id to it.value }
-        }
-
-        private fun findBrCode(points: List<String>): Found? {
-            for (start in 0..points.size - 6) {
-                if (points.subList(start, start + 6).joinToString("") != "000201") continue
-                if (!asciiLower(points.subList(start, points.size).joinToString("")).contains(PIX_GUI)) return null
-                val fields = readTlv(points, start, points.size) ?: return Found(start, points.size, Code(Status.MALFORMED))
-                return Found(start, fields.last().end, parse(points, start, fields))
-            }
-            return null
-        }
-
-        private fun parse(points: List<String>, start: Int, fields: List<Field>): Code {
-            val malformed = Code(Status.MALFORMED)
-            val crcField = fields.last()
-            if (fields.first().id != "00" || fields.first().value != "01") return malformed
-            if (crcField.id != "63" || crcField.value.codePointCount(0, crcField.value.length) != 4) return malformed
-            val byId = fields.associate { it.id to it.value }
-
-            val account = fields.firstNotNullOfOrNull { field ->
-                if (field.id.toInt() !in 26..51) return@firstNotNullOfOrNull null
-                subfields(field.value)?.takeIf { asciiLower(it["00"] ?: "") == PIX_GUI }
-            } ?: return malformed
-            val key = account["01"]?.trim()
-            val url = account["25"]
-            if (key == null && url == null) return malformed
-
-            var txid: String? = null
-            byId["62"]?.let { extra ->
-                val subs = subfields(extra) ?: return malformed
-                txid = subs["05"]?.takeIf { it != "***" }
-            }
-
-            val signed = points.subList(start, crcField.start + 4).joinToString("")
-            return Code(
-                status = if (crc16(signed) == crcField.value.uppercase()) Status.VALID else Status.BAD_CRC,
-                dynamic = url != null,
-                singleUse = byId["01"] == "12",
-                key = key,
-                keyType = key?.let(::keyType),
-                url = url,
-                name = byId["59"],
-                city = byId["60"],
-                amount = byId["54"],
-                txid = txid,
-                info = account["02"],
+        private fun code(code: PixCode): Code = when (code.status) {
+            PixCodeStatus.MALFORMED -> Code(Status.MALFORMED)
+            else -> Code(
+                status = if (code.status == PixCodeStatus.VALID) Status.VALID else Status.BAD_CRC,
+                dynamic = code.dynamic,
+                singleUse = code.singleUse,
+                key = code.key,
+                keyType = code.keyType?.let { keyType(it) },
+                url = code.url,
+                name = code.name,
+                city = code.city,
+                amount = code.amount,
+                txid = code.txid,
+                info = code.info,
             )
         }
 
@@ -186,11 +128,6 @@ data class PixCheck(
             return spans.entries
                 .sortedWith(compareBy<Map.Entry<Pair<Int, Int>, MutableList<KeyType>>> { it.key.first }.thenByDescending { it.key.second - it.key.first })
                 .map { Key(text.substring(it.key.first, it.key.second), it.value.toList()) }
-        }
-
-        /** Lowercases A-Z only, like the reference. */
-        private fun asciiLower(text: String): String = buildString(text.length) {
-            for (c in text) append(if (c in 'A'..'Z') c + 32 else c)
         }
     }
 }

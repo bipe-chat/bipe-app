@@ -467,6 +467,30 @@ fileprivate struct FfiConverterInt64: FfiConverterPrimitive {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterBool : FfiConverter {
+    typealias FfiType = Int8
+    typealias SwiftType = Bool
+
+    public static func lift(_ value: Int8) throws -> Bool {
+        return value != 0
+    }
+
+    public static func lower(_ value: Bool) -> Int8 {
+        return value ? 1 : 0
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> Bool {
+        return try lift(readInt(&buf))
+    }
+
+    public static func write(_ value: Bool, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterString: FfiConverter {
     typealias SwiftType = String
     typealias FfiType = RustBuffer
@@ -1176,6 +1200,173 @@ public func FfiConverterTypeOperatorRegion_lift(_ buf: RustBuffer) throws -> Ope
 #endif
 public func FfiConverterTypeOperatorRegion_lower(_ value: OperatorRegion) -> RustBuffer {
     return FfiConverterTypeOperatorRegion.lower(value)
+}
+
+
+/**
+ * A BR Code. Every field except `status` is empty or false when the code is malformed.
+ */
+public struct PixCode: Equatable, Hashable {
+    public var status: PixCodeStatus
+    public var dynamic: Bool
+    public var singleUse: Bool
+    public var key: String?
+    public var keyType: PixKeyType?
+    /**
+     * The payload location of a dynamic code, without a scheme.
+     */
+    public var url: String?
+    public var name: String?
+    public var city: String?
+    /**
+     * As written in the code, for example "50.00".
+     */
+    public var amount: String?
+    public var txid: String?
+    public var info: String?
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(status: PixCodeStatus, dynamic: Bool, singleUse: Bool, key: String?, keyType: PixKeyType?, 
+        /**
+         * The payload location of a dynamic code, without a scheme.
+         */url: String?, name: String?, city: String?, 
+        /**
+         * As written in the code, for example "50.00".
+         */amount: String?, txid: String?, info: String?) {
+        self.status = status
+        self.dynamic = dynamic
+        self.singleUse = singleUse
+        self.key = key
+        self.keyType = keyType
+        self.url = url
+        self.name = name
+        self.city = city
+        self.amount = amount
+        self.txid = txid
+        self.info = info
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension PixCode: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypePixCode: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> PixCode {
+        return
+            try PixCode(
+                status: FfiConverterTypePixCodeStatus.read(from: &buf), 
+                dynamic: FfiConverterBool.read(from: &buf), 
+                singleUse: FfiConverterBool.read(from: &buf), 
+                key: FfiConverterOptionString.read(from: &buf), 
+                keyType: FfiConverterOptionTypePixKeyType.read(from: &buf), 
+                url: FfiConverterOptionString.read(from: &buf), 
+                name: FfiConverterOptionString.read(from: &buf), 
+                city: FfiConverterOptionString.read(from: &buf), 
+                amount: FfiConverterOptionString.read(from: &buf), 
+                txid: FfiConverterOptionString.read(from: &buf), 
+                info: FfiConverterOptionString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: PixCode, into buf: inout [UInt8]) {
+        FfiConverterTypePixCodeStatus.write(value.status, into: &buf)
+        FfiConverterBool.write(value.dynamic, into: &buf)
+        FfiConverterBool.write(value.singleUse, into: &buf)
+        FfiConverterOptionString.write(value.key, into: &buf)
+        FfiConverterOptionTypePixKeyType.write(value.keyType, into: &buf)
+        FfiConverterOptionString.write(value.url, into: &buf)
+        FfiConverterOptionString.write(value.name, into: &buf)
+        FfiConverterOptionString.write(value.city, into: &buf)
+        FfiConverterOptionString.write(value.amount, into: &buf)
+        FfiConverterOptionString.write(value.txid, into: &buf)
+        FfiConverterOptionString.write(value.info, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePixCode_lift(_ buf: RustBuffer) throws -> PixCode {
+    return try FfiConverterTypePixCode.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePixCode_lower(_ value: PixCode) -> RustBuffer {
+    return FfiConverterTypePixCode.lower(value)
+}
+
+
+/**
+ * The first BR Code in a text. `start` and `end` count Unicode code points (Swift `unicodeScalars`, Kotlin
+ * `codePoints`): the app removes that span before it looks for keys and warnings.
+ */
+public struct PixCodeMatch: Equatable, Hashable {
+    public var start: UInt32
+    public var end: UInt32
+    public var code: PixCode
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(start: UInt32, end: UInt32, code: PixCode) {
+        self.start = start
+        self.end = end
+        self.code = code
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension PixCodeMatch: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypePixCodeMatch: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> PixCodeMatch {
+        return
+            try PixCodeMatch(
+                start: FfiConverterUInt32.read(from: &buf), 
+                end: FfiConverterUInt32.read(from: &buf), 
+                code: FfiConverterTypePixCode.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: PixCodeMatch, into buf: inout [UInt8]) {
+        FfiConverterUInt32.write(value.start, into: &buf)
+        FfiConverterUInt32.write(value.end, into: &buf)
+        FfiConverterTypePixCode.write(value.code, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePixCodeMatch_lift(_ buf: RustBuffer) throws -> PixCodeMatch {
+    return try FfiConverterTypePixCodeMatch.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePixCodeMatch_lower(_ value: PixCodeMatch) -> RustBuffer {
+    return FfiConverterTypePixCodeMatch.lower(value)
 }
 
 
@@ -2538,6 +2729,178 @@ public func FfiConverterTypeOperatorState_lower(_ value: OperatorState) -> RustB
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 
+public enum PixCodeStatus: Equatable, Hashable {
+    
+    case valid
+    case badCrc
+    case malformed
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension PixCodeStatus: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypePixCodeStatus: FfiConverterRustBuffer {
+    typealias SwiftType = PixCodeStatus
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> PixCodeStatus {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .valid
+        
+        case 2: return .badCrc
+        
+        case 3: return .malformed
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: PixCodeStatus, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .valid:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .badCrc:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .malformed:
+            writeInt(&buf, Int32(3))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePixCodeStatus_lift(_ buf: RustBuffer) throws -> PixCodeStatus {
+    return try FfiConverterTypePixCodeStatus.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePixCodeStatus_lower(_ value: PixCodeStatus) -> RustBuffer {
+    return FfiConverterTypePixCodeStatus.lower(value)
+}
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * The kind of a Pix key as DICT stores it.
+ */
+
+public enum PixKeyType: Equatable, Hashable {
+    
+    case cpf
+    case cnpj
+    case phone
+    case email
+    case random
+    case unknown
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension PixKeyType: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypePixKeyType: FfiConverterRustBuffer {
+    typealias SwiftType = PixKeyType
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> PixKeyType {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .cpf
+        
+        case 2: return .cnpj
+        
+        case 3: return .phone
+        
+        case 4: return .email
+        
+        case 5: return .random
+        
+        case 6: return .unknown
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: PixKeyType, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .cpf:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .cnpj:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .phone:
+            writeInt(&buf, Int32(3))
+        
+        
+        case .email:
+            writeInt(&buf, Int32(4))
+        
+        
+        case .random:
+            writeInt(&buf, Int32(5))
+        
+        
+        case .unknown:
+            writeInt(&buf, Int32(6))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePixKeyType_lift(_ buf: RustBuffer) throws -> PixKeyType {
+    return try FfiConverterTypePixKeyType.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePixKeyType_lower(_ value: PixKeyType) -> RustBuffer {
+    return FfiConverterTypePixKeyType.lower(value)
+}
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+
 public enum PublicStatementResult: Equatable, Hashable {
     
     case valid(statement: PublicIssuerStatement
@@ -2832,6 +3195,30 @@ fileprivate struct FfiConverterOptionTypeOperatorList: FfiConverterRustBuffer {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterOptionTypePixCodeMatch: FfiConverterRustBuffer {
+    typealias SwiftType = PixCodeMatch?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypePixCodeMatch.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypePixCodeMatch.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterOptionTypeStoredList: FfiConverterRustBuffer {
     typealias SwiftType = StoredList?
 
@@ -2920,6 +3307,30 @@ fileprivate struct FfiConverterOptionTypeOperatorSignup: FfiConverterRustBuffer 
         switch try readInt(&buf) as Int8 {
         case 0: return nil
         case 1: return try FfiConverterTypeOperatorSignup.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterOptionTypePixKeyType: FfiConverterRustBuffer {
+    typealias SwiftType = PixKeyType?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypePixKeyType.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypePixKeyType.read(from: &buf)
         default: throw UniffiInternalError.unexpectedOptionalTag
         }
     }
@@ -3153,6 +3564,38 @@ public func verifyIssuedBadge(envelopeJson: String, sender: String, senderMaster
 })
 }
 /**
+ * The first BR Code in `text`: it starts at the first "000201" that has br.gov.bcb.pix after it. None when there is
+ * no such code.
+ */
+public func findPixCode(text: String) -> PixCodeMatch?  {
+    return try!  FfiConverterOptionTypePixCodeMatch.lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_find_pix_code(
+        FfiConverterString.lower(text),$0
+    )
+})
+}
+/**
+ * CRC-16/CCITT-FALSE (poly 0x1021, init 0xFFFF) over the UTF-8 bytes, as 4 uppercase hex digits.
+ */
+public func pixCrc16(text: String) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_pix_crc16(
+        FfiConverterString.lower(text),$0
+    )
+})
+}
+/**
+ * Email has "@", phone is "+" and 12 or 13 digits, random is a UUID, cpf is 11 digits, cnpj is 12 of [0-9A-Z] then
+ * 2 digits (format only, no check digits), else unknown.
+ */
+public func pixKeyType(key: String) -> PixKeyType  {
+    return try!  FfiConverterTypePixKeyType_lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_pix_key_type(
+        FfiConverterString.lower(key),$0
+    )
+})
+}
+/**
  * The status of a server for a device. With no current operator list, or a stale one
  * (`now_seconds >= expires`), only `FALLBACK_BIPE_SERVER` is `valid` (the A-3 default).
  */
@@ -3316,6 +3759,15 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_bipe_core_checksum_func_verify_issued_badge() != 23843) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_bipe_core_checksum_func_find_pix_code() != 9043) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_bipe_core_checksum_func_pix_crc16() != 17626) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_bipe_core_checksum_func_pix_key_type() != 62490) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_bipe_core_checksum_func_bipe_server_status() != 40715) {
