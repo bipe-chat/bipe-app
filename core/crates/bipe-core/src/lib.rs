@@ -7,6 +7,7 @@
 mod badge;
 mod issuer;
 mod pix;
+mod pix_marks;
 mod signed_list;
 mod theft;
 
@@ -18,6 +19,7 @@ mod generated {
 pub use badge::*;
 pub use issuer::*;
 pub use pix::*;
+pub use pix_marks::*;
 pub use signed_list::*;
 pub use theft::*;
 
