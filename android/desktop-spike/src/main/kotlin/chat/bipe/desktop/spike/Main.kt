@@ -8,7 +8,9 @@ import chat.bipe.core.harness.BadgeHarness
 import java.io.File
 import java.nio.file.Files
 import java.security.SecureRandom
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.matrix.rustcomponents.sdk.Client
 import org.matrix.rustcomponents.sdk.ClientBuildException
 import org.matrix.rustcomponents.sdk.ClientBuilder
@@ -38,6 +40,7 @@ fun main(args: Array<String>) = runBlocking {
     val key = ByteArray(32).also { SecureRandom().nextBytes(it) }
     val session = Session("synthetic-not-a-credential", null, USER, DEVICE, HOMESERVER,
                           null, SlidingSyncVersion.NATIVE)
+    var cleanupMillis = 0L
     try {
         buildClient(root, key).also { client ->
             try {
@@ -63,14 +66,22 @@ fun main(args: Array<String>) = runBlocking {
         } finally { wrongKey.fill(0) }
 
         println(BadgeHarness.run(vectors))
-        println("BIPE_WINDOWS_SPIKE {\"architecture\":\"x64\",\"sdkCoreSameJvm\":true," +
-                "\"encryptedStoreReopen\":true,\"wrongKeyRejected\":true," +
-                "\"realAccount\":false,\"sync\":false,\"compose\":false,\"arm64\":false}")
     } finally {
         key.fill(0)
-        // CI contains no real account or secret. Still require release of native SQLite file handles.
-        check(root.deleteRecursively()) { "SDK left the temporary store open" }
+        // Native SQLite workers may release handles after client.destroy() returns.
+        // Require complete removal within a bounded interval; do not rely on GC or process exit.
+        val cleanupStart = System.nanoTime()
+        withTimeout(10_000) {
+            while (!root.deleteRecursively()) delay(25)
+        }
+        check(!root.exists()) { "SDK left the temporary store open" }
+        cleanupMillis = (System.nanoTime() - cleanupStart) / 1_000_000
     }
+    // Emit success only after native teardown and filesystem cleanup have both passed.
+    println("BIPE_WINDOWS_SPIKE {\"architecture\":\"x64\",\"sdkCoreSameJvm\":true," +
+            "\"encryptedStoreReopen\":true,\"wrongKeyRejected\":true," +
+            "\"temporaryStoreRemoved\":true,\"storeCleanupMs\":$cleanupMillis," +
+            "\"realAccount\":false,\"sync\":false,\"compose\":false,\"arm64\":false}")
 }
 
 private suspend fun buildClient(root: File, key: ByteArray): Client {

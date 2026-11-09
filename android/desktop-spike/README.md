@@ -8,6 +8,8 @@ After building the DLL, change only `android_cleaner` to false in each upstream 
 
 The native test creates an encrypted SQLite store with a random in-memory key, restores a synthetic session, closes and reopens it, and requires a typed SDK failure with a different key. Temporary files must be released and removed. The session is synthetic; the harness does not sign in or sync with a server. It contains no account credentials and makes no real-client acceptance claim.
 
+On Windows, native SQLite workers can release file handles after client destruction returns. The harness retries removal for at most ten seconds, records the observed cleanup time and emits its success marker only after the directory is gone. It does not force garbage collection or accept cleanup only at process exit.
+
 Builds run only in GitHub CI. The job `windows-sdk-core-x64` must pass before this checkpoint can merge. Its `bipe-windows-sdk-spike-x64` artifact records source revisions, the shared version/build, native DLLs and test output. It is a diagnostic artifact, not an installable Bipe application. Windows stays planned in the parity ledger.
 
 ## Next checkpoints
