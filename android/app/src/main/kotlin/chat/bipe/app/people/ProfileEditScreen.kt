@@ -30,6 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -52,6 +53,7 @@ import android.graphics.BitmapFactory
 import chat.bipe.app.BipeTheme
 import chat.bipe.app.common.Avatar
 import chat.bipe.app.common.BipeToasts
+import chat.bipe.app.handle.HandlePickModel
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.BipeNameLookalikes
 import chat.bipe.shared.BipeProfileLink
@@ -163,6 +165,19 @@ fun ProfileEditScreen(people: PeopleService, onBack: () -> Unit, pickHandle: (()
         }
         loading = false
         stored?.let { people.syncPublicPhoto(it) }
+    }
+
+    // Back from handle-pick: the @ changed, so the public profile switch can turn on at once (bipe-chat/bipe#1328).
+    val handleChanges by HandlePickModel.changes.collectAsState()
+    LaunchedEffect(handleChanges) {
+        if (handleChanges == 0) return@LaunchedEffect
+        runCatching { people.withToken { people.api.myProfile(it) } }.onSuccess { profile ->
+            if (stored == null || !(publicEnabled != stored?.enabled || publicName.trim() != stored?.name || bio.trim() != stored?.bio)) {
+                applyProfile(profile)
+            } else {
+                stored = profile
+            }
+        }
     }
 
     val nameProblem = BipeProfileRules.problem(name, "")
