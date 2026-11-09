@@ -81,6 +81,7 @@ struct MacVideoViewer: View {
                 Text(video.file.name.filename).macFont(.headline).lineLimit(1)
                 Spacer()
                 Button(BipeStrings.appMediaSave) {
+                    guard !isSaving else { return }
                     saving = .saving
                     saveTask = Task {
                         do { try await media.save(video.file); if !Task.isCancelled { saving = .idle } }
