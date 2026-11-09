@@ -95,10 +95,28 @@ jobs:
           cargo build --locked --release --manifest-path core/tools/uniffi-bindgen/Cargo.toml
           bindgen="$PWD/core/tools/uniffi-bindgen/target/release/uniffi-bindgen.exe"
           out="$PWD/android/desktop-spike/generated"
+          # A CLI --config applies to every component in the DLL, collapsing their namespaces.
+          # Scope the JVM cleanup setting to matrix-sdk-ffi's own config instead. Rust source/DLL stay unchanged.
+          cp android/desktop-spike/sdk-uniffi.toml sdk-source/bindings/matrix-sdk-ffi/uniffi.toml
           (cd sdk-source && "$bindgen" generate --library target/x86_64-pc-windows-msvc/release/matrix_sdk_ffi.dll \
-            --config ../android/desktop-spike/sdk-uniffi.toml --language kotlin --out-dir "$out")
+            --language kotlin --out-dir "$out")
           (cd core && "$bindgen" generate --library target/x86_64-pc-windows-msvc/release/bipe_core.dll \
             --language kotlin --out-dir "$out")
+          # One generated component per package; support types such as RustBuffer must not collide.
+          node --input-type=module <<'JS'
+          import { readdirSync, readFileSync } from 'node:fs';
+          const root = 'android/desktop-spike/generated';
+          const packages = new Set();
+          for (const path of readdirSync(root, { recursive: true }).filter(path => path.endsWith('.kt'))) {
+            const name = readFileSync(`${root}/${path}`, 'utf8').match(/^package (\S+)/m)?.[1];
+            if (!name || packages.has(name)) throw new Error(`Generated component package collision: ${name}`);
+            packages.add(name);
+          }
+          if (!packages.has('org.matrix.rustcomponents.sdk') || !packages.has('chat.bipe.core')) {
+            throw new Error('Missing SDK/core component');
+          }
+          console.log(`Verified ${packages.size} distinct generated Kotlin component packages.`);
+          JS
           echo "BIPE_NATIVE_DIR=$(cygpath -m "$RUNNER_TEMP/windows-spike/natives")" >> "$GITHUB_ENV"
       - name: Load both DLLs and test the encrypted store through Kotlin/JVM
         env:

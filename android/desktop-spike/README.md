@@ -4,6 +4,8 @@ This standalone Kotlin/JVM harness is the first checkpoint of [bipe#1019](https:
 
 `windows-spike.yml` builds the unmodified Matrix SDK at the commit corresponding to the other clients' `sdk-version`, plus `bipe-core`. UniFFI generates Kotlin bindings for both DLLs. The SDK binding configuration keeps its namespace and library name, with Java cleanup instead of Android cleanup. Existing independent badge vectors run before and after SDK calls in the same JVM.
 
+Apply the Windows binding configuration only to the SDK FFI crate, after building the DLL. UniFFI's command-line `--config` overrides every component in the library and puts their support types in the same Kotlin package. Each component must keep its own namespace. CI checks the generated package names before compiling the harness.
+
 The native test creates an encrypted SQLite store with a random in-memory key, restores a synthetic session, closes and reopens it, and requires a typed SDK failure with a different key. Temporary files must be released and removed. The session is synthetic; the harness does not sign in or sync with a server. It contains no account credentials and makes no real-client acceptance claim.
 
 Builds run only in GitHub CI. The job `windows-sdk-core-x64` must pass before this checkpoint can merge. Its `bipe-windows-sdk-spike-x64` artifact records source revisions, the shared version/build, native DLLs and test output. It is a diagnostic artifact, not an installable Bipe application. Windows stays planned in the parity ledger.
