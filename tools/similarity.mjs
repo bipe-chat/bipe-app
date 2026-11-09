@@ -33,6 +33,16 @@
 // them (-n -1): every pair that can fail has its counts. A pair whose maximum
 // similarity alone is above THRESHOLD is no longer listed. The files JPlag
 // could not compare come from failedSubmissions in runInformation.json.
+//
+// Maximum-match rule (bipe-chat/bipe#1127): the average rule misses a block
+// copied into a large file, because the large file pulls the average down.
+// The scan therefore also looks for the longest run of consecutive code lines
+// that a Bipe file shares with any Element file, in Node, without JPlag.
+// A line is compared after comments and all whitespace are removed. Imports,
+// package lines, attributes and lines under MIN_LINE_CHARS characters (braces,
+// `} else {`) are not code lines: they are skipped, and a run continues over
+// them. A run of MAX_MATCH_LINES or more code lines fails. Renamed symbols
+// defeat this rule; the JPlag rule covers them for whole files.
 
 import { execFileSync } from 'node:child_process';
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
@@ -43,10 +53,82 @@ import { walk, isMain, REPO_ROOT } from './lib.mjs';
 export const THRESHOLD = 0.5;
 export const MIN_MATCHED_TOKENS = 100;
 
+export const MAX_MATCH_LINES = 12;
+export const MIN_LINE_CHARS = 8;
+
 export const LANGS = {
-  swift: { jplag: 'swift', ext: '.swift' },
-  kotlin: { jplag: 'kotlin', ext: '.kt' },
+  swift: { jplag: 'swift', exts: ['.swift'] },
+  kotlin: { jplag: 'kotlin', exts: ['.kt'] },
+  typescript: { jplag: 'typescript', exts: ['.ts', '.tsx'] },
 };
+
+export function hasLangExt(lang, file) {
+  return LANGS[lang].exts.some((ext) => file.endsWith(ext));
+}
+
+// The code lines of a file for the maximum-match rule, as
+// [{ text, line }] with 1-based line numbers. See the header.
+export function codeLines(source) {
+  // Blank out block comments but keep their newlines, so line numbers hold.
+  const text = source.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ''));
+  const out = [];
+  text.split('\n').forEach((raw, i) => {
+    const s = raw.replace(/(^|[^:])\/\/.*$/, '$1').replace(/\s+/g, '');
+    if (s.length < MIN_LINE_CHARS) return;
+    if (/^(import|package|@|#)/.test(s)) return;
+    out.push({ text: s, line: i + 1 });
+  });
+  return out;
+}
+
+// Longest shared runs of code lines. ours and theirs: Map(path -> source).
+// Returns one entry per (ours, theirs) pair with a run of minLines or more:
+// { ours, theirs, lines, oursLine, theirsLine }, the longest first.
+export function blockMatches(ours, theirs, minLines = MAX_MATCH_LINES) {
+  const ids = new Map();
+  const idsOf = (source) =>
+    codeLines(source).map((l) => {
+      if (!ids.has(l.text)) ids.set(l.text, ids.size);
+      return { id: ids.get(l.text), line: l.line };
+    });
+  const theirFiles = [...theirs].map(([path, source]) => ({ path, lines: idsOf(source) }));
+  // Every window of minLines code lines in an Element file, by its line ids.
+  const windows = new Map();
+  theirFiles.forEach((f, fi) => {
+    for (let i = 0; i + minLines <= f.lines.length; i++) {
+      const key = f.lines.slice(i, i + minLines).map((l) => l.id).join(',');
+      const hits = windows.get(key);
+      if (hits) hits.push([fi, i]);
+      else windows.set(key, [[fi, i]]);
+    }
+  });
+  const best = new Map();
+  for (const [path, source] of ours) {
+    const mine = idsOf(source);
+    for (let i = 0; i + minLines <= mine.length; i++) {
+      const hits = windows.get(mine.slice(i, i + minLines).map((l) => l.id).join(','));
+      if (!hits) continue;
+      let longest = 0;
+      for (const [fi, j] of hits) {
+        const other = theirFiles[fi];
+        let n = minLines;
+        while (i + n < mine.length && j + n < other.lines.length && mine[i + n].id === other.lines[j + n].id) n++;
+        const key = `${path}\0${other.path}`;
+        if (!best.has(key) || best.get(key).lines < n) {
+          best.set(key, { ours: path, theirs: other.path, lines: n, oursLine: mine[i].line, theirsLine: other.lines[j].line });
+        }
+        longest = Math.max(longest, n);
+      }
+      // Skip the rest of this run: its later windows only repeat the match.
+      i += longest - 1;
+    }
+  }
+  return [...best.values()].sort((x, y) => y.lines - x.lines);
+}
+
+function readSources(root, files) {
+  return new Map(files.map((f) => [f, readFileSync(join(root, f), 'utf8')]));
+}
 
 // Maps each file to a flat submission name: o00001_Name.swift (ours) or
 // t00001_Name.swift (theirs).
@@ -242,9 +324,9 @@ async function scan(opts) {
   if (!LANGS[lang]) throw new Error(`--lang must be one of ${Object.keys(LANGS).join(', ')}`);
   const threshold = opts.threshold ? Number(opts.threshold) : THRESHOLD;
   // Generated folders hold bipe-shared output (Bipe code), so they are not compared.
-  const oursFiles = walk(REPO_ROOT, opts.ours, { skipGenerated: true }).filter((f) => f.endsWith(LANGS[lang].ext));
+  const oursFiles = walk(REPO_ROOT, opts.ours, { skipGenerated: true }).filter((f) => hasLangExt(lang, f));
   if (!oursFiles.length) {
-    console.log(`::notice title=similarity::${opts.ours}/ holds no ${LANGS[lang].ext} files yet. Nothing to compare.`);
+    console.log(`::notice title=similarity::${opts.ours}/ holds no ${LANGS[lang].exts.join(' or ')} files yet. Nothing to compare.`);
     return 0;
   }
   const tag = await latestTag(opts.repo);
@@ -254,7 +336,7 @@ async function scan(opts) {
   execFileSync('git', ['clone', '--quiet', '--depth', '1', '--branch', tag, `https://github.com/${opts.repo}.git`, clone], {
     stdio: 'inherit',
   });
-  const theirsFiles = walk(clone).filter((f) => f.endsWith(LANGS[lang].ext));
+  const theirsFiles = walk(clone).filter((f) => hasLangExt(lang, f));
   const ours = flatNames(oursFiles, 'o');
   const theirs = flatNames(theirsFiles, 't');
   console.log(`similarity: ${oursFiles.length} Bipe file(s) against ${theirsFiles.length} file(s) of ${opts.repo}@${tag}`);
@@ -262,7 +344,30 @@ async function scan(opts) {
   const result = evaluate(rows, ours, theirs, threshold, tokens, MIN_MATCHED_TOKENS, failed);
   report(result, `${opts.repo}@${tag}`, threshold);
   console.log(`similarity: ${result.failures.length} pair(s) above ${threshold} with ${MIN_MATCHED_TOKENS} or more matched tokens`);
-  return result.failures.length ? 1 : 0;
+  const blocks = blockMatches(readSources(REPO_ROOT, oursFiles), readSources(clone, theirsFiles));
+  reportBlocks(blocks, `${opts.repo}@${tag}`);
+  console.log(`similarity: ${blocks.length} pair(s) share a run of ${MAX_MATCH_LINES} or more code lines`);
+  return result.failures.length || blocks.length ? 1 : 0;
+}
+
+function reportBlocks(blocks, label) {
+  for (const b of blocks) {
+    console.log(
+      `::error file=${b.ours},line=${b.oursLine},title=similarity::${b.ours}:${b.oursLine} shares ${b.lines} consecutive code lines with ${label}:${b.theirs}:${b.theirsLine} (limit ${MAX_MATCH_LINES})`,
+    );
+  }
+}
+
+// A copied block inside a larger file of other code must fail the
+// maximum-match rule, and the unrelated sample alone must pass. Runs in Node
+// only, so the unit tests use it too.
+export function blockSelfTest(lang) {
+  const [copied, unrelated] = SAMPLES[lang];
+  const ext = LANGS[lang].exts[0];
+  const large = `${unrelated}\n${copied}\n${unrelated.replaceAll('Store', 'Cache').replaceAll('Shape', 'Figure')}`;
+  const caught = blockMatches(new Map([[`Large${ext}`, large]]), new Map([[`Copied${ext}`, copied]]));
+  const clean = blockMatches(new Map([[`Unrelated${ext}`, unrelated]]), new Map([[`Copied${ext}`, copied]]));
+  return caught.length === 1 && caught[0].lines >= MAX_MATCH_LINES && clean.length === 0;
 }
 
 // Proves the JPlag call, the CSV parsing and the token counts work: a copied
@@ -277,12 +382,22 @@ const SAMPLES = {
     `class Counter {\n  private val values = mutableListOf<Int>()\n  fun add(v: Int) {\n    if (v > 10) {\n      values.add(v * 2)\n    } else {\n      values.add(v)\n    }\n  }\n  fun total(): Int {\n    var sum = 0\n    for (v in values) {\n      sum += v\n    }\n    return sum\n  }\n  fun largest(): Int? {\n    var best: Int? = null\n    for (v in values) {\n      if (best == null || v > best) {\n        best = v\n      }\n    }\n    return best\n  }\n  fun smallest(): Int? {\n    var best: Int? = null\n    for (v in values) {\n      if (best == null || v < best) {\n        best = v\n      }\n    }\n    return best\n  }\n  fun average(): Double {\n    if (values.isEmpty()) {\n      return 0.0\n    }\n    return total().toDouble() / values.size\n  }\n  fun removeAbove(limit: Int) {\n    val kept = mutableListOf<Int>()\n    for (v in values) {\n      if (v <= limit) {\n        kept.add(v)\n      }\n    }\n    values.clear()\n    values.addAll(kept)\n  }\n  fun count(target: Int): Int {\n    var n = 0\n    for (v in values) {\n      if (v == target) {\n        n += 1\n      }\n    }\n    return n\n  }\n  fun describe(): String {\n    val parts = mutableListOf<String>()\n    for (v in values) {\n      parts.add(v.toString())\n    }\n    return parts.joinToString(",")\n  }\n}\n`,
     `sealed class Shape {\n  data class Circle(val r: Double) : Shape()\n  data class Square(val a: Double) : Shape()\n}\nfun area(s: Shape): Double = when (s) {\n  is Shape.Circle -> 3.14159 * s.r * s.r\n  is Shape.Square -> s.a * s.a\n}\nfun describe(list: List<Shape>): String {\n  return list.map { area(it).toString() }.joinToString(";")\n}\nclass Store {\n  private val items = mutableMapOf<String, Double>()\n  fun put(k: String, v: Double) { items[k] = v }\n  fun get(k: String): Double = items[k] ?: 0.0\n}\n`,
   ],
+  typescript: [
+    `export class Counter {\n  private values: number[] = [];\n  add(v: number): void {\n    if (v > 10) {\n      this.values.push(v * 2);\n    } else {\n      this.values.push(v);\n    }\n  }\n  total(): number {\n    let sum = 0;\n    for (const v of this.values) {\n      sum += v;\n    }\n    return sum;\n  }\n  largest(): number | null {\n    let best: number | null = null;\n    for (const v of this.values) {\n      if (best === null || v > best) {\n        best = v;\n      }\n    }\n    return best;\n  }\n  smallest(): number | null {\n    let best: number | null = null;\n    for (const v of this.values) {\n      if (best === null || v < best) {\n        best = v;\n      }\n    }\n    return best;\n  }\n  average(): number {\n    if (this.values.length === 0) {\n      return 0;\n    }\n    return this.total() / this.values.length;\n  }\n  removeAbove(limit: number): void {\n    const kept: number[] = [];\n    for (const v of this.values) {\n      if (v <= limit) {\n        kept.push(v);\n      }\n    }\n    this.values = kept;\n  }\n  count(target: number): number {\n    let n = 0;\n    for (const v of this.values) {\n      if (v === target) {\n        n += 1;\n      }\n    }\n    return n;\n  }\n  describe(): string {\n    const parts: string[] = [];\n    for (const v of this.values) {\n      parts.push(String(v));\n    }\n    return parts.join(",");\n  }\n}\n`,
+    `type Shape = { kind: "circle"; r: number } | { kind: "square"; a: number };\nexport function area(s: Shape): number {\n  switch (s.kind) {\n    case "circle":\n      return 3.14159 * s.r * s.r;\n    case "square":\n      return s.a * s.a;\n  }\n}\nexport function describe(list: Shape[]): string {\n  return list.map((s) => String(area(s))).join(";");\n}\nexport class Store {\n  private items = new Map<string, number>();\n  put(k: string, v: number): void { this.items.set(k, v); }\n  get(k: string): number { return this.items.get(k) ?? 0; }\n}\n`,
+  ],
 };
 
 function selfTest(opts) {
-  let failed = 0;
+  let failures = 0;
   for (const lang of Object.keys(LANGS)) {
-    const ext = LANGS[lang].ext;
+    const ext = LANGS[lang].exts[0];
+    const blocksOk = blockSelfTest(lang);
+    console.log(`similarity self-test ${lang} (maximum match): ${blocksOk ? 'OK' : 'FAIL'}`);
+    if (!blocksOk) {
+      console.log(`::error title=similarity::self-test for ${lang} failed: a copied block inside a large file passed`);
+      failures++;
+    }
     const work = mkdtempSync(join(process.env.RUNNER_TEMP ?? tmpdir(), `similarity-self-test-${lang}-`));
     const src = join(work, 'src');
     mkdirSync(src);
@@ -299,10 +414,10 @@ function selfTest(opts) {
     console.log(`similarity self-test ${lang}: ${ok ? 'OK' : 'FAIL'} ${JSON.stringify(result)}`);
     if (!ok) {
       console.log(`::error title=similarity::self-test for ${lang} failed: JPlag did not flag a copied file`);
-      failed++;
+      failures++;
     }
   }
-  return failed ? 1 : 0;
+  return failures ? 1 : 0;
 }
 
 if (isMain(import.meta.url)) {

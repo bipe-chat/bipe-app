@@ -61,6 +61,13 @@ test('deny-list fails on io.element in a Gradle file and on Package.resolved', (
   assert.equal(errors.length, 2);
 });
 
+test('deny-list reads web/package.json', () => {
+  const root = tree({ 'web/package.json': '{"dependencies":{"@vector-im/compound-web":"1.0.0"}}\n' });
+  const { errors } = checkDenyList(root);
+  assert.ok(errors.some((e) => e.startsWith('web/package.json:1') && e.includes('compound-web')));
+  assert.deepEqual(checkDenyList(tree({ 'web/package.json': '{"dependencies":{"react":"19.0.0"}}\n' })).errors, []);
+});
+
 // Licences
 
 test('licences pass with no dependencies', () => {
