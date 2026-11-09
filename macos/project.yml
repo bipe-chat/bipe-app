@@ -51,6 +51,7 @@ targets:
       - path: ../ios/Bipe/Timeline/TimelinePill.swift
       - path: ../ios/Bipe/Timeline/TimelineDetails.swift
       - path: ../ios/Bipe/Media/Blurhash.swift
+      - path: ../ios/Bipe/Media/MediaFormat.swift
       - path: ../ios/Bipe/Media/Upload/VideoPreparation.swift
       - path: ../ios/BipeKit/Sources/BipeKit/Generated/AppIcons.xcassets
       - path: ../ios/Phosphor/Sources/Phosphor/Resources/Phosphor.xcassets

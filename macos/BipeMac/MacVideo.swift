@@ -17,11 +17,7 @@ struct MacVideo {
     }
     var durationLabel: String? {
         guard let duration = content.info?.duration, duration.isFinite, duration >= 0, duration < 86_400 * 365 else { return nil }
-        let format = DateComponentsFormatter()
-        format.allowedUnits = [.hour, .minute, .second]
-        format.unitsStyle = .positional
-        format.zeroFormattingBehavior = .pad
-        return format.string(from: duration)
+        return MediaFormat.duration(duration)
     }
     var previewSize: CGSize {
         let ratio = CGFloat(content.info?.width ?? 320) / max(1, CGFloat(content.info?.height ?? 240))

@@ -134,7 +134,7 @@ final class MacVideoTests: XCTestCase {
         XCTAssertTrue(payload.safetyText.contains("https://example.invalid/payment"))
         XCTAssertNotNil(payload.warning(including: nil, isOwn: false, eventID: "$video"))
         XCTAssertNil(MacMessagePayload(kind: .redacted, eventJson: nil)?.video)
-        XCTAssertNil(MacMessagePayload(kind: .unableToDecrypt, eventJson: nil)?.video)
+        XCTAssertNil(MacMessagePayload(kind: .unableToDecrypt(msg: .olmV1Curve25519AesSha2(senderKey: "synthetic")), eventJson: nil)?.video)
         XCTAssertEqual(MacAttachmentKind.of(URL(fileURLWithPath: "/video.MOV")), .video)
         XCTAssertEqual(MacAttachmentKind.of(URL(fileURLWithPath: "/video.mp4")), .video)
         XCTAssertEqual(MacAttachmentKind.of(URL(fileURLWithPath: "/file.pdf")), .file)
@@ -150,7 +150,7 @@ final class MacVideoTests: XCTestCase {
         XCTAssertEqual(message.composerPreview, BipeStrings.appMediaVideo)
         guard case .mediaCaption(let caption, _, _) = try message.editedContent("") else { return XCTFail("Media caption edit required") }
         XCTAssertEqual(caption, "")
-        XCTAssertNotNil(message.video?.durationLabel)
+        XCTAssertEqual(message.video?.durationLabel, "1:05")
         XCTAssertLessThanOrEqual(message.video?.previewSize.width ?? 0, 260)
     }
 
