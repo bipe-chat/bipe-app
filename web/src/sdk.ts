@@ -107,10 +107,13 @@ async function buildClient(slot: Stores, restored?: Session): Promise<Client> {
     .build();
 }
 
-// The SDK registers a native client (ApplicationType::Native) with MAS, so
-// the values match the phones (AccountSession+QRLogin.swift, QrLogin.kt): a
-// private-use redirect scheme and the public site as client URI. The QR flow
-// uses the device grant and never opens the redirect URI.
+// The static OAuth client of the web app (bipe-chat/bipe#914). MAS closes
+// dynamic registration, so the QR sign-in starts only from a static client.
+// Same ID as bipe-infra ess/bipe-security.yaml. The other fields match the
+// phones (AccountSession+QRLogin.swift, QrLogin.kt) and the SDK uses them only
+// for a server with no static client. The QR flow uses the device grant and
+// never opens the redirect URI.
+const OAUTH_CLIENT_ID = '01M70XQV1WKBZ8S9DASDS73MJG';
 export function oauthConfiguration(): OAuthConfiguration {
   return {
     clientName: 'Bipe Web',
@@ -119,7 +122,10 @@ export function oauthConfiguration(): OAuthConfiguration {
     logoUri: undefined,
     tosUri: undefined,
     policyUri: undefined,
-    staticRegistrations: new Map(),
+    staticRegistrations: new Map([
+      ['https://account.bipe.net.br/', OAUTH_CLIENT_ID],
+      ['https://matrix.bipe.net.br', OAUTH_CLIENT_ID],
+    ]),
   };
 }
 

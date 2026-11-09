@@ -190,9 +190,13 @@ final class MacAccount: ObservableObject {
             reader.cancel()
             if attempt == current { refreshTask?.cancel() }
         }
+        // The static OAuth client of the Mac app (bipe-chat/bipe#914): MAS closes dynamic registration. Same ID as
+        // bipe-infra ess/bipe-security.yaml.
+        let clientID = "01M70XR40N4X4KXSV2XZKJ6PCC"
         let oauth = OAuthConfiguration(clientName: "Bipe (Mac)", redirectUri: "chat.bipe.app.mac:/callback",
-                                       clientUri: "https://bipe.chat", logoUri: nil, tosUri: nil,
-                                       policyUri: nil, staticRegistrations: [:])
+                                       clientUri: "https://bipe.chat", logoUri: nil, tosUri: nil, policyUri: nil,
+                                       staticRegistrations: ["https://account.bipe.net.br/": clientID,
+                                                             "https://matrix.bipe.net.br": clientID])
         try await client.newLoginWithQrCodeHandler(oauthConfiguration: oauth).generate(progressListener: progress)
         progress.finish()
         await reader.value
