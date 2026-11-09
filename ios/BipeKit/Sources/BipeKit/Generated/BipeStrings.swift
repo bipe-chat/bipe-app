@@ -3010,6 +3010,8 @@ public enum BipeStrings {
 
     public static var notificationsPreviewFooter: String { NSLocalizedString("bipe_notifications_preview_footer", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var notificationsOpenSystem: String { NSLocalizedString("bipe_notifications_open_system", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var focusFilterTitle: String { NSLocalizedString("bipe_focus_filter_title", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var focusFilterDescription: String { NSLocalizedString("bipe_focus_filter_description", tableName: "Bipe", bundle: .module, comment: "") }
