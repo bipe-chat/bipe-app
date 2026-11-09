@@ -26,9 +26,11 @@ final class RecoveryAlertModel: ObservableObject {
     /// A deletion asked on another device. Shown when no recovery needs a notice.
     @Published private(set) var deletion: BipeAccountDeletion?
     @Published private(set) var phase: Phase = .shown
+    /// A PIN reset this phone started took effect (ADR 0283 rule 13). The value: the account has a recovery email.
+    @Published private(set) var pinResetDone: Bool?
 
-    private let api: BipeAPIClient
-    private let session: AccountSession
+    let api: BipeAPIClient
+    let session: AccountSession
     private let defaults = UserDefaults.standard
 
     init(api: BipeAPIClient, session: AccountSession) {
@@ -39,8 +41,14 @@ final class RecoveryAlertModel: ObservableObject {
     /// Action check: on launch and on foreground, from GET /v1/me/account.
     func check() async {
         guard !isShown || phase == .cancelled else { return }
+        // ADR 0283 rule 13: a PIN reset this phone started takes effect when this phone claims it after the wait.
+        let resetDone = await PinResetKeeper.claim(userId: session.userId, api: api) == .done
         let status = try? await BipeAPIClient.withTokenRetry(accessToken: { self.session.accessToken() }) { (token: String) async throws(BipeAPIError) -> BipeAccountStatus in
             try await self.api.account(accessToken: token)
+        }
+        if resetDone {
+            pinResetDone = status?.email != nil
+            return
         }
         guard let status else { return }
         let since = alertsSince()
@@ -60,7 +68,7 @@ final class RecoveryAlertModel: ObservableObject {
     }
 
     /// Whether the alert covers the screen.
-    var isShown: Bool { notice != nil || deletion != nil || linkNotice != nil }
+    var isShown: Bool { notice != nil || deletion != nil || linkNotice != nil || pinResetDone != nil }
 
     /// The deletion alert shows when no recovery alert does.
     var showsDeletion: Bool { notice == nil && deletion != nil }
@@ -128,8 +136,9 @@ final class RecoveryAlertModel: ObservableObject {
         defaults.set(Array(Set(defaults.stringArray(forKey: key) ?? []).union(eventIds)), forKey: key)
     }
 
-    /// Closes the cancelled message.
+    /// Closes the cancelled message, or the notice that the new PIN works.
     func close() {
+        pinResetDone = nil
         notice = nil
         deletion = nil
         phase = .shown
@@ -160,8 +169,50 @@ final class RecoveryAlertModel: ObservableObject {
 /// The alert covers the screen while a recovery waits: it is not a banner the person can miss.
 struct RecoveryAlertView: View {
     @ObservedObject var model: RecoveryAlertModel
+    @State private var showsEmail = false
 
     var body: some View {
+        if let hasEmail = model.pinResetDone {
+            pinResetDone(hasEmail: hasEmail)
+        } else {
+            alertContent
+        }
+    }
+
+    /// Spec account-pin-check claim and addEmail: the new PIN works; an account with no recovery email gets the offer.
+    private func pinResetDone(hasEmail: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            PhosphorIcon.checkCircle.image
+                .resizable()
+                .frame(width: 48, height: 48)
+                .foregroundStyle(BipeColor.accentInk)
+                .accessibilityHidden(true)
+            Text(BipeStrings.recoveryPinReady)
+                .font(.title2.bold())
+                .foregroundStyle(BipeColor.inkPrimary)
+            if !hasEmail {
+                Text(BipeStrings.pinResetAddEmail)
+                    .foregroundStyle(BipeColor.inkPrimary)
+            }
+            Spacer()
+            if !hasEmail {
+                filled(BipeStrings.fallbackEmail) { showsEmail = true }
+            }
+            Button { model.close() } label: {
+                Text(BipeStrings.actionContinue).frame(maxWidth: .infinity)
+            }
+            .controlSize(.large)
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(BipeColor.surfaceBase.ignoresSafeArea())
+        .tint(BipeColor.accentFill)
+        .sheet(isPresented: $showsEmail, onDismiss: { model.close() }) {
+            RecoveryEmailAddView(api: model.api, session: model.session, current: nil, pending: nil, pinSet: true) {}
+        }
+    }
+
+    private var alertContent: some View {
         VStack(alignment: .leading, spacing: 16) {
             PhosphorIcon.warningCircle.image
                 .resizable()

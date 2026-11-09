@@ -52,7 +52,7 @@ struct AccountDeleteView: View {
                 }
             }
             .sheet(isPresented: $showsForgot) {
-                PinForgotView(account: model.session.accountRead(model.api))
+                PinForgotView(account: model.session.pinAccount(model.api))
             }
             .navigationTitle(BipeStrings.deletionTitle)
             .navigationBarTitleDisplayMode(.inline)

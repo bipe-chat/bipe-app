@@ -58,7 +58,7 @@ fun DeviceVerificationScreen(model: DeviceVerificationModel, close: () -> Unit) 
         reason = stringResource(R.string.bipe_app_verify_biometric),
         pinTitle = stringResource(R.string.bipe_app_verify_incoming_title),
         pinReason = stringResource(R.string.bipe_pin_reason_approve_device, BipeRegistries.PIN_LENGTH.toString()),
-        account = model::readAccount,
+        account = model.pinAccount,
         checkPin = model::checkAccountPin,
     )
     val colors = BipeTheme.colors
