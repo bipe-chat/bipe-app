@@ -5678,6 +5678,22 @@ public enum BipeStrings {
         String(format: NSLocalizedString("bipe_group_link_preview_count", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
 
+    public static func feedPageTitle(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_feed_page_title", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var feedPublicLabel: String { NSLocalizedString("bipe_feed_public_label", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var feedEmpty: String { NSLocalizedString("bipe_feed_empty", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var feedOlder: String { NSLocalizedString("bipe_feed_older", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var feedAllPosts: String { NSLocalizedString("bipe_feed_all_posts", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func feedNotify(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_feed_notify", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
     public static var groupsServiceName: String { NSLocalizedString("bipe_groups_service_name", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var groupsServiceAbout: String { NSLocalizedString("bipe_groups_service_about", tableName: "Bipe", bundle: .module, comment: "") }
