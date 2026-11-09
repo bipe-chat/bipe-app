@@ -54,6 +54,19 @@ public enum BipeForwardMark {
         return String(data: data, encoding: .utf8)
     }
 
+    /// The Bipe fields of forwarded content (keys that start with "chat.bipe.", the forward mark among them) as a JSON
+    /// object, for Timeline.sendWithExtraContent: the typed message content carries the rest (bipe-chat/bipe#1124).
+    /// nil when the JSON cannot be read or has no forward mark, so that no copy goes out without its mark.
+    public static func extraContentJson(contentJson: String) -> String? {
+        guard let content = contentObject(contentJson), content[BipeRegistries.forwardKey] != nil else { return nil }
+        let extra = content.filter { $0.key.hasPrefix(bipeFieldPrefix) }
+        guard let data = try? JSONSerialization.data(withJSONObject: extra) else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+
+    /// The prefix of Bipe's own content fields (registries: forwardKey, imageDescriptionField, ...).
+    static let bipeFieldPrefix = "chat.bipe."
+
     /// The source line for a voice message (voice marker) or audio file with this forward count.
     public static func source(isVoice: Bool, count: Int) -> Source {
         if count >= BipeRegistries.forwardedManyTimes { return .forwardedManyTimes }

@@ -58,17 +58,25 @@ import chat.bipe.shared.media.BipeForwardMark
 import kotlinx.coroutines.launch
 import org.matrix.rustcomponents.sdk.Client
 import org.matrix.rustcomponents.sdk.Membership
+import org.matrix.rustcomponents.sdk.MessageContent
+import org.matrix.rustcomponents.sdk.contentWithoutRelationFromMessage
+
+/**
+ * One message a forward sends (spec message-forward send): the typed content of the row and the original content JSON
+ * with the forward mark. The typed content goes through the send queue; the JSON gives the Bipe fields and the count.
+ */
+class ForwardContent(val message: MessageContent, val contentJson: String)
 
 /** Type ForwardChat of spec message-forward. */
 data class ForwardChat(val roomId: String, val name: String, val avatarUrl: String?)
 
 /**
  * Spec message-forward (bipe-chat/bipe#664, bipe-chat/bipe#860): the chat picker for copies of sent messages, in timeline order.
- * [contentJsons] are the original contents with the forward mark (BipeForwardMark, bipe-chat/bipe#83). [onClose] gets the
+ * [contents] carry the forward mark (BipeForwardMark, bipe-chat/bipe#83). [onClose] gets the
  * names of the chats whose send failed, or null after cancel.
  */
 @Composable
-fun MessageForwardSheet(client: Client, contentJsons: List<String>, media: MediaLoader, onClose: (List<String>?) -> Unit) {
+fun MessageForwardSheet(client: Client, contents: List<ForwardContent>, media: MediaLoader, onClose: (List<String>?) -> Unit) {
     val colors = BipeTheme.colors
     val scope = rememberCoroutineScope()
     val noName = stringResource(R.string.bipe_dm_no_name)
@@ -78,7 +86,7 @@ fun MessageForwardSheet(client: Client, contentJsons: List<String>, media: Media
     var sending by remember { mutableStateOf(false) }
     var showsLimit by remember { mutableStateOf(false) }
     // State picked: forwardChats, or forwardChatsManyTimes when a sent content reaches forwardedManyTimes (bipe-chat/bipe#933).
-    val limit = remember(contentJsons) { BipeForwardMark.chatLimit(contentJsons.map { BipeForwardMark.count(it) }) }
+    val limit = remember(contents) { BipeForwardMark.chatLimit(contents.map { BipeForwardMark.count(it.contentJson) }) }
     // State chats: joined chats, spaces left out, by name.
     LaunchedEffect(client) {
         chats = runCatching { client.rooms() }.getOrDefault(emptyList())
@@ -113,8 +121,14 @@ fun MessageForwardSheet(client: Client, contentJsons: List<String>, media: Media
             val failed = picked.filter { roomId ->
                 runCatching {
                     val room = client.getRoom(roomId) ?: error("no room")
-                    // Room.sendRaw encrypts in an encrypted room. Media keeps its source: nothing is uploaded again.
-                    contentJsons.forEach { room.sendRaw("m.room.message", it) }
+                    // The room's send queue (bipe-chat/bipe#1124): local echo, encryption, and a retry after the
+                    // connection comes back. Media keeps its source: nothing is uploaded again.
+                    room.timeline().use { timeline ->
+                        contents.forEach {
+                            val extra = BipeForwardMark.extraContentJson(it.contentJson) ?: error("no forward mark")
+                            timeline.sendWithExtraContent(contentWithoutRelationFromMessage(it.message), extra)
+                        }
+                    }
                 }.isFailure
             }.map { roomId -> chats.firstOrNull { it.roomId == roomId }?.name ?: roomId }
             sending = false

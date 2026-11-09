@@ -62,6 +62,19 @@ object BipeForwardMark {
         return forwardedContent(original, newContent).toString()
     }
 
+    /**
+     * The Bipe fields of forwarded content (keys that start with "chat.bipe.", the forward mark among them) as a JSON
+     * object, for Timeline.sendWithExtraContent: the typed message content carries the rest (bipe-chat/bipe#1124).
+     * null when the JSON cannot be read or has no forward mark, so that no copy goes out without its mark.
+     */
+    fun extraContentJson(contentJson: String): String? {
+        val content = content(contentJson)?.takeIf { it.containsKey(BipeRegistries.FORWARD_KEY) } ?: return null
+        return JsonObject(content.filterKeys { it.startsWith(BIPE_FIELD_PREFIX) }).toString()
+    }
+
+    /** The prefix of Bipe's own content fields (registries: FORWARD_KEY, IMAGE_DESCRIPTION_FIELD, ...). */
+    private const val BIPE_FIELD_PREFIX = "chat.bipe."
+
     /** The source line for a voice message (voice marker) or audio file with this forward count. */
     fun source(isVoice: Boolean, count: Int): Source = when {
         count >= BipeRegistries.FORWARDED_MANY_TIMES -> Source.FORWARDED_MANY_TIMES
