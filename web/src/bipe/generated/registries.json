@@ -3903,7 +3903,7 @@
    "member": 0
   },
   "publicationOnly": {
-   "$comment": "bipe ADR 0280, bipe-chat/bipe#1263. A group with this state event and enabled true: members below minPostLevel send only a thread reply, an edit, a reaction or a redaction. bipe-infra compose/synapse-modules/bipe_messaging.py enforces it with the same values: change both.",
+   "$comment": "bipe ADR 0280, bipe-chat/bipe#1263. A group with this state event and enabled true: members below minPostLevel send only a thread reply, an edit, a reaction or a redaction. bipe-infra compose/synapse-modules/bipe_messaging.py enforces it with the same values: change both. feedPostKey (bipe-chat/bipe#1260): a group post that the admin's app also sent to the public feed at bipe.chat/@handle carries this top-level object, {id, url} of the feed post. The app shows Público on it and deletes the feed post when the message is deleted. A forward drops it.",
    "stateEvent": "chat.bipe.publication_only",
    "minPostLevel": 50,
    "memberRelations": [
@@ -3913,7 +3913,8 @@
    "memberEventTypes": [
     "m.reaction",
     "m.room.redaction"
-   ]
+   ],
+   "feedPostKey": "chat.bipe.feed_post"
   },
   "usersDefault": 0,
   "eventsDefault": 0,
@@ -6769,6 +6770,10 @@
    "bipe_group_publication_only_title": "Só admins publicam",
    "bipe_group_publication_only_footer": "Admins e moderadores publicam. Os outros membros comentam nas conversas.",
    "bipe_group_publication_only_bar": "Só admins publicam neste grupo. Para comentar, toque e segure uma publicação e escolha Responder em conversa.",
+   "bipe_group_public_feed_title": "Público em bipe.chat/@%1$s",
+   "bipe_group_public_feed_footer": "Novas publicações deste grupo aparecem em bipe.chat/@%1$s para qualquer pessoa, e o Bipe consegue ler essas publicações. As publicações antigas continuam privadas. Os comentários ficam só no grupo.",
+   "bipe_group_public_feed_composer": "Esta publicação também vai para bipe.chat/@%1$s.",
+   "bipe_group_public_feed_failed": "Não deu para publicar em bipe.chat/@%1$s. A mensagem não foi enviada.",
    "bipe_group_requests": "Pedidos para entrar",
    "bipe_group_request_accept": "Aceitar",
    "bipe_group_request_decline": "Recusar",
@@ -6892,6 +6897,12 @@
    "bipe_group_link_open_history": "Você vai ver as mensagens enviadas depois que entrar.",
    "bipe_group_link_preview_title": "Grupo %1$s no Bipe",
    "bipe_group_link_preview_count": "Pessoas no grupo: %1$s. Toque para entrar.",
+   "bipe_feed_page_title": "%1$s no Bipe",
+   "bipe_feed_public_label": "Público",
+   "bipe_feed_empty": "Ainda não há publicações.",
+   "bipe_feed_older": "Publicações anteriores",
+   "bipe_feed_all_posts": "Todas as publicações",
+   "bipe_feed_notify": "Instale o Bipe para receber um aviso quando %1$s publicar.",
    "bipe_groups_service_name": "Bipe Grupos",
    "bipe_groups_service_about": "Esta conta convida quem abre o link do grupo. Ela não lê as mensagens.",
    "bipe_year_recap_title": "Suas estatísticas",
@@ -9357,6 +9368,10 @@
    "bipe_group_publication_only_title": "Only admins post",
    "bipe_group_publication_only_footer": "Admins and moderators post. Other members comment in threads.",
    "bipe_group_publication_only_bar": "Only admins post in this group. To comment, touch and hold a post and choose Reply in thread.",
+   "bipe_group_public_feed_title": "Public at bipe.chat/@%1$s",
+   "bipe_group_public_feed_footer": "New posts in this group show at bipe.chat/@%1$s for anyone, and Bipe can read them. Older posts stay private. Comments stay in the group.",
+   "bipe_group_public_feed_composer": "This post also goes to bipe.chat/@%1$s.",
+   "bipe_group_public_feed_failed": "Could not post to bipe.chat/@%1$s. The message was not sent.",
    "bipe_group_requests": "Requests to join",
    "bipe_group_request_accept": "Accept",
    "bipe_group_request_decline": "Decline",
@@ -9480,6 +9495,12 @@
    "bipe_group_link_open_history": "You'll see messages sent after you join.",
    "bipe_group_link_preview_title": "Group %1$s on Bipe",
    "bipe_group_link_preview_count": "People in the group: %1$s. Tap to join.",
+   "bipe_feed_page_title": "%1$s on Bipe",
+   "bipe_feed_public_label": "Public",
+   "bipe_feed_empty": "No posts yet.",
+   "bipe_feed_older": "Older posts",
+   "bipe_feed_all_posts": "All posts",
+   "bipe_feed_notify": "Install Bipe to get a notice when %1$s posts.",
    "bipe_groups_service_name": "Bipe Grupos",
    "bipe_groups_service_about": "This account invites people who open the group link. It reads no messages.",
    "bipe_year_recap_title": "Your stats",

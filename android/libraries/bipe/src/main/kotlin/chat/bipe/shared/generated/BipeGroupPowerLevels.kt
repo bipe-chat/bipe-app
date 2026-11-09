@@ -32,6 +32,8 @@ object BipeGroupPowerLevels {
     const val PUBLICATION_ONLY_EVENT: String = "chat.bipe.publication_only"
     /** Below this level a member of a publication-only group sends only thread replies, edits, reactions and redactions. */
     const val PUBLICATION_ONLY_MIN_POST_LEVEL: Long = 50L
+    /** The content key of a group post that also went to the public feed (bipe-chat/bipe#1260): {id, url} of the feed post. */
+    const val FEED_POST_KEY: String = "chat.bipe.feed_post"
     val EVENTS: Map<String, Long> = mapOf(
         "chat.bipe.assistant" to 0L,
         "m.call.member" to 0L,

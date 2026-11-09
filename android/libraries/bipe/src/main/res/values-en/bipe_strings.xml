@@ -2337,6 +2337,10 @@
     <string name="bipe_group_publication_only_title">Only admins post</string>
     <string name="bipe_group_publication_only_footer">Admins and moderators post. Other members comment in threads.</string>
     <string name="bipe_group_publication_only_bar">Only admins post in this group. To comment, touch and hold a post and choose Reply in thread.</string>
+    <string name="bipe_group_public_feed_title">Public at bipe.chat/@%1$s</string>
+    <string name="bipe_group_public_feed_footer">New posts in this group show at bipe.chat/@%1$s for anyone, and Bipe can read them. Older posts stay private. Comments stay in the group.</string>
+    <string name="bipe_group_public_feed_composer">This post also goes to bipe.chat/@%1$s.</string>
+    <string name="bipe_group_public_feed_failed">Could not post to bipe.chat/@%1$s. The message was not sent.</string>
     <string name="bipe_group_requests">Requests to join</string>
     <string name="bipe_group_request_accept">Accept</string>
     <string name="bipe_group_request_decline">Decline</string>
@@ -2460,6 +2464,12 @@
     <string name="bipe_group_link_open_history">You\'ll see messages sent after you join.</string>
     <string name="bipe_group_link_preview_title">Group %1$s on Bipe</string>
     <string name="bipe_group_link_preview_count">People in the group: %1$s. Tap to join.</string>
+    <string name="bipe_feed_page_title">%1$s on Bipe</string>
+    <string name="bipe_feed_public_label">Public</string>
+    <string name="bipe_feed_empty">No posts yet.</string>
+    <string name="bipe_feed_older">Older posts</string>
+    <string name="bipe_feed_all_posts">All posts</string>
+    <string name="bipe_feed_notify">Install Bipe to get a notice when %1$s posts.</string>
     <string name="bipe_groups_service_name">Bipe Grupos</string>
     <string name="bipe_groups_service_about">This account invites people who open the group link. It reads no messages.</string>
     <string name="bipe_year_recap_title">Your stats</string>
