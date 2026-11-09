@@ -2,10 +2,11 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
-//! The single-issuer badge verifier (bipe-shared docs/badge-attestation.md, format v1).
-//! Spike of bipe-chat/bipe#1172: no production client calls this code.
-//! It covers no issuer registry, so a badge of level `person` or `org` is `malformed`
-//! (the spec's case `verifierWithoutSchemes`).
+//! The badge verifier (bipe-shared docs/badge-attestation.md, format v1).
+//! `verify_bound_sender_badge` and `verify_public_issuer_statement` take a flat key list and no
+//! issuer registry, so a badge of level `person` or `org` is `malformed` there (the spec's case
+//! `verifierWithoutSchemes`). `verify_issued_badge` in `issuer.rs` takes the issuer registry
+//! (bipe-chat/bipe#637) and runs every step of "Verification order".
 
 use base64::Engine;
 use base64::alphabet;
@@ -22,6 +23,9 @@ const BASE64URL: GeneralPurpose = GeneralPurpose::new(
         .with_decode_allow_trailing_bits(true)
         .with_decode_padding_mode(DecodePaddingMode::RequireNone),
 );
+
+/// A badge without `iss` is from this issuer.
+pub const BIPE_ISSUER: &str = "bipe";
 
 /// Parser rules: `iat` and `exp` range (31 December 9999, UTC).
 const MAX_BADGE_TIME: i64 = 253_402_300_799;
@@ -41,6 +45,10 @@ pub enum BadgeLevel {
     Institution,
     Cnpj,
     BrandMark,
+    /// ADR 0272: a person proved by a scheme of any country.
+    Person,
+    /// ADR 0272: a company proved by a scheme of any country.
+    Org,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, uniffi::Enum)]
@@ -61,6 +69,15 @@ pub enum BadgeFailure {
     NotYetValid,
     SubjectMismatch,
     MasterKeyMismatch,
+    /// Steps 2, 6 to 9 and 12 of "Verification order": only `verify_issued_badge` gives these.
+    UnknownIssuer,
+    IssuerMismatch,
+    LevelNotAllowed,
+    UnknownScheme,
+    SchemeNotAllowed,
+    SchemeMismatch,
+    LifeTooLong,
+    RegionMismatch,
 }
 
 /// The signed fields. Every optional field is absent when the payload has no value for it.
@@ -84,6 +101,18 @@ pub struct BadgeClaims {
     pub domains: Vec<String>,
     /// The `cvm` value as JSON text. A bad value changes nothing in the verdict, so the caller reads it leniently.
     pub cvm_json: Option<String>,
+    /// The payload `iss`. Absent means `bipe`.
+    pub iss: String,
+    /// `person` and `org` (ADR 0272): ISO 3166-1 alpha-2 country of the scheme.
+    pub country: Option<String>,
+    /// `person` and `org`: the scheme ID, for example `nl.kvk`.
+    pub scheme: Option<String>,
+    /// `person` and `org`: the assurance of the scheme.
+    pub assurance: Option<String>,
+    /// `org`: the company's number in its registry. Opaque.
+    pub org_id: Option<String>,
+    /// `person` and `org`: the `ext` object as JSON text. Not an object: absent. It never changes the verdict.
+    pub ext_json: Option<String>,
 }
 
 /// Context "Bound sender badge": the issuer attests to this sender, and the badge
@@ -168,6 +197,14 @@ pub fn badge_failure_code(failure: BadgeFailure) -> String {
         BadgeFailure::NotYetValid => "not_yet_valid",
         BadgeFailure::SubjectMismatch => "subject_mismatch",
         BadgeFailure::MasterKeyMismatch => "master_key_mismatch",
+        BadgeFailure::UnknownIssuer => "unknown_issuer",
+        BadgeFailure::IssuerMismatch => "issuer_mismatch",
+        BadgeFailure::LevelNotAllowed => "level_not_allowed",
+        BadgeFailure::UnknownScheme => "unknown_scheme",
+        BadgeFailure::SchemeNotAllowed => "scheme_not_allowed",
+        BadgeFailure::SchemeMismatch => "scheme_mismatch",
+        BadgeFailure::LifeTooLong => "life_too_long",
+        BadgeFailure::RegionMismatch => "region_mismatch",
     }
     .to_owned()
 }
@@ -190,8 +227,19 @@ pub fn public_statement_result_code(result: PublicStatementResult) -> String {
     }
 }
 
-/// Steps 1 to 5 and step 10 of "Verification order", which both contexts share.
+/// Steps 1 to 5 and step 10 of "Verification order", which both flat-key contexts share.
 fn verified_claims(envelope_json: &str, trusted_keys: &[TrustedKey], now: i64) -> Result<BadgeClaims, BadgeFailure> {
+    let payload_bytes = signed_payload(envelope_json, |_, kid| key_for(trusted_keys, kid))?;
+    let claims = parse_claims(&payload_bytes, false).ok_or(BadgeFailure::Malformed)?;
+    check_time(&claims, now)?;
+    Ok(claims)
+}
+
+/// Steps 1 to 4. `find_key` gets the envelope and `kid`, and does steps 2 and 3. It returns the payload bytes.
+pub(crate) fn signed_payload(
+    envelope_json: &str,
+    find_key: impl FnOnce(&Map<String, Value>, &str) -> Result<VerifyingKey, BadgeFailure>,
+) -> Result<Vec<u8>, BadgeFailure> {
     use BadgeFailure::*;
 
     let envelope: Map<String, Value> = serde_json::from_str(envelope_json).map_err(|_| Malformed)?;
@@ -203,31 +251,39 @@ fn verified_claims(envelope_json: &str, trusted_keys: &[TrustedKey], now: i64) -
     let text = |key: &str| envelope.get(key).and_then(Value::as_str).ok_or(Malformed);
     let (kid, payload, sig) = (text("kid")?, text("payload")?, text("sig")?);
 
-    let key = trusted_keys
-        .iter()
-        .find(|key| key.kid == kid)
-        .and_then(|key| <[u8; 32]>::try_from(key.public_key.as_slice()).ok())
-        .and_then(|key| VerifyingKey::from_bytes(&key).ok())
-        .ok_or(UnknownKid)?;
+    let key = find_key(&envelope, kid)?;
 
     let payload_bytes = BASE64URL.decode(payload).map_err(|_| Malformed)?;
     let signature_bytes = BASE64URL.decode(sig).map_err(|_| Malformed)?;
     let signature = <[u8; 64]>::try_from(signature_bytes.as_slice()).map_err(|_| InvalidSignature)?;
     // The exact bytes, never a re-serialised payload. Strict verification accepts no more than the current providers.
     key.verify_strict(&payload_bytes, &Signature::from_bytes(&signature)).map_err(|_| InvalidSignature)?;
+    Ok(payload_bytes)
+}
 
-    let claims = parse_claims(&payload_bytes).ok_or(Malformed)?;
+/// The key of `kid` in a flat list. A key that is not 32 bytes matches no badge.
+pub(crate) fn key_for(keys: &[TrustedKey], kid: &str) -> Result<VerifyingKey, BadgeFailure> {
+    keys.iter()
+        .find(|key| key.kid == kid)
+        .and_then(|key| <[u8; 32]>::try_from(key.public_key.as_slice()).ok())
+        .and_then(|key| VerifyingKey::from_bytes(&key).ok())
+        .ok_or(BadgeFailure::UnknownKid)
+}
+
+/// Step 10.
+pub(crate) fn check_time(claims: &BadgeClaims, now: i64) -> Result<(), BadgeFailure> {
     if now >= claims.exp {
-        return Err(Expired);
+        return Err(BadgeFailure::Expired);
     }
     if now < claims.iat {
-        return Err(NotYetValid);
+        return Err(BadgeFailure::NotYetValid);
     }
-    Ok(claims)
+    Ok(())
 }
 
 /// Step 5. `None` is `malformed`. A known field of the wrong type is `malformed` on every level.
-fn parse_claims(payload_bytes: &[u8]) -> Option<BadgeClaims> {
+/// `schemes`: the verifier knows the levels `person` and `org` (ADR 0272). Without it they are unknown levels.
+pub(crate) fn parse_claims(payload_bytes: &[u8], schemes: bool) -> Option<BadgeClaims> {
     let text = std::str::from_utf8(payload_bytes).ok()?;
     let payload: Map<String, Value> = serde_json::from_str(text).ok()?;
 
@@ -237,6 +293,8 @@ fn parse_claims(payload_bytes: &[u8]) -> Option<BadgeClaims> {
         "institution" => BadgeLevel::Institution,
         "cnpj" => BadgeLevel::Cnpj,
         "brand-mark" => BadgeLevel::BrandMark,
+        "person" if schemes => BadgeLevel::Person,
+        "org" if schemes => BadgeLevel::Org,
         _ => return None,
     };
     let method = match optional_text(&payload, "method").ok()? {
@@ -265,6 +323,12 @@ fn parse_claims(payload_bytes: &[u8]) -> Option<BadgeClaims> {
         label: owned("label")?,
         domains: if level == BadgeLevel::Institution { domains(payload.get("domains"))? } else { Vec::new() },
         cvm_json: payload.get("cvm").filter(|cvm| !cvm.is_null()).map(Value::to_string),
+        iss: owned("iss")?.unwrap_or_else(|| BIPE_ISSUER.to_owned()),
+        country: owned("country")?,
+        scheme: owned("scheme")?,
+        assurance: owned("assurance")?,
+        org_id: owned("org_id")?,
+        ext_json: payload.get("ext").filter(|ext| ext.is_object()).map(Value::to_string),
     };
 
     let cnpj_ok = claims.cnpj.as_deref().is_some_and(is_cnpj);
@@ -283,6 +347,17 @@ fn parse_claims(payload_bytes: &[u8]) -> Option<BadgeClaims> {
                 && claims.mark.as_deref().is_some_and(|mark| !mark.is_empty())
                 && claims.brand.as_deref().is_some_and(|brand| !brand.is_empty())
                 && claims.label.as_deref().is_some_and(|label| BRAND_MARK_LABELS.contains(&label))
+        }
+        BadgeLevel::Person | BadgeLevel::Org => {
+            let filled = |value: &Option<String>| value.as_deref().is_some_and(|v| !v.is_empty());
+            !claims.name.is_empty()
+                && filled(&claims.assurance)
+                && claims.country.as_deref().is_some_and(is_country)
+                && claims.scheme.as_deref().is_some_and(is_scheme_id)
+                && (level == BadgeLevel::Person
+                    // JavaScript `length` counts UTF-16 units.
+                    || (claims.org_id.as_deref().is_some_and(|id| (1..=128).contains(&id.encode_utf16().count()))
+                        && claims.legal_name.as_deref().is_none_or(|name| !name.is_empty())))
         }
     };
     level_ok.then_some(claims)
@@ -331,6 +406,20 @@ fn is_cnpj(cnpj: &str) -> bool {
     bytes.len() == 14
         && bytes[..12].iter().all(|b| b.is_ascii_digit() || b.is_ascii_uppercase())
         && bytes[12..].iter().all(u8::is_ascii_digit)
+}
+
+/// `^[A-Z]{2}$`
+fn is_country(country: &str) -> bool {
+    country.len() == 2 && country.bytes().all(|b| b.is_ascii_uppercase())
+}
+
+/// `^[a-z]{2}\.[a-z0-9-]{1,30}$`
+pub(crate) fn is_scheme_id(id: &str) -> bool {
+    let b = id.as_bytes();
+    (4..=33).contains(&b.len())
+        && b[..2].iter().all(u8::is_ascii_lowercase)
+        && b[2] == b'.'
+        && b[3..].iter().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || *c == b'-')
 }
 
 /// `^[0-9]{4}-(0[1-9]|1[0-2])$`
