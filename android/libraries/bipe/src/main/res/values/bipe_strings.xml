@@ -1301,6 +1301,7 @@
     <string name="bipe_notifications_account_footer">Estas escolhas valem para a conta %1$s.</string>
     <string name="bipe_notifications_preview">Mostrar o texto da mensagem</string>
     <string name="bipe_notifications_preview_footer">Desligado, a notificação mostra só que chegou uma mensagem.</string>
+    <string name="bipe_notifications_open_system">Abrir configurações de notificação</string>
     <string name="bipe_focus_filter_title">Contas do Bipe</string>
     <string name="bipe_focus_filter_description">Escolha quais contas do Bipe podem notificar neste Foco.</string>
     <string name="bipe_focus_filter_accounts">Contas</string>
