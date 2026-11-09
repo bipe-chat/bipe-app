@@ -25,7 +25,7 @@ enum VideoPreparation {
         var output = source
         if !highQuality {
             let target = work.appendingPathComponent(source.deletingPathExtension().lastPathComponent).appendingPathExtension("mp4")
-            guard let export = AVAssetExportSession(asset: AVURLAsset(url: source), presetName: AVAssetExportPreset1280x720) else {
+            guard let export = AVAssetExportSession(asset: try localAsset(source), presetName: AVAssetExportPreset1280x720) else {
                 throw CocoaError(.fileReadCorruptFile)
             }
             export.shouldOptimizeForNetworkUse = true
@@ -38,7 +38,7 @@ enum VideoPreparation {
             output = target
         }
         try Task.checkCancellation()
-        let asset = AVURLAsset(url: output)
+        let asset = try localAsset(output)
         guard let track = try await asset.loadTracks(withMediaType: .video).first,
               try await asset.load(.isPlayable) else { throw CocoaError(.fileReadCorruptFile) }
         let duration = try await asset.load(.duration).seconds
@@ -68,6 +68,14 @@ enum VideoPreparation {
                              thumbnailSource: nil, blurhash: Blurhash.encode(frame))
         completed = true
         return Prepared(file: output, thumbnail: thumbnail, info: info)
+    }
+
+    /// Matrix transfers one self-contained file. A movie must not resolve external files or URLs.
+    static func localAsset(_ url: URL) throws -> AVURLAsset {
+        guard url.isFileURL else { throw CocoaError(.fileReadUnsupportedScheme) }
+        return AVURLAsset(url: url, options: [
+            AVURLAssetReferenceRestrictionsKey: NSNumber(value: AVAssetReferenceRestrictions.forbidAll.rawValue),
+        ])
     }
 
     private static func fileSize(_ url: URL) -> UInt64 {

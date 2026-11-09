@@ -76,6 +76,12 @@ final class MacVideoTests: XCTestCase {
         return MacDownloadedFile(folder: folder, file: file, handle: MediaFileHandle(noHandle: .init()))
     }
 
+    func testAssetsAreLocalAndCannotFollowReferencesOutsideTheirContainer() throws {
+        let local = try VideoPreparation.localAsset(URL(fileURLWithPath: "/synthetic/video.mov"))
+        XCTAssertEqual(local.referenceRestrictions, .forbidAll)
+        XCTAssertThrowsError(try VideoPreparation.localAsset(try XCTUnwrap(URL(string: "https://example.invalid/video.mov"))))
+    }
+
     func testSharedStandardPreparationScalesVideoDropsMetadataAndWritesThumbnailAndBlurhash() async throws {
         let root = try folder(); defer { try? FileManager.default.removeItem(at: root) }
         let source = try await movie(in: root)

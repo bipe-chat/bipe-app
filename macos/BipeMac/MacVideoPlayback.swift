@@ -48,7 +48,7 @@ final class MacVideoPlayback: ObservableObject {
             do {
                 try Task.checkCancellation()
                 guard isLoading(revision), lease.file.isFileURL else { throw CancellationError() }
-                let asset = AVURLAsset(url: lease.file)
+                let asset = try VideoPreparation.localAsset(lease.file)
                 guard try await asset.load(.isPlayable), !(try await asset.loadTracks(withMediaType: .video)).isEmpty else {
                     throw CocoaError(.fileReadCorruptFile)
                 }
