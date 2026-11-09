@@ -4,7 +4,7 @@ This standalone Kotlin/JVM harness is the first checkpoint of [bipe#1019](https:
 
 `windows-spike.yml` builds the unmodified Matrix SDK at the commit corresponding to the other clients' `sdk-version`, plus `bipe-core`. UniFFI generates Kotlin bindings for both DLLs. The SDK binding configuration keeps its namespace and library name, with Java cleanup instead of Android cleanup. Existing independent badge vectors run before and after SDK calls in the same JVM.
 
-Apply the Windows binding configuration only to the SDK FFI crate, after building the DLL. UniFFI's command-line `--config` overrides every component in the library and puts their support types in the same Kotlin package. Each component must keep its own namespace. CI checks the generated package names before compiling the harness.
+After building the DLL, change only `android_cleaner` to false in each upstream component's binding configuration. UniFFI's command-line `--config` overrides every component in the library and puts their support types in the same Kotlin package. Each component must keep its own namespace. CI checks package names and refuses Android-only imports before compiling the harness. The SDK DLL cache is keyed by its exact source revision, Rust version, target and build profile; the JVM test still checks the SDK revision. The artifact records both native hashes.
 
 The native test creates an encrypted SQLite store with a random in-memory key, restores a synthetic session, closes and reopens it, and requires a typed SDK failure with a different key. Temporary files must be released and removed. The session is synthetic; the harness does not sign in or sync with a server. It contains no account credentials and makes no real-client acceptance claim.
 
