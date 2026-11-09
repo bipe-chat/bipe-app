@@ -7,7 +7,7 @@
 // with the right power level edit the name, description and photo, add people, make or remove admins, take
 // people out and cancel invites; nothing else, as the spec says (no roles editor beyond admin).
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ChatSummary } from './chat-model';
 import {
   MembershipState,
@@ -30,6 +30,7 @@ import { NavBar, OfficialBadge, Row, Section } from './ui/List';
 import { Spinner } from './ui/Spinner';
 import { userPlus } from './phosphor/icons';
 import { Icon } from './ui/Icon';
+import { LoadState } from './work/common';
 
 type Rights = { edit: boolean; photo: boolean; invite: boolean; kick: boolean; roles: boolean };
 
@@ -53,7 +54,12 @@ export function GroupDetails({
   chats: ChatSummary[];
   Header: (p: { name: string; avatarUrl?: string; badge?: boolean; subtitle?: string; members?: AvatarMember[] }) => React.ReactNode;
 }) {
-  const [members, setMembers] = useState<RoomMember[]>();
+  // One lifecycle for the member list (AGENTS.md, State): a failed read shows its error and Retry, not an
+  // endless spinner.
+  const [load, setLoad] = useState<
+    { kind: 'loading' } | { kind: 'loaded'; members: RoomMember[] } | { kind: 'failed'; error: unknown }
+  >({ kind: 'loading' });
+  const members = load.kind === 'loaded' ? load.members : undefined;
   const newsRoom = useIsNewsRoom(room.id());
   const [topic, setTopic] = useState(room.topic());
   const [count, setCount] = useState<number>();
@@ -89,8 +95,11 @@ export function GroupDetails({
         (m) => MembershipState.Join.instanceOf(m.membership) || MembershipState.Invite.instanceOf(m.membership),
       );
       keep.sort((a, b) => (a.displayName ?? a.userId).localeCompare(b.displayName ?? b.userId));
-      setMembers(keep);
-    })().catch((e: unknown) => console.warn('[trace] group info failed', e));
+      setLoad({ kind: 'loaded', members: keep });
+    })().catch((e: unknown) => {
+      console.warn('[trace] group info failed', e);
+      if (!stopped) setLoad({ kind: 'failed', error: e });
+    });
     return () => {
       stopped = true;
     };
@@ -99,10 +108,25 @@ export function GroupDetails({
   const joined = members?.filter((m) => MembershipState.Join.instanceOf(m.membership)) ?? [];
   const invited = members?.filter((m) => MembershipState.Invite.instanceOf(m.membership)) ?? [];
   const people = count ?? joined.length;
-  const reload = () => setVersion((v) => v + 1);
-  const run = (work: Promise<unknown>) => {
+  const reload = () => {
+    setLoad((l) => (l.kind === 'failed' ? { kind: 'loading' } : l));
+    setVersion((v) => v + 1);
+  };
+  // One member change at a time: a second tap while one runs does nothing (a kick or ban fired twice).
+  const [busy, setBusy] = useState(false);
+  const running = useRef(false);
+  const run = (work: () => Promise<unknown>) => {
+    if (running.current) return;
+    running.current = true;
+    setBusy(true);
     setError('');
-    work.then(reload).catch(() => setError(s('bipe_app_group_member_error')));
+    work()
+      .then(reload)
+      .catch(() => setError(s('bipe_app_group_member_error')))
+      .finally(() => {
+        running.current = false;
+        setBusy(false);
+      });
   };
 
   if (editing)
@@ -193,8 +217,9 @@ export function GroupDetails({
                     {rights.kick && (
                       <button
                         type="button"
-                        className="text-subheadline text-trust-danger-ink"
-                        onClick={() => run(room.kickUser(m.userId, undefined))}
+                        className="text-subheadline text-trust-danger-ink disabled:opacity-50"
+                        disabled={busy}
+                        onClick={() => run(() => room.kickUser(m.userId, undefined))}
                       >
                         {s('bipe_app_group_member_cancel_invite')}
                       </button>
@@ -206,9 +231,11 @@ export function GroupDetails({
           )}
         </>
       ) : (
-        <div className="grid place-items-center py-6">
-          <Spinner />
-        </div>
+        <LoadState
+          loading={load.kind === 'loading'}
+          error={load.kind === 'failed' ? load.error : undefined}
+          onRetry={reload}
+        />
       )}
       {acting && (
         <MemberActions
@@ -216,13 +243,13 @@ export function GroupDetails({
           rights={rights}
           onClose={() => setActing(undefined)}
           onAdmin={(on) =>
-            run(
+            run(() =>
               room.updatePowerLevelsForUsers([
                 { userId: acting.userId, powerLevel: levelOf(on ? RoomMemberRole.Administrator : RoomMemberRole.User) },
               ]),
             )
           }
-          onRemove={() => run(room.kickUser(acting.userId, undefined))}
+          onRemove={() => run(() => room.kickUser(acting.userId, undefined))}
         />
       )}
       {adding && (
@@ -232,7 +259,7 @@ export function GroupDetails({
           onClose={() => setAdding(false)}
           onInvite={(ids) => {
             setAdding(false);
-            run(Promise.all(ids.map((id) => room.inviteUserById(id))));
+            run(() => Promise.all(ids.map((id) => room.inviteUserById(id))));
           }}
         />
       )}
