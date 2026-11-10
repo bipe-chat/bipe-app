@@ -163,8 +163,9 @@ pub fn remote_banner_state(banner: Option<RemoteBanner>, app_version: String, no
     {
         return RemoteBannerState::Hidden;
     }
+    // JavaScript `banner.min_app_version &&`: an empty version counts as none.
     match banner.min_app_version.filter(|v| !v.is_empty()) {
-        Some(min) if compare_app_versions(app_version, min) < 0 => RemoteBannerState::Update,
+        Some(min) if compare_app_versions(app_version.clone(), min.clone()) < 0 => RemoteBannerState::Update,
         _ => RemoteBannerState::Notice,
     }
 }
