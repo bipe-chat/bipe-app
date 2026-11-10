@@ -15,6 +15,7 @@ on:
     branches: [main]
     paths:
       - "ios/**"
+      - "core/release/swift/**"
       - "sdk-version"
       - "tools/swiftpm-assets.*"
       - ".github/workflows/ios.yml"
@@ -45,7 +46,7 @@ jobs:
         run: |
           if [ "$GITHUB_EVENT_NAME" != pull_request ]; then
             echo "ios=true" >> "$GITHUB_OUTPUT"
-          elif git diff --name-only "origin/${GITHUB_BASE_REF}...HEAD" | grep -qE '^(ios/|sdk-version$|tools/swiftpm-assets\.(mjs|json)$|\.github/workflows/ios\.yml$)'; then
+          elif git diff --name-only "origin/${GITHUB_BASE_REF}...HEAD" | grep -qE '^(ios/|core/release/swift/|sdk-version$|tools/swiftpm-assets\.(mjs|json)$|\.github/workflows/ios\.yml$)'; then
             echo "ios=true" >> "$GITHUB_OUTPUT"
           else
             echo "ios=false" >> "$GITHUB_OUTPUT"

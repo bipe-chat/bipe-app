@@ -694,7 +694,7 @@ async function main([cmd, arg, ...rest]) {
     // With a build number: fail unless it is higher than the store app's last build (docs/client-switch-plan.md step 4).
     const report = await storeIds(call);
     if (/^\d+$/.test(arg ?? '') && report.lastBuild !== null && Number(arg) <= report.lastBuild) {
-      throw new Error(`build number ${arg} is not higher than the store app's last build ${report.lastBuild}: raise the build in bipe-shared product/version.json (node tools/bump-build.mjs)`);
+      throw new Error(`build number ${arg} is not higher than the store app's last build ${report.lastBuild}: raise "build" in version.json (tools/version.mjs)`);
     }
     return 0;
   }

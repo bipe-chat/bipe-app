@@ -1,6 +1,6 @@
 # Changelog updates
 
-A change a tester can see in the iOS or Android app gets one file in
+A change a tester can see in the iOS, Android or Mac app gets one file in
 `changelog/updates/`. The changelog groups the files by build. It shows on
 the site (`bipe.chat/versoes/`, built by bipe-web) and opens from
 Configurações › Ajuda › Histórico de versões in the app.
@@ -27,7 +27,7 @@ detail: what a person notices.
 - `id` is the file name without `.md`.
 - `kind` is `new` (a person could not do it before), `improved` (it works or
   reads better), `fixed` (it was broken), or `removed`.
-- `platforms` lists `ios`, `android` or both.
+- `platforms` lists `ios`, `android`, `macos`, or several.
 - `refs` lists PRs and issues, or `[]`.
 - Leave `build` out. The build is the one CI makes of the commit that adds
   the file (`tools/version.mjs`: version.json build plus the commit count).
@@ -38,8 +38,8 @@ detail: what a person notices.
   internal paths, no people's names.
 
 A change nobody sees (CI, tools, docs, generated code, a refactor, web/)
-needs no update. CI (`changelog.yml`) fails a pull request that changes iOS
-or Android app code and adds no file. When a tester sees nothing, put the
+needs no update. CI (`changelog.yml`) fails a pull request that changes iOS,
+Android or Mac app code and adds no file. When a tester sees nothing, put the
 line `Changelog: none` in the PR description.
 
 ## Commands
