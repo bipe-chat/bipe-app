@@ -52,6 +52,17 @@ class MatrixAccountRuntime private constructor(
         class Running(val service: SyncService) : SyncPhase
     }
     private var sync: SyncPhase = SyncPhase.Idle
+    private enum class PhoneLinkOwnership { AVAILABLE, CLAIMED, LINKED }
+    private var phoneLinkOwnership = PhoneLinkOwnership.AVAILABLE
+
+    /** A failed/cancelled login retires this pending device; another attempt starts in a new slot. */
+    @Synchronized internal fun claimPhoneLink() {
+        lifetime.requireCurrent()
+        if (phoneLinkOwnership != PhoneLinkOwnership.AVAILABLE || lifetime.lease.savedSession() != null) {
+            throw StorageFailure(StorageCode.LINK_INCOMPLETE)
+        }
+        phoneLinkOwnership = PhoneLinkOwnership.CLAIMED
+    }
 
     /** Build/start sync as an owned task, so cancellation retires late construction as well as callbacks. */
     suspend fun startSync(): SyncService = try { lifetime.async { syncLock.withLock {
@@ -74,9 +85,10 @@ class MatrixAccountRuntime private constructor(
     }
 
     /** Token persistence stays pending until the phone approval and secret transfer have completed. */
-    fun completePhoneLink(repository: AccountRepository) {
+    @Synchronized fun completePhoneLink(repository: AccountRepository) {
         lifetime.requireCurrent()
         repository.completeLink(lifetime.lease, client.session())
+        phoneLinkOwnership = PhoneLinkOwnership.LINKED
     }
 
     fun closeAsync() = lifetime.closeAsync()

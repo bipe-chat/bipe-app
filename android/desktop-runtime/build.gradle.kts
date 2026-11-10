@@ -15,6 +15,7 @@ dependencies {
     implementation(libs.jna.platform)
     api(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.zxing.core)
     testImplementation(libs.junit)
 }
 
