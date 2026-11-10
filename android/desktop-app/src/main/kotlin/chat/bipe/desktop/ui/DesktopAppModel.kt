@@ -89,7 +89,7 @@ class DesktopAppModel(val catalog: DesktopCatalog) {
         try {
             close(previous)
             val registration = WindowsLoginRegistration(catalog.windowsClientId ?: throw PhoneLinkException(PhoneLinkFailure.REGISTRATION_REQUIRED))
-            val runtime = MatrixAccountRuntime.open(repository.provision(), "https://matrix.bipe.net.br", userAgent())
+            val runtime = MatrixAccountRuntime.open(repository.provision(), registration.homeserver, userAgent())
             val attempt = try { PhoneLinkAttempt.create(runtime, repository, registration) }
                 catch (error: Exception) { runtime.closeAsync().await(); throw error }
             val linking = AppPhase.Linking(runtime, attempt)

@@ -8,10 +8,13 @@ import { resolve, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { REPO_ROOT, isMain } from './lib.mjs';
 import { version } from './version.mjs';
+import { windowsOAuthConfig } from './windows-oauth.mjs';
 
 export async function desktopCatalog(sharedRoot) {
   const read = (path) => JSON.parse(readFileSync(join(sharedRoot, path), 'utf8'));
   const tokens = read('design/tokens.json');
+  const patterns = read('registries/scam-patterns.json');
+  const warningKinds = read('product/screens/scam-warning.json').types.ScamWarning.kind.values;
   const { resolveThemes } = await import(pathToFileURL(join(sharedRoot, 'tools/lib/gen-tokens.mjs')).href);
   return {
     schema: 1,
@@ -23,6 +26,11 @@ export async function desktopCatalog(sharedRoot) {
     // The default + order come from the same registry as every other client's picker.
     palettes: Object.keys(tokens.appThemes.palettes),
     syncedSettings: read('registries/synced-settings.json'),
+    safety: {
+      warnings: warningKinds.map(id => ({ id, messageKey: `bipe_scam_warning_${id.replace(/[A-Z]/g, c => `_${c.toLowerCase()}`)}` })),
+      moneyPauseKinds: patterns.moneyPauseKinds,
+      moneyPauseSeconds: patterns.moneyPauseSeconds,
+    },
   };
 }
 
@@ -31,7 +39,8 @@ export async function writeDesktopResources(output, sharedRoot = resolve(REPO_RO
   mkdirSync(output, { recursive: true });
   writeFileSync(join(output, 'bipe-desktop.json'), `${JSON.stringify(catalog)}\n`);
   writeFileSync(join(output, 'bipe-build.json'), `${JSON.stringify(await version(REPO_ROOT))}\n`);
-  writeFileSync(join(output, 'bipe-config.json'), `${JSON.stringify({ windowsOAuthClientId: process.env.BIPE_WINDOWS_OAUTH_CLIENT_ID || null })}\n`);
+  const registration = windowsOAuthConfig();
+  writeFileSync(join(output, 'bipe-config.json'), `${JSON.stringify({ windowsOAuthClientId: registration.clientId })}\n`);
   // Existing generated Bipe icon, copied unchanged; packaging does not draw a new Windows identity.
   const icon = readFileSync(join(REPO_ROOT, 'ios/BipeKit/Sources/BipeKit/Generated/AppIcons.xcassets/BipePalette-acai.imageset/icon.png'));
   writeFileSync(join(output, 'bipe-icon.png'), icon);
@@ -39,6 +48,9 @@ export async function writeDesktopResources(output, sharedRoot = resolve(REPO_RO
     const source = join(REPO_ROOT, `ios/BipeKit/Sources/BipeKit/Generated/AppIcons.xcassets/BipePalette-${palette}.imageset/icon.png`);
     writeFileSync(join(output, `bipe-icon-${palette}.png`), readFileSync(source));
   }
+  const phosphor = join(REPO_ROOT, 'ios/Phosphor');
+  writeFileSync(join(output, 'warning-circle.svg'), readFileSync(join(phosphor, 'Sources/Phosphor/Resources/Phosphor.xcassets/warning-circle.imageset/warning-circle.svg')));
+  writeFileSync(join(output, 'phosphor-LICENSE.txt'), readFileSync(join(phosphor, 'LICENSE')));
 }
 
 if (isMain(import.meta.url)) {

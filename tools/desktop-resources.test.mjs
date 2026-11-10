@@ -37,6 +37,21 @@ test('every desktop UI string key exists in both canonical languages', async () 
   for (const locale of ['pt-BR', 'en']) for (const key of keys) assert.equal(typeof catalog.strings[locale][key], 'string', `${locale}: missing ${key}`);
 });
 
+test('every Rust scam kind has canonical warning text and the shared pause policy', async () => {
+  const catalog = await desktopCatalog(shared);
+  const source = readFileSync(join(REPO_ROOT, 'core/crates/bipe-core/src/scam.rs'), 'utf8');
+  const body = source.match(/pub enum ScamKind\s*\{([^}]+)\}/)?.[1];
+  assert.ok(body, 'Rust ScamKind enum missing');
+  const ids = body.split(',').map(s => s.trim()).filter(Boolean).map(s => s[0].toLowerCase() + s.slice(1));
+  assert.deepEqual(new Set(ids), new Set(catalog.safety.warnings.map(w => w.id)));
+  for (const warning of catalog.safety.warnings) for (const locale of ['pt-BR', 'en']) {
+    assert.equal(typeof catalog.strings[locale][warning.messageKey], 'string');
+  }
+  const policy = JSON.parse(readFileSync(join(shared, 'registries/scam-patterns.json')));
+  assert.deepEqual(catalog.safety.moneyPauseKinds, policy.moneyPauseKinds);
+  assert.equal(catalog.safety.moneyPauseSeconds, policy.moneyPauseSeconds);
+});
+
 test('desktop resource generation uses the shared version/build and existing Bipe icon', async () => {
   const directory = mkdtempSync(join(tmpdir(), 'bipe-desktop-resources-'));
   try {
@@ -50,5 +65,7 @@ test('desktop resource generation uses the shared version/build and existing Bip
       assert.deepEqual(readFileSync(join(directory, `bipe-icon-${palette}.png`)), readFileSync(join(REPO_ROOT,
         `ios/BipeKit/Sources/BipeKit/Generated/AppIcons.xcassets/BipePalette-${palette}.imageset/icon.png`)));
     }
+    assert.match(readFileSync(join(directory, 'warning-circle.svg'), 'utf8'), /<svg /);
+    assert.match(readFileSync(join(directory, 'phosphor-LICENSE.txt'), 'utf8'), /MIT License/);
   } finally { rmSync(directory, { recursive: true }); }
 });

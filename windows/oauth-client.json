@@ -1,0 +1,18 @@
+{
+  "$comment": "Public Windows OAuth metadata only. Registration is pending until the deployed MAS record and native callback are verified under bipe#1456. Never put a client secret here.",
+  "schema": 1,
+  "status": "pending",
+  "clientId": null,
+  "verifiedOn": null,
+  "issuer": "https://account.bipe.net.br/",
+  "homeserver": "https://matrix.bipe.net.br",
+  "metadata": {
+    "client_name": "Bipe (Windows)",
+    "client_uri": "https://bipe.chat",
+    "application_type": "native",
+    "token_endpoint_auth_method": "none",
+    "redirect_uris": ["chat.bipe.app.windows:/callback"],
+    "grant_types": ["authorization_code", "refresh_token", "urn:ietf:params:oauth:grant-type:device_code"],
+    "response_types": ["code"]
+  }
+}

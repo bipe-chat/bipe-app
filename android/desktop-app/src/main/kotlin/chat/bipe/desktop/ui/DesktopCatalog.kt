@@ -19,6 +19,10 @@ class DesktopCatalog private constructor(private val root: JsonObject, val build
     val markGeometry = root.getValue("mark").jsonObject
     val settingsEventType = root.getValue("syncedSettings").jsonObject.getValue("eventType").jsonPrimitive.content
     val windowsClientId = config["windowsOAuthClientId"]?.takeUnless { it == JsonNull }?.jsonPrimitive?.content
+    val moneyPauseKinds = root.getValue("safety").jsonObject.getValue("moneyPauseKinds").jsonArray.map { it.jsonPrimitive.content }.toSet()
+    val moneyPauseSeconds = root.getValue("safety").jsonObject.getValue("moneyPauseSeconds").jsonPrimitive.int
+    fun warningKey(id: String): String = root.getValue("safety").jsonObject.getValue("warnings").jsonArray
+        .first { it.jsonObject.getValue("id").jsonPrimitive.content == id }.jsonObject.getValue("messageKey").jsonPrimitive.content
     val versionLabel get() = "${build.getValue("version").jsonPrimitive.content} (${build.getValue("build").jsonPrimitive.content}) · ${build.getValue("commit").jsonPrimitive.content}"
 
     fun text(key: String, vararg args: String): String {

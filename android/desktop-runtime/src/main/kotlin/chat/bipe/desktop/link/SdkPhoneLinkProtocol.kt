@@ -17,14 +17,16 @@ class WindowsLoginRegistration(clientId: String) {
         if (it.isEmpty() || it.any(Char::isWhitespace)) throw PhoneLinkException(PhoneLinkFailure.REGISTRATION_REQUIRED)
     }
 
+    val homeserver: String get() = WindowsOAuthMetadata.HOMESERVER
+
     internal fun oauth() = OAuthConfiguration(
-        clientName = "Bipe (Windows)",
-        redirectUri = "chat.bipe.app.windows:/callback",
-        clientUri = "https://bipe.chat",
+        clientName = WindowsOAuthMetadata.CLIENT_NAME,
+        redirectUri = WindowsOAuthMetadata.REDIRECT_URI,
+        clientUri = WindowsOAuthMetadata.CLIENT_URI,
         logoUri = null,
         tosUri = null,
         policyUri = null,
-        staticRegistrations = mapOf("https://account.bipe.net.br/" to clientId, "https://matrix.bipe.net.br" to clientId),
+        staticRegistrations = mapOf(WindowsOAuthMetadata.ISSUER to clientId, WindowsOAuthMetadata.HOMESERVER to clientId),
     )
 }
 

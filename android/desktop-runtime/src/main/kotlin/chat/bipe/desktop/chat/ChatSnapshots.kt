@@ -6,6 +6,7 @@ package chat.bipe.desktop.chat
 
 import chat.bipe.app.common.VectorDiff
 import chat.bipe.app.common.applyDiff
+import chat.bipe.desktop.safety.MessageSafety
 
 data class ChatLabels(val unnamed: String, val noName: String, val undecryptable: String, val unsupported: String)
 data class ChatAvatar(val name: String, val url: String?)
@@ -17,6 +18,7 @@ data class ChatRow(
 data class MessageRow(
     val id: String, val sender: String, val own: Boolean, val body: String, val kind: Kind,
     val timestamp: Long, val delivery: Delivery, val canRetry: Boolean = false,
+    val safety: MessageSafety = MessageSafety.NotApplicable,
 ) {
     enum class Kind { TEXT, UNDECRYPTABLE, UNSUPPORTED }
     enum class Delivery { SENT, SENDING, FAILED }

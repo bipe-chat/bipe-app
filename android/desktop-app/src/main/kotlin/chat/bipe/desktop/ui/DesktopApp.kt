@@ -32,6 +32,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import chat.bipe.desktop.chat.*
 import chat.bipe.desktop.link.*
+import chat.bipe.desktop.safety.MessageSafety
+import chat.bipe.desktop.safety.registryId
 import chat.bipe.desktop.ui.common.BipeButton
 import chat.bipe.shared.BipeFavouritesOrder
 import java.time.Instant
@@ -242,6 +244,7 @@ private enum class Destination(val key: String) { CHATS("bipe_tab_chats"), GROUP
     val load by model.rows.collectAsState()
     val draft by model.draft.collectAsState()
     val sending by model.sendPhase.collectAsState()
+    val pauses by model.pauseSeconds.collectAsState()
     val rows = when (val snapshot = load) { is LoadPhase.Ready -> snapshot.value; else -> emptyList() }
     Column(Modifier.fillMaxSize().chatBackdrop(s, colors)) {
         TextButton(onClick = { model.loadEarlier() }) { Text(s.text("bipe_action_show_more")) }
@@ -252,18 +255,32 @@ private enum class Destination(val key: String) { CHATS("bipe_tab_chats"), GROUP
         }
         LazyColumn(Modifier.weight(1f).fillMaxWidth(), reverseLayout = true, contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(rows.asReversed(), key = { it.id }) { message ->
+                val warning = message.safety as? MessageSafety.Warning
+                val seconds = pauses[message.id] ?: if (warning?.kind?.registryId() in s.moneyPauseKinds) s.moneyPauseSeconds else 0
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = if (message.own) Arrangement.End else Arrangement.Start) {
-                    Surface(Modifier.widthIn(max = 540.dp), shape = RoundedCornerShape(18.dp),
-                        color = colors[if (message.own) "bubble.own" else "bubble.other"], contentColor = colors["ink.primary"]) {
-                        Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
-                            if (!message.own) Text(message.sender, style = MaterialTheme.typography.labelMedium)
-                            SelectionContainer { Text(message.body) }
-                            Text(timeLabel(message.timestamp), style = MaterialTheme.typography.labelSmall)
-                            if (message.delivery == MessageRow.Delivery.SENDING) Text(s.text("bipe_app_timeline_sending"), style = MaterialTheme.typography.bodySmall)
-                            if (message.delivery == MessageRow.Delivery.FAILED) {
-                                if (message.canRetry) TextButton(onClick = { model.retry(message.id) }) { Text(s.text("bipe_app_timeline_failed")) }
-                                else Text(s.text("bipe_error_generic"), style = MaterialTheme.typography.bodySmall)
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp),
+                        horizontalAlignment = if (message.own) Alignment.End else Alignment.Start) {
+                        Surface(Modifier.widthIn(max = 540.dp), shape = RoundedCornerShape(18.dp),
+                            color = colors[if (message.own) "bubble.own" else "bubble.other"], contentColor = colors["ink.primary"]) {
+                            Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
+                                if (!message.own) Text(message.sender, style = MaterialTheme.typography.labelMedium)
+                                if (seconds > 0) Text(message.body) else SelectionContainer { Text(message.body) }
+                                Text(timeLabel(message.timestamp), style = MaterialTheme.typography.labelSmall)
+                                if (message.delivery == MessageRow.Delivery.SENDING) Text(s.text("bipe_app_timeline_sending"), style = MaterialTheme.typography.bodySmall)
+                                if (message.delivery == MessageRow.Delivery.FAILED) {
+                                    if (message.canRetry) TextButton(onClick = { model.retry(message.id) }) { Text(s.text("bipe_app_timeline_failed")) }
+                                    else Text(s.text("bipe_error_generic"), style = MaterialTheme.typography.bodySmall)
+                                }
                             }
+                        }
+                        when (val safety = message.safety) {
+                            is MessageSafety.Warning -> ScamWarningCard(model, message.id, safety.kind, seconds, s, colors)
+                            MessageSafety.Unavailable -> Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(s.text("bipe_error_generic"), style = MaterialTheme.typography.bodySmall)
+                                TextButton(onClick = { model.retrySafety(message.id) }) { Text(s.text("bipe_app_retry")) }
+                            }
+                            MessageSafety.Checking -> Text(s.text("bipe_web_loading"), style = MaterialTheme.typography.bodySmall)
+                            MessageSafety.Clear, MessageSafety.NotApplicable -> Unit
                         }
                     }
                 }

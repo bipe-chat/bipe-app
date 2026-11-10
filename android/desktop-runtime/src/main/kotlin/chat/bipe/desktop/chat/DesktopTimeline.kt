@@ -10,7 +10,11 @@ import chat.bipe.desktop.account.AccountTaskGroup
 import chat.bipe.desktop.account.MatrixAccountRuntime
 import chat.bipe.desktop.account.NativeResource
 import chat.bipe.desktop.account.TaskResource
+import chat.bipe.desktop.safety.*
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -29,6 +33,7 @@ class DesktopTimeline private constructor(
     private val group: AccountTaskGroup,
     val roomId: String,
     private val labels: ChatLabels,
+    private val safetyEngine: SafetyEngine = CoreSafety,
 ) : AccountResource {
     private val mutableRows = MutableStateFlow<LoadPhase<List<MessageRow>>>(LoadPhase.Loading)
     val rows = mutableRows.asStateFlow()
@@ -40,6 +45,41 @@ class DesktopTimeline private constructor(
     private lateinit var timeline: Timeline
     private val failedSends = mutableMapOf<String, SendHandle>()
     private val retrying = mutableSetOf<String>()
+    private val pause = MoneyPause()
+    private val mutablePause = MutableStateFlow<Map<String, Int>>(emptyMap())
+    val pauseSeconds = mutablePause.asStateFlow()
+    fun warningShown(rowId: String) {
+        group.publish {
+            val warning = (currentRow(rowId)?.safety as? MessageSafety.Warning) ?: return@publish
+            pause.shown(rowId, warning.kind, MoneyPause.nowMs())
+            mutablePause.value = pause.remaining(MoneyPause.nowMs())
+        }
+    }
+
+    fun retrySafety(rowId: String) {
+        var previous: MessageRow? = null
+        group.publish {
+            val state = mutableRows.value as? LoadPhase.Ready ?: return@publish
+            val row = state.value.firstOrNull { it.id == rowId && it.safety == MessageSafety.Unavailable } ?: return@publish
+            previous = row
+            mutableRows.value = LoadPhase.Ready(state.value.map { if (it.id == rowId) it.copy(safety = MessageSafety.Checking) else it })
+        }
+        val row = previous ?: return
+        group.launch {
+            val assessment = CoreSafety.boundary({ safetyEngine.warning(row.body) }, { MessageSafety.Unavailable })
+            group.publish {
+                val state = mutableRows.value as? LoadPhase.Ready ?: return@publish
+                mutableRows.value = LoadPhase.Ready(state.value.map {
+                    if (it.id == rowId && it.body == row.body && it.safety == MessageSafety.Checking) it.copy(safety = assessment) else it
+                })
+            }
+        }
+    }
+
+    private fun currentRow(id: String): MessageRow? = when (val state = mutableRows.value) {
+        is LoadPhase.Ready -> state.value.firstOrNull { it.id == id }
+        else -> null
+    }
 
     fun retry(id: String) {
         val handle = synchronized(failedSends) {
@@ -118,10 +158,18 @@ class DesktopTimeline private constructor(
                     try {
                         batch.forEach { snapshots.apply(it.toVectorDiff().snapshot(::message)) }
                     } finally { dispose(batch) }
-                    group.publish { mutableRows.value = LoadPhase.Ready(snapshots.visible()) }
+                    group.publish {
+                        mutableRows.value = LoadPhase.Ready(snapshots.visible())
+                    }
                 }
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (_: Exception) { group.publish { mutableRows.value = LoadPhase.Failed } }
+        }
+        group.launch {
+            while (currentCoroutineContext().isActive) {
+                delay(250)
+                group.publish { mutablePause.value = pause.remaining(MoneyPause.nowMs()) }
+            }
         }
         // Back-pagination failure is retryable; the live listener remains attached for offline/local events.
         loadEarlier()
@@ -155,7 +203,8 @@ class DesktopTimeline private constructor(
                 if (handle != null) failedSends[id] = handle
             }
             return MessageRow(id, realName(profile?.displayName, event.sender, labels.noName),
-                event.isOwn, body, type, event.timestamp.toLong(), delivery, canRetry = handle != null)
+                event.isOwn, body, type, event.timestamp.toLong(), delivery, canRetry = handle != null,
+                safety = messageSafety(body, event.isOwn, type == MessageRow.Kind.TEXT, safetyEngine))
         } finally { event.lazyProvider.destroy() }
     }
 

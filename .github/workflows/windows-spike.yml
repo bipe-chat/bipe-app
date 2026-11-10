@@ -11,10 +11,13 @@ on:
       - "android/desktop-runtime/**"
       - "android/desktop-app/**"
       - "tools/desktop-resources*"
+      - "tools/windows-oauth*"
+      - "windows/oauth-client.json"
       - "android/app/src/main/kotlin/chat/bipe/app/BipeType.kt"
       - "android/app/src/main/kotlin/chat/bipe/app/common/VectorDiff.kt"
       - "android/libraries/bipe/src/main/kotlin/chat/bipe/shared/BipeFavouritesOrder.kt"
       - "android/libraries/bipe/src/main/kotlin/chat/bipe/shared/generated/BipeRegistries.kt"
+      - "ios/Phosphor/Sources/Phosphor/Resources/Phosphor.xcassets/warning-circle.imageset/warning-circle.svg"
       - "android/gradle/libs.versions.toml"
       - "core/**"
       - "sdk-version"
@@ -26,10 +29,13 @@ on:
       - "android/desktop-runtime/**"
       - "android/desktop-app/**"
       - "tools/desktop-resources*"
+      - "tools/windows-oauth*"
+      - "windows/oauth-client.json"
       - "android/app/src/main/kotlin/chat/bipe/app/BipeType.kt"
       - "android/app/src/main/kotlin/chat/bipe/app/common/VectorDiff.kt"
       - "android/libraries/bipe/src/main/kotlin/chat/bipe/shared/BipeFavouritesOrder.kt"
       - "android/libraries/bipe/src/main/kotlin/chat/bipe/shared/generated/BipeRegistries.kt"
+      - "ios/Phosphor/Sources/Phosphor/Resources/Phosphor.xcassets/warning-circle.imageset/warning-circle.svg"
       - "android/gradle/libs.versions.toml"
       - "core/**"
       - "sdk-version"
@@ -163,6 +169,7 @@ jobs:
       - name: Test native credential storage, account isolation and SDK/core coexistence
         env:
           BIPE_VECTORS: ${{ github.workspace }}/bipe-shared/test-vectors/badges.json
+          BIPE_SHARED: ${{ github.workspace }}/bipe-shared
         run: |
           set -euo pipefail
           android/gradlew -p android/desktop-spike --no-daemon :desktop-runtime:test run 2>&1 | tee "$RUNNER_TEMP/windows-spike/jvm.log"
