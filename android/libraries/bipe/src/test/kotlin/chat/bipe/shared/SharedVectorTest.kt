@@ -206,11 +206,11 @@ class SharedVectorTest {
     /** The client checks length and characters only. Reserved names and lookalikes are the server's call. */
     @Test
     fun handles() {
-        val localProblems = setOf("too_short", "too_long", "invalid_characters")
-        for (vector in vectors("handles.json", "cases")) {
+        // handleProblem without a claimant (bipe-core): shape and reserved names. Claims are the server's call.
+        for (vector in vectors("handles.json", "cases").filter { !it.containsKey("claimant") }) {
             val input = vector.string("input")!!
-            val expected = vector.string("problem")?.takeIf { it in localProblems }
-            assertWithMessage("localProblem($input)").that(BipeHandle.localProblem(input)?.id).isEqualTo(expected)
+            assertWithMessage("localProblem($input)").that(BipeHandle.localProblem(input)?.id).isEqualTo(vector.string("problem"))
+            assertWithMessage("skeleton($input)").that(BipeHandle.skeleton(input)).isEqualTo(vector.string("skeleton"))
         }
     }
 

@@ -37,7 +37,7 @@ public nonisolated enum BipeHandle {
         return handle
     }
     
-    /// Length and character checks only, the same as a lookup (bipe-core `handleProblem` without a claimant). `nil`
+    /// Length, characters and reserved names, the same as a lookup (bipe-core `handleProblem` without a claimant). `nil`
     /// means the server must decide. An owned handle may be shorter than `handleMinLength` (ADR 0065).
     public static func localProblem(for handle: String) -> BipeHandleProblem? {
         handleProblem(handle: handle, claimant: nil).map(BipeHandleProblem.init(core:))

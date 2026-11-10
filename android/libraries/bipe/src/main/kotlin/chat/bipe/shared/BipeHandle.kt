@@ -46,7 +46,7 @@ object BipeHandle {
     /** Trims spaces and one leading @. */
     fun sanitize(input: String): String = input.trim().removePrefix("@")
 
-    /** Length and characters only (bipe-core `handleProblem` without a claimant). `null`: the server decides. Owned handles may be shorter (ADR 0065). */
+    /** Length, characters and reserved names (bipe-core `handleProblem` without a claimant). `null`: the server decides. Owned handles may be shorter (ADR 0065). */
     fun localProblem(handle: String): BipeHandleProblem? = handleProblem(handle, null)?.let { problem ->
         when (problem) {
             HandleProblem.TOO_SHORT -> BipeHandleProblem.TOO_SHORT
