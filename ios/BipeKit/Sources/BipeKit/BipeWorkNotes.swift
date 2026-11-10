@@ -2,6 +2,7 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
+import BipeCore
 import Foundation
 
 /// Notes room of a work account (bipe ADR 0284 points 18 and 19, bipe-chat/bipe#1293; bipe-shared
@@ -90,25 +91,15 @@ public enum BipeWorkNotes {
         return noteFromEvent(event, ownUserId: ownUserId, joinedRoomIds: joinedRoomIds, seatIds: seatIds)
     }
 
-    /// workNoteFromEvent: event is { sender, type, redacted?, content }, an event of the notes room. seatIds: every
-    /// seat of GET /v1/me/business/seats; a seat_id outside it gives a note with no author.
+    /// workNoteFromEvent (bipe-core): event is { sender, type, redacted?, content }, an event of the notes room. seatIds:
+    /// every seat of GET /v1/me/business/seats; a seat_id outside it gives a note with no author.
     public static func noteFromEvent(_ event: [String: Any], ownUserId: String, joinedRoomIds: Set<String>,
                                      seatIds: Set<String>) -> Result<Note> {
-        guard event["type"] as? String == "m.room.message" else { return .hide(reason: "type") }
-        if let redacted = event["redacted"] as? Bool, redacted { return .hide(reason: "redacted") }
-        guard event["sender"] as? String == ownUserId else { return .hide(reason: "sender") }
-        guard let content = event["content"] as? [String: Any], content["msgtype"] as? String == "m.text" else {
-            return .hide(reason: "content")
+        guard let json = CoreJSON.text(event) else { return .hide(reason: "type") }
+        switch workNoteFromEvent(eventJson: json, ownUserId: ownUserId, joinedRoomIds: Array(joinedRoomIds), seatIds: Array(seatIds)) {
+        case .show(let note): return .show(Note(roomId: note.roomId, body: note.body, seatId: note.seatId))
+        case .hide(let reason): return .hide(reason: reason)
         }
-        guard let field = content[BipeRegistries.workNoteField] as? [String: Any] else { return .hide(reason: "field") }
-        guard let roomId = field["room_id"] as? String, roomId.hasPrefix("!") else { return .hide(reason: "room_id") }
-        guard joinedRoomIds.contains(roomId) else { return .hide(reason: "not_joined") }
-        guard let body = content["body"] as? String,
-              !body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return .hide(reason: "body") }
-        // JavaScript String.length counts UTF-16 code units.
-        guard body.utf16.count <= BipeRegistries.workNoteBodyMaxLength else { return .hide(reason: "body_too_long") }
-        let seatId = (field["seat_id"] as? String).flatMap { seatIds.contains($0) ? $0 : nil }
-        return .show(Note(roomId: roomId, body: body, seatId: seatId))
     }
 
     /// replyByFromEvent for the raw JSON of a notes room event. seatIds: every seat of GET /v1/me/business/seats.
@@ -118,19 +109,13 @@ public enum BipeWorkNotes {
         return replyByFromEvent(event, ownUserId: ownUserId, seatIds: seatIds)
     }
 
-    /// replyByFromEvent: event is { sender, type, redacted?, content }, an event of the notes room.
+    /// replyByFromEvent (bipe-core): event is { sender, type, redacted?, content }, an event of the notes room.
     public static func replyByFromEvent(_ event: [String: Any], ownUserId: String, seatIds: Set<String>) -> Result<ReplyBy> {
-        guard event["type"] as? String == "m.room.message" else { return .hide(reason: "type") }
-        if let redacted = event["redacted"] as? Bool, redacted { return .hide(reason: "redacted") }
-        guard event["sender"] as? String == ownUserId else { return .hide(reason: "sender") }
-        guard let message = event["content"] as? [String: Any], message["msgtype"] as? String == "m.notice" else {
-            return .hide(reason: "content")
+        guard let json = CoreJSON.text(event) else { return .hide(reason: "type") }
+        switch BipeCore.replyByFromEvent(eventJson: json, ownUserId: ownUserId, seatIds: Array(seatIds)) {
+        case .show(let reply): return .show(ReplyBy(roomId: reply.roomId, eventId: reply.eventId, seatId: reply.seatId))
+        case .hide(let reason): return .hide(reason: reason)
         }
-        guard let content = message[BipeRegistries.workReplyByField] as? [String: Any] else { return .hide(reason: "field") }
-        guard let roomId = content["room_id"] as? String, roomId.hasPrefix("!") else { return .hide(reason: "room_id") }
-        guard let eventId = content["event_id"] as? String, eventId.hasPrefix("$") else { return .hide(reason: "event_id") }
-        guard let seatId = content["seat_id"] as? String, seatIds.contains(seatId) else { return .hide(reason: "seat_id") }
-        return .show(ReplyBy(roomId: roomId, eventId: eventId, seatId: seatId))
     }
 
     private static func json(_ object: [String: Any]) -> String {

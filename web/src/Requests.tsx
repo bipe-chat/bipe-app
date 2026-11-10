@@ -14,6 +14,7 @@ import { ProfileFactsLines, RequestTrust, useHandle } from './Trust';
 import { Avatar } from './ui/Avatar';
 import { s } from './ui/i18n';
 import { isOfficial } from './registries';
+import { SealMark } from './seals';
 import { NavBar, OfficialBadge } from './ui/List';
 import { Spinner } from './ui/Spinner';
 import { describe } from './util';
@@ -54,6 +55,7 @@ export function RequestsList({
                     <span className="flex items-center gap-1.5">
                       <span className="min-w-0 truncate text-headline text-ink-primary">{who.name}</span>
                       {isOfficial(who.userId) && <OfficialBadge />}
+                      <SealMark userId={who.userId} size={16} />
                     </span>
                   </span>
                 </button>
@@ -108,6 +110,7 @@ export function RequestScreen({
         <div className="flex items-center gap-1.5">
           <h3 className="text-title2 text-ink-primary">{who.name}</h3>
           {isOfficial(who.userId) && <OfficialBadge />}
+          <SealMark userId={who.userId} size={20} />
         </div>
         {handle && <p className="text-subheadline text-ink-secondary">@{handle}</p>}
         <ProfileFactsLines userId={who.userId} />
