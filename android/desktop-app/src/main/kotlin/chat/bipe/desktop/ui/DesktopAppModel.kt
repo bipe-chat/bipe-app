@@ -28,6 +28,7 @@ sealed interface AppPhase {
     data object Loading : AppPhase
     data class Welcome(val slots: List<StoredSlot>) : AppPhase
     class Linking(val runtime: MatrixAccountRuntime, val attempt: PhoneLinkAttempt) : AppPhase
+    class Recovering(val recovery: PendingDeviceRecovery, val source: StoredSlot) : AppPhase
     class Ready(val runtime: MatrixAccountRuntime, val list: DesktopRoomList, val profile: StateFlow<AccountProfile>,
                 val slots: List<StoredSlot>) : AppPhase
     data class Failed(val needsPhone: Boolean = false) : AppPhase
@@ -76,11 +77,23 @@ class DesktopAppModel(val catalog: DesktopCatalog) {
         mutablePhase.value = AppPhase.Loading
         try {
             close(previous)
+            if (slot is StoredSlot.Pending || slot is StoredSlot.Discarding || slot is StoredSlot.Revoked) {
+                mutablePhase.value = AppPhase.Recovering(PendingDeviceRecovery(slot.slot, repository, SdkPendingLogout(userAgent())), slot)
+                return@withLock
+            }
             if (slot !is StoredSlot.Linked) { mutablePhase.value = AppPhase.Failed(needsPhone = true); return@withLock }
             val runtime = MatrixAccountRuntime.restore(repository.open(slot.slot), userAgent())
             connect(runtime)
         } catch (_: Exception) { mutablePhase.value = AppPhase.Failed() }
     } }
+
+    fun recoverPending(action: PendingRecoveryAction) {
+        val recovery = mutablePhase.value as? AppPhase.Recovering ?: return
+        val expected = recovery.recovery.phase.value
+        scope.launch { transitions.withLock {
+            if (mutablePhase.value === recovery && recovery.recovery.phase.value === expected) recovery.recovery.run(action)
+        } }
+    }
 
     fun link() = scope.launch { transitions.withLock {
         if (mutablePhase.value is AppPhase.Linking || mutablePhase.value == AppPhase.Loading) return@withLock
@@ -169,6 +182,10 @@ class DesktopAppModel(val catalog: DesktopCatalog) {
         val runtime = when (phase) {
             is AppPhase.Ready -> phase.runtime
             is AppPhase.Linking -> { phase.attempt.cancel(); phase.runtime }
+            is AppPhase.Recovering -> {
+                if (!phase.recovery.close()) throw StorageFailure(StorageCode.SLOT_BUSY)
+                null
+            }
             else -> null
         }
         try { roomTransitions.withLock { mutableTimeline.value.owned()?.close() } }

@@ -12,6 +12,8 @@ import chat.bipe.desktop.account.NativeResource
 import chat.bipe.desktop.account.TaskResource
 import chat.bipe.desktop.safety.*
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -37,8 +39,7 @@ class DesktopTimeline private constructor(
 ) : AccountResource {
     private val mutableRows = MutableStateFlow<LoadPhase<List<MessageRow>>>(LoadPhase.Loading)
     val rows = mutableRows.asStateFlow()
-    private val mutableDraft = MutableStateFlow("")
-    val draft = mutableDraft.asStateFlow()
+    val composer = runtime.drafts.room(roomId)
     private val mutableSend = MutableStateFlow<SendPhase>(SendPhase.Idle)
     val sendPhase = mutableSend.asStateFlow()
     private val paging = Mutex()
@@ -95,29 +96,33 @@ class DesktopTimeline private constructor(
         }
     }
 
-    fun draftChanged(value: String) { group.publish { mutableDraft.value = value } }
+    fun draftChanged(value: String) { composer.edit(value) }
 
     fun send() {
-        var body: String? = null
+        var submission: DraftSubmission? = null
         group.publish {
-            if (mutableSend.value != SendPhase.Sending && mutableDraft.value.isNotBlank()) {
-                body = mutableDraft.value
+            if (mutableSend.value != SendPhase.Sending) {
+                submission = composer.submission()
+                if (submission == null) return@publish
                 mutableSend.value = SendPhase.Sending
             }
         }
-        val submitted = body ?: return
+        val submitted = submission ?: return
         group.launch {
-            val content = messageEventContentNew(MessageType.Text(TextMessageContent(submitted, null)))
             try {
-                timeline.send(content).destroy() // Releasing a send handle does not abort its SDK queue entry.
+                // A send tap authorizes queueing. View cancellation retains this operation's native owner;
+                // it must not leave a queued message's old draft behind merely because the room closed.
+                withContext(NonCancellable) {
+                    val content = messageEventContentFromMarkdown(submitted.text)
+                    try { timeline.send(content).destroy() } // Releasing a handle does not abort its SDK queue entry.
+                    finally { content.destroy() }
+                    composer.accepted(submitted)
+                }
                 group.publish {
-                    // An edit made while queuing belongs to the next message, never erase it.
-                    if (mutableDraft.value == submitted) mutableDraft.value = ""
                     mutableSend.value = SendPhase.Idle
                 }
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (_: Exception) { group.publish { mutableSend.value = SendPhase.Failed } }
-            finally { content.destroy() }
         }
     }
 

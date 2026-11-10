@@ -2521,6 +2521,20 @@ export const ptBR = {
   bipe_interno_empty: "Ninguém mais atende por esta conta ainda.",
   bipe_govbr_step_sign_file: "No app gov.br, toque em assinar documento e escolha %1$s.",
   bipe_govbr_reason_wrong_document_file: "Esse não é o documento desta verificação. Use o arquivo %1$s.",
+  bipe_desktop_pending_title: "Vínculo incompleto",
+  bipe_desktop_pending_body: "Este vínculo não terminou. Tente sair deste aparelho antes de começar de novo. As outras contas neste computador continuam conectadas.",
+  bipe_desktop_pending_sign_out: "Sair e limpar este vínculo",
+  bipe_desktop_pending_forget: "Esquecer este vínculo neste computador",
+  bipe_desktop_pending_forget_title: "Esquecer este vínculo aqui?",
+  bipe_desktop_pending_forget_body: "Isso apaga a configuração incompleta neste computador. O aparelho ainda pode estar conectado à conta. Abra Aparelhos conectados no celular e saia por lá se ainda aparecer.",
+  bipe_desktop_pending_cleanup: "Concluir a limpeza local",
+  bipe_desktop_pending_working: "Concluindo a limpeza do vínculo…",
+  bipe_desktop_pending_failed: "A limpeza não terminou. Tente de novo.",
+  bipe_desktop_pending_done_local: "A configuração local foi apagada. Confira Aparelhos conectados no celular; este aparelho ainda pode estar conectado por lá.",
+  bipe_desktop_pending_done_remote: "Este aparelho saiu da conta. O Bipe apagou a configuração incompleta daqui.",
+  bipe_desktop_draft_load_error: "Não deu para abrir o rascunho desta conversa. Tente de novo antes de escrever.",
+  bipe_desktop_draft_save_error: "Não deu para salvar este rascunho no computador. Mantenha o Bipe aberto e tente de novo.",
+  bipe_desktop_draft_unsupported: "Esta conversa tem um rascunho de resposta, edição ou anexo que esta versão ainda não abre. O rascunho foi mantido.",
 } as const;
 
 export type StringKey = keyof typeof ptBR;
@@ -5040,6 +5054,20 @@ export const en: Record<StringKey, string> = {
   bipe_interno_empty: "Nobody else answers for this account yet.",
   bipe_govbr_step_sign_file: "In the gov.br app, tap sign document and pick %1$s.",
   bipe_govbr_reason_wrong_document_file: "This is not the document of this check. Use the file %1$s.",
+  bipe_desktop_pending_title: "Unfinished link",
+  bipe_desktop_pending_body: "This link did not finish. Try signing out this device before starting again. Other accounts on this computer stay signed in.",
+  bipe_desktop_pending_sign_out: "Sign out and clear this link",
+  bipe_desktop_pending_forget: "Forget this link on this computer",
+  bipe_desktop_pending_forget_title: "Forget this link here?",
+  bipe_desktop_pending_forget_body: "This clears the unfinished setup on this computer. The device may still be signed in. Open Linked devices on your phone and sign it out there if it still appears.",
+  bipe_desktop_pending_cleanup: "Finish local cleanup",
+  bipe_desktop_pending_working: "Finishing the link cleanup…",
+  bipe_desktop_pending_failed: "Cleanup did not finish. Try again.",
+  bipe_desktop_pending_done_local: "The local setup was cleared. Check Linked devices on your phone; the device may still be signed in there.",
+  bipe_desktop_pending_done_remote: "This device was signed out. Bipe cleared its unfinished setup from this computer.",
+  bipe_desktop_draft_load_error: "Could not load this chat's draft. Try again before typing.",
+  bipe_desktop_draft_save_error: "Could not save this draft on this computer. Keep Bipe open and try again.",
+  bipe_desktop_draft_unsupported: "This chat has a reply, edit or attachment draft that this version cannot open. It has been kept.",
 };
 
 export type Locale = "pt-BR" | "en";

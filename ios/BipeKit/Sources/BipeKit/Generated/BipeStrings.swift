@@ -5843,4 +5843,32 @@ public enum BipeStrings {
     public static func govbrReasonWrongDocumentFile(_ p1: String) -> String {
         String(format: NSLocalizedString("bipe_govbr_reason_wrong_document_file", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
+
+    public static var desktopPendingTitle: String { NSLocalizedString("bipe_desktop_pending_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var desktopPendingBody: String { NSLocalizedString("bipe_desktop_pending_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var desktopPendingSignOut: String { NSLocalizedString("bipe_desktop_pending_sign_out", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var desktopPendingForget: String { NSLocalizedString("bipe_desktop_pending_forget", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var desktopPendingForgetTitle: String { NSLocalizedString("bipe_desktop_pending_forget_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var desktopPendingForgetBody: String { NSLocalizedString("bipe_desktop_pending_forget_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var desktopPendingCleanup: String { NSLocalizedString("bipe_desktop_pending_cleanup", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var desktopPendingWorking: String { NSLocalizedString("bipe_desktop_pending_working", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var desktopPendingFailed: String { NSLocalizedString("bipe_desktop_pending_failed", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var desktopPendingDoneLocal: String { NSLocalizedString("bipe_desktop_pending_done_local", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var desktopPendingDoneRemote: String { NSLocalizedString("bipe_desktop_pending_done_remote", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var desktopDraftLoadError: String { NSLocalizedString("bipe_desktop_draft_load_error", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var desktopDraftSaveError: String { NSLocalizedString("bipe_desktop_draft_save_error", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var desktopDraftUnsupported: String { NSLocalizedString("bipe_desktop_draft_unsupported", tableName: "Bipe", bundle: .module, comment: "") }
 }

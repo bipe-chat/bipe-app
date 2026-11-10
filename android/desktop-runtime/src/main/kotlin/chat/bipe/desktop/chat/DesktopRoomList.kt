@@ -21,6 +21,7 @@ import org.matrix.rustcomponents.sdk.LatestEventValue
 import org.matrix.rustcomponents.sdk.Membership
 import org.matrix.rustcomponents.sdk.MsgLikeKind
 import org.matrix.rustcomponents.sdk.Room
+import org.matrix.rustcomponents.sdk.ComposerDraftType
 import org.matrix.rustcomponents.sdk.RoomListEntriesDynamicFilterKind
 import org.matrix.rustcomponents.sdk.RoomListEntriesListener
 import org.matrix.rustcomponents.sdk.RoomListEntriesUpdate
@@ -111,9 +112,14 @@ class DesktopRoomList private constructor(
             is LatestEventValue.Local -> { preview = preview(latest.content); timestamp = latest.timestamp.toLong() }
             else -> Unit
         }
+        val draft = try { room.loadComposerDraft(null)?.takeIf {
+            it.draftType is ComposerDraftType.NewMessage && it.attachments.isEmpty()
+        }?.plainText?.takeIf { it.isNotBlank() } }
+        catch (cancelled: CancellationException) { throw cancelled }
+        catch (_: Exception) { null } // The composer presents a retryable load failure; rows keep their last message.
         return ChatRow(info.id, name, if (info.isDm) peer?.avatarUrl else info.avatarUrl,
             heroes.take(4).map { ChatAvatar(realName(it.displayName, it.userId, labels.noName), it.avatarUrl) },
-            info.isDm, info.isFavourite, info.isLowPriority, info.numUnreadMessages.toLong(), preview, timestamp)
+            info.isDm, info.isFavourite, info.isLowPriority, info.numUnreadMessages.toLong(), preview, timestamp, draft)
     }
 
     private fun preview(content: TimelineItemContent): String? = when (val kind = (content as? TimelineItemContent.MsgLike)?.content?.kind) {

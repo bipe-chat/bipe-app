@@ -184,6 +184,9 @@ enum class BipeScreen(val id: String) {
     /** Account deletion asked on another device (flow settings). Spec: bipe-shared/product/screens/deletion-alert.json */
     DELETION_ALERT("deletion-alert"),
 
+    /** Recover an unfinished desktop link (flow launch). Spec: bipe-shared/product/screens/desktop-pending-link.json */
+    DESKTOP_PENDING_LINK("desktop-pending-link"),
+
     /** Approve this phone (flow encryption). Spec: bipe-shared/product/screens/device-verification.json */
     DEVICE_VERIFICATION("device-verification"),
 

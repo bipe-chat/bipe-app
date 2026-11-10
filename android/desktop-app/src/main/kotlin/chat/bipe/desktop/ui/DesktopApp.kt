@@ -34,6 +34,7 @@ import chat.bipe.desktop.chat.*
 import chat.bipe.desktop.link.*
 import chat.bipe.desktop.safety.MessageSafety
 import chat.bipe.desktop.safety.registryId
+import chat.bipe.desktop.storage.StoredSlot
 import chat.bipe.desktop.ui.common.BipeButton
 import chat.bipe.shared.BipeFavouritesOrder
 import java.time.Instant
@@ -50,12 +51,18 @@ fun DesktopApp(model: DesktopAppModel, phase: AppPhase, colors: DesktopColors) {
             is AppPhase.Welcome -> Centered {
                 Text(s.text("bipe_web_signin_title"), style = MaterialTheme.typography.headlineMedium)
                 phase.slots.forEachIndexed { index, slot ->
-                    BipeButton(s.text("bipe_tab_you") + " ${index + 1}", { model.open(slot) })
+                    val label = when (slot) {
+                        is StoredSlot.Linked -> "bipe_tab_you"
+                        is StoredSlot.Unavailable -> "bipe_app_start_error"
+                        else -> "bipe_desktop_pending_title"
+                    }
+                    BipeButton(s.text(label) + " ${index + 1}", { model.open(slot) })
                 }
                 BipeButton(s.text("bipe_linked_devices_link_computer"), { model.link() })
                 Text(s.versionLabel, style = MaterialTheme.typography.bodySmall)
             }
             is AppPhase.Linking -> PhoneLinkView(model, phase, colors)
+            is AppPhase.Recovering -> PendingRecoveryView(model, phase)
             is AppPhase.Ready -> Workspace(model, phase, colors)
             is AppPhase.Failed -> Centered {
                 Text(s.text("bipe_app_start_error"))
@@ -116,10 +123,46 @@ fun DesktopApp(model: DesktopAppModel, phase: AppPhase, colors: DesktopColors) {
             is PhoneLinkPhase.Failed, PhoneLinkPhase.Cancelled -> {
                 Text(s.text("bipe_error_generic"))
                 Text(s.text("bipe_mac_linked_devices_footer"))
+                BipeButton(s.text("bipe_desktop_pending_title"), { model.open(StoredSlot.Pending(linking.runtime.slot)) })
             }
         }
         TextButton(onClick = { model.cancelLink() }) { Text(s.text("bipe_app_cancel")) }
     }
+}
+
+@Composable private fun PendingRecoveryView(model: DesktopAppModel, recovery: AppPhase.Recovering) {
+    val s = model.catalog
+    val phase by recovery.recovery.phase.collectAsState()
+    var confirmation by remember(recovery) { mutableStateOf<PendingRecoveryAction?>(null) }
+    Centered {
+        Text(s.text("bipe_desktop_pending_title"), style = MaterialTheme.typography.headlineMedium)
+        when (val current = phase) {
+            is PendingRecoveryPhase.Working -> Text(s.text("bipe_desktop_pending_working"))
+            is PendingRecoveryPhase.Done -> {
+                Text(s.text(if (current.remoteEnded) "bipe_desktop_pending_done_remote" else "bipe_desktop_pending_done_local"))
+                BipeButton(s.text("bipe_app_close"), { model.refresh() })
+            }
+            PendingRecoveryPhase.Closed -> Unit
+            PendingRecoveryPhase.Review, is PendingRecoveryPhase.Failed -> {
+                Text(s.text("bipe_desktop_pending_body"))
+                if (current is PendingRecoveryPhase.Failed) Text(s.text("bipe_desktop_pending_failed"))
+                if (recovery.source is StoredSlot.Pending) {
+                    BipeButton(s.text("bipe_desktop_pending_sign_out"), { model.recoverPending(PendingRecoveryAction.SIGN_OUT) })
+                    TextButton(onClick = { confirmation = PendingRecoveryAction.FORGET_LOCAL }) { Text(s.text("bipe_desktop_pending_forget")) }
+                } else BipeButton(s.text("bipe_desktop_pending_cleanup"), { model.recoverPending(PendingRecoveryAction.FINISH_CLEANUP) })
+                TextButton(onClick = { model.refresh() }) { Text(s.text("bipe_app_cancel")) }
+            }
+        }
+    }
+    if (confirmation == PendingRecoveryAction.FORGET_LOCAL) AlertDialog(
+        onDismissRequest = { confirmation = null },
+        title = { Text(s.text("bipe_desktop_pending_forget_title")) },
+        text = { Text(s.text("bipe_desktop_pending_forget_body")) },
+        confirmButton = { BipeButton(s.text("bipe_desktop_pending_forget"), {
+            confirmation = null; model.recoverPending(PendingRecoveryAction.FORGET_LOCAL)
+        }) },
+        dismissButton = { TextButton(onClick = { confirmation = null }) { Text(s.text("bipe_app_cancel")) } },
+    )
 }
 
 private enum class Destination(val key: String) { CHATS("bipe_tab_chats"), GROUPS("bipe_tab_groups"), YOU("bipe_tab_you") }
@@ -139,6 +182,7 @@ private enum class Destination(val key: String) { CHATS("bipe_tab_chats"), GROUP
     var accountsOpen by remember(account) { mutableStateOf(false) }
     val load by account.list.rows.collectAsState()
     val order by account.list.favouriteOrder.collectAsState()
+    val draftPreviews by account.runtime.drafts.previews.collectAsState()
     val allRows = when (val snapshot = load) { is LoadPhase.Ready -> snapshot.value; else -> emptyList() }
     val rows = allRows.filter {
         !it.archived && (if (profile.kind == AccountKind.COMPANY) true else it.isDm == (destination == Destination.CHATS)) &&
@@ -198,7 +242,9 @@ private enum class Destination(val key: String) { CHATS("bipe_tab_chats"), GROUP
                                 Avatar(row, colors)
                                 Column(Modifier.weight(1f)) {
                                     Text(row.name, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
-                                    row.preview?.let { Text(it, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall) }
+                                    val draftPreview = if (draftPreviews.containsKey(row.id)) draftPreviews[row.id] else row.draft
+                                    val preview = draftPreview?.let { s.text("bipe_app_chat_list_draft", it) } ?: row.preview
+                                    preview?.let { Text(it, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall) }
                                 }
                                 if (row.unread > 0) Text(row.unread.toString(), style = MaterialTheme.typography.labelSmall)
                             }
@@ -242,7 +288,8 @@ private enum class Destination(val key: String) { CHATS("bipe_tab_chats"), GROUP
 
 @Composable private fun TimelineView(model: DesktopTimeline, s: DesktopCatalog, colors: DesktopColors) {
     val load by model.rows.collectAsState()
-    val draft by model.draft.collectAsState()
+    val composer by model.composer.state.collectAsState()
+    val draft = (composer as? ComposerState.Editing)?.text.orEmpty()
     val sending by model.sendPhase.collectAsState()
     val pauses by model.pauseSeconds.collectAsState()
     val rows = when (val snapshot = load) { is LoadPhase.Ready -> snapshot.value; else -> emptyList() }
@@ -287,13 +334,28 @@ private enum class Destination(val key: String) { CHATS("bipe_tab_chats"), GROUP
             }
         }
         if (sending == SendPhase.Failed) Text(s.text("bipe_app_timeline_failed"), Modifier.padding(horizontal = 16.dp))
+        when (val state = composer) {
+            ComposerState.Loading -> Text(s.text("bipe_web_loading"), Modifier.padding(horizontal = 16.dp))
+            ComposerState.LoadFailed -> DraftFailure(s.text("bipe_desktop_draft_load_error"), s, model.composer::retry)
+            ComposerState.Unsupported -> Text(s.text("bipe_desktop_draft_unsupported"), Modifier.padding(horizontal = 16.dp))
+            is ComposerState.Editing -> if (state.persistence == DraftPersistence.FAILED)
+                DraftFailure(s.text("bipe_desktop_draft_save_error"), s, model.composer::retry)
+        }
         Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             OutlinedTextField(draft, model::draftChanged, placeholder = { Text(s.text("bipe_app_timeline_composer_placeholder")) },
+                enabled = composer is ComposerState.Editing,
                 shape = RoundedCornerShape(24.dp), maxLines = 8, modifier = Modifier.weight(1f).onPreviewKeyEvent {
-                    if (it.type == KeyEventType.KeyDown && it.key == Key.Enter && !it.isShiftPressed) { model.send(); true } else false
+                    if (it.type == KeyEventType.KeyDown && it.key == Key.Enter && !it.isShiftPressed && composer is ComposerState.Editing) { model.send(); true } else false
                 })
             BipeButton(s.text("bipe_app_timeline_send"), model::send, enabled = draft.isNotBlank() && sending != SendPhase.Sending)
         }
+    }
+}
+
+@Composable private fun DraftFailure(message: String, s: DesktopCatalog, retry: () -> Unit) {
+    Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(message, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+        TextButton(onClick = retry) { Text(s.text("bipe_app_retry")) }
     }
 }
 

@@ -14,6 +14,7 @@ data class ChatRow(
     val id: String, val name: String, val avatar: String?, val members: List<ChatAvatar>,
     val isDm: Boolean, val favourite: Boolean, val archived: Boolean, val unread: Long,
     val preview: String?, val timestamp: Long?,
+    val draft: String? = null,
 )
 data class MessageRow(
     val id: String, val sender: String, val own: Boolean, val body: String, val kind: Kind,

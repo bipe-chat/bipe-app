@@ -27,10 +27,21 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Select the matching shared branch
+        id: shared
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          branch="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+          if gh api "repos/bipe-chat/bipe-shared/git/ref/heads/$branch" --silent 2>/dev/null; then
+            echo "ref=$branch" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=main" >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/checkout@v4
         with:
           repository: bipe-chat/bipe-shared
-          ref: main
+          ref: ${{ steps.shared.outputs.ref }}
           path: bipe-shared
       - uses: actions/setup-node@v4
         with:

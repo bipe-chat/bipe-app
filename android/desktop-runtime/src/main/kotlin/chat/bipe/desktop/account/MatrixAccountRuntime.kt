@@ -31,6 +31,8 @@ import uniffi.matrix_sdk_crypto.TrustRequirement
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import chat.bipe.desktop.storage.AccountRepository
+import chat.bipe.desktop.chat.AccountDrafts
+import chat.bipe.desktop.chat.SdkComposerDraftStore
 
 sealed interface AccountSignal {
     data object Healthy : AccountSignal
@@ -42,6 +44,7 @@ sealed interface AccountSignal {
 class MatrixAccountRuntime private constructor(
     val lifetime: AccountLifetime,
     val client: Client,
+    val drafts: AccountDrafts,
     private val mutableSignal: MutableStateFlow<AccountSignal>,
 ) {
     val slot get() = lifetime.lease.slot
@@ -94,17 +97,23 @@ class MatrixAccountRuntime private constructor(
     fun closeAsync() = lifetime.closeAsync()
 
     companion object {
-        suspend fun open(lease: AccountLease, homeserver: String, userAgent: String): MatrixAccountRuntime {
+        private enum class Purpose { CLIENT, PENDING_LOGOUT }
+
+        suspend fun open(lease: AccountLease, homeserver: String, userAgent: String): MatrixAccountRuntime =
+            open(lease, homeserver, userAgent, Purpose.CLIENT)
+
+        private suspend fun open(lease: AccountLease, homeserver: String, userAgent: String, purpose: Purpose): MatrixAccountRuntime {
             val lifetime = AccountLifetime(lease)
             val signal = MutableStateFlow<AccountSignal>(AccountSignal.Healthy)
             try {
                 return lifetime.async {
                     val delegate = sessionDelegate(lifetime, signal)
                     val builder = lease.useStoreKey { key ->
-                        configuredBuilder(lease, key, homeserver, userAgent, delegate)
+                        configuredBuilder(lease, key, homeserver, userAgent, delegate, purpose)
                     }
                     val client = try { builder.build() } finally { builder.destroy() }
                     lifetime.own(ClientResource(client, lease))
+                    val drafts = lifetime.own(AccountDrafts(lifetime, SdkComposerDraftStore(client)))
                     currentCoroutineContext().ensureActive()
                     lifetime.requireCurrent()
                     val auth = client.setDelegate(object : ClientDelegate {
@@ -118,7 +127,7 @@ class MatrixAccountRuntime private constructor(
                         override fun onBackgroundTaskErrorReport(taskName: String, error: BackgroundTaskFailureReason) {}
                     })
                     lifetime.own(TaskResource(auth))
-                    MatrixAccountRuntime(lifetime, client, signal)
+                    MatrixAccountRuntime(lifetime, client, drafts, signal)
                 }.await()
             } catch (error: Exception) {
                 withContext(NonCancellable) { lifetime.closeAsync().await() }
@@ -127,7 +136,7 @@ class MatrixAccountRuntime private constructor(
         }
 
         private fun configuredBuilder(lease: AccountLease, key: ByteArray, homeserver: String,
-                                      userAgent: String, delegate: ClientSessionDelegate): ClientBuilder {
+                                      userAgent: String, delegate: ClientSessionDelegate, purpose: Purpose): ClientBuilder {
             val initialStore = SqliteStoreBuilder(lease.paths.data.toString(), lease.paths.cache.toString())
             val store = try { initialStore.key(key) } finally { initialStore.destroy() }
             var builder = ClientBuilder()
@@ -142,8 +151,8 @@ class MatrixAccountRuntime private constructor(
                 update { it.slidingSyncVersionBuilder(SlidingSyncVersionBuilder.NATIVE) }
                 update { it.setSessionDelegate(delegate) }
                 update { it.userAgent(userAgent) }
-                update { it.autoEnableCrossSigning(true) }
-                update { it.autoEnableBackups(true) }
+                update { it.autoEnableCrossSigning(purpose == Purpose.CLIENT) }
+                update { it.autoEnableBackups(purpose == Purpose.CLIENT) }
                 update { it.roomKeyRecipientStrategy(CollectStrategy.IDENTITY_BASED_STRATEGY) }
                 update { it.decryptionSettings(DecryptionSettings(TrustRequirement.CROSS_SIGNED_OR_LEGACY)) }
                 update { it.backupDownloadStrategy(BackupDownloadStrategy.AFTER_DECRYPTION_FAILURE) }
@@ -161,6 +170,28 @@ class MatrixAccountRuntime private constructor(
                 runtime.lifetime.async {
                     runtime.client.restoreSession(saved)
                     runtime.lifetime.requireCurrent()
+                }.await()
+                return runtime
+            } catch (error: Exception) {
+                withContext(NonCancellable) { runtime.closeAsync().await() }
+                throw error
+            }
+        }
+
+        /** Recovery-only restore: no sync, no promotion and no new phone-link attempt. */
+        suspend fun restorePendingForLogout(lease: AccountLease, userAgent: String): MatrixAccountRuntime {
+            val saved = try { lease.pendingSession() ?: throw StorageFailure(StorageCode.LINK_INCOMPLETE) }
+            catch (error: Exception) { lease.close(); throw error }
+            try { chat.bipe.desktop.storage.SdkStoreLayout.requireExisting(lease.paths) }
+            catch (error: Exception) { lease.close(); throw error }
+            val runtime = open(lease, saved.homeserverUrl, userAgent, Purpose.PENDING_LOGOUT)
+            try {
+                runtime.lifetime.async {
+                    runtime.client.restoreSession(saved)
+                    runtime.lifetime.requireCurrent()
+                    val restored = runtime.client.session()
+                    if (restored.userId != saved.userId || restored.deviceId != saved.deviceId ||
+                        restored.homeserverUrl != saved.homeserverUrl) throw StorageFailure(StorageCode.IDENTITY_MISMATCH)
                 }.await()
                 return runtime
             } catch (error: Exception) {

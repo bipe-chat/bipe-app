@@ -2516,4 +2516,18 @@
     <string name="bipe_interno_empty">Nobody else answers for this account yet.</string>
     <string name="bipe_govbr_step_sign_file">In the gov.br app, tap sign document and pick %1$s.</string>
     <string name="bipe_govbr_reason_wrong_document_file">This is not the document of this check. Use the file %1$s.</string>
+    <string name="bipe_desktop_pending_title">Unfinished link</string>
+    <string name="bipe_desktop_pending_body">This link did not finish. Try signing out this device before starting again. Other accounts on this computer stay signed in.</string>
+    <string name="bipe_desktop_pending_sign_out">Sign out and clear this link</string>
+    <string name="bipe_desktop_pending_forget">Forget this link on this computer</string>
+    <string name="bipe_desktop_pending_forget_title">Forget this link here?</string>
+    <string name="bipe_desktop_pending_forget_body">This clears the unfinished setup on this computer. The device may still be signed in. Open Linked devices on your phone and sign it out there if it still appears.</string>
+    <string name="bipe_desktop_pending_cleanup">Finish local cleanup</string>
+    <string name="bipe_desktop_pending_working">Finishing the link cleanup…</string>
+    <string name="bipe_desktop_pending_failed">Cleanup did not finish. Try again.</string>
+    <string name="bipe_desktop_pending_done_local">The local setup was cleared. Check Linked devices on your phone; the device may still be signed in there.</string>
+    <string name="bipe_desktop_pending_done_remote">This device was signed out. Bipe cleared its unfinished setup from this computer.</string>
+    <string name="bipe_desktop_draft_load_error">Could not load this chat\'s draft. Try again before typing.</string>
+    <string name="bipe_desktop_draft_save_error">Could not save this draft on this computer. Keep Bipe open and try again.</string>
+    <string name="bipe_desktop_draft_unsupported">This chat has a reply, edit or attachment draft that this version cannot open. It has been kept.</string>
 </resources>

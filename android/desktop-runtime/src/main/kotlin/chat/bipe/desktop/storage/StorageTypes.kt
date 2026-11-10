@@ -43,6 +43,7 @@ sealed interface StoredSlot {
     val slot: AccountSlot
     data class Linked(override val slot: AccountSlot, val userId: String, val deviceId: String) : StoredSlot
     data class Pending(override val slot: AccountSlot) : StoredSlot
+    data class Discarding(override val slot: AccountSlot, val remoteEnded: Boolean) : StoredSlot
     data class Revoked(override val slot: AccountSlot) : StoredSlot
     data class Unavailable(override val slot: AccountSlot, val reason: StorageCode) : StoredSlot
 }
@@ -51,6 +52,8 @@ internal sealed interface StoredRecord {
     val session: Session?
     class Pending(override val session: Session?) : StoredRecord
     class Linked(override val session: Session) : StoredRecord
+    /** Durable cleanup intent; never restores a client or recreates a server device. */
+    class Discarding(val remoteEnded: Boolean) : StoredRecord { override val session: Session? = null }
 }
 
 /** Vault implementations return an owned copy; callers must erase it after use. */

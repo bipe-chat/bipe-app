@@ -19,7 +19,12 @@ internal object SessionCodec {
     fun encode(slot: AccountSlot, record: StoredRecord): ByteArray = buildJsonObject {
         put("version", 1)
         put("slot", slot.value)
-        put("phase", if (record is StoredRecord.Linked) "linked" else "pending")
+        put("phase", when (record) {
+            is StoredRecord.Linked -> "linked"
+            is StoredRecord.Pending -> "pending"
+            is StoredRecord.Discarding -> "discarding"
+        })
+        if (record is StoredRecord.Discarding) put("remoteEnded", record.remoteEnded)
         put("session", record.session?.let { session ->
             buildJsonObject {
                 put("accessToken", session.accessToken)
@@ -56,6 +61,14 @@ internal object SessionCodec {
             return when (root.text("phase")) {
                 "pending" -> StoredRecord.Pending(session)
                 "linked" -> StoredRecord.Linked(session ?: corrupt())
+                "discarding" -> {
+                    if (session != null) corrupt()
+                    StoredRecord.Discarding(when (root["remoteEnded"]) {
+                        JsonPrimitive(true) -> true
+                        JsonPrimitive(false) -> false
+                        else -> corrupt()
+                    })
+                }
                 else -> corrupt()
             }
         } catch (failure: StorageFailure) { throw failure }

@@ -68,11 +68,16 @@ class AccountRepository(
     }
 
     /** Existing slots never generate replacement keys, stores, sessions or devices. */
-    fun open(slot: AccountSlot): AccountLease = safeIo {
+    fun open(slot: AccountSlot): AccountLease = open(slot, recovery = false)
+
+    /** Reads only pending/cleanup records. A missing SDK directory must not prevent explicit local recovery. */
+    fun openPendingRecovery(slot: AccountSlot): AccountLease = open(slot, recovery = true)
+
+    private fun open(slot: AccountSlot, recovery: Boolean): AccountLease = safeIo {
         val directory = existingDirectory(slot)
         if (Files.exists(directory.resolve(REVOKED), NOFOLLOW_LINKS)) throw StorageFailure(StorageCode.REVOKED)
         val lease = lock(slot, directory, null)
-        try { lease.load(); lease }
+        try { lease.load(recovery); lease }
         catch (error: Exception) { lease.close(); throw error }
     }
 
@@ -90,10 +95,31 @@ class AccountRepository(
                     else when (val record = readRecord(slot, path)) {
                         is StoredRecord.Pending -> StoredSlot.Pending(slot)
                         is StoredRecord.Linked -> StoredSlot.Linked(slot, record.session.userId, record.session.deviceId)
+                        is StoredRecord.Discarding -> StoredSlot.Discarding(slot, record.remoteEnded)
                     }
                 } catch (error: StorageFailure) { StoredSlot.Unavailable(slot, error.code) }
             }.filter { it != null }.map { it!! }.toList()
         }
+    }
+
+    /** Only a journaled pending discard may reach key revocation; linked records are refused. */
+    fun finishPendingDiscard(slot: AccountSlot) {
+        openPendingRecovery(slot).use { lease ->
+            lease.pendingDiscardStatus() ?: throw StorageFailure(StorageCode.LINK_INCOMPLETE)
+            if (lease.revoke() != RevocationResult.Complete) throw StorageFailure(StorageCode.IO_FAILURE)
+        }
+        removeRevokedFiles(slot)
+    }
+
+    /** Repair key/file cleanup after a committed tombstone, still under the exclusive slot lock. */
+    fun retryRevokedCleanup(slot: AccountSlot) = safeIo {
+        val directory = existingDirectory(slot)
+        if (!Files.isRegularFile(directory.resolve(REVOKED), NOFOLLOW_LINKS)) throw StorageFailure(StorageCode.REVOKED)
+        lock(slot, directory, null).use {
+            vault.remove(slot)
+            vault.read(slot)?.let { key -> key.fill(0); throw StorageFailure(StorageCode.IO_FAILURE) }
+        }
+        removeRevokedFiles(slot)
     }
 
     /** Called only after SDK teardown, lease release and a committed key revocation. Does not follow links. */
@@ -216,20 +242,34 @@ class AccountLease internal constructor(
         for (path in listOf(paths.data, paths.cache, paths.drafts, paths.media)) Files.createDirectory(path)
     }
 
-    @Synchronized internal fun load() = AccountRepository.safeIo {
+    @Synchronized internal fun load(recovery: Boolean = false) = AccountRepository.safeIo {
         val record = AccountRepository.withKey(vault, slot) { key -> AccountRepository.decodeRecord(slot, paths.root, key, protection) }
-        SdkStoreLayout.requireDirectories(paths)
+        if (recovery && record is StoredRecord.Linked) throw StorageFailure(StorageCode.LINK_INCOMPLETE)
+        if (!recovery) SdkStoreLayout.requireDirectories(paths)
         if (record is StoredRecord.Linked) SdkStoreLayout.requireExisting(paths)
         phase = Phase.Active(record)
     }
 
     @Synchronized fun savedSession(): Session? = active().record?.session
 
+    /** A pending token can be restored for logout only, never as a linked account. */
+    @Synchronized fun pendingSession(): Session? = (active().record as? StoredRecord.Pending
+        ?: throw StorageFailure(StorageCode.LINK_INCOMPLETE)).session
+
+    @Synchronized fun pendingDiscardStatus(): Boolean? = (active().record as? StoredRecord.Discarding)?.remoteEnded
+
+    /** Write the cleanup decision before retiring callbacks or deleting any key/file. */
+    @Synchronized fun beginPendingDiscard(remoteEnded: Boolean) = AccountRepository.safeIo {
+        if (active().record !is StoredRecord.Pending) throw StorageFailure(StorageCode.LINK_INCOMPLETE)
+        write(StoredRecord.Discarding(remoteEnded))
+    }
+
     @Synchronized fun linkedSession(): Session = (active().record as? StoredRecord.Linked)?.session
         ?: throw StorageFailure(StorageCode.LINK_INCOMPLETE)
 
     @Synchronized fun persistSession(session: Session) = AccountRepository.safeIo {
         val current = active().record ?: throw StorageFailure(StorageCode.CORRUPT_RECORD)
+        if (current is StoredRecord.Discarding) throw StorageFailure(StorageCode.STALE_OWNER)
         validateIdentity(current.session, session)
         write(if (current is StoredRecord.Linked) StoredRecord.Linked(session) else StoredRecord.Pending(session))
     }
@@ -237,6 +277,7 @@ class AccountLease internal constructor(
     /** Only the completed phone-link protocol may promote a pending slot to linked. */
     @Synchronized internal fun completeLink(session: Session) = AccountRepository.safeIo {
         val current = active().record ?: throw StorageFailure(StorageCode.CORRUPT_RECORD)
+        if (current !is StoredRecord.Pending) throw StorageFailure(StorageCode.LINK_INCOMPLETE)
         validateIdentity(current.session, session)
         SdkStoreLayout.requireExisting(paths)
         write(StoredRecord.Linked(session))
