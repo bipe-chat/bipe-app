@@ -196,6 +196,16 @@ public enum BipeStrings {
 
     public static var badgeCompanySuspended: String { NSLocalizedString("bipe_badge_company_suspended", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var badgeSealIssuer: String { NSLocalizedString("bipe_badge_seal_issuer", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var badgeSealCountry: String { NSLocalizedString("bipe_badge_seal_country", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var badgeOrgId: String { NSLocalizedString("bipe_badge_org_id", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var badgeOrgBody: String { NSLocalizedString("bipe_badge_org_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var badgeForeignBody: String { NSLocalizedString("bipe_badge_foreign_body", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static func cvmRegistered(_ p1: String) -> String {
         String(format: NSLocalizedString("bipe_cvm_registered", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
