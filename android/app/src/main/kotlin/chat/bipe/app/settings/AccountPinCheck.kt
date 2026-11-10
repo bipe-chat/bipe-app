@@ -38,10 +38,18 @@ import kotlinx.coroutines.launch
 /**
  * The Bipe PIN pad of the approval check ([OwnerCheck.approval], bipe-chat/bipe#785), for a phone with no strong
  * biometrics. [check] sends the PIN to POST /v1/me/pin/check, where wrong tries count against the account; the PIN is
- * never kept.
+ * never kept. [reason] is one line on why the app asks now (ADR 0283 rule 11, a `bipe_pin_reason_*` string). "Esqueci
+ * minha senha" reads [account] for the ways out (rule 12).
  */
 @Composable
-fun AccountPinCheck(title: String, check: suspend (String) -> Unit, onPass: () -> Unit, onCancel: () -> Unit) {
+fun AccountPinCheck(
+    title: String,
+    reason: String,
+    account: PinAccount,
+    check: suspend (String) -> Unit,
+    onPass: () -> Unit,
+    onCancel: () -> Unit,
+) {
     val context = LocalContext.current
     val view = LocalView.current
     val scope = rememberCoroutineScope()
@@ -49,14 +57,16 @@ fun AccountPinCheck(title: String, check: suspend (String) -> Unit, onPass: () -
     var error by remember { mutableStateOf<String?>(null) }
     var checking by remember { mutableStateOf(false) }
     var blocked by remember { mutableStateOf(false) }
+    var showsForgot by remember { mutableStateOf(false) }
     BackHandler(enabled = !checking, onBack = onCancel)
     Box(Modifier.fillMaxSize()) {
         PinPad(
             title = title,
             pin = pin,
-            message = stringResource(R.string.bipe_pin_enter_title),
+            message = reason,
             error = error,
             isBusy = checking,
+            onForgot = { showsForgot = true },
             onDigit = { digit ->
                 if (!checking && !blocked && pin.length < BipeRegistries.PIN_LENGTH) {
                     error = null
@@ -93,6 +103,13 @@ fun AccountPinCheck(title: String, check: suspend (String) -> Unit, onPass: () -
             Text(stringResource(R.string.bipe_app_cancel))
         }
     }
+    // A reset may have applied a new PIN while the sheet was open: the pad takes digits again; the server decides.
+    if (showsForgot) {
+        PinForgotDialog(account) {
+            showsForgot = false
+            blocked = false
+        }
+    }
 }
 
 /**
@@ -100,7 +117,12 @@ fun AccountPinCheck(title: String, check: suspend (String) -> Unit, onPass: () -
  * dialog and returns true when the server accepted the PIN, false on cancel.
  */
 @Composable
-fun rememberAccountPinCheck(title: String, check: suspend (String) -> Unit): suspend () -> Boolean {
+fun rememberAccountPinCheck(
+    title: String,
+    reason: String,
+    account: PinAccount,
+    check: suspend (String) -> Unit,
+): suspend () -> Boolean {
     var pending by remember { mutableStateOf<CompletableDeferred<Boolean>?>(null) }
     val currentCheck by rememberUpdatedState(check)
     pending?.let { deferred ->
@@ -110,6 +132,8 @@ fun rememberAccountPinCheck(title: String, check: suspend (String) -> Unit): sus
         ) {
             AccountPinCheck(
                 title = title,
+                reason = reason,
+                account = account,
                 check = { currentCheck(it) },
                 onPass = { deferred.complete(true) },
                 onCancel = { deferred.complete(false) },

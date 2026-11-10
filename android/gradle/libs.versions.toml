@@ -86,6 +86,7 @@ installreferrer = { module = "com.android.installreferrer:installreferrer", vers
 play-age-signals = { module = "com.google.android.play:age-signals", version.ref = "play-age-signals" }
 
 [plugins]
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }

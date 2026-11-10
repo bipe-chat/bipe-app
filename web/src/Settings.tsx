@@ -132,7 +132,7 @@ function SwitchControl({ title, on, onChange }: { title: string; on: boolean; on
 }
 
 function webSections(group: Group) {
-  // Notificações keeps the Element screen on the phone and lists no rows; the web has its own two switches.
+  // Notificações opens its own screen on the phone and lists no rows; the web has its own two switches.
   if (group.key === 'notifications' && typeof Notification !== 'undefined')
     return [
       {

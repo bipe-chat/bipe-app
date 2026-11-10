@@ -283,7 +283,9 @@ private struct RecoveryPinView: View {
         case .newPin: return BipeStrings.pinCreateBody(String(BipeRegistries.pinLength))
         case .newPinConfirm: return nil
         default:
-            if let userId = model.softLogoutUserId { return BipeStrings.softLogoutBody(Self.name(of: userId)) }
+            if let userId = model.softLogoutUserId {
+                return BipeStrings.pinReasonSoftLogout(Self.name(of: userId), String(BipeRegistries.pinLength))
+            }
             return model.factor == .token ? BipeStrings.recoveryTokenFound : nil
         }
     }

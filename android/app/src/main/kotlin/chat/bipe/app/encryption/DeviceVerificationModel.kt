@@ -9,6 +9,8 @@ import chat.bipe.app.account.AccountSession
 import chat.bipe.app.account.AccountStep
 import chat.bipe.app.common.AppConfig
 import chat.bipe.app.settings.OwnerCheck
+import chat.bipe.app.settings.PinAccount
+import chat.bipe.app.settings.pinAccount
 import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.generated.BipeRegistries
 import chat.bipe.shared.settings.checkPin
@@ -180,6 +182,9 @@ class DeviceVerificationModel(private val session: AccountSession, private val s
     suspend fun checkAccountPin(pin: String) {
         BipeApiClient.withTokenRetry({ session.accessToken() }) { api.checkPin(pin, it) }
     }
+
+    /** The account for the forgot sheet of the Bipe PIN pad (ADR 0283 rules 12 and 13). */
+    val pinAccount: PinAccount get() = session.pinAccount(api)
 
     /**
      * Action accept: approver waits through the cooldown, passes the owner check ([OwnerCheck.approval]: strong

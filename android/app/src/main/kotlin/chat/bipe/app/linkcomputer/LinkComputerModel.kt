@@ -4,11 +4,13 @@
 
 package chat.bipe.app.linkcomputer
 
-import chat.bipe.app.BuildConfig
 import android.content.Context
 import android.util.Base64
 import android.util.Log
+import chat.bipe.app.BuildConfig
+import chat.bipe.app.settings.PinAccount
 import chat.bipe.app.settings.SettingsModel
+import chat.bipe.app.settings.pinAccount
 import chat.bipe.shared.R
 import chat.bipe.shared.account.BipeAccountVault
 import chat.bipe.shared.api.BipeApiException
@@ -422,6 +424,9 @@ class LinkComputerModel(
     suspend fun checkAccountPin(pin: String) {
         settings.authorized { settings.api.checkPin(pin, it) }
     }
+
+    /** The account for the forgot sheet of the Bipe PIN pad (ADR 0283 rules 12 and 13). */
+    val pinAccount: PinAccount get() = settings.session.pinAccount(settings.api)
 
     /** Action confirmIdentity, after the owner check of the screen. A fail goes back to the warning. */
     fun identityChecked(passed: Boolean) {

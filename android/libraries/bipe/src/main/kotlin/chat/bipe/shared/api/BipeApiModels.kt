@@ -376,6 +376,11 @@ internal data class BipeRecoveryEmailRequest(@SerialName("email") val email: Str
 
 /** Exactly one of [pin] (access) and [newPin] (PIN reset). */
 @Serializable
+internal data class BipePinResetRequest(@SerialName("new_pin") val newPin: String) {
+    override fun toString(): String = "BipePinResetRequest"
+}
+
+@Serializable
 internal data class BipeEmailConfirmRequest(
     @SerialName("token") val token: String,
     @SerialName("pin") val pin: String? = null,
@@ -403,18 +408,28 @@ enum class BipeRecoveryState {
     @SerialName("expired") EXPIRED,
 }
 
-@Serializable
-enum class BipeRecoveryMethod {
-    @SerialName("token") TOKEN,
-    @SerialName("email") EMAIL,
-    @SerialName("guardian") GUARDIAN,
-    @SerialName("cpf") CPF,
+@Serializable(with = BipeRecoveryMethodSerializer::class)
+enum class BipeRecoveryMethod(val id: String) {
+    TOKEN("token"),
+    EMAIL("email"),
+    GUARDIAN("guardian"),
+    CPF("cpf"),
 
     /** A linked Apple account (ADR 0096). */
-    @SerialName("apple") APPLE,
+    APPLE("apple"),
 
     /** A linked Google account (ADR 0096). */
-    @SerialName("google") GOOGLE,
+    GOOGLE("google"),
+}
+
+/** An unknown method from a newer server must not fail the account state: it reads as [BipeRecoveryMethod.EMAIL]. */
+internal object BipeRecoveryMethodSerializer : KSerializer<BipeRecoveryMethod> {
+    override val descriptor = PrimitiveSerialDescriptor("chat.bipe.RecoveryMethod", PrimitiveKind.STRING)
+
+    override fun serialize(encoder: Encoder, value: BipeRecoveryMethod) = encoder.encodeString(value.id)
+
+    override fun deserialize(decoder: Decoder): BipeRecoveryMethod =
+        decoder.decodeString().let { id -> BipeRecoveryMethod.entries.firstOrNull { it.id == id } } ?: BipeRecoveryMethod.EMAIL
 }
 
 /** `Recovery`, as GET /v1/me/account lists it for the old devices. */

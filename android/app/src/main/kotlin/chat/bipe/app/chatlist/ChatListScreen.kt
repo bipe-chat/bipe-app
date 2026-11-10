@@ -386,7 +386,7 @@ fun HomeScreen(
                     openRoomId = sentTo
                 }
             }
-            alertNotice != null -> RecoveryAlertScreen(recoveryAlert)
+            alertNotice != null -> RecoveryAlertScreen(recoveryAlert) { showsRecoveryEmail = true }
             showsNewAccount -> AccountNewScreen(tabs, session, api, onClose = { showsNewAccount = false; newAccountPreset = null },
                 preset = newAccountPreset)
             inviteTap != null -> InviteSignedInScreen(

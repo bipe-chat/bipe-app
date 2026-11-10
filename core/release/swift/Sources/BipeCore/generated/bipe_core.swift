@@ -859,6 +859,126 @@ public func FfiConverterTypeBoundSenderBadge_lower(_ value: BoundSenderBadge) ->
 }
 
 
+public struct CvmLine: Equatable, Hashable {
+    public var key: CvmLineKey
+    /**
+     * A category, or a date as DD/MM/AAAA.
+     */
+    public var arg: String?
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(key: CvmLineKey, 
+        /**
+         * A category, or a date as DD/MM/AAAA.
+         */arg: String?) {
+        self.key = key
+        self.arg = arg
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension CvmLine: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeCvmLine: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> CvmLine {
+        return
+            try CvmLine(
+                key: FfiConverterTypeCvmLineKey.read(from: &buf), 
+                arg: FfiConverterOptionString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: CvmLine, into buf: inout [UInt8]) {
+        FfiConverterTypeCvmLineKey.write(value.key, into: &buf)
+        FfiConverterOptionString.write(value.arg, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeCvmLine_lift(_ buf: RustBuffer) throws -> CvmLine {
+    return try FfiConverterTypeCvmLine.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeCvmLine_lower(_ value: CvmLine) -> RustBuffer {
+    return FfiConverterTypeCvmLine.lower(value)
+}
+
+
+public struct CvmLines: Equatable, Hashable {
+    public var lines: [CvmLine]
+    /**
+     * A stop order: the line is red and chats from the account show bipe_cvm_stop_order_card.
+     */
+    public var danger: Bool
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(lines: [CvmLine], 
+        /**
+         * A stop order: the line is red and chats from the account show bipe_cvm_stop_order_card.
+         */danger: Bool) {
+        self.lines = lines
+        self.danger = danger
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension CvmLines: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeCvmLines: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> CvmLines {
+        return
+            try CvmLines(
+                lines: FfiConverterSequenceTypeCvmLine.read(from: &buf), 
+                danger: FfiConverterBool.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: CvmLines, into buf: inout [UInt8]) {
+        FfiConverterSequenceTypeCvmLine.write(value.lines, into: &buf)
+        FfiConverterBool.write(value.danger, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeCvmLines_lift(_ buf: RustBuffer) throws -> CvmLines {
+    return try FfiConverterTypeCvmLines.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeCvmLines_lower(_ value: CvmLines) -> RustBuffer {
+    return FfiConverterTypeCvmLines.lower(value)
+}
+
+
 /**
  * A badge that passed every step, with the issuer the app names in the profile and the seal sheet.
  */
@@ -1367,6 +1487,330 @@ public func FfiConverterTypePixCodeMatch_lift(_ buf: RustBuffer) throws -> PixCo
 #endif
 public func FfiConverterTypePixCodeMatch_lower(_ value: PixCodeMatch) -> RustBuffer {
     return FfiConverterTypePixCodeMatch.lower(value)
+}
+
+
+public struct PixMarkCard: Equatable, Hashable {
+    public var eventId: String
+    /**
+     * The card's sender.
+     */
+    public var requester: String
+    public var payers: [String]
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(eventId: String, 
+        /**
+         * The card's sender.
+         */requester: String, payers: [String]) {
+        self.eventId = eventId
+        self.requester = requester
+        self.payers = payers
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension PixMarkCard: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypePixMarkCard: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> PixMarkCard {
+        return
+            try PixMarkCard(
+                eventId: FfiConverterString.read(from: &buf), 
+                requester: FfiConverterString.read(from: &buf), 
+                payers: FfiConverterSequenceString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: PixMarkCard, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.eventId, into: &buf)
+        FfiConverterString.write(value.requester, into: &buf)
+        FfiConverterSequenceString.write(value.payers, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePixMarkCard_lift(_ buf: RustBuffer) throws -> PixMarkCard {
+    return try FfiConverterTypePixMarkCard.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePixMarkCard_lower(_ value: PixMarkCard) -> RustBuffer {
+    return FfiConverterTypePixMarkCard.lower(value)
+}
+
+
+/**
+ * A mark event: its ID, sender, origin_server_ts and content as JSON text.
+ */
+public struct PixMarkEvent: Equatable, Hashable {
+    public var eventId: String
+    public var sender: String
+    public var ts: Int64
+    public var contentJson: String
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(eventId: String, sender: String, ts: Int64, contentJson: String) {
+        self.eventId = eventId
+        self.sender = sender
+        self.ts = ts
+        self.contentJson = contentJson
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension PixMarkEvent: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypePixMarkEvent: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> PixMarkEvent {
+        return
+            try PixMarkEvent(
+                eventId: FfiConverterString.read(from: &buf), 
+                sender: FfiConverterString.read(from: &buf), 
+                ts: FfiConverterInt64.read(from: &buf), 
+                contentJson: FfiConverterString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: PixMarkEvent, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.eventId, into: &buf)
+        FfiConverterString.write(value.sender, into: &buf)
+        FfiConverterInt64.write(value.ts, into: &buf)
+        FfiConverterString.write(value.contentJson, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePixMarkEvent_lift(_ buf: RustBuffer) throws -> PixMarkEvent {
+    return try FfiConverterTypePixMarkEvent.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePixMarkEvent_lower(_ value: PixMarkEvent) -> RustBuffer {
+    return FfiConverterTypePixMarkEvent.lower(value)
+}
+
+
+public struct PixMarkHistoryEntry: Equatable, Hashable {
+    public var eventId: String
+    public var mark: PixMark
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(eventId: String, mark: PixMark) {
+        self.eventId = eventId
+        self.mark = mark
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension PixMarkHistoryEntry: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypePixMarkHistoryEntry: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> PixMarkHistoryEntry {
+        return
+            try PixMarkHistoryEntry(
+                eventId: FfiConverterString.read(from: &buf), 
+                mark: FfiConverterTypePixMark.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: PixMarkHistoryEntry, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.eventId, into: &buf)
+        FfiConverterTypePixMark.write(value.mark, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePixMarkHistoryEntry_lift(_ buf: RustBuffer) throws -> PixMarkHistoryEntry {
+    return try FfiConverterTypePixMarkHistoryEntry.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePixMarkHistoryEntry_lower(_ value: PixMarkHistoryEntry) -> RustBuffer {
+    return FfiConverterTypePixMarkHistoryEntry.lower(value)
+}
+
+
+/**
+ * One payer's line of the card. `e2e_id` is the payer's claim from the bank receipt; Bipe cannot check it.
+ */
+public struct PixMarkLine: Equatable, Hashable {
+    public var payer: String
+    public var state: PixMarkState
+    public var e2eId: String?
+    /**
+     * True only in state received.
+     */
+    public var paid: Bool
+    public var history: [PixMarkHistoryEntry]
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(payer: String, state: PixMarkState, e2eId: String?, 
+        /**
+         * True only in state received.
+         */paid: Bool, history: [PixMarkHistoryEntry]) {
+        self.payer = payer
+        self.state = state
+        self.e2eId = e2eId
+        self.paid = paid
+        self.history = history
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension PixMarkLine: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypePixMarkLine: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> PixMarkLine {
+        return
+            try PixMarkLine(
+                payer: FfiConverterString.read(from: &buf), 
+                state: FfiConverterTypePixMarkState.read(from: &buf), 
+                e2eId: FfiConverterOptionString.read(from: &buf), 
+                paid: FfiConverterBool.read(from: &buf), 
+                history: FfiConverterSequenceTypePixMarkHistoryEntry.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: PixMarkLine, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.payer, into: &buf)
+        FfiConverterTypePixMarkState.write(value.state, into: &buf)
+        FfiConverterOptionString.write(value.e2eId, into: &buf)
+        FfiConverterBool.write(value.paid, into: &buf)
+        FfiConverterSequenceTypePixMarkHistoryEntry.write(value.history, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePixMarkLine_lift(_ buf: RustBuffer) throws -> PixMarkLine {
+    return try FfiConverterTypePixMarkLine.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePixMarkLine_lower(_ value: PixMarkLine) -> RustBuffer {
+    return FfiConverterTypePixMarkLine.lower(value)
+}
+
+
+public struct PixMarkLines: Equatable, Hashable {
+    /**
+     * One line per payer, in the card's payer order. A payer listed twice has one line.
+     */
+    public var lines: [PixMarkLine]
+    /**
+     * The event IDs of marks that break a rule. They change no line.
+     */
+    public var rejected: [String]
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(
+        /**
+         * One line per payer, in the card's payer order. A payer listed twice has one line.
+         */lines: [PixMarkLine], 
+        /**
+         * The event IDs of marks that break a rule. They change no line.
+         */rejected: [String]) {
+        self.lines = lines
+        self.rejected = rejected
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension PixMarkLines: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypePixMarkLines: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> PixMarkLines {
+        return
+            try PixMarkLines(
+                lines: FfiConverterSequenceTypePixMarkLine.read(from: &buf), 
+                rejected: FfiConverterSequenceString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: PixMarkLines, into buf: inout [UInt8]) {
+        FfiConverterSequenceTypePixMarkLine.write(value.lines, into: &buf)
+        FfiConverterSequenceString.write(value.rejected, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePixMarkLines_lift(_ buf: RustBuffer) throws -> PixMarkLines {
+    return try FfiConverterTypePixMarkLines.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePixMarkLines_lower(_ value: PixMarkLines) -> RustBuffer {
+    return FfiConverterTypePixMarkLines.lower(value)
 }
 
 
@@ -2272,6 +2716,112 @@ public func FfiConverterTypeBoundBadgeResult_lower(_ value: BoundBadgeResult) ->
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * The string key of a line. The app shows the bipe-shared string of that key.
+ */
+
+public enum CvmLineKey: Equatable, Hashable {
+    
+    /**
+     * bipe_cvm_registered, with a category.
+     */
+    case registered
+    /**
+     * bipe_cvm_cancelled, with a date.
+     */
+    case cancelled
+    /**
+     * bipe_cvm_no_registration.
+     */
+    case noRegistration
+    /**
+     * bipe_cvm_bank_note.
+     */
+    case bankNote
+    /**
+     * bipe_cvm_stop_order, with a date.
+     */
+    case stopOrder
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension CvmLineKey: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeCvmLineKey: FfiConverterRustBuffer {
+    typealias SwiftType = CvmLineKey
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> CvmLineKey {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .registered
+        
+        case 2: return .cancelled
+        
+        case 3: return .noRegistration
+        
+        case 4: return .bankNote
+        
+        case 5: return .stopOrder
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: CvmLineKey, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .registered:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .cancelled:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .noRegistration:
+            writeInt(&buf, Int32(3))
+        
+        
+        case .bankNote:
+            writeInt(&buf, Int32(4))
+        
+        
+        case .stopOrder:
+            writeInt(&buf, Int32(5))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeCvmLineKey_lift(_ buf: RustBuffer) throws -> CvmLineKey {
+    return try FfiConverterTypeCvmLineKey.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeCvmLineKey_lower(_ value: CvmLineKey) -> RustBuffer {
+    return FfiConverterTypeCvmLineKey.lower(value)
+}
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 
 public enum IssuedBadgeResult: Equatable, Hashable {
     
@@ -2900,6 +3450,164 @@ public func FfiConverterTypePixKeyType_lower(_ value: PixKeyType) -> RustBuffer 
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * The marks a person can send: every state but issued.
+ */
+
+public enum PixMark: Equatable, Hashable {
+    
+    case sent
+    case received
+    case notReceived
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension PixMark: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypePixMark: FfiConverterRustBuffer {
+    typealias SwiftType = PixMark
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> PixMark {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .sent
+        
+        case 2: return .received
+        
+        case 3: return .notReceived
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: PixMark, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .sent:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .received:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .notReceived:
+            writeInt(&buf, Int32(3))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePixMark_lift(_ buf: RustBuffer) throws -> PixMark {
+    return try FfiConverterTypePixMark.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePixMark_lower(_ value: PixMark) -> RustBuffer {
+    return FfiConverterTypePixMark.lower(value)
+}
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+
+public enum PixMarkState: Equatable, Hashable {
+    
+    case issued
+    case sent
+    case received
+    case notReceived
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension PixMarkState: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypePixMarkState: FfiConverterRustBuffer {
+    typealias SwiftType = PixMarkState
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> PixMarkState {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .issued
+        
+        case 2: return .sent
+        
+        case 3: return .received
+        
+        case 4: return .notReceived
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: PixMarkState, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .issued:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .sent:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .received:
+            writeInt(&buf, Int32(3))
+        
+        
+        case .notReceived:
+            writeInt(&buf, Int32(4))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePixMarkState_lift(_ buf: RustBuffer) throws -> PixMarkState {
+    return try FfiConverterTypePixMarkState.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePixMarkState_lower(_ value: PixMarkState) -> RustBuffer {
+    return FfiConverterTypePixMarkState.lower(value)
+}
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 
 public enum PublicStatementResult: Equatable, Hashable {
     
@@ -3364,6 +4072,31 @@ fileprivate struct FfiConverterSequenceString: FfiConverterRustBuffer {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterSequenceTypeCvmLine: FfiConverterRustBuffer {
+    typealias SwiftType = [CvmLine]
+
+    public static func write(_ value: [CvmLine], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeCvmLine.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [CvmLine] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [CvmLine]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypeCvmLine.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterSequenceTypeListKey: FfiConverterRustBuffer {
     typealias SwiftType = [ListKey]
 
@@ -3431,6 +4164,81 @@ fileprivate struct FfiConverterSequenceTypeOperatorRegion: FfiConverterRustBuffe
         seq.reserveCapacity(Int(len))
         for _ in 0 ..< len {
             seq.append(try FfiConverterTypeOperatorRegion.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterSequenceTypePixMarkEvent: FfiConverterRustBuffer {
+    typealias SwiftType = [PixMarkEvent]
+
+    public static func write(_ value: [PixMarkEvent], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypePixMarkEvent.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [PixMarkEvent] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [PixMarkEvent]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypePixMarkEvent.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterSequenceTypePixMarkHistoryEntry: FfiConverterRustBuffer {
+    typealias SwiftType = [PixMarkHistoryEntry]
+
+    public static func write(_ value: [PixMarkHistoryEntry], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypePixMarkHistoryEntry.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [PixMarkHistoryEntry] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [PixMarkHistoryEntry]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypePixMarkHistoryEntry.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterSequenceTypePixMarkLine: FfiConverterRustBuffer {
+    typealias SwiftType = [PixMarkLine]
+
+    public static func write(_ value: [PixMarkLine], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypePixMarkLine.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [PixMarkLine] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [PixMarkLine]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypePixMarkLine.read(from: &buf))
         }
         return seq
     }
@@ -3520,6 +4328,16 @@ public func verifyPublicIssuerStatement(envelopeJson: String, homeserver: String
 })
 }
 /**
+ * The lines of the `cvm` field, given as JSON text. None, or text that is not a JSON object, shows nothing.
+ */
+public func cvmLines(fieldJson: String?) -> CvmLines  {
+    return try!  FfiConverterTypeCvmLines_lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_cvm_lines(
+        FfiConverterOptionString.lower(fieldJson),$0
+    )
+})
+}
+/**
  * The class of a verified badge. `scheme` counts only for `person` and `org`; the Brazilian levels
  * `pix`, `govbr` and `cnpj` are aliases of their schemes. `None`: no class, or a scheme the registry
  * does not have.
@@ -3564,6 +4382,28 @@ public func verifyIssuedBadge(envelopeJson: String, sender: String, senderMaster
 })
 }
 /**
+ * A verified domain of an `institution` badge: lower-case ASCII labels of letters, digits and hyphens, at least one
+ * dot (`NOTICE_DOMAIN` of the reference).
+ */
+public func noticeDomainValid(domain: String) -> Bool  {
+    return try!  FfiConverterBool.lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_notice_domain_valid(
+        FfiConverterString.lower(domain),$0
+    )
+})
+}
+/**
+ * True when `url` may be a clickable link in a notice from an institution with the verified `domains`.
+ */
+public func noticeLinkClickable(url: String, domains: [String]) -> Bool  {
+    return try!  FfiConverterBool.lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_notice_link_clickable(
+        FfiConverterString.lower(url),
+        FfiConverterSequenceString.lower(domains),$0
+    )
+})
+}
+/**
  * The first BR Code in `text`: it starts at the first "000201" that has br.gov.bcb.pix after it. None when there is
  * no such code.
  */
@@ -3592,6 +4432,61 @@ public func pixKeyType(key: String) -> PixKeyType  {
     return try!  FfiConverterTypePixKeyType_lift(try! rustCall() {
     uniffi_bipe_core_fn_func_pix_key_type(
         FfiConverterString.lower(key),$0
+    )
+})
+}
+/**
+ * The format of a Pix end-to-end ID (`e2eIdPattern`): E, the 8-digit ISPB, 23 letters or digits. The app cannot check
+ * that the payment exists.
+ */
+public func pixE2eIdValid(id: String) -> Bool  {
+    return try!  FfiConverterBool.lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_pix_e2e_id_valid(
+        FfiConverterString.lower(id),$0
+    )
+})
+}
+/**
+ * The content of a mark event, as JSON text for the app's raw send. None when an E2E ID is given on another mark
+ * than sent, or does not have the format.
+ */
+public func pixMarkContent(cardEventId: String, mark: PixMark, payer: String?, e2eId: String?) -> String?  {
+    return try!  FfiConverterOptionString.lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_pix_mark_content(
+        FfiConverterString.lower(cardEventId),
+        FfiConverterTypePixMark_lower(mark),
+        FfiConverterOptionString.lower(payer),
+        FfiConverterOptionString.lower(e2eId),$0
+    )
+})
+}
+/**
+ * The event type of a mark (`eventType`), for the app's raw send.
+ */
+public func pixMarkEventType() -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_pix_mark_event_type($0
+    )
+})
+}
+/**
+ * The lines of a request card from its mark events, read in `ts` order, ties by event ID.
+ */
+public func pixMarkLines(card: PixMarkCard, events: [PixMarkEvent]) -> PixMarkLines  {
+    return try!  FfiConverterTypePixMarkLines_lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_pix_mark_lines(
+        FfiConverterTypePixMarkCard_lower(card),
+        FfiConverterSequenceTypePixMarkEvent.lower(events),$0
+    )
+})
+}
+/**
+ * The BR Code txid of a request card: the request ID with ASCII letters and digits only, at most txidMaxLength.
+ */
+public func pixTxid(requestId: String) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_pix_txid(
+        FfiConverterString.lower(requestId),$0
     )
 })
 }
@@ -3752,6 +4647,9 @@ private let initializationResult: InitializationResult = {
     if (uniffi_bipe_core_checksum_func_verify_public_issuer_statement() != 24673) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_bipe_core_checksum_func_cvm_lines() != 47403) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_bipe_core_checksum_func_badge_class() != 56843) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -3761,6 +4659,12 @@ private let initializationResult: InitializationResult = {
     if (uniffi_bipe_core_checksum_func_verify_issued_badge() != 23843) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_bipe_core_checksum_func_notice_domain_valid() != 62880) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_bipe_core_checksum_func_notice_link_clickable() != 626) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_bipe_core_checksum_func_find_pix_code() != 9043) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -3768,6 +4672,21 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_bipe_core_checksum_func_pix_key_type() != 62490) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_bipe_core_checksum_func_pix_e2e_id_valid() != 38057) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_bipe_core_checksum_func_pix_mark_content() != 48653) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_bipe_core_checksum_func_pix_mark_event_type() != 46563) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_bipe_core_checksum_func_pix_mark_lines() != 14405) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_bipe_core_checksum_func_pix_txid() != 47166) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_bipe_core_checksum_func_bipe_server_status() != 40715) {

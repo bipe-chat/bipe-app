@@ -84,6 +84,12 @@ public struct BipeAPIClient: Sendable {
     public func checkPIN(_ pin: String, accessToken: String) async throws(BipeAPIError) {
         let _: NoContent = try await send(method: "POST", path: ["v1", "me", "pin", "check"], body: PINRequest(pin: pin), accessToken: accessToken)
     }
+
+    /// `POST /v1/me/pin/reset` (ADR 0283 rule 13). The app ran the biometric owner check first. The new PIN takes effect
+    /// when this phone claims the reset after `readyAt` (`claimRecovery`). 409 `pin_reset_pending` when one waits.
+    public func startPinReset(newPIN: String, accessToken: String) async throws(BipeAPIError) -> BipeRecoveryStarted {
+        try await send(method: "POST", path: ["v1", "me", "pin", "reset"], body: PINResetRequest(newPin: newPIN), accessToken: accessToken)
+    }
     
     /// `POST /v1/me/device-first`. Moves a beta account to a hidden password, once. Needs the current PIN (bipe-chat/bipe#908).
     public func moveToDeviceFirst(pin: String, accessToken: String) async throws(BipeAPIError) -> BipeCredentials {
@@ -559,6 +565,10 @@ public struct BipeAPIClient: Sendable {
     
     private struct PINRequest: Encodable {
         let pin: String
+    }
+
+    private struct PINResetRequest: Encodable {
+        let newPin: String
     }
 
     private struct PINChangeRequest: Encodable {
@@ -1244,6 +1254,8 @@ public enum BipeAPIErrorCode: String, Sendable {
     case supportUnavailable = "support_unavailable"
     /// 409. An account deletion already waits (ADR 0140).
     case deletionPending = "deletion_pending"
+    /// 409. A PIN reset already waits on the account (POST /v1/me/pin/reset, ADR 0283 rule 13).
+    case pinResetPending = "pin_reset_pending"
     // Business tools (api/business-schemas.json AgendaError). Texts: BipeAPIError.agendaMessage.
     case slotTaken = "slot_taken"
     case holdExpired = "hold_expired"
@@ -1349,6 +1361,7 @@ public enum BipeAPIError: Error, Sendable, Equatable {
             case .termsRequired: BipeStrings.signupTermsRequired
             case .supportUnavailable: BipeStrings.supportOpenFailed
             case .deletionPending: BipeStrings.deletionError
+            case .pinResetPending: BipeStrings.pinResetPending
             case .linkTaken: BipeStrings.linkedAccountTaken
             case .linkUnavailable: BipeStrings.linkedAccountError
             case .slotTaken, .holdExpired, .tooManyOpenBookings, .outsideNotice, .outsideHorizon, .agendaNotPublished,

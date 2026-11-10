@@ -24,6 +24,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -56,6 +57,7 @@ fun PinPad(
     error: String? = null,
     isBusy: Boolean = false,
     onBiometrics: (() -> Unit)? = null,
+    onForgot: (() -> Unit)? = null,
     onDigit: (String) -> Unit,
     onDelete: () -> Unit,
 ) {
@@ -102,6 +104,12 @@ fun PinPad(
                 }
                 DigitKey("0", enabled = !isBusy) { onDigit("0") }
                 IconKey(PhosphorIcon.BACKSPACE, stringResource(R.string.bipe_a11y_pin_delete), enabled = !isBusy, onClick = onDelete)
+            }
+            // ADR 0283 rule 12: every pad of the Bipe PIN offers a way out.
+            if (onForgot != null) {
+                TextButton(onClick = onForgot, enabled = !isBusy) {
+                    Text(stringResource(R.string.bipe_pin_forgot), color = colors.accentInk)
+                }
             }
         }
     }

@@ -271,6 +271,8 @@ fun TheftProtectionScreen(model: SettingsModel, onBack: () -> Unit) {
     if (state.pendingGuardians != null) {
         AccountPinCheck(
             title = stringResource(R.string.bipe_theft_title),
+            reason = stringResource(R.string.bipe_pin_reason_guardians, BipeRegistries.PIN_LENGTH.toString()),
+            account = model.session.pinAccount(model.api),
             check = theft::savePin,
             onPass = {},
             onCancel = theft::cancelPin,

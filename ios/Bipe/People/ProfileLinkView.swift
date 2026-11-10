@@ -85,6 +85,7 @@ struct ProfileLinkView: View {
         .toast($notice)
         .accessibilityIdentifier(BipeScreen.profileLink.rawValue)
         .task { showingQr = initiallyShowsQr; await appear() }
+        .onReceive(NotificationCenter.default.publisher(for: .bipeHandleChanged)) { _ in Task { await appear() } }
     }
 
     /// GET /v1/me/handle and MyProfile.enabled.

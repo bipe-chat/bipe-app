@@ -530,7 +530,9 @@ final class LinkComputerModel: ObservableObject {
         let reason = mode == .computer ? BipeStrings.linkComputerBiometric : BipeStrings.appLinkPhoneBiometric
         let api = settings.api
         let settings = settings
-        let check = await ApprovalCheck.run(reason: reason, pinTitle: reason, prompt: pinPrompt) { (pin: String) async throws(BipeAPIError) in
+        let pinReason = mode == .computer ? BipeStrings.pinReasonLinkComputer(String(BipeRegistries.pinLength)) : BipeStrings.pinReasonApproveDevice(String(BipeRegistries.pinLength))
+        let check = await ApprovalCheck.run(reason: reason, pinTitle: BipeStrings.pinEnterTitle, pinReason: pinReason,
+                                            prompt: pinPrompt, account: settings.session.pinAccount(api)) { (pin: String) async throws(BipeAPIError) in
             try await settings.authorized { (token: String) async throws(BipeAPIError) in
                 try await api.checkPIN(pin, accessToken: token)
             }

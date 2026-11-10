@@ -241,7 +241,8 @@ struct RecoveryEmailAddView: View {
     /// The PIN pad sends the PUT, so a wrong or blocked PIN stays on the pad. Any other failure closes the pad and shows
     /// on the form.
     private func sendWithPIN(_ address: String) async {
-        let passed = await pinPrompt.ask(title: BipeStrings.emailTitle) { (pin: String) async throws(BipeAPIError) in
+        let passed = await pinPrompt.ask(title: BipeStrings.emailTitle, reason: BipeStrings.pinReasonEmailSet(String(BipeRegistries.pinLength)),
+                                         account: session.pinAccount(api)) { (pin: String) async throws(BipeAPIError) in
             do throws(BipeAPIError) {
                 try await put(address, pin: pin)
             } catch {

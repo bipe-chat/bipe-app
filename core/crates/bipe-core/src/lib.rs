@@ -5,8 +5,11 @@
 //! Pure Bipe logic shared by all clients (ADR 0267). No network, files, clock, secrets or Matrix session.
 
 mod badge;
+mod cvm;
 mod issuer;
+mod notice;
 mod pix;
+mod pix_marks;
 mod signed_list;
 mod theft;
 
@@ -16,8 +19,11 @@ mod generated {
 }
 
 pub use badge::*;
+pub use cvm::*;
 pub use issuer::*;
+pub use notice::*;
 pub use pix::*;
+pub use pix_marks::*;
 pub use signed_list::*;
 pub use theft::*;
 

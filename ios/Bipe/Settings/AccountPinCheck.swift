@@ -16,14 +16,15 @@ enum ApprovalCheck {
         case noScreenLock
     }
 
+    /// pinReason: the pad's reason line, one of `BipeStrings.pinReason*` (ADR 0283 rule 11).
     @MainActor
-    static func run(reason: String, pinTitle: String, prompt: AccountPinPrompt,
+    static func run(reason: String, pinTitle: String, pinReason: String, prompt: AccountPinPrompt, account: PinAccount,
                     checkPIN: @escaping @MainActor (String) async throws(BipeAPIError) -> Void) async -> Result {
         guard OwnerCheck.canCheckOwner else { return .noScreenLock }
         if OwnerCheck.biometricKind != .none {
             return await OwnerCheck.biometrics(reason: reason) ? .passed : .failed
         }
-        return await prompt.ask(title: pinTitle, check: checkPIN) ? .passed : .failed
+        return await prompt.ask(title: pinTitle, reason: pinReason, account: account, check: checkPIN) ? .passed : .failed
     }
 }
 
@@ -31,6 +32,9 @@ enum ApprovalCheck {
 struct AccountPinRequest: Identifiable {
     let id = UUID()
     let title: String
+    /// One line on why the app asks now (ADR 0283 rule 11).
+    let reason: String
+    let account: PinAccount
     let check: @MainActor (String) async throws(BipeAPIError) -> Void
 }
 
@@ -42,11 +46,12 @@ final class AccountPinPrompt: ObservableObject {
     private var continuation: CheckedContinuation<Bool, Never>?
 
     /// True when the server accepted the PIN; false on cancel.
-    func ask(title: String, check: @escaping @MainActor (String) async throws(BipeAPIError) -> Void) async -> Bool {
+    func ask(title: String, reason: String, account: PinAccount,
+             check: @escaping @MainActor (String) async throws(BipeAPIError) -> Void) async -> Bool {
         finish(false)
         return await withCheckedContinuation { continuation in
             self.continuation = continuation
-            request = AccountPinRequest(title: title, check: check)
+            request = AccountPinRequest(title: title, reason: reason, account: account, check: check)
         }
     }
 
@@ -83,14 +88,16 @@ struct AccountPinCheckView: View {
     @State private var error: String?
     @State private var checking = false
     @State private var blocked = false
+    @State private var showsForgot = false
 
     var body: some View {
         NavigationStack {
             PinPadView(title: request.title,
-                       message: BipeStrings.pinEnterTitle,
+                       message: request.reason,
                        error: error,
                        pin: pin,
                        isBusy: checking,
+                       onForgot: { showsForgot = true },
                        onDigit: type,
                        onDelete: { if !pin.isEmpty { pin.removeLast() } })
                 .toolbar {
@@ -104,6 +111,10 @@ struct AccountPinCheckView: View {
                 }
         }
         .interactiveDismissDisabled(checking)
+        // A reset may have applied a new PIN while the sheet was open: the pad takes digits again; the server decides.
+        .sheet(isPresented: $showsForgot, onDismiss: { blocked = false }) {
+            PinForgotView(account: request.account)
+        }
     }
 
     private func type(_ digit: String) {

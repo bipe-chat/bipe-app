@@ -22,6 +22,7 @@ struct AccountDeleteView: View {
     @State private var redactMessages = false
     @State private var pin = ""
     @State private var pinError: String?
+    @State private var showsForgot = false
     @Environment(\.dismiss) private var dismiss
 
     private var isCompany: Bool { model.account?.accountType == .company }
@@ -35,9 +36,11 @@ struct AccountDeleteView: View {
                     explain
                 case .enterPin, .requesting:
                     PinPadView(title: BipeStrings.deletionPinTitle,
+                               message: BipeStrings.pinReasonDelete(String(BipeRegistries.pinLength)),
                                error: pinError,
                                pin: pin,
                                isBusy: phase == .requesting,
+                               onForgot: { showsForgot = true },
                                onDigit: type,
                                onDelete: { if !pin.isEmpty { pin.removeLast() } })
                 case .requested(let dueAt):
@@ -47,6 +50,9 @@ struct AccountDeleteView: View {
                 case .failed(let text):
                     message(text, icon: .warningCircle) { dismiss() }
                 }
+            }
+            .sheet(isPresented: $showsForgot) {
+                PinForgotView(account: model.session.pinAccount(model.api))
             }
             .navigationTitle(BipeStrings.deletionTitle)
             .navigationBarTitleDisplayMode(.inline)
@@ -167,7 +173,9 @@ struct AccountDeleteView: View {
                 pinError = BipeStrings.pinWrong(String(error.pinTriesLeft ?? 0))
                 phase = .enterPin
             case .server(.pinBlocked, _, _):
-                phase = .failed(BipeStrings.pinBlockedBody(String(BipeRegistries.pinMaxWrongTries)))
+                // The pad stays, so "Esqueci minha senha" shows the ways out (ADR 0283 rules 12 and 14).
+                pinError = BipeStrings.pinBlockedBody(String(BipeRegistries.pinMaxWrongTries))
+                phase = .enterPin
             case .server(.pinNotSet, _, _):
                 phase = .failed(BipeStrings.deletionPinNotSet)
             case .server(.deletionPending, _, _):

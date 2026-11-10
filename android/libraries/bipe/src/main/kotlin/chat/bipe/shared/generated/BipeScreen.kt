@@ -22,6 +22,9 @@ enum class BipeScreen(val id: String) {
     /** New account (flow home). Spec: bipe-shared/product/screens/account-new.json */
     ACCOUNT_NEW("account-new"),
 
+    /** Bipe PIN check (flow settings). Spec: bipe-shared/product/screens/account-pin-check.json */
+    ACCOUNT_PIN_CHECK("account-pin-check"),
+
     /** Account start (flow launch). Spec: bipe-shared/product/screens/account-start.json */
     ACCOUNT_START("account-start"),
 

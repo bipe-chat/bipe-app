@@ -136,6 +136,9 @@ kotlin {
     jvmToolchain(17)
 }
 
+// Screenshot previews run on the host JVM, so core calls need its host native library as unit tests do.
+val captureCoreVersion = (groovy.json.JsonSlurper().parse(rootDir.resolve("../core/release/release.json")) as Map<*, *>)["version"] as String
+
 dependencies {
     implementation(project(":libraries:bipe"))
     implementation(project(":libraries:phosphor"))
@@ -179,4 +182,6 @@ dependencies {
     screenshotTestImplementation(platform(libs.androidx.compose.bom))
     screenshotTestImplementation(libs.screenshot.validation.api)
     screenshotTestImplementation(libs.androidx.compose.ui.tooling)
+    screenshotTestImplementation("chat.bipe.core:bipe-core-jvm:$captureCoreVersion@jar")
+    screenshotTestImplementation(libs.jna)
 }
