@@ -441,7 +441,7 @@ struct SharedVectorTests {
     }
     
     /// test-vectors/badge-issuers.json through the release path: bipe-core against an issuer registry (bipe-chat/bipe#637).
-    /// The app shows no `person` or `org` seal yet (ADR 0272), so a valid badge of those levels is no seal here: `malformed`.
+    /// `person` and `org` badges (ADR 0272) show as seals, so every vector gives its own verdict (bipe-chat/bipe#1193).
     @Test
     func badgeIssuers() throws {
         let file = try SharedVectors.object("badge-issuers.json")
@@ -455,11 +455,8 @@ struct SharedVectorTests {
         for vector in vectors {
             let name = try #require(vector["name"] as? String)
             let envelopeObject = try #require(vector["envelope"] as? [String: Any])
-            let payloadText = try #require(envelopeObject["payload"] as? String)
-            let payload = try #require(Data(base64URL: payloadText))
-            let level = try (JSONSerialization.jsonObject(with: payload) as? [String: Any])?["lvl"] as? String
-            let expect = try #require(vector["expect"] as? String)
-            let expected = expect == "valid" && (level == "person" || level == "org") ? "malformed" : expect
+            // person and org badges (ADR 0272) show as seals, so every vector gives its own verdict (bipe-chat/bipe#1193).
+            let expected = try #require(vector["expect"] as? String)
             let result = try verifier.verify(envelopeJSON: JSONSerialization.data(withJSONObject: envelopeObject),
                                              sender: #require(vector["sender"] as? String),
                                              senderMasterKey: vector["senderMasterKey"] as? String,
