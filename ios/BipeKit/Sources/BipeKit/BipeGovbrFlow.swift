@@ -2,6 +2,7 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
+import BipeCore
 import Foundation
 import Observation
 
@@ -150,23 +151,43 @@ public nonisolated enum BipeGovbrRules {
         case failed
     }
     
-    /// `phase` is a ``BipeGovbrFlow/Phase/id``.
+    /// `phase` is a ``BipeGovbrFlow/Phase/id``. bipe-core `govbrIncoming`; an unknown phase is treated as failed.
     public static func incoming(phase: String, byteCount: Int, maxDocumentBytes: Int = BipeRegistries.govbrMaxDocumentBytes) -> Incoming {
-        if phase == "checking" { return .ignore }
-        guard phase == "waitingForSignature" else { return .noOpenVerification }
-        return byteCount <= 0 || byteCount > maxDocumentBytes ? .notSigned : .upload
+        let core: GovbrPhase = switch phase {
+        case "ready": .ready
+        case "preparing": .preparing
+        case "waitingForSignature": .waitingForSignature
+        case "checking": .checking
+        case "verified": .verified
+        case "rejected": .rejected
+        default: .failed
+        }
+        return switch govbrIncoming(phase: core, byteCount: Int64(byteCount), maxDocumentBytes: Int64(maxDocumentBytes)) {
+        case .upload: .upload
+        case .noOpenVerification: .noOpenVerification
+        case .ignore: .ignore
+        case .notSigned: .notSigned
+        }
     }
     
-    /// A rejection without a reason, and the state expired, is expired. A reason this build does not know fails closed.
+    /// bipe-core `govbrResult`: a rejection without a reason, and the state expired, is expired. A reason this build
+    /// does not know fails closed.
     public static func outcome(state: String, reason: String?) -> Outcome {
-        switch state {
-        case "verified":
+        let result = govbrResult(state: state, reason: reason)
+        switch result.phase {
+        case .verified:
             return .verified
-        case "rejected":
-            guard let reason else { return .rejected(.expired) }
-            return BipeGovbrReason(rawValue: reason).map(Outcome.rejected) ?? .failed
-        case "expired":
-            return .rejected(.expired)
+        case .rejected:
+            guard let reason = result.reason else { return .failed }
+            let id: BipeGovbrReason = switch reason {
+            case .notSigned: .notSigned
+            case .notGovbr: .notGovbr
+            case .wrongDocument: .wrongDocument
+            case .expired: .expired
+            case .cpfInUse: .cpfInUse
+            case .changedAfterSigning: .changedAfterSigning
+            }
+            return .rejected(id)
         default:
             return .failed
         }
