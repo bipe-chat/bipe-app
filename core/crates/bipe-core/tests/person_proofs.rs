@@ -31,10 +31,13 @@ fn level(name: &str) -> Option<BadgeLevel> {
 
 #[test]
 fn person_proof_vectors() {
-    let schemes = shared("registries/schemes.json")["schemes"].clone();
-    let registry = json!({ "issuers": [], "regions": [], "schemes": schemes }).to_string();
+    let schemes = shared("registries/schemes.json")["schemes"].as_array().unwrap().clone();
     let vectors = shared("test-vectors/person-proofs.json");
     for v in vectors["vectors"].as_array().unwrap() {
+        // extraSchemes: test-only schemes of another country for this vector.
+        let mut all = schemes.clone();
+        all.extend(v["extraSchemes"].as_array().cloned().unwrap_or_default());
+        let registry = json!({ "issuers": [], "regions": [], "schemes": all }).to_string();
         let badges: Vec<PersonBadge> = v["payloads"]
             .as_array()
             .unwrap()
@@ -43,7 +46,7 @@ fn person_proof_vectors() {
                 Some(PersonBadge { level: level(p["lvl"].as_str()?)?, scheme: p["scheme"].as_str().map(str::to_owned) })
             })
             .collect();
-        let got: Vec<Value> = person_proofs(badges, registry.clone())
+        let got: Vec<Value> = person_proofs(badges, registry)
             .into_iter()
             .map(|p| {
                 let mark = match p.mark {

@@ -6,7 +6,7 @@
 //! Vectors: test-vectors/person-proofs.json.
 
 use crate::badge::BadgeLevel;
-use crate::generated::registries::PERSON_ASSURANCE;
+use crate::generated::registries::{HOME_COUNTRY, PERSON_ASSURANCE};
 use crate::issuer::badge_class;
 
 /// A badge that already passed the verifier: its level and, for `person`, its scheme.
@@ -33,7 +33,8 @@ pub struct PersonProof {
     pub badge_index: u32,
 }
 
-/// The person proofs of these badges, strongest first, one per scheme. The schemes come from the issuer registry
+/// The person proofs of these badges, one per scheme: Brazilian proofs first, then other countries' (ADR 0272
+/// decision 7), each group strongest first. The schemes come from the issuer registry
 /// payload, so a scheme of a new country needs no app release. A badge outside the registry, a company badge or an
 /// assurance outside `personAssurance` gives no proof (fail closed). The first proof draws the compact seal.
 #[uniffi::export]
@@ -61,7 +62,7 @@ pub fn person_proofs(badges: Vec<PersonBadge>, issuer_registry_json: String) -> 
             },
         ));
     }
-    // A stable sort keeps the input order within one assurance, as the reference does.
-    proofs.sort_by_key(|(rank, _)| *rank);
+    // A stable sort keeps the input order within one country group and assurance, as the reference does.
+    proofs.sort_by_key(|(rank, proof)| (proof.country != HOME_COUNTRY, *rank));
     proofs.into_iter().map(|(_, proof)| proof).collect()
 }
