@@ -9,7 +9,7 @@
 // one at a time; after a confirmed write the page keeps that value for echoGraceMs until the sync echo.
 
 import { useSyncExternalStore } from 'react';
-import { chatArchiveSync } from './bipe/generated/lib/registries.mjs';
+import { chatArchiveSync } from './shared-rules';
 import { chatArchive } from './bipe/generated/registries.json';
 import type { RoomLike as Room } from './generated/matrix_sdk_ffi';
 

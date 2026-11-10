@@ -4,6 +4,7 @@
 
 package chat.bipe.shared
 
+import chat.bipe.core.syncedSettingsReconcile
 import chat.bipe.shared.generated.BipeRegistries
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
@@ -35,15 +36,9 @@ object BipeSyncedSettings {
         local: Map<String, JsonElement>,
         pending: Set<String>,
         first: Boolean,
-    ): Map<String, JsonElement> {
-        val result = server.toMutableMap()
-        if (first) {
-            for ((key, value) in local) if (key !in result) result[key] = value
-            if (bool(local, READ_RECEIPTS) == false) result[READ_RECEIPTS] = JsonPrimitive(false)
-        }
-        for (key in pending) local[key]?.let { result[key] = it }
-        return result
-    }
+    ): Map<String, JsonElement> =
+        // bipe-core `syncedSettingsReconcile`.
+        parse(syncedSettingsReconcile(JsonObject(server).toString(), JsonObject(local).toString(), pending.sorted(), first))
 
     fun bool(settings: Map<String, JsonElement>, key: String): Boolean? =
         (settings[key] as? JsonPrimitive)?.takeIf { !it.isString }?.booleanOrNull

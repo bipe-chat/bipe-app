@@ -565,6 +565,73 @@ fileprivate struct FfiConverterData: FfiConverterRustBuffer {
 
 
 /**
+ * The result of reconciling the Matrix archive tag with the local state.
+ */
+public struct ArchiveSync: Equatable, Hashable {
+    public var marker: Int64?
+    public var synced: Bool
+    /**
+     * `Some(true)`: set the tag; `Some(false)`: remove it; `None`: no write.
+     */
+    public var tagWrite: Bool?
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(marker: Int64?, synced: Bool, 
+        /**
+         * `Some(true)`: set the tag; `Some(false)`: remove it; `None`: no write.
+         */tagWrite: Bool?) {
+        self.marker = marker
+        self.synced = synced
+        self.tagWrite = tagWrite
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension ArchiveSync: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeArchiveSync: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ArchiveSync {
+        return
+            try ArchiveSync(
+                marker: FfiConverterOptionInt64.read(from: &buf), 
+                synced: FfiConverterBool.read(from: &buf), 
+                tagWrite: FfiConverterOptionBool.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: ArchiveSync, into buf: inout [UInt8]) {
+        FfiConverterOptionInt64.write(value.marker, into: &buf)
+        FfiConverterBool.write(value.synced, into: &buf)
+        FfiConverterOptionBool.write(value.tagWrite, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeArchiveSync_lift(_ buf: RustBuffer) throws -> ArchiveSync {
+    return try FfiConverterTypeArchiveSync.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeArchiveSync_lower(_ value: ArchiveSync) -> RustBuffer {
+    return FfiConverterTypeArchiveSync.lower(value)
+}
+
+
+/**
  * A draft of the drafts room (ADR 0210, bipe-chat/bipe#866).
  */
 public struct AssistantDraft: Equatable, Hashable {
@@ -1179,6 +1246,75 @@ public func FfiConverterTypeCvmLines_lift(_ buf: RustBuffer) throws -> CvmLines 
 #endif
 public func FfiConverterTypeCvmLines_lower(_ value: CvmLines) -> RustBuffer {
     return FfiConverterTypeCvmLines.lower(value)
+}
+
+
+/**
+ * One DM the chat list could show for a peer.
+ */
+public struct DmCandidate: Equatable, Hashable {
+    public var roomId: String
+    public var peerUserId: String
+    public var eligible: Bool
+    public var cleared: Bool
+    public var latestActivityMs: Int64?
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(roomId: String, peerUserId: String, eligible: Bool, cleared: Bool, latestActivityMs: Int64?) {
+        self.roomId = roomId
+        self.peerUserId = peerUserId
+        self.eligible = eligible
+        self.cleared = cleared
+        self.latestActivityMs = latestActivityMs
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension DmCandidate: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeDmCandidate: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> DmCandidate {
+        return
+            try DmCandidate(
+                roomId: FfiConverterString.read(from: &buf), 
+                peerUserId: FfiConverterString.read(from: &buf), 
+                eligible: FfiConverterBool.read(from: &buf), 
+                cleared: FfiConverterBool.read(from: &buf), 
+                latestActivityMs: FfiConverterOptionInt64.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: DmCandidate, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.roomId, into: &buf)
+        FfiConverterString.write(value.peerUserId, into: &buf)
+        FfiConverterBool.write(value.eligible, into: &buf)
+        FfiConverterBool.write(value.cleared, into: &buf)
+        FfiConverterOptionInt64.write(value.latestActivityMs, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeDmCandidate_lift(_ buf: RustBuffer) throws -> DmCandidate {
+    return try FfiConverterTypeDmCandidate.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeDmCandidate_lower(_ value: DmCandidate) -> RustBuffer {
+    return FfiConverterTypeDmCandidate.lower(value)
 }
 
 
@@ -6641,6 +6777,30 @@ fileprivate struct FfiConverterOptionInt64: FfiConverterRustBuffer {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterOptionBool: FfiConverterRustBuffer {
+    typealias SwiftType = Bool?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterBool.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterBool.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterOptionString: FfiConverterRustBuffer {
     typealias SwiftType = String?
 
@@ -7220,6 +7380,31 @@ fileprivate struct FfiConverterSequenceTypeCvmLine: FfiConverterRustBuffer {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterSequenceTypeDmCandidate: FfiConverterRustBuffer {
+    typealias SwiftType = [DmCandidate]
+
+    public static func write(_ value: [DmCandidate], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeDmCandidate.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [DmCandidate] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [DmCandidate]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypeDmCandidate.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterSequenceTypeInviteSlot: FfiConverterRustBuffer {
     typealias SwiftType = [InviteSlot]
 
@@ -7567,6 +7752,32 @@ fileprivate struct FfiConverterDictionaryStringInt64: FfiConverterRustBuffer {
         return dict
     }
 }
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterDictionaryStringString: FfiConverterRustBuffer {
+    public static func write(_ value: [String: String], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for (key, value) in value {
+            FfiConverterString.write(key, into: &buf)
+            FfiConverterString.write(value, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [String: String] {
+        let len: Int32 = try readInt(&buf)
+        var dict = [String: String]()
+        dict.reserveCapacity(Int(len))
+        for _ in 0..<len {
+            let key = try FfiConverterString.read(from: &buf)
+            let value = try FfiConverterString.read(from: &buf)
+            dict[key] = value
+        }
+        return dict
+    }
+}
 /**
  * The code of a failure in the spec and in test-vectors/badges.json.
  */
@@ -7623,6 +7834,73 @@ public func verifyPublicIssuerStatement(envelopeJson: String, homeserver: String
         FfiConverterString.lower(homeserver),
         FfiConverterSequenceTypeTrustedKey.lower(trustedKeys),
         FfiConverterInt64.lower(nowSeconds),$0
+    )
+})
+}
+/**
+ * Reconciles the Matrix archive tag with a local incoming-message baseline and the one-time migration.
+ */
+public func chatArchiveSync(marker: Int64?, synced: Bool, serverArchived: Bool, activity: Int64?, incoming: Int64?) -> ArchiveSync  {
+    return try!  FfiConverterTypeArchiveSync_lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_chat_archive_sync(
+        FfiConverterOptionInt64.lower(marker),
+        FfiConverterBool.lower(synced),
+        FfiConverterBool.lower(serverArchived),
+        FfiConverterOptionInt64.lower(activity),
+        FfiConverterOptionInt64.lower(incoming),$0
+    )
+})
+}
+/**
+ * Whether an archived chat stays archived: only a strictly newer incoming message brings it back. `marker` is the
+ * archive marker (ms), `incoming` the newest incoming message (ms).
+ */
+public func chatArchived(marker: Int64?, incoming: Int64?) -> Bool  {
+    return try!  FfiConverterBool.lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_chat_archived(
+        FfiConverterOptionInt64.lower(marker),
+        FfiConverterOptionInt64.lower(incoming),$0
+    )
+})
+}
+/**
+ * ADR 0168: a Bipe user is a user ID whose server name (after the first ':', lower case) is a valid operator of the
+ * current signed operator list (bipe_server_status, stale rule included). The localpart must not be empty.
+ */
+public func isBipeUserId(userId: String, current: VerifiedList?, nowSeconds: Int64) -> Bool  {
+    return try!  FfiConverterBool.lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_is_bipe_user_id(
+        FfiConverterString.lower(userId),
+        FfiConverterOptionTypeVerifiedList.lower(current),
+        FfiConverterInt64.lower(nowSeconds),$0
+    )
+})
+}
+/**
+ * One eligible DM per peer, the most recent (on a tie, the smaller room ID), independent of the SDK's order. Peer
+ * user ID to room ID. A cleared DM counts only with `including_cleared`.
+ */
+public func newestDmRooms(candidates: [DmCandidate], includingCleared: Bool) -> [String: String]  {
+    return try!  FfiConverterDictionaryStringString.lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_newest_dm_rooms(
+        FfiConverterSequenceTypeDmCandidate.lower(candidates),
+        FfiConverterBool.lower(includingCleared),$0
+    )
+})
+}
+/**
+ * The account's settings after one device reads them (bipe-chat/bipe#1161). `server_json`: the event content, absent
+ * or malformed counts as empty. `local_json`: the explicit values of this device. `pending`: keys changed here that
+ * have not reached the server. `first`: this device has never read the event for this account. Every other key of
+ * the server stays. Returns the content as JSON text.
+ */
+public func syncedSettingsReconcile(serverJson: String?, localJson: String, pending: [String], first: Bool) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_synced_settings_reconcile(
+        FfiConverterOptionString.lower(serverJson),
+        FfiConverterString.lower(localJson),
+        FfiConverterSequenceString.lower(pending),
+        FfiConverterBool.lower(first),$0
     )
 })
 }
@@ -8490,6 +8768,21 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_bipe_core_checksum_func_verify_public_issuer_statement() != 24673) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_bipe_core_checksum_func_chat_archive_sync() != 24628) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_bipe_core_checksum_func_chat_archived() != 8895) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_bipe_core_checksum_func_is_bipe_user_id() != 52323) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_bipe_core_checksum_func_newest_dm_rooms() != 1711) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_bipe_core_checksum_func_synced_settings_reconcile() != 7824) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_bipe_core_checksum_func_cvm_lines() != 47403) {

@@ -11,7 +11,8 @@
 import { useEffect, useSyncExternalStore } from 'react';
 import type { ClientLike as Client } from './generated/matrix_sdk_ffi';
 import { badge, type BadgeGoneReason } from './api';
-import { formatCnpj, isBipeUserID } from './bipe/generated/lib/registries.mjs';
+import { formatCnpj } from './bipe/generated/lib/registries.mjs';
+import { isBipeUserID } from './shared-rules';
 import { cvmLines } from './bipe/generated/lib/cvm.mjs';
 import { evaluateTrustFacts } from './bipe/generated/lib/trust.mjs';
 import { bipeServers, homoglyphs, profileFacts, trust } from './bipe/generated/registries.json';
