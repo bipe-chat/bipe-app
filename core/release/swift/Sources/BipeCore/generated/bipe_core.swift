@@ -549,6 +549,75 @@ fileprivate struct FfiConverterData: FfiConverterRustBuffer {
 
 
 /**
+ * A draft of the drafts room (ADR 0210, bipe-chat/bipe#866).
+ */
+public struct AssistantDraft: Equatable, Hashable {
+    public var roomId: String
+    public var body: String
+    public var replyTo: String?
+    public var threadRoot: String?
+    public var client: String
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(roomId: String, body: String, replyTo: String?, threadRoot: String?, client: String) {
+        self.roomId = roomId
+        self.body = body
+        self.replyTo = replyTo
+        self.threadRoot = threadRoot
+        self.client = client
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension AssistantDraft: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeAssistantDraft: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AssistantDraft {
+        return
+            try AssistantDraft(
+                roomId: FfiConverterString.read(from: &buf), 
+                body: FfiConverterString.read(from: &buf), 
+                replyTo: FfiConverterOptionString.read(from: &buf), 
+                threadRoot: FfiConverterOptionString.read(from: &buf), 
+                client: FfiConverterString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: AssistantDraft, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.roomId, into: &buf)
+        FfiConverterString.write(value.body, into: &buf)
+        FfiConverterOptionString.write(value.replyTo, into: &buf)
+        FfiConverterOptionString.write(value.threadRoot, into: &buf)
+        FfiConverterString.write(value.client, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAssistantDraft_lift(_ buf: RustBuffer) throws -> AssistantDraft {
+    return try FfiConverterTypeAssistantDraft.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAssistantDraft_lower(_ value: AssistantDraft) -> RustBuffer {
+    return FfiConverterTypeAssistantDraft.lower(value)
+}
+
+
+/**
  * The signed fields. Every optional field is absent when the payload has no value for it.
  */
 public struct BadgeClaims: Equatable, Hashable {
@@ -2004,6 +2073,213 @@ public func FfiConverterTypePixMarkLines_lower(_ value: PixMarkLines) -> RustBuf
 
 
 /**
+ * One line. `count` is the number of changes in the window, absent for created and the number moves. `at_ms` is the
+ * creation time or the latest change, in Unix milliseconds.
+ */
+public struct ProfileFactLine: Equatable, Hashable {
+    public var fact: ProfileFact
+    public var count: UInt32?
+    public var atMs: Int64
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(fact: ProfileFact, count: UInt32?, atMs: Int64) {
+        self.fact = fact
+        self.count = count
+        self.atMs = atMs
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension ProfileFactLine: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeProfileFactLine: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ProfileFactLine {
+        return
+            try ProfileFactLine(
+                fact: FfiConverterTypeProfileFact.read(from: &buf), 
+                count: FfiConverterOptionUInt32.read(from: &buf), 
+                atMs: FfiConverterInt64.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: ProfileFactLine, into buf: inout [UInt8]) {
+        FfiConverterTypeProfileFact.write(value.fact, into: &buf)
+        FfiConverterOptionUInt32.write(value.count, into: &buf)
+        FfiConverterInt64.write(value.atMs, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeProfileFactLine_lift(_ buf: RustBuffer) throws -> ProfileFactLine {
+    return try FfiConverterTypeProfileFactLine.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeProfileFactLine_lower(_ value: ProfileFactLine) -> RustBuffer {
+    return FfiConverterTypeProfileFactLine.lower(value)
+}
+
+
+public struct ProfileFactLines: Equatable, Hashable {
+    /**
+     * In order: created, photo, name, numberOut, numberIn. Empty when nothing applies.
+     */
+    public var lines: [ProfileFactLine]
+    /**
+     * A name change and a photo change at most noticePairHours apart, the later one younger than noticeDays.
+     */
+    public var notice: Bool
+    /**
+     * The newest number move in the window, absent without one.
+     */
+    public var numberNotice: NumberNotice?
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(
+        /**
+         * In order: created, photo, name, numberOut, numberIn. Empty when nothing applies.
+         */lines: [ProfileFactLine], 
+        /**
+         * A name change and a photo change at most noticePairHours apart, the later one younger than noticeDays.
+         */notice: Bool, 
+        /**
+         * The newest number move in the window, absent without one.
+         */numberNotice: NumberNotice?) {
+        self.lines = lines
+        self.notice = notice
+        self.numberNotice = numberNotice
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension ProfileFactLines: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeProfileFactLines: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ProfileFactLines {
+        return
+            try ProfileFactLines(
+                lines: FfiConverterSequenceTypeProfileFactLine.read(from: &buf), 
+                notice: FfiConverterBool.read(from: &buf), 
+                numberNotice: FfiConverterOptionTypeNumberNotice.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: ProfileFactLines, into buf: inout [UInt8]) {
+        FfiConverterSequenceTypeProfileFactLine.write(value.lines, into: &buf)
+        FfiConverterBool.write(value.notice, into: &buf)
+        FfiConverterOptionTypeNumberNotice.write(value.numberNotice, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeProfileFactLines_lift(_ buf: RustBuffer) throws -> ProfileFactLines {
+    return try FfiConverterTypeProfileFactLines.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeProfileFactLines_lower(_ value: ProfileFactLines) -> RustBuffer {
+    return FfiConverterTypeProfileFactLines.lower(value)
+}
+
+
+/**
+ * The facts the API serves (POST /v1/profile-facts): ISO 8601 times.
+ */
+public struct ProfileFacts: Equatable, Hashable {
+    public var createdAt: String?
+    public var nameChanges: [String]
+    public var photoChanges: [String]
+    public var numberMovedOut: [String]
+    public var numberMovedIn: [String]
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(createdAt: String?, nameChanges: [String], photoChanges: [String], numberMovedOut: [String], numberMovedIn: [String]) {
+        self.createdAt = createdAt
+        self.nameChanges = nameChanges
+        self.photoChanges = photoChanges
+        self.numberMovedOut = numberMovedOut
+        self.numberMovedIn = numberMovedIn
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension ProfileFacts: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeProfileFacts: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ProfileFacts {
+        return
+            try ProfileFacts(
+                createdAt: FfiConverterOptionString.read(from: &buf), 
+                nameChanges: FfiConverterSequenceString.read(from: &buf), 
+                photoChanges: FfiConverterSequenceString.read(from: &buf), 
+                numberMovedOut: FfiConverterSequenceString.read(from: &buf), 
+                numberMovedIn: FfiConverterSequenceString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: ProfileFacts, into buf: inout [UInt8]) {
+        FfiConverterOptionString.write(value.createdAt, into: &buf)
+        FfiConverterSequenceString.write(value.nameChanges, into: &buf)
+        FfiConverterSequenceString.write(value.photoChanges, into: &buf)
+        FfiConverterSequenceString.write(value.numberMovedOut, into: &buf)
+        FfiConverterSequenceString.write(value.numberMovedIn, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeProfileFacts_lift(_ buf: RustBuffer) throws -> ProfileFacts {
+    return try FfiConverterTypeProfileFacts.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeProfileFacts_lower(_ value: ProfileFacts) -> RustBuffer {
+    return FfiConverterTypeProfileFacts.lower(value)
+}
+
+
+/**
  * Context "Public issuer statement": the issuer signed this statement. It proves no
  * binding to a conversation sender or a master key. No conversion to `BoundSenderBadge` exists.
  */
@@ -2054,6 +2330,67 @@ public func FfiConverterTypePublicIssuerStatement_lift(_ buf: RustBuffer) throws
 #endif
 public func FfiConverterTypePublicIssuerStatement_lower(_ value: PublicIssuerStatement) -> RustBuffer {
     return FfiConverterTypePublicIssuerStatement.lower(value)
+}
+
+
+/**
+ * Who sent a reply to a customer (ADR 0284 point 19).
+ */
+public struct ReplyBy: Equatable, Hashable {
+    public var roomId: String
+    public var eventId: String
+    public var seatId: String
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(roomId: String, eventId: String, seatId: String) {
+        self.roomId = roomId
+        self.eventId = eventId
+        self.seatId = seatId
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension ReplyBy: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeReplyBy: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ReplyBy {
+        return
+            try ReplyBy(
+                roomId: FfiConverterString.read(from: &buf), 
+                eventId: FfiConverterString.read(from: &buf), 
+                seatId: FfiConverterString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: ReplyBy, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.roomId, into: &buf)
+        FfiConverterString.write(value.eventId, into: &buf)
+        FfiConverterString.write(value.seatId, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeReplyBy_lift(_ buf: RustBuffer) throws -> ReplyBy {
+    return try FfiConverterTypeReplyBy.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeReplyBy_lower(_ value: ReplyBy) -> RustBuffer {
+    return FfiConverterTypeReplyBy.lower(value)
 }
 
 
@@ -2398,6 +2735,67 @@ public func FfiConverterTypeVerifiedList_lift(_ buf: RustBuffer) throws -> Verif
 #endif
 public func FfiConverterTypeVerifiedList_lower(_ value: VerifiedList) -> RustBuffer {
     return FfiConverterTypeVerifiedList.lower(value)
+}
+
+
+/**
+ * A note on a customer chat (ADR 0284). `seat_id` is absent when the note names no seat of the account.
+ */
+public struct WorkNote: Equatable, Hashable {
+    public var roomId: String
+    public var body: String
+    public var seatId: String?
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(roomId: String, body: String, seatId: String?) {
+        self.roomId = roomId
+        self.body = body
+        self.seatId = seatId
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension WorkNote: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeWorkNote: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> WorkNote {
+        return
+            try WorkNote(
+                roomId: FfiConverterString.read(from: &buf), 
+                body: FfiConverterString.read(from: &buf), 
+                seatId: FfiConverterOptionString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: WorkNote, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.roomId, into: &buf)
+        FfiConverterString.write(value.body, into: &buf)
+        FfiConverterOptionString.write(value.seatId, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeWorkNote_lift(_ buf: RustBuffer) throws -> WorkNote {
+    return try FfiConverterTypeWorkNote.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeWorkNote_lower(_ value: WorkNote) -> RustBuffer {
+    return FfiConverterTypeWorkNote.lower(value)
 }
 
 // Note that we don't yet support `indirect` for enums.
@@ -3012,6 +3410,152 @@ public func FfiConverterTypeCvmLineKey_lower(_ value: CvmLineKey) -> RustBuffer 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /**
+ * A drafts room event as a draft, or the reason it does not show (the reference reason ids).
+ */
+
+public enum DraftResult: Equatable, Hashable {
+    
+    case show(draft: AssistantDraft
+    )
+    case hide(reason: String
+    )
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension DraftResult: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeDraftResult: FfiConverterRustBuffer {
+    typealias SwiftType = DraftResult
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> DraftResult {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .show(draft: try FfiConverterTypeAssistantDraft.read(from: &buf)
+        )
+        
+        case 2: return .hide(reason: try FfiConverterString.read(from: &buf)
+        )
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: DraftResult, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case let .show(draft):
+            writeInt(&buf, Int32(1))
+            FfiConverterTypeAssistantDraft.write(draft, into: &buf)
+            
+        
+        case let .hide(reason):
+            writeInt(&buf, Int32(2))
+            FfiConverterString.write(reason, into: &buf)
+            
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeDraftResult_lift(_ buf: RustBuffer) throws -> DraftResult {
+    return try FfiConverterTypeDraftResult.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeDraftResult_lower(_ value: DraftResult) -> RustBuffer {
+    return FfiConverterTypeDraftResult.lower(value)
+}
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * The forward line of a message (bipe-chat/bipe#933).
+ */
+
+public enum ForwardLine: Equatable, Hashable {
+    
+    case forwarded
+    case forwardedManyTimes
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension ForwardLine: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeForwardLine: FfiConverterRustBuffer {
+    typealias SwiftType = ForwardLine
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ForwardLine {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .forwarded
+        
+        case 2: return .forwardedManyTimes
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: ForwardLine, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .forwarded:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .forwardedManyTimes:
+            writeInt(&buf, Int32(2))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeForwardLine_lift(_ buf: RustBuffer) throws -> ForwardLine {
+    return try FfiConverterTypeForwardLine.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeForwardLine_lower(_ value: ForwardLine) -> RustBuffer {
+    return FfiConverterTypeForwardLine.lower(value)
+}
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
  * Why a handle is refused (docs/usernames.md). The ids are shared by every platform.
  */
 
@@ -3335,6 +3879,73 @@ public func FfiConverterTypeListType_lift(_ buf: RustBuffer) throws -> ListType 
 #endif
 public func FfiConverterTypeListType_lower(_ value: ListType) -> RustBuffer {
     return FfiConverterTypeListType.lower(value)
+}
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+
+public enum NumberNotice: Equatable, Hashable {
+    
+    case out
+    case `in`
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension NumberNotice: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeNumberNotice: FfiConverterRustBuffer {
+    typealias SwiftType = NumberNotice
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> NumberNotice {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .out
+        
+        case 2: return .`in`
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: NumberNotice, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .out:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .`in`:
+            writeInt(&buf, Int32(2))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeNumberNotice_lift(_ buf: RustBuffer) throws -> NumberNotice {
+    return try FfiConverterTypeNumberNotice.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeNumberNotice_lower(_ value: NumberNotice) -> RustBuffer {
+    return FfiConverterTypeNumberNotice.lower(value)
 }
 
 
@@ -3881,6 +4492,94 @@ public func FfiConverterTypePixMarkState_lower(_ value: PixMarkState) -> RustBuf
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+
+public enum ProfileFact: Equatable, Hashable {
+    
+    case created
+    case photo
+    case name
+    case numberOut
+    case numberIn
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension ProfileFact: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeProfileFact: FfiConverterRustBuffer {
+    typealias SwiftType = ProfileFact
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ProfileFact {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .created
+        
+        case 2: return .photo
+        
+        case 3: return .name
+        
+        case 4: return .numberOut
+        
+        case 5: return .numberIn
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: ProfileFact, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .created:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .photo:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .name:
+            writeInt(&buf, Int32(3))
+        
+        
+        case .numberOut:
+            writeInt(&buf, Int32(4))
+        
+        
+        case .numberIn:
+            writeInt(&buf, Int32(5))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeProfileFact_lift(_ buf: RustBuffer) throws -> ProfileFact {
+    return try FfiConverterTypeProfileFact.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeProfileFact_lower(_ value: ProfileFact) -> RustBuffer {
+    return FfiConverterTypeProfileFact.lower(value)
+}
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /**
  * Why a profile is refused (ADR 0041).
  */
@@ -4116,6 +4815,79 @@ public func FfiConverterTypeRelationshipNameWarning_lift(_ buf: RustBuffer) thro
 #endif
 public func FfiConverterTypeRelationshipNameWarning_lower(_ value: RelationshipNameWarning) -> RustBuffer {
     return FfiConverterTypeRelationshipNameWarning.lower(value)
+}
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+
+public enum ReplyByResult: Equatable, Hashable {
+    
+    case show(replyBy: ReplyBy
+    )
+    case hide(reason: String
+    )
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension ReplyByResult: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeReplyByResult: FfiConverterRustBuffer {
+    typealias SwiftType = ReplyByResult
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ReplyByResult {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .show(replyBy: try FfiConverterTypeReplyBy.read(from: &buf)
+        )
+        
+        case 2: return .hide(reason: try FfiConverterString.read(from: &buf)
+        )
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: ReplyByResult, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case let .show(replyBy):
+            writeInt(&buf, Int32(1))
+            FfiConverterTypeReplyBy.write(replyBy, into: &buf)
+            
+        
+        case let .hide(reason):
+            writeInt(&buf, Int32(2))
+            FfiConverterString.write(reason, into: &buf)
+            
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeReplyByResult_lift(_ buf: RustBuffer) throws -> ReplyByResult {
+    return try FfiConverterTypeReplyByResult.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeReplyByResult_lower(_ value: ReplyByResult) -> RustBuffer {
+    return FfiConverterTypeReplyByResult.lower(value)
 }
 
 
@@ -4634,6 +5406,211 @@ public func FfiConverterTypeTheftMarkResult_lower(_ value: TheftMarkResult) -> R
 }
 
 
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * The source line of a voice message or an audio file.
+ */
+
+public enum VoiceSource: Equatable, Hashable {
+    
+    case forwarded
+    case forwardedManyTimes
+    case recorded
+    case file
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension VoiceSource: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeVoiceSource: FfiConverterRustBuffer {
+    typealias SwiftType = VoiceSource
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> VoiceSource {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .forwarded
+        
+        case 2: return .forwardedManyTimes
+        
+        case 3: return .recorded
+        
+        case 4: return .file
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: VoiceSource, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .forwarded:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .forwardedManyTimes:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .recorded:
+            writeInt(&buf, Int32(3))
+        
+        
+        case .file:
+            writeInt(&buf, Int32(4))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeVoiceSource_lift(_ buf: RustBuffer) throws -> VoiceSource {
+    return try FfiConverterTypeVoiceSource.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeVoiceSource_lower(_ value: VoiceSource) -> RustBuffer {
+    return FfiConverterTypeVoiceSource.lower(value)
+}
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+
+public enum WorkNoteResult: Equatable, Hashable {
+    
+    case show(note: WorkNote
+    )
+    case hide(reason: String
+    )
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension WorkNoteResult: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeWorkNoteResult: FfiConverterRustBuffer {
+    typealias SwiftType = WorkNoteResult
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> WorkNoteResult {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .show(note: try FfiConverterTypeWorkNote.read(from: &buf)
+        )
+        
+        case 2: return .hide(reason: try FfiConverterString.read(from: &buf)
+        )
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: WorkNoteResult, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case let .show(note):
+            writeInt(&buf, Int32(1))
+            FfiConverterTypeWorkNote.write(note, into: &buf)
+            
+        
+        case let .hide(reason):
+            writeInt(&buf, Int32(2))
+            FfiConverterString.write(reason, into: &buf)
+            
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeWorkNoteResult_lift(_ buf: RustBuffer) throws -> WorkNoteResult {
+    return try FfiConverterTypeWorkNoteResult.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeWorkNoteResult_lower(_ value: WorkNoteResult) -> RustBuffer {
+    return FfiConverterTypeWorkNoteResult.lower(value)
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterOptionUInt32: FfiConverterRustBuffer {
+    typealias SwiftType = UInt32?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterUInt32.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterUInt32.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterOptionInt64: FfiConverterRustBuffer {
+    typealias SwiftType = Int64?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterInt64.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterInt64.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
@@ -4805,6 +5782,30 @@ fileprivate struct FfiConverterOptionTypeBadgeCnpjMethod: FfiConverterRustBuffer
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterOptionTypeForwardLine: FfiConverterRustBuffer {
+    typealias SwiftType = ForwardLine?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeForwardLine.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeForwardLine.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterOptionTypeHandleProblem: FfiConverterRustBuffer {
     typealias SwiftType = HandleProblem?
 
@@ -4821,6 +5822,30 @@ fileprivate struct FfiConverterOptionTypeHandleProblem: FfiConverterRustBuffer {
         switch try readInt(&buf) as Int8 {
         case 0: return nil
         case 1: return try FfiConverterTypeHandleProblem.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterOptionTypeNumberNotice: FfiConverterRustBuffer {
+    typealias SwiftType = NumberNotice?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeNumberNotice.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeNumberNotice.read(from: &buf)
         default: throw UniffiInternalError.unexpectedOptionalTag
         }
     }
@@ -4967,6 +5992,31 @@ fileprivate struct FfiConverterOptionTypeSocialHandleProblem: FfiConverterRustBu
         case 1: return try FfiConverterTypeSocialHandleProblem.read(from: &buf)
         default: throw UniffiInternalError.unexpectedOptionalTag
         }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterSequenceUInt32: FfiConverterRustBuffer {
+    typealias SwiftType = [UInt32]
+
+    public static func write(_ value: [UInt32], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterUInt32.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [UInt32] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [UInt32]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterUInt32.read(from: &buf))
+        }
+        return seq
     }
 }
 
@@ -5240,6 +6290,31 @@ fileprivate struct FfiConverterSequenceTypePixMarkLine: FfiConverterRustBuffer {
         seq.reserveCapacity(Int(len))
         for _ in 0 ..< len {
             seq.append(try FfiConverterTypePixMarkLine.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterSequenceTypeProfileFactLine: FfiConverterRustBuffer {
+    typealias SwiftType = [ProfileFactLine]
+
+    public static func write(_ value: [ProfileFactLine], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeProfileFactLine.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [ProfileFactLine] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [ProfileFactLine]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypeProfileFactLine.read(from: &buf))
         }
         return seq
     }
@@ -5563,6 +6638,175 @@ public func verifyIssuedBadge(envelopeJson: String, sender: String, senderMaster
 })
 }
 /**
+ * Members whose assistant reads the whole chat (ADR 0130): from a JSON array of state events, the state keys of the
+ * reader events that their own sender set to true. Sorted, each once.
+ */
+public func assistantReaders(stateEventsJson: String) -> [String]  {
+    return try!  FfiConverterSequenceString.lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_assistant_readers(
+        FfiConverterString.lower(stateEventsJson),$0
+    )
+})
+}
+/**
+ * Whether bipe-mcp may send: the switch content (account data chat.bipe.assistant_send) says enabled true.
+ */
+public func assistantSendAllowed(contentJson: String?) -> Bool  {
+    return try!  FfiConverterBool.lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_assistant_send_allowed(
+        FfiConverterOptionString.lower(contentJson),$0
+    )
+})
+}
+/**
+ * The client name of a message an assistant sent (field chat.bipe.assistant), or `None`.
+ */
+public func assistantSender(messageContentJson: String?) -> String?  {
+    return try!  FfiConverterOptionString.lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_assistant_sender(
+        FfiConverterOptionString.lower(messageContentJson),$0
+    )
+})
+}
+/**
+ * True when the chat list hides the room: it has a marker and no event after it.
+ */
+public func clearedChatHidden(marker: Int64?, latestTs: Int64?) -> Bool  {
+    return try!  FfiConverterBool.lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_cleared_chat_hidden(
+        FfiConverterOptionInt64.lower(marker),
+        FfiConverterOptionInt64.lower(latestTs),$0
+    )
+})
+}
+/**
+ * True when the timeline and search keep an event with this origin_server_ts.
+ */
+public func clearedChatKeepsEvent(marker: Int64?, eventTs: Int64) -> Bool  {
+    return try!  FfiConverterBool.lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_cleared_chat_keeps_event(
+        FfiConverterOptionInt64.lower(marker),
+        FfiConverterInt64.lower(eventTs),$0
+    )
+})
+}
+/**
+ * The clear marker (ms) of a room in the chat.bipe.cleared_chats content, or `None`. A malformed event or entry counts
+ * as not cleared.
+ */
+public func clearedChatMarker(contentJson: String?, roomId: String) -> Int64?  {
+    return try!  FfiConverterOptionInt64.lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_cleared_chat_marker(
+        FfiConverterOptionString.lower(contentJson),
+        FfiConverterString.lower(roomId),$0
+    )
+})
+}
+/**
+ * The content to write when the user clears `room_id` at `ts`. Keeps every other key and entry; the marker never
+ * moves back.
+ */
+public func clearedChatsWithClear(contentJson: String?, roomId: String, ts: Int64) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_cleared_chats_with_clear(
+        FfiConverterOptionString.lower(contentJson),
+        FfiConverterString.lower(roomId),
+        FfiConverterInt64.lower(ts),$0
+    )
+})
+}
+/**
+ * Whether the apps show a drafts room event (JSON: type, sender, redacted, content) as a draft, and why not.
+ */
+public func draftFromEvent(eventJson: String, ownUserId: String, joinedRoomIds: [String]) -> DraftResult  {
+    return try!  FfiConverterTypeDraftResult_lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_draft_from_event(
+        FfiConverterString.lower(eventJson),
+        FfiConverterString.lower(ownUserId),
+        FfiConverterSequenceString.lower(joinedRoomIds),$0
+    )
+})
+}
+/**
+ * The most chats one forward goes to. `sent_counts`: the counts of the contents the forward sends.
+ */
+public func forwardChatLimit(sentCounts: [UInt32]) -> UInt32  {
+    return try!  FfiConverterUInt32.lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_forward_chat_limit(
+        FfiConverterSequenceUInt32.lower(sentCounts),$0
+    )
+})
+}
+/**
+ * The forward count of message content: content[forwardKey].count when it is an integer of 1 or more, else 0.
+ */
+public func forwardCount(contentJson: String) -> UInt32  {
+    return try!  FfiConverterUInt32.lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_forward_count(
+        FfiConverterString.lower(contentJson),$0
+    )
+})
+}
+/**
+ * The forward line of any message: none for a count under 1.
+ */
+public func forwardLine(count: UInt32) -> ForwardLine?  {
+    return try!  FfiConverterOptionTypeForwardLine.lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_forward_line(
+        FfiConverterUInt32.lower(count),$0
+    )
+})
+}
+/**
+ * The content a forward sends: the latest edit's m.new_content, else the original, without m.relates_to,
+ * m.new_content, m.mentions and the public feed mark, with forwardKey set to the original count plus 1.
+ * `None` when the content is not a JSON object.
+ */
+public func forwardedContent(originalJson: String, newContentJson: String?) -> String?  {
+    return try!  FfiConverterOptionString.lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_forwarded_content(
+        FfiConverterString.lower(originalJson),
+        FfiConverterOptionString.lower(newContentJson),$0
+    )
+})
+}
+/**
+ * Who sent a reply to a customer, from a reply-by event of the notes room (ADR 0284 point 19).
+ */
+public func replyByFromEvent(eventJson: String, ownUserId: String, seatIds: [String]) -> ReplyByResult  {
+    return try!  FfiConverterTypeReplyByResult_lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_reply_by_from_event(
+        FfiConverterString.lower(eventJson),
+        FfiConverterString.lower(ownUserId),
+        FfiConverterSequenceString.lower(seatIds),$0
+    )
+})
+}
+/**
+ * The source line of a voice message or an audio file.
+ */
+public func voiceSource(isVoice: Bool, count: UInt32) -> VoiceSource  {
+    return try!  FfiConverterTypeVoiceSource_lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_voice_source(
+        FfiConverterBool.lower(isVoice),
+        FfiConverterUInt32.lower(count),$0
+    )
+})
+}
+/**
+ * Whether the apps show a notes room event as a note on a customer chat, and why not (ADR 0284 point 18).
+ */
+public func workNoteFromEvent(eventJson: String, ownUserId: String, joinedRoomIds: [String], seatIds: [String]) -> WorkNoteResult  {
+    return try!  FfiConverterTypeWorkNoteResult_lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_work_note_from_event(
+        FfiConverterString.lower(eventJson),
+        FfiConverterString.lower(ownUserId),
+        FfiConverterSequenceString.lower(joinedRoomIds),
+        FfiConverterSequenceString.lower(seatIds),$0
+    )
+})
+}
+/**
  * A verified domain of an `institution` badge: lower-case ASCII labels of letters, digits and hyphens, at least one
  * dot (`NOTICE_DOMAIN` of the reference).
  */
@@ -5693,6 +6937,19 @@ public func pixTxid(requestId: String) -> String  {
     return try!  FfiConverterString.lift(try! rustCall() {
     uniffi_bipe_core_fn_func_pix_txid(
         FfiConverterString.lower(requestId),$0
+    )
+})
+}
+/**
+ * The lines for these facts at `now_ms`. `always_created`: person-profile keeps the account age at any age
+ * (ADR 0275 point 13). A time that is not an ISO 8601 time with a zone counts as absent.
+ */
+public func profileFactLines(facts: ProfileFacts, nowMs: Int64, alwaysCreated: Bool) -> ProfileFactLines  {
+    return try!  FfiConverterTypeProfileFactLines_lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_profile_fact_lines(
+        FfiConverterTypeProfileFacts_lower(facts),
+        FfiConverterInt64.lower(nowMs),
+        FfiConverterBool.lower(alwaysCreated),$0
     )
 })
 }
@@ -5941,6 +7198,51 @@ private let initializationResult: InitializationResult = {
     if (uniffi_bipe_core_checksum_func_verify_issued_badge() != 23843) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_bipe_core_checksum_func_assistant_readers() != 45470) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_bipe_core_checksum_func_assistant_send_allowed() != 27693) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_bipe_core_checksum_func_assistant_sender() != 65023) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_bipe_core_checksum_func_cleared_chat_hidden() != 50448) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_bipe_core_checksum_func_cleared_chat_keeps_event() != 30536) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_bipe_core_checksum_func_cleared_chat_marker() != 51962) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_bipe_core_checksum_func_cleared_chats_with_clear() != 34488) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_bipe_core_checksum_func_draft_from_event() != 43017) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_bipe_core_checksum_func_forward_chat_limit() != 27701) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_bipe_core_checksum_func_forward_count() != 51777) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_bipe_core_checksum_func_forward_line() != 26409) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_bipe_core_checksum_func_forwarded_content() != 63994) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_bipe_core_checksum_func_reply_by_from_event() != 47053) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_bipe_core_checksum_func_voice_source() != 59468) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_bipe_core_checksum_func_work_note_from_event() != 4187) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_bipe_core_checksum_func_notice_domain_valid() != 62880) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -5975,6 +7277,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_bipe_core_checksum_func_pix_txid() != 47166) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_bipe_core_checksum_func_profile_fact_lines() != 18149) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_bipe_core_checksum_func_scam_match_ids() != 38251) {
