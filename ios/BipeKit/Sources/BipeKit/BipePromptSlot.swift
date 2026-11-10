@@ -2,6 +2,7 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
+import BipeCore
 import Foundation
 
 /// The one prompt slot of an account (registries/onboarding.json promptSlot, bipe-chat/bipe#200): after a slot prompt
@@ -58,11 +59,8 @@ public nonisolated struct BipePromptSlot {
     /// onboarding-schedule.json chatListPrompt. A preempting entry wins at once; else the first entry in queue order
     /// that the slot allows (no holder, the holder itself, or promptSlotHours since the holder took the slot).
     public static func chatListCard(eligible: Set<BipeChatListPrompt>, holder: String?, since: Date?, now: Date) -> BipeChatListPrompt? {
-        let entries = BipeChatListPrompt.allCases.filter(eligible.contains)
-        if let first = entries.first(where: \.preempts) { return first }
-        return entries.first { entry in
-            guard let holder, let since else { return true }
-            return holder == entry.rawValue || now.timeIntervalSince(since) >= Double(BipeOnboarding.promptSlotHours) * 3600
-        }
+        let ms = { (date: Date) in Int64((date.timeIntervalSince1970 * 1000).rounded(.down)) }
+        let slot = holder.flatMap { holder in since.map { PromptSlot(holder: holder, sinceMs: ms($0)) } }
+        return chatListPrompt(eligible: eligible.map(\.rawValue), slot: slot, nowMs: ms(now)).flatMap(BipeChatListPrompt.init(rawValue:))
     }
 }
