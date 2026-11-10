@@ -6,6 +6,7 @@
 
 mod badge;
 mod cvm;
+mod identity;
 mod issuer;
 mod notice;
 mod person;
@@ -23,6 +24,7 @@ mod generated {
 
 pub use badge::*;
 pub use cvm::*;
+pub use identity::*;
 pub use issuer::*;
 pub use notice::*;
 pub use person::*;

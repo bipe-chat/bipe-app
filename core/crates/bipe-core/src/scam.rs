@@ -7,7 +7,7 @@
 //! scam-warnings.json. Friction, not protection.
 
 use crate::generated::registries::*;
-use crate::text::{TextFold, byte_offset, normalize, utf16_len};
+use crate::text::{TextFold, byte_offset, find_all, normalize, utf16_len};
 use regex::Regex;
 use std::sync::OnceLock;
 
@@ -118,9 +118,14 @@ pub(crate) struct LinkHost {
     pub(crate) plain: String,
 }
 
-struct Compiled {
-    pattern: &'static ScamPattern,
-    regex: Regex,
+pub(crate) struct Compiled {
+    pub(crate) pattern: &'static ScamPattern,
+    pub(crate) regex: Regex,
+}
+
+/// The compiled patterns of one group, in registry order.
+pub(crate) fn compiled_group(group: &'static str) -> impl Iterator<Item = &'static Compiled> {
+    compiled().iter().filter(move |c| c.pattern.group == group)
 }
 
 /// bipe-shared generates only patterns in the supported subset; a test checks that every one compiles.
@@ -158,20 +163,12 @@ pub(crate) fn link_hosts(message: &str) -> Vec<LinkHost> {
     let folded = normalize(message, TextFold::Hosts);
     let aligned = utf16_len(&plain) == utf16_len(&folded);
     let mut hosts = Vec::new();
-    for c in compiled().iter().filter(|c| c.pattern.group == "linkPatterns") {
-        let mut start = 0;
-        while start <= folded.len() {
-            // A leading guard consumes one character: start one character earlier so it can read the last
-            // character of the previous match, as a JavaScript look-behind does.
-            let from = if c.pattern.guard_before && start > 0 {
-                folded[..start].char_indices().next_back().map_or(0, |(i, _)| i)
-            } else {
-                start
-            };
-            let Some(m) = c.regex.captures_at(&folded, from).and_then(|caps| caps.get(1)) else { break };
+    for c in compiled_group("linkPatterns") {
+        for range in find_all(&c.regex, c.pattern.guard_before, &folded) {
+            let host = &folded[range.clone()];
             let plain_host = if aligned {
-                let from16 = utf16_len(&folded[..m.start()]);
-                let to16 = from16 + utf16_len(m.as_str());
+                let from16 = utf16_len(&folded[..range.start]);
+                let to16 = from16 + utf16_len(host);
                 match (byte_offset(&plain, from16), byte_offset(&plain, to16)) {
                     (Some(a), Some(b)) => plain[a..b].to_owned(),
                     _ => String::new(),
@@ -179,15 +176,7 @@ pub(crate) fn link_hosts(message: &str) -> Vec<LinkHost> {
             } else {
                 String::new()
             };
-            hosts.push(LinkHost { folded: m.as_str().to_owned(), plain: plain_host });
-            start = if m.end() > m.start() {
-                m.end()
-            } else {
-                match folded[m.end()..].chars().next() {
-                    Some(ch) => m.end() + ch.len_utf8(),
-                    None => break,
-                }
-            };
+            hosts.push(LinkHost { folded: host.to_owned(), plain: plain_host });
         }
     }
     hosts
@@ -209,7 +198,7 @@ fn is_under(plain: &str, domains: &[&str]) -> bool {
 
 /// True when the normalised text has one of `terms` as a whole word: each run of characters outside [0-9a-z]
 /// becomes one space, then the term must have a space on each side.
-fn contains_word(normalized: &str, terms: &[&str]) -> bool {
+pub(crate) fn contains_word(normalized: &str, terms: &[&str]) -> bool {
     let mut words = String::with_capacity(normalized.len() + 2);
     words.push(' ');
     let mut in_gap = false;

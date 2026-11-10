@@ -72,6 +72,47 @@ pub const HOMOGLYPHS: &[(char, &str)] = &[('\u{24}', "s"), ('\u{30}', "o"), ('\u
 /// HOMOGLYPHS without the ASCII keys outside [0-9a-z] (hostHomoglyphs in registries.mjs). linkHosts folds with it.
 pub const HOST_HOMOGLYPHS: &[(char, &str)] = &[('\u{30}', "o"), ('\u{31}', "i"), ('\u{33}', "e"), ('\u{34}', "a"), ('\u{35}', "s"), ('\u{37}', "t"), ('\u{261}', "g"), ('\u{3b1}', "a"), ('\u{3b9}', "i"), ('\u{3ba}', "k"), ('\u{3bd}', "v"), ('\u{3bf}', "o"), ('\u{3c1}', "p"), ('\u{3c4}', "t"), ('\u{3c5}', "u"), ('\u{430}', "a"), ('\u{432}', "b"), ('\u{435}', "e"), ('\u{43a}', "k"), ('\u{43c}', "m"), ('\u{43d}', "h"), ('\u{43e}', "o"), ('\u{440}', "p"), ('\u{441}', "c"), ('\u{442}', "t"), ('\u{443}', "y"), ('\u{445}', "x"), ('\u{455}', "s"), ('\u{456}', "i"), ('\u{458}', "j"), ('\u{4bb}', "h"), ('\u{501}', "d")];
 
+/// registries/handles.json (docs/usernames.md). The core checks `HANDLE_PATTERN` by hand: it has a look-ahead inside
+/// its body. A core test fails when the pattern changes.
+pub const HANDLE_MIN_LENGTH: usize = 3;
+pub const HANDLE_OWNER_MIN_LENGTH: usize = 2;
+pub const HANDLE_MAX_LENGTH: usize = 30;
+pub const HANDLE_PATTERN: &str = "^[a-z0-9](?:[a-z0-9_]|\\.(?!\\.))*[a-z0-9_]$";
+pub const HANDLE_SKELETON_STRIP: &str = "([._])";
+pub const HANDLE_SUGGESTION_CANDIDATES: usize = 8;
+
+/// registries/reserved-name-owners.json `handles`: (handle, owner Matrix user ID), sorted by handle.
+pub const OWNED_HANDLES: &[(&str, &str)] = &[("bipe", "@bipe:bipe.net.br"), ("bipechat", "@r2vrihsgkqd5:bipe.net.br"), ("grupos", "@grupos:bipe.net.br"), ("mz", "@fmfwxwwys6v2:bipe.net.br"), ("suporte", "@suporte:bipe.net.br")];
+
+/// registries/reserved-names.json: (normalised name, category), sorted by name.
+pub const RESERVED_NAMES: &[(&str, &str)] = &[("auxilio gas", "government"), ("banco central", "government"), ("banco do brasil", "bank"), ("banco inter", "bank"), ("banco pan", "bank"), ("banrisul", "bank"), ("beneficio de prestacao continuada", "government"), ("bipe", "bipe"), ("bipe chat", "bipe"), ("bipe grupos", "bipe"), ("bipe oficial", "bipe"), ("bolsa familia", "government"), ("bolsa familia oficial", "government"), ("bpc", "government"), ("bradesco", "bank"), ("btg pactual", "bank"), ("c6 bank", "bank"), ("cad unico", "government"), ("cadastro unico", "government"), ("cadunico", "government"), ("caixa", "bank"), ("caixa economica federal", "bank"), ("caixa tem", "government"), ("correios", "government"), ("desenrola", "government"), ("desenrola brasil", "government"), ("detran", "government"), ("equipe bipe", "bipe"), ("farmacia popular", "government"), ("gov.br", "government"), ("governo federal", "government"), ("grupos bipe", "bipe"), ("inss", "government"), ("inter", "bank"), ("itau", "bank"), ("itau unibanco", "bank"), ("justica eleitoral", "government"), ("mercado pago", "bank"), ("meu inss", "government"), ("minha casa minha vida", "government"), ("ministerio da saude", "government"), ("neon", "bank"), ("novidades bipe", "bipe"), ("novidades do bipe", "bipe"), ("nubank", "bank"), ("pagbank", "bank"), ("pagseguro", "bank"), ("pe de meia", "government"), ("pe de meia oficial", "government"), ("pe de meia universitario", "government"), ("pe-de-meia", "government"), ("pe-de-meia oficial", "government"), ("pe-de-meia universitario", "government"), ("picpay", "bank"), ("pix", "government"), ("policia civil", "government"), ("policia federal", "government"), ("policia militar", "government"), ("procon", "government"), ("receita federal", "government"), ("safra", "bank"), ("santander", "bank"), ("seguranca bipe", "bipe"), ("serasa", "government"), ("sicoob", "bank"), ("sicredi", "bank"), ("suporte bipe", "bipe"), ("sus", "government"), ("tse", "government"), ("valores a receber", "government")];
+
+/// registries/invite-codes.json. Groups 2 to 4 are the three blocks.
+pub const INVITE_CODE_PATTERN: &str = "(?:^|[^A-Z0-9])(([A-HJKMNP-Z2-9]{4})[ \\-\\x{2010}-\\x{2014}\\x{2212}]?([A-HJKMNP-Z2-9]{4})[ \\-\\x{2010}-\\x{2014}\\x{2212}]?([A-HJKMNP-Z2-9]{4}))(?:[^A-Z0-9]|$)";
+pub const INVITE_CODE_MAX_INPUT_LENGTH: usize = 2048;
+
+/// registries/phone-numbers.json.
+pub const PHONE_COUNTRY_CODE: &str = "55";
+pub const PHONE_AREA_CODES: &[&str] = &["11", "12", "13", "14", "15", "16", "17", "18", "19", "21", "22", "24", "27", "28", "31", "32", "33", "34", "35", "37", "38", "41", "42", "43", "44", "45", "46", "47", "48", "49", "51", "53", "54", "55", "61", "62", "63", "64", "65", "66", "67", "68", "69", "71", "73", "74", "75", "77", "79", "81", "82", "83", "84", "85", "86", "87", "88", "89", "91", "92", "93", "94", "95", "96", "97", "98", "99"];
+pub const PHONE_MOBILE_LENGTH: usize = 9;
+pub const PHONE_MOBILE_PREFIX: &str = "9";
+pub const PHONE_MAX_INPUT_LENGTH: usize = 64;
+pub const PHONE_INTERNATIONAL_MIN_DIGITS: usize = 8;
+pub const PHONE_INTERNATIONAL_MAX_DIGITS: usize = 15;
+/// (countryCode, prefix, pattern) in registry order: the first that fits wins.
+pub const PHONE_DISPLAY: &[(&str, &str, &str)] = &[("55", "", "## #####-####"), ("1", "", "### ###-####"), ("31", "6", "# #### ####"), ("351", "", "### ### ###"), ("44", "7", "#### ######"), ("34", "", "### ## ## ##"), ("33", "", "# ## ## ## ##")];
+
+/// registries/profiles.json (ADR 0041, ADR 0228).
+pub const PROFILE_NAME_MAX_LENGTH: usize = 50;
+pub const PROFILE_BIO_MAX_LENGTH: usize = 160;
+pub const PROFILE_BIO_MAX_LINES: usize = 4;
+pub const SEAL_LOOKALIKE_EMOJI: &[&str] = &["💜", "🟣", "🟪", "✅", "☑", "✔", "✓", "🔰"];
+/// (id, pattern in the Rust syntax, url with {handle}).
+pub const SOCIAL_PLATFORMS: &[(&str, &str, &str)] = &[("instagram", "(^[A-Za-z0-9._]{1,30}$)", "https://www.instagram.com/{handle}"), ("linkedin", "(^[A-Za-z0-9-]{3,100}$)", "https://www.linkedin.com/in/{handle}"), ("tiktok", "(^[A-Za-z0-9._]{2,24}$)", "https://www.tiktok.com/@{handle}"), ("youtube", "(^[A-Za-z0-9._-]{3,30}$)", "https://www.youtube.com/@{handle}"), ("facebook", "(^[A-Za-z0-9.]{5,50}$)", "https://www.facebook.com/{handle}"), ("x", "(^[A-Za-z0-9_]{1,15}$)", "https://x.com/{handle}"), ("github", "(^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$)", "https://github.com/{handle}")];
+
+/// registries/relationship-names.json (ADR 0018).
+pub const RELATIONSHIP_FULL_NAME_MIN_WORDS: usize = 2;
+
 /// `personAssurance` of registries/schemes.json (ADR 0275): the person assurances, strongest first, and the seal
 /// mark of each. personProofs reads it; test-vectors/person-proofs.json checks it.
 /// HOME_COUNTRY of tools/lib/registries.mjs: personProofs puts the proofs of this country first (ADR 0272 decision 7).
