@@ -16,6 +16,7 @@ mod pix;
 mod pix_marks;
 mod scam;
 mod signed_list;
+mod small_rules;
 mod text;
 mod theft;
 
@@ -36,6 +37,7 @@ pub use pix::*;
 pub use pix_marks::*;
 pub use scam::*;
 pub use signed_list::*;
+pub use small_rules::*;
 pub use text::{TextFold, normalize_text};
 pub use theft::*;
 
