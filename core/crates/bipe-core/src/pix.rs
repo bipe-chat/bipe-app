@@ -8,6 +8,8 @@
 //! The Pix keys in the text and the warning stay in the apps: the key patterns of registries/scam-patterns.json use
 //! look-around, and they move with scam matching (ADR 0267, last step).
 
+use crate::text::js_trim;
+
 const PIX_GUI: &str = "br.gov.bcb.pix";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, uniffi::Enum)]
@@ -155,10 +157,6 @@ fn get<'a>(fields: &'a [(String, String)], id: &str) -> Option<&'a str> {
     fields.iter().rev().find(|(i, _)| i == id).map(|(_, v)| v.as_str())
 }
 
-/// JavaScript `trim()`: White_Space and U+FEFF.
-pub(crate) fn js_trim(text: &str) -> &str {
-    text.trim_matches(|c: char| c.is_whitespace() || c == '\u{FEFF}')
-}
 
 fn malformed() -> PixCode {
     PixCode {
