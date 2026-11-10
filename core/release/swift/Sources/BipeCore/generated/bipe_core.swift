@@ -4925,7 +4925,8 @@ public func noticeLinkClickable(url: String, domains: [String]) -> Bool  {
 })
 }
 /**
- * The person proofs of these badges, strongest first, one per scheme. The schemes come from the issuer registry
+ * The person proofs of these badges, one per scheme: Brazilian proofs first, then other countries' (ADR 0272
+ * decision 7), each group strongest first. The schemes come from the issuer registry
  * payload, so a scheme of a new country needs no app release. A badge outside the registry, a company badge or an
  * assurance outside `personAssurance` gives no proof (fail closed). The first proof draws the compact seal.
  */
@@ -5233,7 +5234,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_bipe_core_checksum_func_notice_link_clickable() != 626) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_bipe_core_checksum_func_person_proofs() != 41520) {
+    if (uniffi_bipe_core_checksum_func_person_proofs() != 46746) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_bipe_core_checksum_func_find_pix_code() != 9043) {
