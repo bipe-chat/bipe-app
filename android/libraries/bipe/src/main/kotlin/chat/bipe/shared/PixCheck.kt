@@ -78,7 +78,7 @@ data class PixCheck(
             return PixCheck(
                 code = found?.let { code(it.code) },
                 keys = keys(rest),
-                warning = ScamDetector.warningKind(ScamDetector.matchIds(rest), rest, skipping = skippedWarnings),
+                warning = ScamDetector.warningKind(rest, skipping = skippedWarnings),
             )
         }
 

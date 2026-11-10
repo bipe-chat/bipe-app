@@ -69,7 +69,7 @@ public nonisolated struct PixCheck: Sendable, Equatable {
         } ?? text
         return PixCheck(code: found.map { Code($0.code) },
                         keys: keys(in: rest),
-                        warning: ScamDetector.warningKind(forMatchIDs: ScamDetector.matchIDs(in: rest), message: rest, skipping: skippedWarnings))
+                        warning: ScamDetector.warningKind(in: rest, skipping: skippedWarnings))
     }
     
     /// Text of every QR code in an image. Decoding runs on the device.

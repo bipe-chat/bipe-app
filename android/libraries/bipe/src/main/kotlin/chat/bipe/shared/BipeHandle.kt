@@ -71,7 +71,7 @@ object BipeHandle {
      * match test-vectors/handle-suggestions.json. The caller checks availability in this order.
      */
     fun suggestions(displayName: String): List<String> {
-        val words = NameNormalizer.normalize(displayName, emptyMap()).split(Regex("[^a-z0-9]+")).filter { it.isNotEmpty() }
+        val words = NameNormalizer.normalize(displayName, folding = false).split(Regex("[^a-z0-9]+")).filter { it.isNotEmpty() }
         if (words.isEmpty()) return emptyList()
         val first = words.first()
         val last = words.last()

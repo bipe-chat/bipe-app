@@ -264,7 +264,7 @@ struct SharedVectorTests {
     func scamWarnings() throws {
         for vector in try SharedVectors.array("scam-warnings.json", key: "vectors") {
             let message = try #require(vector["message"] as? String)
-            let kind = ScamDetector.warningKind(forMatchIDs: ScamDetector.matchIDs(in: message), message: message)
+            let kind = ScamDetector.warningKind(in: message)
             #expect(kind?.rawValue == vector["kind"] as? String, "kind(\(message))")
         }
     }

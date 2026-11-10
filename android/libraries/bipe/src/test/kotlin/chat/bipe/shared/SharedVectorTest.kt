@@ -161,7 +161,7 @@ class SharedVectorTest {
     fun scamWarnings() {
         for (vector in vectors("scam-warnings.json", "vectors")) {
             val message = vector.string("message")!!
-            val kind = ScamDetector.warningKind(ScamDetector.matchIds(message), message)
+            val kind = ScamDetector.warningKind(message)
             assertWithMessage("kind($message)").that(kind?.id).isEqualTo(vector.string("kind"))
         }
     }
