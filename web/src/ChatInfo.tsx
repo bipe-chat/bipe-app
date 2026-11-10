@@ -28,7 +28,7 @@ import { useClient } from './media';
 import { bell, flag, link, prohibit, signOut, trash } from './phosphor/icons';
 import { Icon } from './ui/Icon';
 import { publicProfile } from './api';
-import { socialHandleClean, socialUrl } from './core';
+import { socialHandleClean, socialUrl } from './shared-rules';
 import { profiles } from './bipe/generated/registries.json';
 
 export function ChatInfo({

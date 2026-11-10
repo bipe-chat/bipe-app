@@ -9,7 +9,7 @@
 // shared scamWarningKind of the generated lib, the same that the apps' vectors check.
 
 import { useEffect, useState } from 'react';
-import { scamWarningKind } from './core';
+import { scamWarningKind } from './shared-rules';
 import { homoglyphs, phones, scam } from './bipe/generated/registries.json';
 import type { StringKey } from './bipe/generated/strings';
 import { warningCircle } from './phosphor/icons';

@@ -6,7 +6,7 @@
 // (spec message-reactions openPicker) and the list of who reacted (openSenders, MessageSheets.swift).
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { forwardChatLimit, forwardCount, forwardedContent } from './core';
+import { forwardChatLimit, forwardCount, forwardedContent } from './shared-rules';
 import { voiceMedia } from './bipe/generated/registries.json';
 import type { ChatSummary } from './chat-model';
 import type { RoomLike as Room } from './generated/matrix_sdk_ffi';

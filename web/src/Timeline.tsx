@@ -65,7 +65,7 @@ import { readReceiptsOn } from './Settings';
 import { ChatSearch, firstEventOfDay, FloatingDate } from './ChatSearch';
 import { BlockAlert } from './ChatActions';
 import { useClearedChats, useIgnoredUsers } from './chat-actions';
-import { clearedChatKeepsEvent } from './core';
+import { clearedChatKeepsEvent } from './shared-rules';
 import { useClient } from './media';
 import { useIsNewsRoom } from './news-room';
 import { isOfficial } from './registries';

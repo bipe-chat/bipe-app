@@ -3,14 +3,11 @@
 // Copyright 2026 Bipe contributors
 
 // The shared Bipe rules from bipe-core (ADR 0267, bipe-chat/bipe#1458): the same code that iOS, Mac, Android and
-// Windows run. tools/web-core.mjs puts the pinned release into ./bipe-core. Each function keeps the signature of the
-// bipe-shared reference it replaces (tools/lib/registries.mjs), so a call site changes only its import. The last
-// `reg` argument of the reference is accepted and ignored: the core carries the registries.
-// Call coreReady before the first render; main.tsx does.
-import * as core from './bipe-core/index';
-
-/** Loads the core once. Every function below needs it. */
-export const coreReady: Promise<void> = core.uniffiInitAsync(new URL('./bipe-core/bipe_core.wasm', import.meta.url));
+// Windows run. scripts/fetch-core.sh puts the pinned release into ./core, and signed-lists.ts loads it (coreReady).
+// Each function keeps the signature of the bipe-shared reference it replaces (tools/lib/registries.mjs), so a call
+// site changes only its import. The last `reg` argument of the reference is accepted and ignored: the core carries
+// the registries. main.tsx waits for coreReady before the first render.
+import * as core from './core';
 
 const big = (n: number) => BigInt(Math.trunc(n));
 const optionalBig = (n: number | null | undefined) => (n === null || n === undefined ? undefined : big(n));
