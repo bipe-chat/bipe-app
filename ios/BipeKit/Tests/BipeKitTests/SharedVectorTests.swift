@@ -304,14 +304,14 @@ struct SharedVectorTests {
         }
     }
     
-    /// The client checks length and characters only. Reserved names and lookalikes are the server's call.
+    /// The client runs `handleProblem` without a claimant (bipe-core): shape and reserved names. A claim by an owner
+    /// and lookalikes of taken handles are the server's call, so the cases with a claimant are not run here.
     @Test
     func handles() throws {
-        let localProblems: Set = ["too_short", "too_long", "invalid_characters"]
-        for vector in try SharedVectors.array("handles.json", key: "cases") {
+        for vector in try SharedVectors.array("handles.json", key: "cases") where vector["claimant"] == nil {
             let input = try #require(vector["input"] as? String)
-            let expected = (vector["problem"] as? String).flatMap { localProblems.contains($0) ? $0 : nil }
-            #expect(BipeHandle.localProblem(for: input)?.rawValue == expected, "localProblem(\(input))")
+            #expect(BipeHandle.localProblem(for: input)?.rawValue == vector["problem"] as? String, "localProblem(\(input))")
+            #expect(BipeHandle.skeleton(input) == vector["skeleton"] as? String, "skeleton(\(input))")
         }
     }
     

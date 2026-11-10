@@ -8,8 +8,8 @@ import Foundation
 
 /// "Conferir no Bipe" phase 1 (bipe ADR 0091): the Pix code and the Pix keys in text that the user
 /// shared from another app. Runs on the device only. Must match bipe-shared/test-vectors/pix-check.json.
-/// The BR Code, its CRC, the key type and the warning come from bipe-core (`findPixCode`, `scamWarningKind`, ADR 0267).
-/// The keys in the text stay here for now.
+/// The BR Code, its CRC, the keys in the text, the key type and the warning come from bipe-core (`findPixCode`,
+/// `pixKeys`, `pixKeyType`, `scamWarningKind`, ADR 0267).
 public nonisolated struct PixCheck: Sendable, Equatable {
     public enum Status: String, Sendable {
         case valid, badCrc, malformed
@@ -68,7 +68,7 @@ public nonisolated struct PixCheck: Sendable, Equatable {
             return before + " " + after
         } ?? text
         return PixCheck(code: found.map { Code($0.code) },
-                        keys: keys(in: rest),
+                        keys: pixKeys(text: text).map { Key(value: $0.value, types: $0.types.compactMap(KeyType.init(rawValue:))) },
                         warning: ScamDetector.warningKind(in: rest, skipping: skippedWarnings))
     }
     
@@ -86,26 +86,6 @@ public nonisolated struct PixCheck: Sendable, Equatable {
     
     public static func keyType(of key: String) -> KeyType {
         KeyType(pixKeyType(key: key))
-    }
-    
-    // MARK: - Keys in text
-    
-    private static let keyExpressions: [(KeyType, NSRegularExpression)] = BipeRegistries.pixKeyPatterns.compactMap { pattern in
-        guard let type = KeyType(rawValue: pattern.id), let expression = try? NSRegularExpression(pattern: pattern.regex) else { return nil }
-        return (type, expression)
-    }
-    
-    private static func keys(in text: String) -> [Key] {
-        let nsText = text as NSString
-        var spans: [NSRange: [KeyType]] = [:]
-        for (type, expression) in keyExpressions {
-            for match in expression.matches(in: text, range: NSRange(location: 0, length: nsText.length)) {
-                spans[match.range, default: []].append(type)
-            }
-        }
-        return spans
-            .sorted { $0.key.location != $1.key.location ? $0.key.location < $1.key.location : $0.key.length > $1.key.length }
-            .map { Key(value: nsText.substring(with: $0.key), types: $0.value) }
     }
 }
 

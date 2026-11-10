@@ -2,14 +2,12 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
+import BipeCore
 import Foundation
 
 /// Invite links: `https://bipe.chat/convite/XXXX-XXXX-XXXX`. The web page there explains how to install;
 /// the app opens it as a universal link and pre-fills the sign-up code.
 public nonisolated enum BipeInviteLink {
-    /// Rule: bipe-shared/registries/invite-codes.json (generated). Cases: test-vectors/invite-codes.json.
-    private static let pattern = try? NSRegularExpression(pattern: BipeRegistries.inviteCodePattern)
-    
     /// The invite code in a link, normalised, or `nil` when the URL is not an invite link.
     public static func code(from url: URL) -> String? {
         code(from: url, path: "convite")
@@ -31,11 +29,8 @@ public nonisolated enum BipeInviteLink {
     
     /// `XXXX-XXXX-XXXX` from anything a user typed or pasted: a code, an invite link or a whole message. `nil` when it holds no code.
     public static func normalizedCode(_ raw: String) -> String? {
-        let text = String(raw.prefix(BipeRegistries.inviteCodeMaxInputLength)).uppercased()
-        let range = NSRange(text.startIndex..., in: text)
-        guard let match = pattern?.firstMatch(in: text, range: range) else { return nil }
-        let groups = (1...3).compactMap { Range(match.range(at: $0), in: text).map { String(text[$0]) } }
-        return groups.count == 3 ? groups.joined(separator: "-") : nil
+        // bipe-core `extractInviteCode`: rule in registries/invite-codes.json, cases in test-vectors/invite-codes.json.
+        extractInviteCode(text: raw)
     }
 
     /// The code field text while the user types: uppercase, a dash after every 4 characters, at most 12 characters.

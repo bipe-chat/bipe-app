@@ -17,14 +17,14 @@
       </trusted-artifacts>
    </configuration>
    <components>
-      <component group="chat.bipe.core" name="bipe-core" version="0.1.8">
-         <artifact name="bipe-core-0.1.8.aar">
-            <sha256 value="a29e773e4590f4fd5fa0396edcfee73704c735847dff7ca8d0b63529373c82f5" origin="core/release/release.json"/>
+      <component group="chat.bipe.core" name="bipe-core" version="0.1.9">
+         <artifact name="bipe-core-0.1.9.aar">
+            <sha256 value="d3ac372ff0bce2785fcb82b58a7d62e7e84112d177a1553114f70af775e80cf1" origin="core/release/release.json"/>
          </artifact>
       </component>
-      <component group="chat.bipe.core" name="bipe-core-jvm" version="0.1.8">
-         <artifact name="bipe-core-jvm-0.1.8.jar">
-            <sha256 value="d046cd11b9b66b090a36f8dea1d741bc23fe5bff00cab81269ac4fa9b23424a4" origin="core/release/release.json"/>
+      <component group="chat.bipe.core" name="bipe-core-jvm" version="0.1.9">
+         <artifact name="bipe-core-jvm-0.1.9.jar">
+            <sha256 value="fd60fe35f9fc41d1d2751815d99d32e8cc6d2fef54ceccffa51a78a5584bf626" origin="core/release/release.json"/>
          </artifact>
       </component>
    </components>

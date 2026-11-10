@@ -6,6 +6,8 @@ package chat.bipe.shared
 
 import android.content.Context
 import androidx.annotation.StringRes
+import chat.bipe.core.ProfileProblem
+import chat.bipe.core.profileProblem
 import chat.bipe.shared.generated.BipeRegistries
 
 /** Same ids as `profileProblem()` in bipe-shared/tools/lib/registries.mjs and the API's `ProfileProblem`. */
@@ -72,16 +74,14 @@ enum class BipeProfileProblem(val id: String) {
 object BipeProfileRules {
     private val lineBreaks = Regex("\r\n?")
 
-    /** Port of `profileProblem()` in bipe-shared/tools/lib/registries.mjs. Lengths count code points. */
-    fun problem(name: String, bio: String): BipeProfileProblem? {
-        val trimmedName = NameNormalizer.trimJavaScript(name)
-        if (trimmedName.isEmpty()) return BipeProfileProblem.NAME_EMPTY
-        if (trimmedName.codePointCount(0, trimmedName.length) > BipeRegistries.PROFILE_NAME_MAX_LENGTH) return BipeProfileProblem.NAME_TOO_LONG
-        if (NameNormalizer.reservedCategory(trimmedName) != null) return BipeProfileProblem.NAME_RESERVED
-        val trimmedBio = NameNormalizer.trimJavaScript(bio)
-        if (trimmedBio.codePointCount(0, trimmedBio.length) > BipeRegistries.PROFILE_BIO_MAX_LENGTH) return BipeProfileProblem.BIO_TOO_LONG
-        if (trimmedBio.split("\n").size > BipeRegistries.PROFILE_BIO_MAX_LINES) return BipeProfileProblem.BIO_TOO_MANY_LINES
-        return null
+    /** `profileProblem()` in bipe-core. Lengths count code points. */
+    fun problem(name: String, bio: String): BipeProfileProblem? = when (profileProblem(name, bio)) {
+        ProfileProblem.NAME_EMPTY -> BipeProfileProblem.NAME_EMPTY
+        ProfileProblem.NAME_TOO_LONG -> BipeProfileProblem.NAME_TOO_LONG
+        ProfileProblem.NAME_RESERVED -> BipeProfileProblem.NAME_RESERVED
+        ProfileProblem.BIO_TOO_LONG -> BipeProfileProblem.BIO_TOO_LONG
+        ProfileProblem.BIO_TOO_MANY_LINES -> BipeProfileProblem.BIO_TOO_MANY_LINES
+        null -> null
     }
 
     /**
