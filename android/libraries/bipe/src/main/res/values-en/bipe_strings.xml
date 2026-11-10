@@ -70,6 +70,11 @@
     <string name="bipe_badge_company_revoked">This business is no longer verified.</string>
     <string name="bipe_badge_company_revoked_not_active">This business is no longer verified. The CNPJ no longer shows as active at the Receita Federal.</string>
     <string name="bipe_badge_company_suspended">This business\'s seal is suspended until Bipe checks the account again.</string>
+    <string name="bipe_badge_seal_issuer">Issued by</string>
+    <string name="bipe_badge_seal_country">Country</string>
+    <string name="bipe_badge_org_id">Registration number</string>
+    <string name="bipe_badge_org_body">The issuer checked this business in its country\'s official registry. The seal does not vouch for every offer or charge.</string>
+    <string name="bipe_badge_foreign_body">This seal comes from another country and follows its rules. It is not the same as a Brazilian seal.</string>
     <string name="bipe_cvm_registered">Registered with CVM as %1$s</string>
     <string name="bipe_brand_mark_label_revendedora">Authorised reseller of %1$s</string>
     <string name="bipe_brand_mark_label_revendedor">Authorised reseller of %1$s</string>
