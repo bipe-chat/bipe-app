@@ -402,6 +402,7 @@ class SharedVectorTest {
 
     @Test
     fun personProofs() {
+        val schemes = Json.parseToJsonElement(File(vectorsDir, "../registries/schemes.json").readText()).jsonObject.getValue("schemes").jsonArray
         val cases = vectors("person-proofs.json", "vectors")
         assertWithMessage("person proofs vectors").that(cases).isNotEmpty()
         for (vector in cases) {
@@ -410,7 +411,10 @@ class SharedVectorTest {
             val name = vector.string("name")
             val badges = vector.getValue("payloads").jsonArray.map { it.jsonObject }.map { chat.bipe.shared.company.BipePersonProofs.Badge(it.string("lvl")!!, it.string("scheme")) }
             val expected = vector.getValue("expected").jsonArray.map { it.jsonObject }
-            val result = chat.bipe.shared.company.BipePersonProofs.schemes(badges)
+            // An issuer registry payload: the schemes of registries/schemes.json, the vector's extraSchemes, no issuer.
+            val extra = (vector["extraSchemes"] as? JsonArray).orEmpty()
+            val registry = JsonObject(mapOf("issuers" to JsonArray(emptyList()), "regions" to JsonArray(emptyList()), "schemes" to JsonArray(schemes + extra))).toString()
+            val result = chat.bipe.shared.company.BipePersonProofs.schemes(badges, registryJson = registry)
             assertWithMessage("person proofs $name").that(result.map { listOf(it.id, it.assurance, it.mark) })
                 .isEqualTo(expected.map { listOf(it.string("scheme"), it.string("assurance"), it.string("mark")) })
         }

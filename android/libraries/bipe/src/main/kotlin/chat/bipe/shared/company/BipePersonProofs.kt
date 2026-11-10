@@ -6,7 +6,12 @@ package chat.bipe.shared.company
 
 import android.content.Context
 import androidx.compose.runtime.Immutable
+import chat.bipe.core.BadgeLevel as CoreBadgeLevel
 import chat.bipe.core.ListType
+import chat.bipe.core.PersonBadge
+import chat.bipe.core.PersonProof
+import chat.bipe.core.SealMark
+import chat.bipe.core.personProofs
 import chat.bipe.shared.BadgeLevel
 import chat.bipe.shared.BadgePayload
 import chat.bipe.shared.R
@@ -52,45 +57,66 @@ object BipeSchemeNames {
     }
 }
 
-/** Port of bipe-shared `personProofs` (tools/lib/registries.mjs); test-vectors/person-proofs.json must pass. */
+/** `personProofs` of bipe-shared, run in bipe-core (`personProofs`, ADR 0267, ADR 0275). test-vectors/person-proofs.json must pass. */
 object BipePersonProofs {
     /** A badge level and, for `lvl` person, its scheme. */
     data class Badge(val lvl: String, val scheme: String?)
 
-    /** The person schemes of these badges, strongest first, one per scheme. Anything outside the registry gives nothing (fail closed). */
-    fun schemes(badges: List<Badge>): List<PersonScheme> {
-        val all = BipeRegistries.personSchemes
-        val found = badges.mapNotNull { badge ->
-            (if (badge.lvl == "person") all.firstOrNull { it.id == badge.scheme } else all.firstOrNull { it.alias == badge.lvl })?.id
-        }
-        return all.filter { it.id in found }
-    }
-
     /**
-     * The proofs of badges that already passed the verifier, strongest first. Brazilian schemes come first in their
-     * registry order. A person scheme of another country follows, state before bank, named from the issuer registry
-     * (ADR 0272). A scheme with no name anywhere gives no proof (fail closed).
+     * The person schemes of these badges: Brazilian first, then other countries', each strongest first, one per scheme.
+     * A level or a scheme outside the issuer registry, or a scheme with no name, gives nothing (fail closed).
      */
-    fun proofs(payloads: List<BadgePayload>, english: Boolean = false): List<BipePersonProof> {
-        val local = schemes(payloads.map { Badge(if (it.lvl == BadgeLevel.PERSON) "person" else it.lvl.alias, it.scheme) }).mapNotNull { scheme ->
-            payloads.firstOrNull { it.lvl.alias == scheme.alias || (it.lvl == BadgeLevel.PERSON && it.scheme == scheme.id) }
-                ?.let { BipePersonProof(scheme, it) }
-        }
-        val foreign = payloads.mapNotNull { payload ->
-            val info = payload.schemeInfo ?: return@mapNotNull null
-            if (payload.lvl != BadgeLevel.PERSON || BipeRegistries.personSchemes.any { it.id == info.id }) return@mapNotNull null
-            val name = BipeSchemeNames.name(info.id, english) ?: return@mapNotNull null
-            val mark = if (info.assurance == "state") "fill" else "regular"
-            BipePersonProof(PersonScheme(info.id, null, info.assurance, mark, name, name), payload)
-        }
-        return local + foreign.sortedByDescending { it.isFill }
+    fun schemes(
+        badges: List<Badge>,
+        english: Boolean = false,
+        registryJson: String? = SignedLists.shared.current(ListType.ISSUERS)?.payloadJson,
+    ): List<PersonScheme> {
+        val known = badges.mapNotNull { badge -> levelOf(badge.lvl)?.let { PersonBadge(it, badge.scheme) } }
+        return personProofs(known, registryJson.orEmpty()).mapNotNull { scheme(it, english, registryJson) }
     }
 
-    /** The registry alias of a person level. Any other level has none and gives no proof. */
-    private val BadgeLevel.alias: String
+    /** The proofs of badges that already passed the verifier, in the order of [schemes]. A foreign scheme takes its name from the issuer registry (ADR 0272). */
+    fun proofs(
+        payloads: List<BadgePayload>,
+        english: Boolean = false,
+        registryJson: String? = SignedLists.shared.current(ListType.ISSUERS)?.payloadJson,
+    ): List<BipePersonProof> =
+        personProofs(payloads.map { PersonBadge(it.lvl.core, it.scheme) }, registryJson.orEmpty()).mapNotNull { proof ->
+            val payload = payloads.getOrNull(proof.badgeIndex.toInt()) ?: return@mapNotNull null
+            scheme(proof, english, registryJson)?.let { BipePersonProof(it, payload) }
+        }
+
+    /** The scheme of a core proof: the build's entry for a Brazilian scheme, else one named from the registry. */
+    private fun scheme(proof: PersonProof, english: Boolean, registryJson: String?): PersonScheme? {
+        BipeRegistries.personSchemes.firstOrNull { it.id == proof.scheme }?.let { return it }
+        val name = BipeSchemeNames.name(proof.scheme, english, registryJson) ?: return null
+        val mark = if (proof.mark == SealMark.FILL) "fill" else "regular"
+        return PersonScheme(proof.scheme, null, proof.assurance, mark, name, name)
+    }
+
+    private fun levelOf(name: String): CoreBadgeLevel? = BadgeLevel.entries.firstOrNull { it.wireName == name }?.core
+
+    /** The wire name of a level (`@SerialName`). */
+    private val BadgeLevel.wireName: String
         get() = when (this) {
             BadgeLevel.PIX -> "pix"
             BadgeLevel.GOVBR -> "govbr"
-            else -> ""
+            BadgeLevel.INSTITUTION -> "institution"
+            BadgeLevel.CNPJ -> "cnpj"
+            BadgeLevel.BRAND_MARK -> "brand-mark"
+            BadgeLevel.PERSON -> "person"
+            BadgeLevel.ORG -> "org"
+        }
+
+    /** The bipe-core level of the same name. */
+    private val BadgeLevel.core: CoreBadgeLevel
+        get() = when (this) {
+            BadgeLevel.PIX -> CoreBadgeLevel.PIX
+            BadgeLevel.GOVBR -> CoreBadgeLevel.GOVBR
+            BadgeLevel.INSTITUTION -> CoreBadgeLevel.INSTITUTION
+            BadgeLevel.CNPJ -> CoreBadgeLevel.CNPJ
+            BadgeLevel.BRAND_MARK -> CoreBadgeLevel.BRAND_MARK
+            BadgeLevel.PERSON -> CoreBadgeLevel.PERSON
+            BadgeLevel.ORG -> CoreBadgeLevel.ORG
         }
 }

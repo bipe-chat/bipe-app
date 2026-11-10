@@ -40,37 +40,49 @@ public enum BipeSchemeNames {
     }
 }
 
-/// Port of bipe-shared `personProofs` (tools/lib/registries.mjs); test-vectors/person-proofs.json must pass.
+/// `personProofs` of bipe-shared, run in bipe-core (`personProofs`, ADR 0267, ADR 0275).
+/// test-vectors/person-proofs.json must pass.
 public enum BipePersonProofs {
-    /// The person schemes of these badges, strongest first, one per scheme. A level or a scheme outside
-    /// `BipeRegistries.personSchemes` gives nothing (fail closed).
-    public static func schemes(_ badges: [(lvl: String, scheme: String?)]) -> [PersonScheme] {
-        let found = badges.compactMap { badge -> String? in
-            let schemes = BipeRegistries.personSchemes
-            return (badge.lvl == "person"
-                ? schemes.first { $0.id == badge.scheme }
-                : schemes.first { $0.alias == badge.lvl })?.id
-        }
-        return BipeRegistries.personSchemes.filter { found.contains($0.id) }
+    /// The person schemes of these badges: Brazilian first, then other countries', each strongest first, one per
+    /// scheme. A level or a scheme outside the issuer registry, or a scheme with no name, gives nothing (fail closed).
+    public static func schemes(_ badges: [(lvl: String, scheme: String?)],
+                               issuerRegistryJSON: String? = SignedLists.shared.current(.issuers)?.payloadJson) -> [PersonScheme] {
+        let known = badges.compactMap { badge in BadgeLevel(rawValue: badge.lvl).map { PersonBadge(level: $0.core, scheme: badge.scheme) } }
+        return personProofs(badges: known, issuerRegistryJson: issuerRegistryJSON ?? "").compactMap { scheme(of: $0, registryJSON: issuerRegistryJSON) }
     }
 
-    /// The proofs of badges that already passed ``BadgeVerifier``, strongest first. Brazilian schemes come first in
-    /// their registry order. A person scheme of another country follows, state before bank, named from the issuer
-    /// registry (ADR 0272). A scheme with no name anywhere gives no proof (fail closed).
-    public static func proofs(_ payloads: [BadgePayload]) -> [BipePersonProof] {
-        let local = schemes(payloads.map { (lvl: $0.lvl.rawValue, scheme: $0.scheme?.id) }).compactMap { scheme in
-            payloads.first { $0.lvl.rawValue == scheme.alias || $0.scheme?.id == scheme.id }
-                .map { BipePersonProof(scheme: scheme, payload: $0) }
+    /// The proofs of badges that already passed ``BadgeVerifier``, in the order of ``schemes(_:issuerRegistryJSON:)``.
+    /// A foreign scheme takes its name from the issuer registry (ADR 0272).
+    public static func proofs(_ payloads: [BadgePayload],
+                              issuerRegistryJSON: String? = SignedLists.shared.current(.issuers)?.payloadJson) -> [BipePersonProof] {
+        let badges = payloads.map { PersonBadge(level: $0.lvl.core, scheme: $0.scheme?.id) }
+        return personProofs(badges: badges, issuerRegistryJson: issuerRegistryJSON ?? "").compactMap { proof in
+            let index = Int(proof.badgeIndex)
+            guard payloads.indices.contains(index), let scheme = scheme(of: proof, registryJSON: issuerRegistryJSON) else { return nil }
+            return BipePersonProof(scheme: scheme, payload: payloads[index])
         }
-        let foreign = payloads.compactMap { payload -> BipePersonProof? in
-            guard payload.lvl == .person, let scheme = payload.scheme,
-                  !BipeRegistries.personSchemes.contains(where: { $0.id == scheme.id }),
-                  let name = BipeSchemeNames.name(scheme.id) else { return nil }
-            let mark = scheme.assurance == "state" ? "fill" : "regular"
-            return BipePersonProof(scheme: PersonScheme(id: scheme.id, alias: nil, assurance: scheme.assurance, mark: mark,
-                                                        namePtBR: name, nameEn: name),
-                                   payload: payload)
+    }
+
+    /// The scheme of a core proof: the build's entry for a Brazilian scheme, else one named from the registry.
+    private static func scheme(of proof: PersonProof, registryJSON: String?) -> PersonScheme? {
+        if let local = BipeRegistries.personSchemes.first(where: { $0.id == proof.scheme }) { return local }
+        guard let name = BipeSchemeNames.name(proof.scheme, registryJSON: registryJSON) else { return nil }
+        let mark = proof.mark == .fill ? "fill" : "regular"
+        return PersonScheme(id: proof.scheme, alias: nil, assurance: proof.assurance, mark: mark, namePtBR: name, nameEn: name)
+    }
+}
+
+nonisolated extension BadgeLevel {
+    /// The bipe-core level of the same name.
+    var core: BipeCore.BadgeLevel {
+        switch self {
+        case .pix: .pix
+        case .govbr: .govbr
+        case .institution: .institution
+        case .cnpj: .cnpj
+        case .brandMark: .brandMark
+        case .person: .person
+        case .org: .org
         }
-        return local + foreign.sorted { $0.isFill && !$1.isFill }
     }
 }
