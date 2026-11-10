@@ -11,6 +11,7 @@ The shared Rust core of ADR 0267. Spike: bipe-chat/bipe#1172.
   - `person.rs`: the person proofs of an account, strongest first, with the seal mark (`person-proofs.json`, ADR 0275).
   - `pix.rs`: the BR Code in shared text, its CRC and the Pix key type (`pix-check.json`, field `code`). With `pix_keys`, the Pix keys in the text outside the code (field `keys`).
   - `pix_marks.rs`: the lines of a Pix request card from its mark events, the txid and the mark content (`pix-marks.json`).
+  - `profile_facts.rs`: the profile fact lines and notices of chat-request, person-profile and chat-timeline (`profile-facts.json`, ADR 0049).
   - `scam.rs`: scam match IDs and the one warning kind of a message (`scam-detection.json`, `scam-warnings.json`). The regexes come translated from bipe-shared (`docs/scam-matching.md`).
   - `text.rs`: `normalize()` with the name, host or no homoglyph map, and JavaScript whitespace (`normalization.json`).
   - `theft.rs`: theft marks against the badge keys (`theft-marks.json`).

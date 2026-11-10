@@ -113,6 +113,12 @@ pub const SOCIAL_PLATFORMS: &[(&str, &str, &str)] = &[("instagram", "(^[A-Za-z0-
 /// registries/relationship-names.json (ADR 0018).
 pub const RELATIONSHIP_FULL_NAME_MIN_WORDS: usize = 2;
 
+/// registries/profile-facts.json (ADR 0049).
+pub const PROFILE_FACTS_WINDOW_DAYS: i64 = 30;
+pub const PROFILE_FACTS_NEW_ACCOUNT_DAYS: i64 = 30;
+pub const PROFILE_FACTS_NOTICE_PAIR_HOURS: i64 = 24;
+pub const PROFILE_FACTS_NOTICE_DAYS: i64 = 7;
+
 /// `personAssurance` of registries/schemes.json (ADR 0275): the person assurances, strongest first, and the seal
 /// mark of each. personProofs reads it; test-vectors/person-proofs.json checks it.
 /// HOME_COUNTRY of tools/lib/registries.mjs: personProofs puts the proofs of this country first (ADR 0272 decision 7).
