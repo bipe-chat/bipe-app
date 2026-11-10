@@ -1324,6 +1324,132 @@ public func FfiConverterTypeOperatorRegion_lower(_ value: OperatorRegion) -> Rus
 
 
 /**
+ * A badge that already passed the verifier: its level and, for `person`, its scheme.
+ */
+public struct PersonBadge: Equatable, Hashable {
+    public var level: BadgeLevel
+    public var scheme: String?
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(level: BadgeLevel, scheme: String?) {
+        self.level = level
+        self.scheme = scheme
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension PersonBadge: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypePersonBadge: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> PersonBadge {
+        return
+            try PersonBadge(
+                level: FfiConverterTypeBadgeLevel.read(from: &buf), 
+                scheme: FfiConverterOptionString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: PersonBadge, into buf: inout [UInt8]) {
+        FfiConverterTypeBadgeLevel.write(value.level, into: &buf)
+        FfiConverterOptionString.write(value.scheme, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePersonBadge_lift(_ buf: RustBuffer) throws -> PersonBadge {
+    return try FfiConverterTypePersonBadge.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePersonBadge_lower(_ value: PersonBadge) -> RustBuffer {
+    return FfiConverterTypePersonBadge.lower(value)
+}
+
+
+/**
+ * One person proof. `badge_index` is the position of the first badge with this scheme in the input.
+ */
+public struct PersonProof: Equatable, Hashable {
+    public var scheme: String
+    public var assurance: String
+    public var country: String
+    public var mark: SealMark
+    public var badgeIndex: UInt32
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(scheme: String, assurance: String, country: String, mark: SealMark, badgeIndex: UInt32) {
+        self.scheme = scheme
+        self.assurance = assurance
+        self.country = country
+        self.mark = mark
+        self.badgeIndex = badgeIndex
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension PersonProof: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypePersonProof: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> PersonProof {
+        return
+            try PersonProof(
+                scheme: FfiConverterString.read(from: &buf), 
+                assurance: FfiConverterString.read(from: &buf), 
+                country: FfiConverterString.read(from: &buf), 
+                mark: FfiConverterTypeSealMark.read(from: &buf), 
+                badgeIndex: FfiConverterUInt32.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: PersonProof, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.scheme, into: &buf)
+        FfiConverterString.write(value.assurance, into: &buf)
+        FfiConverterString.write(value.country, into: &buf)
+        FfiConverterTypeSealMark.write(value.mark, into: &buf)
+        FfiConverterUInt32.write(value.badgeIndex, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePersonProof_lift(_ buf: RustBuffer) throws -> PersonProof {
+    return try FfiConverterTypePersonProof.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePersonProof_lower(_ value: PersonProof) -> RustBuffer {
+    return FfiConverterTypePersonProof.lower(value)
+}
+
+
+/**
  * A BR Code. Every field except `status` is empty or false when the code is malformed.
  */
 public struct PixCode: Equatable, Hashable {
@@ -3681,6 +3807,216 @@ public func FfiConverterTypePublicStatementResult_lower(_ value: PublicStatement
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * The scam pattern a message looks like. The app shows one warning per kind.
+ */
+
+public enum ScamKind: Equatable, Hashable {
+    
+    case extortion
+    case pixCode
+    case boleto
+    case remoteApp
+    case pinRequest
+    case pixKey
+    case deliveryFee
+    case lookalikeLink
+    case bankAlert
+    case receipt
+    case newNumber
+    case urgency
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension ScamKind: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeScamKind: FfiConverterRustBuffer {
+    typealias SwiftType = ScamKind
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ScamKind {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .extortion
+        
+        case 2: return .pixCode
+        
+        case 3: return .boleto
+        
+        case 4: return .remoteApp
+        
+        case 5: return .pinRequest
+        
+        case 6: return .pixKey
+        
+        case 7: return .deliveryFee
+        
+        case 8: return .lookalikeLink
+        
+        case 9: return .bankAlert
+        
+        case 10: return .receipt
+        
+        case 11: return .newNumber
+        
+        case 12: return .urgency
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: ScamKind, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .extortion:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .pixCode:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .boleto:
+            writeInt(&buf, Int32(3))
+        
+        
+        case .remoteApp:
+            writeInt(&buf, Int32(4))
+        
+        
+        case .pinRequest:
+            writeInt(&buf, Int32(5))
+        
+        
+        case .pixKey:
+            writeInt(&buf, Int32(6))
+        
+        
+        case .deliveryFee:
+            writeInt(&buf, Int32(7))
+        
+        
+        case .lookalikeLink:
+            writeInt(&buf, Int32(8))
+        
+        
+        case .bankAlert:
+            writeInt(&buf, Int32(9))
+        
+        
+        case .receipt:
+            writeInt(&buf, Int32(10))
+        
+        
+        case .newNumber:
+            writeInt(&buf, Int32(11))
+        
+        
+        case .urgency:
+            writeInt(&buf, Int32(12))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeScamKind_lift(_ buf: RustBuffer) throws -> ScamKind {
+    return try FfiConverterTypeScamKind.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeScamKind_lower(_ value: ScamKind) -> RustBuffer {
+    return FfiConverterTypeScamKind.lower(value)
+}
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * The compact seal mark (ADR 0275): Phosphor seal-check filled or regular.
+ */
+
+public enum SealMark: Equatable, Hashable {
+    
+    case fill
+    case regular
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension SealMark: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeSealMark: FfiConverterRustBuffer {
+    typealias SwiftType = SealMark
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SealMark {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .fill
+        
+        case 2: return .regular
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: SealMark, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .fill:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .regular:
+            writeInt(&buf, Int32(2))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeSealMark_lift(_ buf: RustBuffer) throws -> SealMark {
+    return try FfiConverterTypeSealMark.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeSealMark_lower(_ value: SealMark) -> RustBuffer {
+    return FfiConverterTypeSealMark.lower(value)
+}
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 
 public enum SignedListResult: Equatable, Hashable {
     
@@ -3749,6 +4085,92 @@ public func FfiConverterTypeSignedListResult_lift(_ buf: RustBuffer) throws -> S
 #endif
 public func FfiConverterTypeSignedListResult_lower(_ value: SignedListResult) -> RustBuffer {
     return FfiConverterTypeSignedListResult.lower(value)
+}
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * The homoglyph map that normalize() folds with.
+ */
+
+public enum TextFold: Equatable, Hashable {
+    
+    /**
+     * registries/homoglyphs.json: display names, reserved names, contacts, handles.
+     */
+    case names
+    /**
+     * The host map: link hosts in scam matching.
+     */
+    case hosts
+    /**
+     * No folding: scam phrases and keywords.
+     */
+    case plain
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension TextFold: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeTextFold: FfiConverterRustBuffer {
+    typealias SwiftType = TextFold
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> TextFold {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .names
+        
+        case 2: return .hosts
+        
+        case 3: return .plain
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: TextFold, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .names:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .hosts:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .plain:
+            writeInt(&buf, Int32(3))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeTextFold_lift(_ buf: RustBuffer) throws -> TextFold {
+    return try FfiConverterTypeTextFold.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeTextFold_lower(_ value: TextFold) -> RustBuffer {
+    return FfiConverterTypeTextFold.lower(value)
 }
 
 
@@ -4047,6 +4469,30 @@ fileprivate struct FfiConverterOptionTypePixKeyType: FfiConverterRustBuffer {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterOptionTypeScamKind: FfiConverterRustBuffer {
+    typealias SwiftType = ScamKind?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeScamKind.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeScamKind.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterSequenceString: FfiConverterRustBuffer {
     typealias SwiftType = [String]
 
@@ -4172,6 +4618,56 @@ fileprivate struct FfiConverterSequenceTypeOperatorRegion: FfiConverterRustBuffe
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterSequenceTypePersonBadge: FfiConverterRustBuffer {
+    typealias SwiftType = [PersonBadge]
+
+    public static func write(_ value: [PersonBadge], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypePersonBadge.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [PersonBadge] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [PersonBadge]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypePersonBadge.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterSequenceTypePersonProof: FfiConverterRustBuffer {
+    typealias SwiftType = [PersonProof]
+
+    public static func write(_ value: [PersonProof], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypePersonProof.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [PersonProof] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [PersonProof]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypePersonProof.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterSequenceTypePixMarkEvent: FfiConverterRustBuffer {
     typealias SwiftType = [PixMarkEvent]
 
@@ -4264,6 +4760,31 @@ fileprivate struct FfiConverterSequenceTypeTrustedKey: FfiConverterRustBuffer {
         seq.reserveCapacity(Int(len))
         for _ in 0 ..< len {
             seq.append(try FfiConverterTypeTrustedKey.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterSequenceTypeScamKind: FfiConverterRustBuffer {
+    typealias SwiftType = [ScamKind]
+
+    public static func write(_ value: [ScamKind], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeScamKind.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [ScamKind] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [ScamKind]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypeScamKind.read(from: &buf))
         }
         return seq
     }
@@ -4404,6 +4925,20 @@ public func noticeLinkClickable(url: String, domains: [String]) -> Bool  {
 })
 }
 /**
+ * The person proofs of these badges, one per scheme: Brazilian proofs first, then other countries' (ADR 0272
+ * decision 7), each group strongest first. The schemes come from the issuer registry
+ * payload, so a scheme of a new country needs no app release. A badge outside the registry, a company badge or an
+ * assurance outside `personAssurance` gives no proof (fail closed). The first proof draws the compact seal.
+ */
+public func personProofs(badges: [PersonBadge], issuerRegistryJson: String) -> [PersonProof]  {
+    return try!  FfiConverterSequenceTypePersonProof.lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_person_proofs(
+        FfiConverterSequenceTypePersonBadge.lower(badges),
+        FfiConverterString.lower(issuerRegistryJson),$0
+    )
+})
+}
+/**
  * The first BR Code in `text`: it starts at the first "000201" that has br.gov.bcb.pix after it. None when there is
  * no such code.
  */
@@ -4487,6 +5022,29 @@ public func pixTxid(requestId: String) -> String  {
     return try!  FfiConverterString.lift(try! rustCall() {
     uniffi_bipe_core_fn_func_pix_txid(
         FfiConverterString.lower(requestId),$0
+    )
+})
+}
+/**
+ * Match IDs in reference order: `<patternGroup>:<id>` for the regexes on the raw message, then
+ * `urgency:<phrase>`, then `receipt:<keyword>` on the message normalised without folding.
+ */
+public func scamMatchIds(message: String) -> [String]  {
+    return try!  FfiConverterSequenceString.lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_scam_match_ids(
+        FfiConverterString.lower(message),$0
+    )
+})
+}
+/**
+ * The one warning to show for a message, or `None`: the first kind in warningKindPriority whose rule applies.
+ * Kinds in `skipping` are passed over.
+ */
+public func scamWarningKind(message: String, skipping: [ScamKind]) -> ScamKind?  {
+    return try!  FfiConverterOptionTypeScamKind.lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_scam_warning_kind(
+        FfiConverterString.lower(message),
+        FfiConverterSequenceTypeScamKind.lower(skipping),$0
     )
 })
 }
@@ -4594,6 +5152,17 @@ public func verifySignedList(envelopeJson: String, listType: ListType, signerSet
 })
 }
 /**
+ * NFKD, marks removed, lowercase, homoglyphs folded, each JavaScript whitespace run one space, trimmed.
+ */
+public func normalizeText(input: String, fold: TextFold) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_normalize_text(
+        FfiConverterString.lower(input),
+        FfiConverterTypeTextFold_lower(fold),$0
+    )
+})
+}
+/**
  * `valid`, or the failure code. The vector harnesses use it on every client.
  */
 public func theftMarkResultCode(result: TheftMarkResult) -> String  {
@@ -4665,6 +5234,9 @@ private let initializationResult: InitializationResult = {
     if (uniffi_bipe_core_checksum_func_notice_link_clickable() != 626) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_bipe_core_checksum_func_person_proofs() != 46746) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_bipe_core_checksum_func_find_pix_code() != 9043) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -4687,6 +5259,12 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_bipe_core_checksum_func_pix_txid() != 47166) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_bipe_core_checksum_func_scam_match_ids() != 38251) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_bipe_core_checksum_func_scam_warning_kind() != 38037) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_bipe_core_checksum_func_bipe_server_status() != 40715) {
@@ -4714,6 +5292,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_bipe_core_checksum_func_verify_signed_list() != 37185) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_bipe_core_checksum_func_normalize_text() != 6787) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_bipe_core_checksum_func_theft_mark_result_code() != 3400) {

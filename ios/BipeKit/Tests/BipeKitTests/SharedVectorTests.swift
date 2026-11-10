@@ -264,7 +264,7 @@ struct SharedVectorTests {
     func scamWarnings() throws {
         for vector in try SharedVectors.array("scam-warnings.json", key: "vectors") {
             let message = try #require(vector["message"] as? String)
-            let kind = ScamDetector.warningKind(forMatchIDs: ScamDetector.matchIDs(in: message), message: message)
+            let kind = ScamDetector.warningKind(in: message)
             #expect(kind?.rawValue == vector["kind"] as? String, "kind(\(message))")
         }
     }
@@ -509,13 +509,18 @@ struct SharedVectorTests {
     @Test
     func personProofs() throws {
         let vectors = try #require(try SharedVectors.object("person-proofs.json")["vectors"] as? [[String: Any]])
+        let schemes = try #require(try SharedVectors.object("../registries/schemes.json")["schemes"] as? [Any])
         #expect(!vectors.isEmpty)
-        // Until the app takes person proofs from bipe-core (bipe-chat/bipe#637), it cannot read the foreign test schemes.
-        for vector in vectors where vector["extraSchemes"] == nil {
+        for vector in vectors {
             let name = vector["name"] as? String ?? ""
+            // An issuer registry payload: the schemes of registries/schemes.json, the vector's extraSchemes, no issuer.
+            let all = schemes + (vector["extraSchemes"] as? [Any] ?? [])
+            let registryData = try JSONSerialization.data(withJSONObject: ["issuers": [Any](), "regions": [Any](), "schemes": all])
+            let registry = String(data: registryData, encoding: .utf8)
             let payloads = try #require(vector["payloads"] as? [[String: Any]])
             let expected = try #require(vector["expected"] as? [[String: Any]])
-            let result = BipePersonProofs.schemes(payloads.map { (lvl: $0["lvl"] as? String ?? "", scheme: $0["scheme"] as? String) })
+            let result = BipePersonProofs.schemes(payloads.map { (lvl: $0["lvl"] as? String ?? "", scheme: $0["scheme"] as? String) },
+                                                  issuerRegistryJSON: registry)
             #expect(result.map(\.id) == expected.compactMap { $0["scheme"] as? String }, "person proofs \(name)")
             #expect(result.map(\.assurance) == expected.compactMap { $0["assurance"] as? String }, "person proofs \(name)")
             #expect(result.map(\.mark) == expected.compactMap { $0["mark"] as? String }, "person proofs \(name)")

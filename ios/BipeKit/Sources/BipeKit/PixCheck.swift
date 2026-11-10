@@ -8,8 +8,8 @@ import Foundation
 
 /// "Conferir no Bipe" phase 1 (bipe ADR 0091): the Pix code and the Pix keys in text that the user
 /// shared from another app. Runs on the device only. Must match bipe-shared/test-vectors/pix-check.json.
-/// The BR Code, its CRC and the key type come from bipe-core (`findPixCode`, ADR 0267). The keys in the text and the
-/// warning stay here until scam matching moves to the core.
+/// The BR Code, its CRC, the key type and the warning come from bipe-core (`findPixCode`, `scamWarningKind`, ADR 0267).
+/// The keys in the text stay here for now.
 public nonisolated struct PixCheck: Sendable, Equatable {
     public enum Status: String, Sendable {
         case valid, badCrc, malformed
@@ -69,7 +69,7 @@ public nonisolated struct PixCheck: Sendable, Equatable {
         } ?? text
         return PixCheck(code: found.map { Code($0.code) },
                         keys: keys(in: rest),
-                        warning: ScamDetector.warningKind(forMatchIDs: ScamDetector.matchIDs(in: rest), message: rest, skipping: skippedWarnings))
+                        warning: ScamDetector.warningKind(in: rest, skipping: skippedWarnings))
     }
     
     /// Text of every QR code in an image. Decoding runs on the device.

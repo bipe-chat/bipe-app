@@ -4,46 +4,21 @@
 
 package chat.bipe.shared
 
+import chat.bipe.core.TextFold
+import chat.bipe.core.normalizeText
 import chat.bipe.shared.generated.BipeRegistries
 import chat.bipe.shared.generated.ReservedNameCategory
-import java.text.Normalizer
-import java.util.Locale
 
 /**
- * Port of `normalize()` in bipe-shared/tools/lib/registries.mjs.
+ * `normalize()` of bipe-shared/tools/lib/registries.mjs, run in bipe-core (`normalizeText`, ADR 0267).
  * Must match bipe-shared/test-vectors/normalization.json.
  */
 object NameNormalizer {
     /**
      * NFKD, strip combining marks, lowercase, fold homoglyphs, collapse whitespace, trim.
-     * Pass an empty [homoglyphs] map to skip folding (scam phrase matching does this).
+     * `folding = false` skips the homoglyph map (scam phrase matching and handle suggestions do this).
      */
-    fun normalize(input: String, homoglyphs: Map<Int, String> = BipeRegistries.homoglyphs): String {
-        val decomposed = Normalizer.normalize(input, Normalizer.Form.NFKD)
-        val stripped = StringBuilder(decomposed.length)
-        decomposed.codePoints().forEach { codePoint ->
-            if (!isMark(codePoint)) stripped.appendCodePoint(codePoint)
-        }
-        // Locale-free like JS toLowerCase(). Java handles the final sigma context (Σ -> ς) too.
-        val lowered = stripped.toString().lowercase(Locale.ROOT)
-
-        val result = StringBuilder(lowered.length)
-        var pendingSpace = false
-        // JS iterates code points, so fold per code point, not per UTF-16 unit.
-        lowered.codePoints().forEach { codePoint ->
-            if (isJavaScriptWhitespace(codePoint)) {
-                pendingSpace = true
-                return@forEach
-            }
-            if (pendingSpace && result.isNotEmpty()) {
-                result.append(' ')
-            }
-            pendingSpace = false
-            val folded = homoglyphs[codePoint]
-            if (folded != null) result.append(folded) else result.appendCodePoint(codePoint)
-        }
-        return result.toString()
-    }
+    fun normalize(input: String, folding: Boolean = true): String = normalizeText(input, if (folding) TextFold.NAMES else TextFold.PLAIN)
 
     /** Category of a reserved display name, or `null` when the name is free to use. */
     fun reservedCategory(displayName: String): ReservedNameCategory? =
@@ -64,11 +39,6 @@ object NameNormalizer {
             end -= Character.charCount(codePoint)
         }
         return input.substring(start, end)
-    }
-
-    private fun isMark(codePoint: Int): Boolean = when (Character.getType(codePoint).toByte()) {
-        Character.NON_SPACING_MARK, Character.COMBINING_SPACING_MARK, Character.ENCLOSING_MARK -> true
-        else -> false
     }
 
     /**

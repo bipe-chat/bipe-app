@@ -16,7 +16,7 @@ import java.util.regex.Pattern
  * "Conferir no Bipe" phase 1 (bipe ADR 0091): the Pix code and the Pix keys in text that the user
  * shared from another app. Runs on the device only. Must match bipe-shared/test-vectors/pix-check.json.
  * iOS: `PixCheck` in BipeKit. The BR Code, its CRC and the key type come from bipe-core (`findPixCode`, ADR 0267).
- * The keys in the text and the warning stay here until scam matching moves to the core.
+ * The warning comes from bipe-core too (`scamWarningKind`). The keys in the text stay here for now.
  */
 data class PixCheck(
     val code: Code?,
@@ -78,7 +78,7 @@ data class PixCheck(
             return PixCheck(
                 code = found?.let { code(it.code) },
                 keys = keys(rest),
-                warning = ScamDetector.warningKind(ScamDetector.matchIds(rest), rest, skipping = skippedWarnings),
+                warning = ScamDetector.warningKind(rest, skipping = skippedWarnings),
             )
         }
 

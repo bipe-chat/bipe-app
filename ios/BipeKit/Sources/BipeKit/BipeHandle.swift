@@ -71,7 +71,7 @@ public nonisolated enum BipeHandle {
     /// Escolha seu @ (bipe-chat/bipe#200): port of `handleSuggestions()` in bipe-shared tools/lib/registries.mjs.
     /// Must match test-vectors/handle-suggestions.json. The caller checks availability in this order.
     public static func suggestions(for displayName: String) -> [String] {
-        let normalized = NameNormalizer.normalize(displayName, homoglyphs: [:])
+        let normalized = NameNormalizer.normalize(displayName, folding: false)
         let letters: ClosedRange<Unicode.Scalar> = "a"..."z"
         let digits: ClosedRange<Unicode.Scalar> = "0"..."9"
         let words = normalized.unicodeScalars
