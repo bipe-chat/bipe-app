@@ -862,7 +862,7 @@ object BipeRegistries {
     val RECOVERY_REMINDER_SNOOZE_DAYS: List<Int> = listOf(7, 14, 30, 60)
 
     // Terms and privacy accepted at sign-up (ADR 0113; registries/legal.json). Paths are on the public site.
-    const val LEGAL_VERSION = "2026-10-16"
+    const val LEGAL_VERSION = "2026-11-09"
     const val TERMS_PATH = "/termos/"
     const val PRIVACY_PATH = "/privacidade/"
     const val EN_TERMS_PATH = "/en/terms/"
