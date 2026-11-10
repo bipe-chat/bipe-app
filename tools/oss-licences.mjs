@@ -57,6 +57,7 @@ export function licenceList(platform, root = REPO_ROOT) {
   const dependencies = Object.entries(packages)
     // A test-only dependency ("scope": "test", ADR 0148) is not in the app.
     .filter(([, p]) => ECOSYSTEMS[platform].includes(p.ecosystem) && p.scope !== 'test')
+    .filter(([, p]) => !p.platforms || p.platforms.includes(platform))
     .filter(([name, p]) => p.ecosystem !== 'cargo' || crates.has(name))
     .map(([name, p]) => [p.ecosystem === 'cargo' ? name.slice('cargo:'.length) : name, p])
     .sort(([a], [b]) => a.toLowerCase().localeCompare(b.toLowerCase()))

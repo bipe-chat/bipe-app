@@ -30,6 +30,7 @@ test('Bipe comes first, then the dependencies of the platform, each with a text'
   assert.ok(!licenceList('ios').components.some((c) => c.name.startsWith('androidx.')));
   assert.ok(licenceList('android').components.some((c) => c.name === 'org.matrix.rustcomponents:sdk-android'));
   assert.ok(!licenceList('android').components.some((c) => c.name === 'junit:junit'), 'test-only dependencies are not in the app');
+  assert.ok(!licenceList('android').components.some((c) => c.name === 'net.java.dev.jna:jna-platform'), 'Windows native APIs do not ship on Android');
 });
 
 // bipe-chat/bipe#1277: the Cargo packages that each app links, and no build tool.

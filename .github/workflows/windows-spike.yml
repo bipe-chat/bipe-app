@@ -8,6 +8,7 @@ on:
   pull_request:
     paths:
       - "android/desktop-spike/**"
+      - "android/desktop-runtime/**"
       - "android/gradle/libs.versions.toml"
       - "core/**"
       - "sdk-version"
@@ -16,6 +17,7 @@ on:
     branches: [main]
     paths:
       - "android/desktop-spike/**"
+      - "android/desktop-runtime/**"
       - "android/gradle/libs.versions.toml"
       - "core/**"
       - "sdk-version"
@@ -107,7 +109,7 @@ jobs:
           # --library runs `cargo metadata` in the working directory, so each generate runs in its crate's workspace.
           cargo build --locked --release --manifest-path core/tools/uniffi-bindgen/Cargo.toml
           bindgen="$PWD/core/tools/uniffi-bindgen/target/release/uniffi-bindgen.exe"
-          out="$PWD/android/desktop-spike/generated"
+          out="$PWD/android/desktop-runtime/generated"
           # Keep each upstream component's namespace/library settings; change only its platform cleanup choice.
           # A CLI --config applies to every component and collapses their namespaces. Rust source/DLL stay unchanged.
           python - <<'PY'
@@ -131,7 +133,7 @@ jobs:
           # One generated component per package; support types such as RustBuffer must not collide.
           node --input-type=module <<'JS'
           import { readdirSync, readFileSync } from 'node:fs';
-          const root = 'android/desktop-spike/generated';
+          const root = 'android/desktop-runtime/generated';
           const packages = new Set();
           for (const path of readdirSync(root, { recursive: true }).filter(path => path.endsWith('.kt'))) {
             const source = readFileSync(`${root}/${path}`, 'utf8');
@@ -146,12 +148,12 @@ jobs:
           console.log(`Verified ${packages.size} distinct generated Kotlin component packages.`);
           JS
           echo "BIPE_NATIVE_DIR=$(cygpath -m "$RUNNER_TEMP/windows-spike/natives")" >> "$GITHUB_ENV"
-      - name: Load both DLLs and test the encrypted store through Kotlin/JVM
+      - name: Test native credential storage, account isolation and SDK/core coexistence
         env:
           BIPE_VECTORS: ${{ github.workspace }}/bipe-shared/test-vectors/badges.json
         run: |
           set -euo pipefail
-          android/gradlew -p android/desktop-spike --no-daemon run 2>&1 | tee "$RUNNER_TEMP/windows-spike/jvm.log"
+          android/gradlew -p android/desktop-spike --no-daemon :desktop-runtime:test run 2>&1 | tee "$RUNNER_TEMP/windows-spike/jvm.log"
           grep '^BIPE_WINDOWS_SPIKE ' "$RUNNER_TEMP/windows-spike/jvm.log" > "$RUNNER_TEMP/windows-spike/result.txt"
           test -s "$RUNNER_TEMP/windows-spike/result.txt"
       - name: Record source and limits
@@ -168,7 +170,7 @@ jobs:
           cp android/desktop-spike/README.md "$RUNNER_TEMP/windows-spike/README.md"
           {
             echo '### Windows SDK/core feasibility — x64 only'
-            echo 'CI harness only. No Compose app, phone linking, real-account sync, DPAPI/Credential Manager, installer or Windows on Arm acceptance.'
+            echo 'CI diagnostic only. Native storage tests use synthetic sessions. No Compose app, real phone linking/sync, installer or Windows on Arm acceptance.'
             if [ -f "$RUNNER_TEMP/windows-spike/result.txt" ]; then cat "$RUNNER_TEMP/windows-spike/result.txt"; fi
           } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
@@ -177,3 +179,9 @@ jobs:
           name: bipe-windows-sdk-spike-x64
           path: ${{ runner.temp }}/windows-spike
           if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bipe-windows-storage-tests-x64
+          path: android/desktop-runtime/build/reports/tests/test
+          if-no-files-found: warn

@@ -3,6 +3,8 @@
 // Copyright 2026 Bipe contributors
 
 rootProject.name = "bipe-windows-sdk-spike"
+include(":desktop-runtime")
+project(":desktop-runtime").projectDir = file("../desktop-runtime")
 
 pluginManagement {
     repositories {

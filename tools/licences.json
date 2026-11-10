@@ -828,6 +828,14 @@
       "licence": "MIT",
       "source": "https://github.com/dtolnay/zmij",
       "checked": "2026-11-07"
+    },
+    "net.java.dev.jna:jna-platform": {
+      "ecosystem": "gradle",
+      "platforms": ["windows"],
+      "licence": "Apache-2.0",
+      "source": "https://github.com/java-native-access/jna/blob/5.18.1/LICENSE",
+      "checked": "2026-11-10",
+      "note": "Windows native adapter only. JNA platform shares the core library dual licence; Bipe chooses Apache-2.0."
     }
   }
 }

@@ -10,10 +10,11 @@ plugins {
 
 kotlin {
     jvmToolchain(17)
-    sourceSets["main"].kotlin.srcDirs("generated", "../../core/harness/kotlin")
+    sourceSets["main"].kotlin.srcDir("../../core/harness/kotlin")
 }
 
 dependencies {
+    implementation(project(":desktop-runtime"))
     implementation(libs.jna)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.serialization.json)
