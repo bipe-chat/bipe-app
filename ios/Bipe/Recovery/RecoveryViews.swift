@@ -361,6 +361,7 @@ private struct RecoveryBetaView: View {
                 .textContentType(.oneTimeCode)
                 .padding(12)
                 .background(RoundedRectangle(cornerRadius: 12).fill(BipeColor.surfaceSunken))
+                .bipePinHaptics(count: model.betaPIN.count)
             if let error = model.betaError {
                 Footer(text: error, isError: true)
             }

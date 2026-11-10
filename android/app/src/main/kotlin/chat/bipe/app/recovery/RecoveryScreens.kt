@@ -248,7 +248,8 @@ private fun RecoveryPinScreen(model: RecoveryFlowModel) {
             return@RecoveryStep
         }
         val progress = stringResource(R.string.bipe_a11y_pin_progress, pin.length.toString(), BipeRegistries.PIN_LENGTH.toString())
-        PinHaptics(pin.length, error = error != null)
+        // The buzz follows the red text below: a wrong PIN, a mismatched repeat or a weak new PIN.
+        PinHaptics(pin.length, error = error != null || newPinMismatch || newPinProblem != null)
         // The system digit keyboard brings delete and paste. The field stays one dot wide; the dots show the count.
         BasicTextField(
             value = pin,
@@ -352,6 +353,7 @@ private fun RecoveryBetaScreen(model: RecoveryFlowModel) {
             modifier = Modifier.fillMaxWidth(),
         )
         // Optional: with the account PIN the account moves to device-first after sign-in (bipe-chat/bipe#908).
+        PinHaptics(pin.length)
         OutlinedTextField(
             value = pin,
             onValueChange = model::editBetaPin,
