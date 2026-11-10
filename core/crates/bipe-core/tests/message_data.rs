@@ -72,7 +72,8 @@ fn cleared_chats() {
     let f = shared("test-vectors/cleared-chats.json");
     for v in list(&f, "marker") {
         let room = v["room_id"].as_str().unwrap().to_owned();
-        assert_eq!(cleared_chat_marker(text(&v["content"]), room), ts(&v["expected"]), "{}", v["name"]);
+        assert_eq!(cleared_chat_marker(text(&v["content"]), room.clone()), ts(&v["expected"]), "{}", v["name"]);
+        assert_eq!(cleared_chat_markers(text(&v["content"])).get(&room).copied(), ts(&v["expected"]), "markers {}", v["name"]);
     }
     for v in list(&f, "hidden") {
         assert_eq!(cleared_chat_hidden(ts(&v["marker"]), ts(&v["latest_ts"])), v["expected"].as_bool().unwrap(), "{}", v["name"]);
