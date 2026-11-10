@@ -58,6 +58,36 @@ export function publicProfile(handle: string): Promise<PublicProfile | undefined
   return call<PublicProfile>(`/v1/profiles/${encodeURIComponent(handle)}`);
 }
 
+/** Why a seal ended (contract BadgeGone.reason). */
+export type BadgeGoneReason = 'revoked' | 'not_active' | 'not_found' | 'staff';
+
+/** The answer of GET /v1/badges/{userId}: the envelope JSON (not verified), no badge, or a claim that ended. */
+export type BadgeLookup = { envelope: string } | { none: true } | { gone: BadgeGoneReason };
+
+/**
+ * GET /v1/badges/{userId} (ADR 0123). No auth. The envelope is not verified here: see seal-rules.ts. undefined: the
+ * call failed, so the caller shows no seal and keeps a notice it had.
+ */
+export async function badge(userId: string): Promise<BadgeLookup | undefined> {
+  try {
+    const res = await fetch(`${API_BASE}/v1/badges/${encodeURIComponent(userId)}`, { headers: { Accept: 'application/json' } });
+    if (res.status === 200) return { envelope: await res.text() };
+    if (res.status === 404) return { none: true };
+    if (res.status === 410) {
+      const body = (await res.json().catch(() => undefined)) as { reason?: string } | undefined;
+      const reason = body?.reason;
+      return {
+        gone: reason === 'not_active' || reason === 'not_found' || reason === 'staff' ? reason : 'revoked',
+      };
+    }
+    console.info(`[trace] bipe-api /v1/badges → ${res.status}`);
+    return undefined;
+  } catch (e) {
+    console.info('[trace] bipe-api /v1/badges failed', e);
+    return undefined;
+  }
+}
+
 /** The OpenID-authenticated core routes of one account. */
 export class BipeApi {
   private openId?: OpenId;

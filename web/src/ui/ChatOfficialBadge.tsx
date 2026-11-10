@@ -4,10 +4,15 @@
 
 import { useIsNewsRoom } from '../news-room';
 import { isOfficial } from '../registries';
+import { SealMark } from '../seals';
 import { OfficialBadge } from './List';
 
-/** The Bipe badge of a chat (spec chat-list isOfficial): a DM with an official account, or the news room. */
+/**
+ * The Bipe badge of a chat (spec chat-list isOfficial): a DM with an official account, or the news room. Else the
+ * seal of the DM's person or company as a mark that does not open a sheet (person-profile notes, bipe-chat/bipe#1457).
+ */
 export function ChatOfficialBadge({ roomId, peerId }: { roomId: string | undefined; peerId: string | undefined }) {
   const newsRoom = useIsNewsRoom(roomId);
-  return newsRoom || isOfficial(peerId) ? <OfficialBadge /> : null;
+  if (newsRoom || isOfficial(peerId)) return <OfficialBadge />;
+  return peerId ? <SealMark userId={peerId} size={16} /> : null;
 }
