@@ -11,7 +11,7 @@
 // of the privateChat preset; people are invited one by one after the create.
 
 import { useEffect, useState } from 'react';
-import { newestDmRooms } from './bipe/generated/lib/registries.mjs';
+import { newestDmRooms } from './shared-rules';
 import { dmPowerLevels } from './bipe/generated/registries.json';
 import type { ChatSummary } from './chat-model';
 import {

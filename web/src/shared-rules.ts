@@ -8,6 +8,7 @@
 // site changes only its import. The last `reg` argument of the reference is accepted and ignored: the core carries
 // the registries. main.tsx waits for coreReady before the first render.
 import * as core from './core';
+import { currentList } from './signed-lists';
 
 const big = (n: number) => BigInt(Math.trunc(n));
 const optionalBig = (n: number | null | undefined) => (n === null || n === undefined ? undefined : big(n));
@@ -142,4 +143,50 @@ export function replyByFromEvent(event: unknown, ctx: NotesContext, _reg?: unkno
     return { show: true, replyBy: { roomId: replyBy.roomId, eventId: replyBy.eventId, seatId: replyBy.seatId } };
   }
   return { show: false, reason: result.inner.reason };
+}
+
+// --- Account and chat-list state ----------------------------------------------------------------------------------
+
+/** Settings that follow the account (bipe-chat/bipe#1161): the content after this device reads it. */
+export function syncedSettingsReconcile(
+  server: Record<string, unknown>,
+  local: Record<string, unknown>,
+  pending: string[],
+  first: boolean,
+): Record<string, unknown> {
+  return JSON.parse(core.syncedSettingsReconcile(JSON.stringify(server), JSON.stringify(local), pending, first)) as Record<string, unknown>;
+}
+
+type DmCandidate = { roomId: string; peerUserId: string; latestActivityMs: number | null; eligible: boolean; cleared?: boolean };
+
+/** One eligible DM per peer: peer user ID to room ID. */
+export function newestDmRooms(candidates: DmCandidate[], { includingCleared = false } = {}): Record<string, string> {
+  const rooms = core.newestDmRooms(
+    candidates.map((c) => ({
+      roomId: c.roomId,
+      peerUserId: c.peerUserId,
+      eligible: c.eligible,
+      cleared: c.cleared ?? false,
+      latestActivityMs: optionalBig(c.latestActivityMs),
+    })),
+    includingCleared,
+  );
+  return Object.fromEntries(rooms);
+}
+
+/** Reconciles the Matrix archive tag with the local baseline (bipe-chat/bipe#1121 rule chatArchiveSync). */
+export function chatArchiveSync(
+  marker: number | null,
+  synced: boolean,
+  serverArchived: boolean,
+  activity: number | null,
+  incoming: number | null,
+): { marker: number | null; synced: boolean; tagWrite: boolean | null } {
+  const r = core.chatArchiveSync(optionalBig(marker), synced, serverArchived, optionalBig(activity), optionalBig(incoming));
+  return { marker: r.marker === undefined ? null : Number(r.marker), synced: r.synced, tagWrite: r.tagWrite ?? null };
+}
+
+/** ADR 0168: a Bipe user ID, checked against the current signed operator list, as the apps do. */
+export function isBipeUserID(userId: string, _reg?: unknown): boolean {
+  return core.isBipeUserId(userId, currentList(core.ListType.Operators), big(Date.now() / 1000));
 }

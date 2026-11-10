@@ -9,8 +9,7 @@
 
 import { useEffect, useState } from 'react';
 import { apiFor } from './api';
-import { isBipeUserID } from './bipe/generated/lib/registries.mjs';
-import { contactCollision, profileFactLines } from './shared-rules';
+import { contactCollision, isBipeUserID, profileFactLines } from './shared-rules';
 import { bipeServers, homoglyphs, profileFacts as profileFactRules } from './bipe/generated/registries.json';
 import { useClient } from './media';
 import { useSeals } from './seals';
