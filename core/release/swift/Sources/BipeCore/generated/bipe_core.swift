@@ -435,6 +435,22 @@ fileprivate struct FfiConverterUInt32: FfiConverterPrimitive {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterInt32: FfiConverterPrimitive {
+    typealias FfiType = Int32
+    typealias SwiftType = Int32
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> Int32 {
+        return try lift(readInt(&buf))
+    }
+
+    public static func write(_ value: Int32, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterUInt64: FfiConverterPrimitive {
     typealias FfiType = UInt64
     typealias SwiftType = UInt64
@@ -928,6 +944,124 @@ public func FfiConverterTypeBoundSenderBadge_lower(_ value: BoundSenderBadge) ->
 }
 
 
+public struct BringPeopleReminder: Equatable, Hashable {
+    public var slot: UInt32
+    public var kind: InviteSlotKind
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(slot: UInt32, kind: InviteSlotKind) {
+        self.slot = slot
+        self.kind = kind
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension BringPeopleReminder: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeBringPeopleReminder: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> BringPeopleReminder {
+        return
+            try BringPeopleReminder(
+                slot: FfiConverterUInt32.read(from: &buf), 
+                kind: FfiConverterTypeInviteSlotKind.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: BringPeopleReminder, into buf: inout [UInt8]) {
+        FfiConverterUInt32.write(value.slot, into: &buf)
+        FfiConverterTypeInviteSlotKind.write(value.kind, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeBringPeopleReminder_lift(_ buf: RustBuffer) throws -> BringPeopleReminder {
+    return try FfiConverterTypeBringPeopleReminder.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeBringPeopleReminder_lower(_ value: BringPeopleReminder) -> RustBuffer {
+    return FfiConverterTypeBringPeopleReminder.lower(value)
+}
+
+
+public struct BringPeopleState: Equatable, Hashable {
+    public var declines: UInt32
+    /**
+     * The last ask (the sheet or a reminder), absent when never asked.
+     */
+    public var lastAskAtMs: Int64?
+    public var slots: [InviteSlot]
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(declines: UInt32, 
+        /**
+         * The last ask (the sheet or a reminder), absent when never asked.
+         */lastAskAtMs: Int64?, slots: [InviteSlot]) {
+        self.declines = declines
+        self.lastAskAtMs = lastAskAtMs
+        self.slots = slots
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension BringPeopleState: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeBringPeopleState: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> BringPeopleState {
+        return
+            try BringPeopleState(
+                declines: FfiConverterUInt32.read(from: &buf), 
+                lastAskAtMs: FfiConverterOptionInt64.read(from: &buf), 
+                slots: FfiConverterSequenceTypeInviteSlot.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: BringPeopleState, into buf: inout [UInt8]) {
+        FfiConverterUInt32.write(value.declines, into: &buf)
+        FfiConverterOptionInt64.write(value.lastAskAtMs, into: &buf)
+        FfiConverterSequenceTypeInviteSlot.write(value.slots, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeBringPeopleState_lift(_ buf: RustBuffer) throws -> BringPeopleState {
+    return try FfiConverterTypeBringPeopleState.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeBringPeopleState_lower(_ value: BringPeopleState) -> RustBuffer {
+    return FfiConverterTypeBringPeopleState.lower(value)
+}
+
+
 public struct CvmLine: Equatable, Hashable {
     public var key: CvmLineKey
     /**
@@ -1045,6 +1179,63 @@ public func FfiConverterTypeCvmLines_lift(_ buf: RustBuffer) throws -> CvmLines 
 #endif
 public func FfiConverterTypeCvmLines_lower(_ value: CvmLines) -> RustBuffer {
     return FfiConverterTypeCvmLines.lower(value)
+}
+
+
+/**
+ * One invite slot of the bring-people sheet: the invite status (pending, used, expired, revoked) and its created_at.
+ */
+public struct InviteSlot: Equatable, Hashable {
+    public var status: String
+    public var sentAtMs: Int64
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(status: String, sentAtMs: Int64) {
+        self.status = status
+        self.sentAtMs = sentAtMs
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension InviteSlot: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeInviteSlot: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> InviteSlot {
+        return
+            try InviteSlot(
+                status: FfiConverterString.read(from: &buf), 
+                sentAtMs: FfiConverterInt64.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: InviteSlot, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.status, into: &buf)
+        FfiConverterInt64.write(value.sentAtMs, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeInviteSlot_lift(_ buf: RustBuffer) throws -> InviteSlot {
+    return try FfiConverterTypeInviteSlot.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeInviteSlot_lower(_ value: InviteSlot) -> RustBuffer {
+    return FfiConverterTypeInviteSlot.lower(value)
 }
 
 
@@ -1515,6 +1706,60 @@ public func FfiConverterTypePersonProof_lift(_ buf: RustBuffer) throws -> Person
 #endif
 public func FfiConverterTypePersonProof_lower(_ value: PersonProof) -> RustBuffer {
     return FfiConverterTypePersonProof.lower(value)
+}
+
+
+public struct PinReminder: Equatable, Hashable {
+    public var step: UInt32
+    public var gapDays: UInt32
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(step: UInt32, gapDays: UInt32) {
+        self.step = step
+        self.gapDays = gapDays
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension PinReminder: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypePinReminder: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> PinReminder {
+        return
+            try PinReminder(
+                step: FfiConverterUInt32.read(from: &buf), 
+                gapDays: FfiConverterUInt32.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: PinReminder, into buf: inout [UInt8]) {
+        FfiConverterUInt32.write(value.step, into: &buf)
+        FfiConverterUInt32.write(value.gapDays, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePinReminder_lift(_ buf: RustBuffer) throws -> PinReminder {
+    return try FfiConverterTypePinReminder.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePinReminder_lower(_ value: PinReminder) -> RustBuffer {
+    return FfiConverterTypePinReminder.lower(value)
 }
 
 
@@ -2280,6 +2525,63 @@ public func FfiConverterTypeProfileFacts_lower(_ value: ProfileFacts) -> RustBuf
 
 
 /**
+ * The holder of the shared prompt slot and when it took the slot.
+ */
+public struct PromptSlot: Equatable, Hashable {
+    public var holder: String
+    public var sinceMs: Int64
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(holder: String, sinceMs: Int64) {
+        self.holder = holder
+        self.sinceMs = sinceMs
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension PromptSlot: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypePromptSlot: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> PromptSlot {
+        return
+            try PromptSlot(
+                holder: FfiConverterString.read(from: &buf), 
+                sinceMs: FfiConverterInt64.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: PromptSlot, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.holder, into: &buf)
+        FfiConverterInt64.write(value.sinceMs, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePromptSlot_lift(_ buf: RustBuffer) throws -> PromptSlot {
+    return try FfiConverterTypePromptSlot.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePromptSlot_lower(_ value: PromptSlot) -> RustBuffer {
+    return FfiConverterTypePromptSlot.lower(value)
+}
+
+
+/**
  * Context "Public issuer statement": the issuer signed this statement. It proves no
  * binding to a conversation sender or a master key. No conversion to `BoundSenderBadge` exists.
  */
@@ -2330,6 +2632,60 @@ public func FfiConverterTypePublicIssuerStatement_lift(_ buf: RustBuffer) throws
 #endif
 public func FfiConverterTypePublicIssuerStatement_lower(_ value: PublicIssuerStatement) -> RustBuffer {
     return FfiConverterTypePublicIssuerStatement.lower(value)
+}
+
+
+public struct RemoteBanner: Equatable, Hashable {
+    public var expiresAt: String
+    public var minAppVersion: String?
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(expiresAt: String, minAppVersion: String?) {
+        self.expiresAt = expiresAt
+        self.minAppVersion = minAppVersion
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension RemoteBanner: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeRemoteBanner: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> RemoteBanner {
+        return
+            try RemoteBanner(
+                expiresAt: FfiConverterString.read(from: &buf), 
+                minAppVersion: FfiConverterOptionString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: RemoteBanner, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.expiresAt, into: &buf)
+        FfiConverterOptionString.write(value.minAppVersion, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeRemoteBanner_lift(_ buf: RustBuffer) throws -> RemoteBanner {
+    return try FfiConverterTypeRemoteBanner.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeRemoteBanner_lower(_ value: RemoteBanner) -> RustBuffer {
+    return FfiConverterTypeRemoteBanner.lower(value)
 }
 
 
@@ -3640,6 +3996,73 @@ public func FfiConverterTypeHandleProblem_lower(_ value: HandleProblem) -> RustB
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 
+public enum InviteSlotKind: Equatable, Hashable {
+    
+    case pending
+    case expired
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension InviteSlotKind: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeInviteSlotKind: FfiConverterRustBuffer {
+    typealias SwiftType = InviteSlotKind
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> InviteSlotKind {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .pending
+        
+        case 2: return .expired
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: InviteSlotKind, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .pending:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .expired:
+            writeInt(&buf, Int32(2))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeInviteSlotKind_lift(_ buf: RustBuffer) throws -> InviteSlotKind {
+    return try FfiConverterTypeInviteSlotKind.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeInviteSlotKind_lower(_ value: InviteSlotKind) -> RustBuffer {
+    return FfiConverterTypeInviteSlotKind.lower(value)
+}
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+
 public enum IssuedBadgeResult: Equatable, Hashable {
     
     case valid(badge: IssuedBadge
@@ -4157,6 +4580,183 @@ public func FfiConverterTypeOperatorState_lift(_ buf: RustBuffer) throws -> Oper
 #endif
 public func FfiConverterTypeOperatorState_lower(_ value: OperatorState) -> RustBuffer {
     return FfiConverterTypeOperatorState.lower(value)
+}
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * The result of a PIN reminder check.
+ */
+
+public enum PinCheckResult: Equatable, Hashable {
+    
+    case right
+    case wrong
+    /**
+     * "Agora não": the step stays and the reminder comes back after 1 day.
+     */
+    case later
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension PinCheckResult: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypePinCheckResult: FfiConverterRustBuffer {
+    typealias SwiftType = PinCheckResult
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> PinCheckResult {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .right
+        
+        case 2: return .wrong
+        
+        case 3: return .later
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: PinCheckResult, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .right:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .wrong:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .later:
+            writeInt(&buf, Int32(3))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePinCheckResult_lift(_ buf: RustBuffer) throws -> PinCheckResult {
+    return try FfiConverterTypePinCheckResult.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePinCheckResult_lower(_ value: PinCheckResult) -> RustBuffer {
+    return FfiConverterTypePinCheckResult.lower(value)
+}
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * Why a PIN is too weak (ADR 0057). The ids are shared by every platform.
+ */
+
+public enum PinProblem: Equatable, Hashable {
+    
+    case notDigits
+    case wrongLength
+    case repeatedDigit
+    /**
+     * Up or down by one, with wrap: 78901234 and 21098765 count.
+     */
+    case sequence
+    /**
+     * DDMMYYYY or YYYYMMDD of a real date in the registry's years.
+     */
+    case date
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension PinProblem: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypePinProblem: FfiConverterRustBuffer {
+    typealias SwiftType = PinProblem
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> PinProblem {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .notDigits
+        
+        case 2: return .wrongLength
+        
+        case 3: return .repeatedDigit
+        
+        case 4: return .sequence
+        
+        case 5: return .date
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: PinProblem, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .notDigits:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .wrongLength:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .repeatedDigit:
+            writeInt(&buf, Int32(3))
+        
+        
+        case .sequence:
+            writeInt(&buf, Int32(4))
+        
+        
+        case .date:
+            writeInt(&buf, Int32(5))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePinProblem_lift(_ buf: RustBuffer) throws -> PinProblem {
+    return try FfiConverterTypePinProblem.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypePinProblem_lower(_ value: PinProblem) -> RustBuffer {
+    return FfiConverterTypePinProblem.lower(value)
 }
 
 
@@ -4815,6 +5415,83 @@ public func FfiConverterTypeRelationshipNameWarning_lift(_ buf: RustBuffer) thro
 #endif
 public func FfiConverterTypeRelationshipNameWarning_lower(_ value: RelationshipNameWarning) -> RustBuffer {
     return FfiConverterTypeRelationshipNameWarning.lower(value)
+}
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+
+public enum RemoteBannerState: Equatable, Hashable {
+    
+    case hidden
+    /**
+     * The app is below min_app_version: the banner opens the update link and cannot be dismissed.
+     */
+    case update
+    case notice
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension RemoteBannerState: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeRemoteBannerState: FfiConverterRustBuffer {
+    typealias SwiftType = RemoteBannerState
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> RemoteBannerState {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .hidden
+        
+        case 2: return .update
+        
+        case 3: return .notice
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: RemoteBannerState, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .hidden:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .update:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .notice:
+            writeInt(&buf, Int32(3))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeRemoteBannerState_lift(_ buf: RustBuffer) throws -> RemoteBannerState {
+    return try FfiConverterTypeRemoteBannerState.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeRemoteBannerState_lower(_ value: RemoteBannerState) -> RustBuffer {
+    return FfiConverterTypeRemoteBannerState.lower(value)
 }
 
 
@@ -5614,30 +6291,6 @@ fileprivate struct FfiConverterOptionInt64: FfiConverterRustBuffer {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterOptionUInt32: FfiConverterRustBuffer {
-    typealias SwiftType = UInt32?
-
-    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
-        guard let value = value else {
-            writeInt(&buf, Int8(0))
-            return
-        }
-        writeInt(&buf, Int8(1))
-        FfiConverterUInt32.write(value, into: &buf)
-    }
-
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
-        switch try readInt(&buf) as Int8 {
-        case 0: return nil
-        case 1: return try FfiConverterUInt32.read(from: &buf)
-        default: throw UniffiInternalError.unexpectedOptionalTag
-        }
-    }
-}
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
 fileprivate struct FfiConverterOptionString: FfiConverterRustBuffer {
     typealias SwiftType = String?
 
@@ -5686,6 +6339,30 @@ fileprivate struct FfiConverterOptionTypeBadgeClass: FfiConverterRustBuffer {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterOptionTypeBringPeopleReminder: FfiConverterRustBuffer {
+    typealias SwiftType = BringPeopleReminder?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeBringPeopleReminder.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeBringPeopleReminder.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterOptionTypeOperatorList: FfiConverterRustBuffer {
     typealias SwiftType = OperatorList?
 
@@ -5726,6 +6403,54 @@ fileprivate struct FfiConverterOptionTypePixCodeMatch: FfiConverterRustBuffer {
         switch try readInt(&buf) as Int8 {
         case 0: return nil
         case 1: return try FfiConverterTypePixCodeMatch.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterOptionTypePromptSlot: FfiConverterRustBuffer {
+    typealias SwiftType = PromptSlot?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypePromptSlot.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypePromptSlot.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterOptionTypeRemoteBanner: FfiConverterRustBuffer {
+    typealias SwiftType = RemoteBanner?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeRemoteBanner.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeRemoteBanner.read(from: &buf)
         default: throw UniffiInternalError.unexpectedOptionalTag
         }
     }
@@ -5894,6 +6619,30 @@ fileprivate struct FfiConverterOptionTypeOperatorSignup: FfiConverterRustBuffer 
         switch try readInt(&buf) as Int8 {
         case 0: return nil
         case 1: return try FfiConverterTypeOperatorSignup.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterOptionTypePinProblem: FfiConverterRustBuffer {
+    typealias SwiftType = PinProblem?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypePinProblem.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypePinProblem.read(from: &buf)
         default: throw UniffiInternalError.unexpectedOptionalTag
         }
     }
@@ -6089,6 +6838,31 @@ fileprivate struct FfiConverterSequenceTypeCvmLine: FfiConverterRustBuffer {
         seq.reserveCapacity(Int(len))
         for _ in 0 ..< len {
             seq.append(try FfiConverterTypeCvmLine.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterSequenceTypeInviteSlot: FfiConverterRustBuffer {
+    typealias SwiftType = [InviteSlot]
+
+    public static func write(_ value: [InviteSlot], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeInviteSlot.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [InviteSlot] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [InviteSlot]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypeInviteSlot.read(from: &buf))
         }
         return seq
     }
@@ -6391,6 +7165,32 @@ fileprivate struct FfiConverterSequenceTypeScamKind: FfiConverterRustBuffer {
             seq.append(try FfiConverterTypeScamKind.read(from: &buf))
         }
         return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterDictionaryStringInt64: FfiConverterRustBuffer {
+    public static func write(_ value: [String: Int64], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for (key, value) in value {
+            FfiConverterString.write(key, into: &buf)
+            FfiConverterInt64.write(value, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [String: Int64] {
+        let len: Int32 = try readInt(&buf)
+        var dict = [String: Int64]()
+        dict.reserveCapacity(Int(len))
+        for _ in 0..<len {
+            let key = try FfiConverterString.read(from: &buf)
+            let value = try FfiConverterInt64.read(from: &buf)
+            dict[key] = value
+        }
+        return dict
     }
 }
 /**
@@ -6723,6 +7523,16 @@ public func clearedChatMarker(contentJson: String?, roomId: String) -> Int64?  {
     uniffi_bipe_core_fn_func_cleared_chat_marker(
         FfiConverterOptionString.lower(contentJson),
         FfiConverterString.lower(roomId),$0
+    )
+})
+}
+/**
+ * Every valid clear marker of the chat.bipe.cleared_chats content, by room ID (cleared_chat_marker for each room).
+ */
+public func clearedChatMarkers(contentJson: String?) -> [String: Int64]  {
+    return try!  FfiConverterDictionaryStringInt64.lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_cleared_chat_markers(
+        FfiConverterOptionString.lower(contentJson),$0
     )
 })
 }
@@ -7104,6 +7914,123 @@ public func verifySignedList(envelopeJson: String, listType: ListType, signerSet
 })
 }
 /**
+ * The bring-people reminder (bipe-chat/bipe#752): the slot to name, or `None` for no reminder now. The oldest
+ * qualifying slot wins; on a tie, the first in slot order.
+ */
+public func bringPeopleReminder(state: BringPeopleState, nowMs: Int64) -> BringPeopleReminder?  {
+    return try!  FfiConverterOptionTypeBringPeopleReminder.lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_bring_people_reminder(
+        FfiConverterTypeBringPeopleState_lower(state),
+        FfiConverterInt64.lower(nowMs),$0
+    )
+})
+}
+/**
+ * The chat list prompt card (bipe-chat/bipe#894): the key that shows, or `None`. A critical or access entry wins at
+ * once; any other shows only when the slot allows it. The first allowed entry in queue order wins.
+ */
+public func chatListPrompt(eligible: [String], slot: PromptSlot?, nowMs: Int64) -> String?  {
+    return try!  FfiConverterOptionString.lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_chat_list_prompt(
+        FfiConverterSequenceString.lower(eligible),
+        FfiConverterOptionTypePromptSlot.lower(slot),
+        FfiConverterInt64.lower(nowMs),$0
+    )
+})
+}
+/**
+ * Compares dotted app versions part by part as numbers: -1, 0 or 1. Each part counts its leading digits only; a
+ * missing part or a part without leading digits counts as 0.
+ */
+public func compareAppVersions(a: String, b: String) -> Int32  {
+    return try!  FfiConverterInt32.lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_compare_app_versions(
+        FfiConverterString.lower(a),
+        FfiConverterString.lower(b),$0
+    )
+})
+}
+/**
+ * The PIN check of what the user typed: `None` when the PIN is strong enough.
+ */
+public func pinProblem(pin: String) -> PinProblem?  {
+    return try!  FfiConverterOptionTypePinProblem.lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_pin_problem(
+        FfiConverterString.lower(pin),$0
+    )
+})
+}
+/**
+ * The PIN reminder after a check (bipe-chat/bipe#202): the next step and the days until the next reminder.
+ */
+public func pinReminderNext(step: UInt32, result: PinCheckResult) -> PinReminder  {
+    return try!  FfiConverterTypePinReminder_lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_pin_reminder_next(
+        FfiConverterUInt32.lower(step),
+        FfiConverterTypePinCheckResult_lower(result),$0
+    )
+})
+}
+/**
+ * What the app shows for the banner of GET /v1/banner at `now` (ISO 8601). A time that does not parse never hides
+ * the banner, as in JavaScript, where NaN compares false.
+ */
+public func remoteBannerState(banner: RemoteBanner?, appVersion: String, now: String) -> RemoteBannerState  {
+    return try!  FfiConverterTypeRemoteBannerState_lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_remote_banner_state(
+        FfiConverterOptionTypeRemoteBanner.lower(banner),
+        FfiConverterString.lower(appVersion),
+        FfiConverterString.lower(now),$0
+    )
+})
+}
+/**
+ * An emoji query without variation selectors (U+FE0F) and skin tones (U+1F3FB to U+1F3FF), trimmed.
+ */
+public func stickerEmojiKey(text: String) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_sticker_emoji_key(
+        FfiConverterString.lower(text),$0
+    )
+})
+}
+/**
+ * Whether a sticker matches the query: a shared tag, or the folded query at the start of a word of the folded body or
+ * pack name.
+ */
+public func stickerMatches(query: String, body: String?, tags: [String], pack: String?) -> Bool  {
+    return try!  FfiConverterBool.lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_sticker_matches(
+        FfiConverterString.lower(query),
+        FfiConverterOptionString.lower(body),
+        FfiConverterSequenceString.lower(tags),
+        FfiConverterOptionString.lower(pack),$0
+    )
+})
+}
+/**
+ * The tag ids a query asks for, in registry order. An emoji query maps through the emoji table; a word query through
+ * the word table and the tag ids: equal, or a prefix when the folded query is long enough.
+ */
+public func stickerQueryTags(query: String) -> [String]  {
+    return try!  FfiConverterSequenceString.lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_sticker_query_tags(
+        FfiConverterString.lower(query),$0
+    )
+})
+}
+/**
+ * NFKD, no marks, lower case, every run that is not a letter or a digit is one space, every run of one repeated
+ * letter is one letter (kkkk is k), spaces collapsed and trimmed.
+ */
+public func stickerSearchFold(text: String) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_sticker_search_fold(
+        FfiConverterString.lower(text),$0
+    )
+})
+}
+/**
  * NFKD, marks removed, lowercase, homoglyphs folded, each JavaScript whitespace run one space, trimmed.
  */
 public func normalizeText(input: String, fold: TextFold) -> String  {
@@ -7240,6 +8167,9 @@ private let initializationResult: InitializationResult = {
     if (uniffi_bipe_core_checksum_func_cleared_chat_marker() != 51962) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_bipe_core_checksum_func_cleared_chat_markers() != 20255) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_bipe_core_checksum_func_cleared_chats_with_clear() != 34488) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -7337,6 +8267,36 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_bipe_core_checksum_func_verify_signed_list() != 37185) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_bipe_core_checksum_func_bring_people_reminder() != 57456) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_bipe_core_checksum_func_chat_list_prompt() != 48908) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_bipe_core_checksum_func_compare_app_versions() != 11363) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_bipe_core_checksum_func_pin_problem() != 23030) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_bipe_core_checksum_func_pin_reminder_next() != 5447) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_bipe_core_checksum_func_remote_banner_state() != 40637) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_bipe_core_checksum_func_sticker_emoji_key() != 14621) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_bipe_core_checksum_func_sticker_matches() != 16133) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_bipe_core_checksum_func_sticker_query_tags() != 1740) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_bipe_core_checksum_func_sticker_search_fold() != 65282) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_bipe_core_checksum_func_normalize_text() != 6787) {
