@@ -17,3 +17,57 @@ pub const PIX_MARKS: [&str; 3] = ["sent", "received", "not_received"];
 /// The core checks this format by hand (no regex crate); a test there fails when the pattern changes.
 pub const PIX_E2E_ID_PATTERN: &str = "^E[0-9]{8}[A-Za-z0-9]{23}$";
 pub const PIX_TXID_MAX_LENGTH: usize = 25;
+
+/// A registries/scam-patterns.json regex, translated by bipe-shared tools/lib/rust-regex.mjs (docs/scam-matching.md).
+/// Capture group 1 is the JavaScript match. With `guard_before`, the pattern consumes the character before it.
+pub struct ScamPattern {
+    pub group: &'static str,
+    pub id: &'static str,
+    pub regex: &'static str,
+    pub guard_before: bool,
+}
+
+/// Every pattern group in scamMatchIDs order.
+pub const SCAM_PATTERNS: &[ScamPattern] = &[
+    ScamPattern { group: "pixKeyPatterns", id: "cpf", regex: "(?:^|[^0-9A-Za-z])([0-9]{3}\\.?[0-9]{3}\\.?[0-9]{3}-?[0-9]{2})(?:[^0-9A-Za-z]|$)", guard_before: true },
+    ScamPattern { group: "pixKeyPatterns", id: "cnpj", regex: "(?:^|[^0-9A-Za-z])([0-9]{2}\\.?[0-9]{3}\\.?[0-9]{3}/?[0-9]{4}-?[0-9]{2})(?:[^0-9A-Za-z]|$)", guard_before: true },
+    ScamPattern { group: "pixKeyPatterns", id: "phone", regex: "(?:^|[^0-9])((?:\\+?55[\\t\\n\\x0B\\x0C\\r \\xA0\\x{1680}\\x{2000}-\\x{200A}\\x{2028}\\x{2029}\\x{202F}\\x{205F}\\x{3000}\\x{FEFF}]?)?\\(?[1-9]{2}\\)?[\\t\\n\\x0B\\x0C\\r \\xA0\\x{1680}\\x{2000}-\\x{200A}\\x{2028}\\x{2029}\\x{202F}\\x{205F}\\x{3000}\\x{FEFF}]?9[0-9]{4}-?[0-9]{4})(?:[^0-9]|$)", guard_before: true },
+    ScamPattern { group: "pixKeyPatterns", id: "email", regex: "([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,})", guard_before: false },
+    ScamPattern { group: "pixKeyPatterns", id: "random", regex: "(?:^|[^0-9A-Za-z])([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})(?:[^0-9A-Za-z]|$)", guard_before: true },
+    ScamPattern { group: "pixCopyPastePatterns", id: "brcode", regex: "(000201[^\\n\\r\\x{2028}\\x{2029}]*(?i-u:br\\.gov\\.bcb\\.pix))", guard_before: false },
+    ScamPattern { group: "boletoPatterns", id: "linha-digitavel", regex: "(?:^|[^0-9A-Za-z])([0-9]{5}\\.?[0-9]{5}[\\t\\n\\x0B\\x0C\\r \\xA0\\x{1680}\\x{2000}-\\x{200A}\\x{2028}\\x{2029}\\x{202F}\\x{205F}\\x{3000}\\x{FEFF}]?[0-9]{5}\\.?[0-9]{6}[\\t\\n\\x0B\\x0C\\r \\xA0\\x{1680}\\x{2000}-\\x{200A}\\x{2028}\\x{2029}\\x{202F}\\x{205F}\\x{3000}\\x{FEFF}]?[0-9]{5}\\.?[0-9]{6}[\\t\\n\\x0B\\x0C\\r \\xA0\\x{1680}\\x{2000}-\\x{200A}\\x{2028}\\x{2029}\\x{202F}\\x{205F}\\x{3000}\\x{FEFF}]?[0-9][\\t\\n\\x0B\\x0C\\r \\xA0\\x{1680}\\x{2000}-\\x{200A}\\x{2028}\\x{2029}\\x{202F}\\x{205F}\\x{3000}\\x{FEFF}]?[0-9]{14})(?:[^0-9A-Za-z]|$)", guard_before: true },
+    ScamPattern { group: "linkPatterns", id: "domain", regex: "(?:^|[^0-9A-Za-z@.-])([0-9A-Za-z](?:[0-9A-Za-z-]*[0-9A-Za-z])?(?:\\.[0-9A-Za-z](?:[0-9A-Za-z-]*[0-9A-Za-z])?)*\\.(?:com|net|org|info|biz|br|ly|app|site|online|shop|store|top|xyz|link|click|vip|live|icu|cfd|sbs|lat|io|co|cc|ws|pw|ru|cn|tk|ml|ga|cf|gq|club|fun|website|space|tech|digital|cloud|page|pro|today|world|life|rest|bond|cyou|buzz|host|dev))(?:[^0-9A-Za-z-]|$)", guard_before: true },
+];
+
+pub const SCAM_URGENCY_PHRASES: &[&str] = &["troquei de numero", "numero novo", "esse e meu numero novo", "salva esse numero", "troquei de celular", "perdi meu celular", "essa e minha conta nova", "salva essa conta", "faz um pix", "faz um pix pra mim", "preciso de um pix", "me empresta", "me empresta um dinheiro", "urgente", "e urgente", "hoje ainda", "agora mesmo", "nao posso falar agora", "nao consigo falar agora", "depois te explico", "te devolvo amanha", "te pago amanha", "meu app do banco travou", "me passa o codigo", "codigo que chegou", "aprova esse login", "escaneia esse qr"];
+pub const SCAM_RECEIPT_KEYWORDS: &[&str] = &["comprovante", "pix enviado", "transferencia realizada", "pagamento efetuado", "id da transacao"];
+pub const SCAM_PIX_KEY_CONTEXT_WORDS: &[&str] = &["pix", "chave"];
+pub const SCAM_NEW_NUMBER_PHRASES: &[&str] = &["troquei de numero", "numero novo", "esse e meu numero novo", "salva esse numero", "troquei de celular", "perdi meu celular", "essa e minha conta nova", "salva essa conta"];
+pub const SCAM_NEW_ACCOUNT_PHRASES: &[&str] = &["conta nova", "nova conta"];
+pub const SCAM_DELIVERY_PARCEL_WORDS: &[&str] = &["pacote", "encomenda", "entrega", "pedido", "correios", "remessa"];
+pub const SCAM_DELIVERY_HOLD_WORDS: &[&str] = &["retid", "taxad", "tributad", "bloquead", "liberar", "liberacao", "pendente", "aguardando pagamento", "nao foi entregue", "nao pode ser entregue", "devolvid"];
+pub const SCAM_DELIVERY_FEE_WORDS: &[&str] = &["taxa", "tarifa", "imposto", "pague", "pagar", "pagamento", "r$"];
+pub const SCAM_LOOKALIKE_BRAND_TOKENS: &[&str] = &["itau", "bradesco", "santander", "nubank", "bancodobrasil", "caixa", "bancointer", "c6bank", "btgpactual", "sicoob", "sicredi", "picpay", "mercadopago", "mercadolivre", "pagbank", "pagseguro", "banrisul", "bancopan", "govbr", "receitafederal", "bancocentral", "detran", "correios", "serasa", "inss", "fgts", "desenrola", "whatsapp", "netflix", "shopee", "bipe"];
+pub const SCAM_LOOKALIKE_HOST_LABELS: &[&str] = &["bcb", "bacen", "gov", "inss", "receita", "rfb", "detran", "sefaz", "bb", "cef", "c6", "btg"];
+pub const SCAM_OFFICIAL_DOMAINS: &[&str] = &["gov.br", "itau.com.br", "bradesco.com.br", "santander.com.br", "santander.com", "nubank.com.br", "bb.com.br", "bancointer.com.br", "c6bank.com.br", "btgpactual.com", "sicoob.com.br", "sicredi.com.br", "picpay.com", "mercadopago.com.br", "mercadopago.com", "mercadolivre.com.br", "pagbank.com.br", "pagseguro.com.br", "pagseguro.uol.com.br", "banrisul.com.br", "bancopan.com.br", "correios.com.br", "serasa.com.br", "serasaexperian.com.br", "whatsapp.com", "whatsapp.net", "netflix.com", "shopee.com.br", "bipe.chat", "bipe.net.br", "proseio.com.br"];
+pub const SCAM_APP_STORE_DOMAINS: &[&str] = &["apps.apple.com", "play.google.com"];
+pub const SCAM_BANK_ALERT_SUBJECT_WORDS: &[&str] = &["banco", "conta", "pix", "cartao", "cadastro", "cpf", "chave", "token", "acesso", "limite", "senha", "fatura"];
+pub const SCAM_BANK_ALERT_THREAT_WORDS: &[&str] = &["bloquead", "bloqueio", "suspens", "suspend", "suspeit", "desativad", "cancelad", "cancelament", "encerrad", "expira", "regulariz", "atualiz", "recadastr", "valide", "validar", "validacao", "seus dados", "irregular", "restricao", "restrit", "pendencia", "nao reconhec"];
+pub const SCAM_EXTORTION_THREAT_PHRASES: &[&str] = &["mando pra todos", "mando para todos", "mando pros seus", "mando para os seus", "mando pra sua", "mando para sua", "vou mandar pra todos", "vou mandar para todos", "vou mandar pros seus", "vou mandar pra sua familia", "vou mandar para sua familia", "vou espalhar", "vou divulgar", "vou publicar", "vou postar", "vou vazar", "vou expor", "todo mundo vai ver", "sua familia vai ver", "seus contatos vao ver", "sei onde voce mora", "sei onde voce trabalha", "sei onde seu filho", "sei onde sua filha", "sei onde seus filhos", "vai se arrepender"];
+pub const SCAM_EXTORTION_DEMAND_WORDS: &[&str] = &["pix", "pagar", "pague", "pagamento", "r$", "dinheiro", "reais", "deposit", "transfer"];
+pub const SCAM_REMOTE_APP_INSTALL_WORDS: &[&str] = &["instala", "instale", "instalar", "baixa", "baixe", "baixar", "download"];
+pub const SCAM_REMOTE_APP_NAMES: &[&str] = &["anydesk", "any desk", "teamviewer", "team viewer", "rustdesk", "quicksupport", "quick support", "airdroid", "ammyy", "acesso remoto"];
+pub const SCAM_REMOTE_APP_BANK_WORDS: &[&str] = &["banco", "cartao", "pix", "fatura", "estorno", "seguranca", "protecao"];
+pub const SCAM_PIN_REQUEST_ASK_PHRASES: &[&str] = &["me passa", "me passe", "me manda", "me mande", "me envia", "me envie", "me fala", "me fale", "me diz", "me diga", "me informa", "me informe", "informe", "confirme", "digite", "qual e a sua", "qual a sua", "qual e sua", "qual sua", "preciso da sua", "preciso do seu"];
+pub const SCAM_PIN_REQUEST_SECRET_WORDS: &[&str] = &["senha", "pin", "codigo", "token", "chave de recuperacao", "8 numeros", "oito numeros", "8 digitos"];
+pub const SCAM_PIN_REQUEST_SUPPORT_WORDS: &[&str] = &["suporte", "bipe", "atendimento", "atendente"];
+pub const SCAM_WARNING_KIND_PRIORITY: &[&str] = &["extortion", "pixCode", "boleto", "remoteApp", "pinRequest", "pixKey", "deliveryFee", "lookalikeLink", "bankAlert", "receipt", "newNumber", "urgency"];
+
+/// registries/family-terms.json `terms`.
+pub const FAMILY_TERMS: &[&str] = &["mae", "mamae", "mainha", "pai", "papai", "painho", "filho", "filha", "filhao", "filhinho", "filhinha", "vo", "vovo", "avo", "vozinha", "vozinho", "tio", "tia", "irmao", "irma", "mano", "mana", "neto", "neta", "sobrinho", "sobrinha", "primo", "prima", "amor", "meu amor", "querido", "querida", "esposo", "esposa", "marido", "mulher"];
+
+/// registries/homoglyphs.json, sorted by character. normalize() folds with it.
+pub const HOMOGLYPHS: &[(char, &str)] = &[('\u{24}', "s"), ('\u{30}', "o"), ('\u{31}', "i"), ('\u{33}', "e"), ('\u{34}', "a"), ('\u{35}', "s"), ('\u{37}', "t"), ('\u{40}', "a"), ('\u{7c}', "l"), ('\u{261}', "g"), ('\u{3b1}', "a"), ('\u{3b9}', "i"), ('\u{3ba}', "k"), ('\u{3bd}', "v"), ('\u{3bf}', "o"), ('\u{3c1}', "p"), ('\u{3c4}', "t"), ('\u{3c5}', "u"), ('\u{430}', "a"), ('\u{432}', "b"), ('\u{435}', "e"), ('\u{43a}', "k"), ('\u{43c}', "m"), ('\u{43d}', "h"), ('\u{43e}', "o"), ('\u{440}', "p"), ('\u{441}', "c"), ('\u{442}', "t"), ('\u{443}', "y"), ('\u{445}', "x"), ('\u{455}', "s"), ('\u{456}', "i"), ('\u{458}', "j"), ('\u{4bb}', "h"), ('\u{501}', "d")];
+
+/// HOMOGLYPHS without the ASCII keys outside [0-9a-z] (hostHomoglyphs in registries.mjs). linkHosts folds with it.
+pub const HOST_HOMOGLYPHS: &[(char, &str)] = &[('\u{30}', "o"), ('\u{31}', "i"), ('\u{33}', "e"), ('\u{34}', "a"), ('\u{35}', "s"), ('\u{37}', "t"), ('\u{261}', "g"), ('\u{3b1}', "a"), ('\u{3b9}', "i"), ('\u{3ba}', "k"), ('\u{3bd}', "v"), ('\u{3bf}', "o"), ('\u{3c1}', "p"), ('\u{3c4}', "t"), ('\u{3c5}', "u"), ('\u{430}', "a"), ('\u{432}', "b"), ('\u{435}', "e"), ('\u{43a}', "k"), ('\u{43c}', "m"), ('\u{43d}', "h"), ('\u{43e}', "o"), ('\u{440}', "p"), ('\u{441}', "c"), ('\u{442}', "t"), ('\u{443}', "y"), ('\u{445}', "x"), ('\u{455}', "s"), ('\u{456}', "i"), ('\u{458}', "j"), ('\u{4bb}', "h"), ('\u{501}', "d")];
