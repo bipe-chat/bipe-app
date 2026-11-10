@@ -87,34 +87,6 @@ public nonisolated enum BipePublicProfileRules {
     }
 }
 
-/// The bio from another user's public profile. Shows nothing when the user has none.
-public struct BipePublicProfileBioView: View {
-    private let userID: String
-    @Environment(\.bipeHandleResolver) private var handleResolver
-    @State private var bio: String?
-    
-    public init(userID: String) {
-        self.userID = userID
-    }
-    
-    public var body: some View {
-        // A stack, not a bare `if`: `.task` must run while the bio is still nil.
-        VStack(spacing: 0) {
-            if let bio {
-                Text(bio)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 16)
-                    .padding(.top, 8)
-            }
-        }
-        .task(id: userID) {
-            bio = await handleResolver?.publicProfile(for: userID)?.bio
-        }
-    }
-}
-
 // MARK: - Photo
 
 #if canImport(UIKit)

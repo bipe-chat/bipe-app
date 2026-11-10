@@ -211,15 +211,6 @@ public final class BipeCompanySeals {
         return companies.contains(userID)
     }
     
-    #if DEBUG
-    /// Screenshot mode only (bipe#454): a verified seal and the company type, without the API and without a signature.
-    public func storeFixture(_ payload: BadgePayload) {
-        entries[payload.sub] = Entry(state: .verified(payload), expiry: .distantFuture)
-        typeExpiry[payload.sub] = .distantFuture
-        companies.insert(payload.sub)
-    }
-    #endif
-    
     // MARK: - Private
     
     private func fetchType(_ userID: String) {

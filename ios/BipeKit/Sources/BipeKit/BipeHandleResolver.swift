@@ -182,11 +182,6 @@ public nonisolated enum BipeHandleCache {
 }
 
 public extension EnvironmentValues {
-    /// The session's handle resolver. `nil` outside a Bipe session: views keep upstream behaviour.
-    @Entry var bipeHandleResolver: BipeHandleResolver?
-}
-
-public extension EnvironmentValues {
     /// The session's handle resolver. `nil` outside a Bipe session: views show no @.
     @Entry var bipeHandles: BipeHandleResolver?
 }
