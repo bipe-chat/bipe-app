@@ -7,6 +7,7 @@ The shared Rust core of ADR 0267. Spike: bipe-chat/bipe#1172.
   - `cvm.rs`: the CVM lines of the company seal detail (`cvm-lines.json`).
   - `identity.rs`: handles, invite codes, phone numbers, social handles, profile checks and the name checks of security rule 8 (`handles.json`, `handle-suggestions.json`, `invite-codes.json`, `phone-numbers.json`, `social-handles.json`, `profile-checks.json`, `relationship-names.json`).
   - `issuer.rs`: badges from several issuers against the issuer registry, with `person` and `org` schemes (`badge-issuers.json`, bipe-chat/bipe#637).
+  - `message_data.rs`: rules on Matrix event content: forward marks, cleared chats, assistant send, drafts and work notes (`forward-marks.json`, `cleared-chats.json`, `assistant-send.json`, `drafts.json`, `work-notes.json`).
   - `notice.rs`: which links in an official notice are clickable (`notice-links.json`).
   - `person.rs`: the person proofs of an account, strongest first, with the seal mark (`person-proofs.json`, ADR 0275).
   - `pix.rs`: the BR Code in shared text, its CRC and the Pix key type (`pix-check.json`, field `code`). With `pix_keys`, the Pix keys in the text outside the code (field `keys`).

@@ -119,6 +119,30 @@ pub const PROFILE_FACTS_NEW_ACCOUNT_DAYS: i64 = 30;
 pub const PROFILE_FACTS_NOTICE_PAIR_HOURS: i64 = 24;
 pub const PROFILE_FACTS_NOTICE_DAYS: i64 = 7;
 
+/// registries/voice-media.json forward marks (bipe-chat/bipe#83, bipe-chat/bipe#933).
+pub const FORWARD_KEY: &str = "chat.bipe.forward";
+pub const FORWARDED_MANY_TIMES: u32 = 5;
+pub const FORWARD_CHATS: u32 = 5;
+pub const FORWARD_CHATS_MANY_TIMES: u32 = 1;
+/// registries/group-power-levels.json publicationOnly.feedPostKey: a forward drops it (bipe-chat/bipe#1260).
+pub const FEED_POST_KEY: &str = "chat.bipe.feed_post";
+
+/// registries/mcp-tools.json personalSend and readerMarker (ADR 0130, ADR 0210).
+pub const ASSISTANT_MARKER_FIELD: &str = "chat.bipe.assistant";
+pub const ASSISTANT_CLIENT_MAX_LENGTH: usize = 64;
+pub const ASSISTANT_READER_EVENT_TYPE: &str = "chat.bipe.assistant";
+pub const ASSISTANT_READER_FIELD: &str = "full_content";
+
+/// registries/drafts.json (ADR 0210).
+pub const DRAFT_FIELD: &str = "chat.bipe.draft";
+pub const DRAFT_BODY_MAX_LENGTH: usize = 8000;
+pub const DRAFT_CLIENT_MAX_LENGTH: usize = 64;
+
+/// registries/work-notes.json (ADR 0284).
+pub const WORK_NOTE_FIELD: &str = "chat.bipe.work_note";
+pub const WORK_REPLY_BY_FIELD: &str = "chat.bipe.reply_by";
+pub const WORK_NOTE_BODY_MAX_LENGTH: usize = 4000;
+
 /// `personAssurance` of registries/schemes.json (ADR 0275): the person assurances, strongest first, and the seal
 /// mark of each. personProofs reads it; test-vectors/person-proofs.json checks it.
 /// HOME_COUNTRY of tools/lib/registries.mjs: personProofs puts the proofs of this country first (ADR 0272 decision 7).
