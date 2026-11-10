@@ -7,6 +7,7 @@ The shared Rust core of ADR 0267. Spike: bipe-chat/bipe#1172.
   - `cvm.rs`: the CVM lines of the company seal detail (`cvm-lines.json`).
   - `issuer.rs`: badges from several issuers against the issuer registry, with `person` and `org` schemes (`badge-issuers.json`, bipe-chat/bipe#637).
   - `notice.rs`: which links in an official notice are clickable (`notice-links.json`).
+  - `person.rs`: the person proofs of an account, strongest first, with the seal mark (`person-proofs.json`, ADR 0275).
   - `pix.rs`: the BR Code in shared text, its CRC and the Pix key type (`pix-check.json`, field `code`). The keys in the text stay in the apps for now.
   - `pix_marks.rs`: the lines of a Pix request card from its mark events, the txid and the mark content (`pix-marks.json`).
   - `scam.rs`: scam match IDs and the one warning kind of a message (`scam-detection.json`, `scam-warnings.json`). The regexes come translated from bipe-shared (`docs/scam-matching.md`).
