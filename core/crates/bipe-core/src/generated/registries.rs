@@ -74,4 +74,6 @@ pub const HOST_HOMOGLYPHS: &[(char, &str)] = &[('\u{30}', "o"), ('\u{31}', "i"),
 
 /// `personAssurance` of registries/schemes.json (ADR 0275): the person assurances, strongest first, and the seal
 /// mark of each. personProofs reads it; test-vectors/person-proofs.json checks it.
+/// HOME_COUNTRY of tools/lib/registries.mjs: personProofs puts the proofs of this country first (ADR 0272 decision 7).
+pub const HOME_COUNTRY: &str = "BR";
 pub const PERSON_ASSURANCE: &[(&str, &str)] = &[("state", "fill"), ("bank", "regular")];
