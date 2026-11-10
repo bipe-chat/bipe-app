@@ -217,7 +217,7 @@ public nonisolated struct BadgePayload: Sendable, Equatable, Decodable {
     public internal(set) var issuerName: String?
     
     private enum CodingKeys: String, CodingKey {
-        case sub, lvl, name, cnpj, dev, msk, iat, exp, iss
+        case sub, lvl, name, cnpj, msk, iat, exp, iss
         case legalName = "legal_name"
         case tradeName = "trade_name"
         case method

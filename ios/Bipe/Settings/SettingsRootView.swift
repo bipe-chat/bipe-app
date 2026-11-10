@@ -15,32 +15,6 @@ enum SettingsRoute: Hashable {
     case yearRecap
 }
 
-/// The settings stack. Until the Você tab (bipe-chat/bipe#567) is on main, chat-list opens it as a sheet; the Você tab
-/// then shows `SettingsRootSection` in its own list with `settingsDestinations`.
-struct SettingsHomeView: View {
-    @StateObject private var model: SettingsModel
-    @State private var path: [SettingsRoute] = []
-    let onSignedOut: () -> Void
-
-    init(session: AccountSession, api: BipeAPIClient, onSignedOut: @escaping () -> Void) {
-        _model = StateObject(wrappedValue: SettingsModel(session: session, api: api))
-        self.onSignedOut = onSignedOut
-    }
-
-    var body: some View {
-        NavigationStack(path: $path) {
-            List {
-                SettingsRootSection(model: model)
-            }
-            .listStyle(.insetGrouped)
-            .navigationTitle(BipeStrings.settingsSection)
-            .navigationBarTitleDisplayMode(.inline)
-            .settingsDestinations(model: model, onSignedOut: onSignedOut)
-        }
-        .tint(BipeColor.accentFill)
-    }
-}
-
 /// Spec settings-root: one row per group of BipeSettings root, laid out as the iPhone Settings app: icon tile, title,
 /// the current state as the subtitle (ADR 0112).
 struct SettingsRootSection: View {

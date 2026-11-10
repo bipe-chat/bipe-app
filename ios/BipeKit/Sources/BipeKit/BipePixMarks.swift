@@ -92,11 +92,6 @@ public enum BipePixMarks {
         return (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
     }
 
-    /// The format of a Pix end-to-end ID: E, the 8-digit ISPB, 23 letters or digits (BipeRegistries.pixE2eIdPattern).
-    public static func isValidE2eId(_ id: String) -> Bool {
-        pixE2eIdValid(id: id)
-    }
-
     /// The BR Code txid of a card: the request ID with ASCII letters and digits only, at most pixTxidMaxLength.
     public static func txid(requestId: String) -> String {
         pixTxid(requestId: requestId)
