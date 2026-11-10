@@ -23,6 +23,8 @@ suspend fun serverAccountData(client: Client, eventType: String): String? = with
     val url = URL("${auth.homeserverUrl.trimEnd('/')}/_matrix/client/v3/user/$user/account_data/$type")
     val connection = url.openConnection() as HttpURLConnection
     try {
+        connection.connectTimeout = 30_000
+        connection.readTimeout = 30_000
         connection.setRequestProperty("Authorization", "Bearer ${auth.accessToken}")
         when (connection.responseCode) {
             200 -> connection.inputStream.bufferedReader().use { it.readText() }
