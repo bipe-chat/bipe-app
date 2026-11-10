@@ -3,7 +3,8 @@
 // Copyright 2026 Bipe contributors
 
 // The info screen behind the chat title, read-only. A DM opens the person (spec person-profile with
-// fromDm, PersonProfileView.swift): photo, name, the Bipe badge of an official account. A group opens
+// fromDm, PersonProfileView.swift): photo, name, the Bipe badge of an official account, the seal checked on this
+// device (seals.tsx, bipe-chat/bipe#1457) that opens the seal sheet. A group opens
 // group-details (GroupDetailsView.swift): photo, name, the people count, the description and the people.
 // The header block is a 96 px avatar, the name in title2 bold, the subtitle in subheadline.
 
@@ -14,6 +15,7 @@ import { isOfficial } from './registries';
 import { GroupDetails } from './GroupDetails';
 import type { ChatSummary } from './chat-model';
 import { ProfileFactsLines, useHandle } from './Trust';
+import { SealMark, SealNotice, SealSheet } from './seals';
 import { Avatar, type AvatarMember } from './ui/Avatar';
 import { s } from './ui/i18n';
 import { NavBar, OfficialBadge, Row, Section } from './ui/List';
@@ -84,6 +86,7 @@ function Header({
   subtitle,
   userId,
   members,
+  seal,
 }: {
   name: string;
   avatarUrl?: string;
@@ -91,6 +94,8 @@ function Header({
   subtitle?: string;
   userId?: string;
   members?: AvatarMember[];
+  /** person-profile: the seal next to the name. */
+  seal?: ReactNode;
 }) {
   return (
     <div className="flex flex-col items-center gap-1 py-2 text-center">
@@ -98,6 +103,7 @@ function Header({
       <div className="mt-2 flex items-center gap-1.5">
         <h3 className="text-title2 text-ink-primary">{name}</h3>
         {badge && <OfficialBadge />}
+        {seal}
       </div>
       {subtitle && <p className="text-subheadline text-ink-secondary">{subtitle}</p>}
     </div>
@@ -105,19 +111,24 @@ function Header({
 }
 
 // The @handle and the profile facts come from bipe-api (Trust.tsx), the social handles from the public profile.
-// TODO: trust marks and the bio are not read yet.
+// TODO: the bio is not read yet.
 function PersonInfo({ face }: { face: RoomFace }) {
-  const handle = useHandle(face.peer?.userId);
+  const peer = face.peer?.userId;
+  const handle = useHandle(peer);
+  const [sealOpen, setSealOpen] = useState(false);
   return (
     <>
       <Header
         name={face.name}
         avatarUrl={face.avatarUrl}
-        badge={isOfficial(face.peer?.userId)}
-        userId={face.peer?.userId}
+        badge={isOfficial(peer)}
+        userId={peer}
         subtitle={handle ? `@${handle}` : undefined}
+        seal={<SealMark userId={peer} size={22} onOpen={() => setSealOpen(true)} />}
       />
-      <ProfileFactsLines userId={face.peer?.userId} />
+      <SealNotice userId={peer} />
+      {sealOpen && peer && <SealSheet userId={peer} onClose={() => setSealOpen(false)} />}
+      <ProfileFactsLines userId={peer} />
       <SocialLinks handle={handle} />
     </>
   );

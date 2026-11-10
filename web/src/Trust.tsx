@@ -13,6 +13,7 @@ import { isBipeUserID } from './bipe/generated/lib/registries.mjs';
 import { contactCollision, profileFactLines } from './core';
 import { bipeServers, homoglyphs, profileFacts as profileFactRules } from './bipe/generated/registries.json';
 import { useClient } from './media';
+import { useSeals } from './seals';
 import { warning } from './phosphor/icons';
 import { locale, s } from './ui/i18n';
 import { Icon } from './ui/Icon';
@@ -99,9 +100,10 @@ export function useHandle(userId: string | undefined): string | undefined {
   return handle;
 }
 
-// The trust block of a request. Verified needs a company seal that verifies against the inviter's master key
-// (ADR 0041); matrix-sdk-ffi does not export the master key, so the web never shows verified: a Bipe account
-// is unverified, another server's account external. Then the contact collision line.
+// The trust block of a request (RequestTrustContent). Verified needs a seal that verifies on this device against the
+// inviter's master key (ADR 0041, seals.tsx): the person's name with the scheme of the strongest proof, or the
+// company's name. Else a Bipe account is unverified, another server's account external. Then the contact collision
+// line.
 export function RequestTrust({
   userId,
   name,
@@ -113,10 +115,21 @@ export function RequestTrust({
 }) {
   const external = userId !== undefined && !isBipeUserID(userId, reg);
   const collision = external ? null : (contactCollision(name, contactNames, reg) as string | null);
+  const { company, person } = useSeals(userId);
+  const verified =
+    person.state === 'verified'
+      ? s('bipe_badge_verified_name_via', person.proof.name, person.proof.claims.name)
+      : company.state === 'verified'
+        ? s('bipe_badge_verified_name', company.badge.claims.name)
+        : undefined;
   return (
     <div className="flex w-full flex-col gap-3">
-      <div className="flex flex-col gap-2 rounded-xl bg-trust-caution-wash p-4 text-center">
-        {external ? (
+      <div
+        className={`flex flex-col gap-2 rounded-xl p-4 text-center ${verified ? 'bg-trust-verified-wash' : 'bg-trust-caution-wash'}`}
+      >
+        {verified ? (
+          <p className="text-headline text-trust-verified-ink">{verified}</p>
+        ) : external ? (
           <p className="text-body text-trust-neutral-ink">{s('bipe_banner_external')}</p>
         ) : (
           <>

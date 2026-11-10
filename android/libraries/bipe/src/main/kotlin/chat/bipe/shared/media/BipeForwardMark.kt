@@ -4,14 +4,16 @@
 
 package chat.bipe.shared.media
 
-import chat.bipe.shared.generated.BipeGroupPowerLevels
+import chat.bipe.core.ForwardLine
+import chat.bipe.core.VoiceSource
+import chat.bipe.core.forwardChatLimit
+import chat.bipe.core.forwardCount
+import chat.bipe.core.forwardLine
+import chat.bipe.core.voiceSource
 import chat.bipe.shared.generated.BipeRegistries
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.longOrNull
-import kotlinx.serialization.json.put
 
 /**
  * Forward marks (bipe-chat/bipe#83; registries/voice-media.json, test-vectors/forward-marks.json). A forward adds the
@@ -31,34 +33,15 @@ object BipeForwardMark {
     }
 
     /** The forward count of message content: the count of the mark when it is an integer of 1 or more, else 0. */
-    fun count(content: JsonObject): Int {
-        val mark = content[BipeRegistries.FORWARD_KEY] as? JsonObject ?: return 0
-        val number = mark["count"] as? JsonPrimitive ?: return 0
-        if (number.isString) return 0
-        // longOrNull is null for a fraction ("2.5"), a boolean or a value outside Long.
-        val value = number.longOrNull ?: return 0
-        return if (value >= 1) value.coerceAtMost(MAX_COUNT.toLong()).toInt() else 0
-    }
+    fun count(content: JsonObject): Int = forwardCount(content.toString()).toInt()
 
-    /** The forward count from event JSON (the whole event or its content). 0 when the JSON cannot be read. */
     fun count(eventJson: String?): Int = content(eventJson)?.let { count(it) } ?: 0
 
-    /**
-     * The content a forward sends: [newContent] (m.new_content of the latest edit) or else [original], without
-     * m.relates_to, m.new_content, m.mentions and the public feed mark, with the mark set to the original count plus 1.
-     */
-    fun forwardedContent(original: JsonObject, newContent: JsonObject?): JsonObject {
-        // bipe-chat/bipe#1260: a copy in another chat is not the public feed post.
-        val dropped = setOf("m.relates_to", "m.new_content", "m.mentions", BipeGroupPowerLevels.FEED_POST_KEY)
-        val base = (newContent ?: original).filterKeys { it !in dropped }
-        val next = count(original).coerceAtMost(MAX_COUNT - 1) + 1
-        return JsonObject(base + (BipeRegistries.FORWARD_KEY to buildJsonObject { put("count", next) }))
-    }
+    /** bipe-core `forwardedContent`: the original count plus 1, without relations, mentions and the feed mark. */
+    fun forwardedContent(original: JsonObject, newContent: JsonObject?): JsonObject =
+        chat.bipe.core.forwardedContent(original.toString(), newContent?.toString())
+            ?.let { runCatching { Json.parseToJsonElement(it) }.getOrNull() as? JsonObject } ?: original
 
-    /**
-     * The content JSON for Room.sendRaw, from EventTimelineItemDebugInfo.originalJson and latestEditJson. null when
-     * the original JSON is missing or has no msgtype.
-     */
     fun forwardedContentJson(originalJson: String?, latestEditJson: String?): String? {
         val original = content(originalJson)?.takeIf { it.hasMsgType() } ?: return null
         val newContent = (content(latestEditJson)?.get("m.new_content") as? JsonObject)?.takeIf { it.hasMsgType() }
@@ -79,26 +62,20 @@ object BipeForwardMark {
     private const val BIPE_FIELD_PREFIX = "chat.bipe."
 
     /** The source line for a voice message (voice marker) or audio file with this forward count. */
-    fun source(isVoice: Boolean, count: Int): Source = when {
-        count >= BipeRegistries.FORWARDED_MANY_TIMES -> Source.FORWARDED_MANY_TIMES
-        count >= 1 -> Source.FORWARDED
-        isVoice -> Source.RECORDED
-        else -> Source.FILE
+    fun source(isVoice: Boolean, count: Int): Source = when (voiceSource(isVoice, count.coerceAtLeast(0).toUInt())) {
+        VoiceSource.FORWARDED -> Source.FORWARDED
+        VoiceSource.FORWARDED_MANY_TIMES -> Source.FORWARDED_MANY_TIMES
+        VoiceSource.RECORDED -> Source.RECORDED
+        VoiceSource.FILE -> Source.FILE
     }
 
-    /** The forward line of any message (bipe-chat/bipe#933): FORWARDED_MANY_TIMES, FORWARDED, or null for a count under 1. */
-    fun line(count: Int): Source? = when {
-        count >= BipeRegistries.FORWARDED_MANY_TIMES -> Source.FORWARDED_MANY_TIMES
-        count >= 1 -> Source.FORWARDED
-        else -> null
+    fun line(count: Int): Source? = when (forwardLine(count.coerceAtLeast(0).toUInt())) {
+        ForwardLine.FORWARDED -> Source.FORWARDED
+        ForwardLine.FORWARDED_MANY_TIMES -> Source.FORWARDED_MANY_TIMES
+        null -> null
     }
 
-    /**
-     * The most chats one forward goes to (bipe-chat/bipe#933). [sentCounts] are the counts of the contents the forward
-     * sends: FORWARD_CHATS_MANY_TIMES when one reaches FORWARDED_MANY_TIMES, else FORWARD_CHATS.
-     */
-    fun chatLimit(sentCounts: List<Int>): Int =
-        if (sentCounts.any { it >= BipeRegistries.FORWARDED_MANY_TIMES }) BipeRegistries.FORWARD_CHATS_MANY_TIMES else BipeRegistries.FORWARD_CHATS
+    fun chatLimit(sentCounts: List<Int>): Int = forwardChatLimit(sentCounts.map { it.coerceAtLeast(0).toUInt() }).toInt()
 
     private fun JsonObject.hasMsgType(): Boolean = (get("msgtype") as? JsonPrimitive)?.isString == true
 
