@@ -122,21 +122,24 @@ export function forwardChatLimit(sentCounts: number[], _reg?: unknown): number {
 // --- Work notes ----------------------------------------------------------------------------------------------------
 
 type NotesContext = { ownUserId: string; joinedRoomIds?: string[]; seatIds?: string[] };
+type Hidden = { show: false; reason: string };
+export type NoteResult = { show: true; note: { roomId: string; body: string; seatId: string | null } } | Hidden;
+export type ReplyByResult = { show: true; replyBy: { roomId: string; eventId: string; seatId: string } } | Hidden;
 
-export function workNoteFromEvent(event: unknown, ctx: NotesContext, _reg?: unknown) {
+export function workNoteFromEvent(event: unknown, ctx: NotesContext, _reg?: unknown): NoteResult {
   const result = core.workNoteFromEvent(JSON.stringify(event ?? null), ctx.ownUserId, ctx.joinedRoomIds ?? [], ctx.seatIds ?? []);
   if (result.tag === core.WorkNoteResult_Tags.Show) {
     const { note } = result.inner;
-    return { show: true as const, note: { roomId: note.roomId, body: note.body, seatId: note.seatId ?? null } };
+    return { show: true, note: { roomId: note.roomId, body: note.body, seatId: note.seatId ?? null } };
   }
-  return { show: false as const, reason: result.inner.reason };
+  return { show: false, reason: result.inner.reason };
 }
 
-export function replyByFromEvent(event: unknown, ctx: NotesContext, _reg?: unknown) {
+export function replyByFromEvent(event: unknown, ctx: NotesContext, _reg?: unknown): ReplyByResult {
   const result = core.replyByFromEvent(JSON.stringify(event ?? null), ctx.ownUserId, ctx.seatIds ?? []);
   if (result.tag === core.ReplyByResult_Tags.Show) {
     const { replyBy } = result.inner;
-    return { show: true as const, replyBy: { roomId: replyBy.roomId, eventId: replyBy.eventId, seatId: replyBy.seatId } };
+    return { show: true, replyBy: { roomId: replyBy.roomId, eventId: replyBy.eventId, seatId: replyBy.seatId } };
   }
-  return { show: false as const, reason: result.inner.reason };
+  return { show: false, reason: result.inner.reason };
 }
