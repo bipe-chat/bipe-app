@@ -6,9 +6,9 @@ package chat.bipe.shared.company
 
 import android.content.Context
 import androidx.compose.runtime.Immutable
+import chat.bipe.core.ListType
 import chat.bipe.shared.BadgeLevel
 import chat.bipe.shared.BadgePayload
-import chat.bipe.shared.ListType
 import chat.bipe.shared.R
 import chat.bipe.shared.SignedLists
 import chat.bipe.shared.generated.BipeRegistries
