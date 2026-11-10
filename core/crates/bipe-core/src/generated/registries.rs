@@ -71,3 +71,7 @@ pub const HOMOGLYPHS: &[(char, &str)] = &[('\u{24}', "s"), ('\u{30}', "o"), ('\u
 
 /// HOMOGLYPHS without the ASCII keys outside [0-9a-z] (hostHomoglyphs in registries.mjs). linkHosts folds with it.
 pub const HOST_HOMOGLYPHS: &[(char, &str)] = &[('\u{30}', "o"), ('\u{31}', "i"), ('\u{33}', "e"), ('\u{34}', "a"), ('\u{35}', "s"), ('\u{37}', "t"), ('\u{261}', "g"), ('\u{3b1}', "a"), ('\u{3b9}', "i"), ('\u{3ba}', "k"), ('\u{3bd}', "v"), ('\u{3bf}', "o"), ('\u{3c1}', "p"), ('\u{3c4}', "t"), ('\u{3c5}', "u"), ('\u{430}', "a"), ('\u{432}', "b"), ('\u{435}', "e"), ('\u{43a}', "k"), ('\u{43c}', "m"), ('\u{43d}', "h"), ('\u{43e}', "o"), ('\u{440}', "p"), ('\u{441}', "c"), ('\u{442}', "t"), ('\u{443}', "y"), ('\u{445}', "x"), ('\u{455}', "s"), ('\u{456}', "i"), ('\u{458}', "j"), ('\u{4bb}', "h"), ('\u{501}', "d")];
+
+/// `personAssurance` of registries/schemes.json (ADR 0275): the person assurances, strongest first, and the seal
+/// mark of each. personProofs reads it; test-vectors/person-proofs.json checks it.
+pub const PERSON_ASSURANCE: &[(&str, &str)] = &[("state", "fill"), ("bank", "regular")];
