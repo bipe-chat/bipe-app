@@ -10,7 +10,7 @@
 #   also export an ad hoc IPA for the devices registered in team 992N457T8D (artifact
 #   bipe-next-ipa). The job never makes a certificate: automatic signing made a development
 #   certificate on every run until the team reached Apple's limit.
-# - Android: a debug-signed release APK of chat.bipe.app.next (artifact bipe-next-apk).
+# - Android: a release APK of chat.bipe.app.next signed with the fixed tester key (artifact bipe-next-apk).
 # Version (bipe-chat/bipe#584, ADR 0088, ADR 0163, ADR 0227): the version name is an odometer that rolls at each public release (tools/version.mjs);
 # build number: its build plus the number of commits (tools/version.mjs). Both platforms carry the same pair.
 # Install commands: AGENTS.md, "Tester builds".

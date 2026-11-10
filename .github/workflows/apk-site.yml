@@ -31,6 +31,10 @@ jobs:
           newest=$(gh api "repos/${{ github.repository }}/actions/artifacts?name=bipe-next-apk&per_page=50" \
             --jq '[.artifacts[] | select(.workflow_run.head_branch == "main" and (.expired | not))] | max_by(.created_at) | "\(.id) \(.created_at)"')
           read -r id created <<< "$newest"
+          if [ "$id" = null ]; then
+            echo "No unexpired bipe-next-apk artifact on main: nothing to compare."
+            exit 0
+          fi
           age=$(( $(date +%s) - $(date -d "$created" +%s) ))
           echo "served artifact $served, newest artifact $id from $created (${age}s ago)"
           if [ "$served" != "$id" ] && [ "$age" -gt 3600 ]; then

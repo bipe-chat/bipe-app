@@ -96,7 +96,7 @@ jobs:
           {
             echo "bipe-core $VERSION (ADR 0267). Source commit: $GITHUB_SHA. Built by $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID."
             echo
-            echo "No production client ships this until bipe-chat/bipe#1277 closes. Pin it with core/release/release.json."
+            echo "iOS and Android link the release that core/release/release.json pins."
             echo
             echo '```'
             cat dist/SHA256SUMS
