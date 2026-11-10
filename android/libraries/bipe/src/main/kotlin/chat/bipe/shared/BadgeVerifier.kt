@@ -96,10 +96,7 @@ class BadgeVerifier private constructor(private val trust: Trust) {
             BadgeVerificationFailure.entries.firstOrNull { it.code == code } ?: BadgeVerificationFailure.MALFORMED,
         )
 
-        /**
-         * The payload of an envelope that bipe-core accepted, as the app shows it. A level the app cannot show yet
-         * (`person`, `org`, ADR 0272) is no seal: `malformed`, fail closed.
-         */
+        /** The payload of an envelope that bipe-core accepted, as the app shows it. A payload the app cannot read is no seal: `malformed`, fail closed. */
         private fun shown(envelopeJson: String, issuerName: String?): BadgeVerificationResult {
             val payload = runCatchingExceptions {
                 val envelope = json.decodeFromString(BadgeEnvelope.serializer(), envelopeJson)
@@ -137,6 +134,46 @@ enum class BadgeLevel {
 
     /** A brand's mark on a reseller's work account (ADR 0162), bound to the reseller's master key. */
     @SerialName("brand-mark") BRAND_MARK,
+
+    /** A person proved by a scheme of any country (ADR 0272). [BadgePayload.schemeInfo] names it. */
+    @SerialName("person") PERSON,
+
+    /** A company proved by a scheme of any country (ADR 0272). [BadgePayload.schemeInfo] names it. */
+    @SerialName("org") ORG,
+    ;
+
+    /**
+     * What the level proves, for feature gates (ADR 0272 decision 11, bipe-shared `badgeClass`). `pix` and `govbr` are
+     * aliases of person schemes, `cnpj` of an org scheme. `institution` and `brand-mark` have no class.
+     */
+    val badgeClass: BadgeClass?
+        get() = when (this) {
+            PIX, GOVBR, PERSON -> BadgeClass.PERSON
+            CNPJ, ORG -> BadgeClass.ORG
+            INSTITUTION, BRAND_MARK -> null
+        }
+}
+
+/** The class of a badge (ADR 0272): what a feature gate reads instead of a level name. */
+enum class BadgeClass { PERSON, ORG }
+
+/** The scheme fields of a `person` or `org` badge (ADR 0272, docs/badge-attestation.md "Scheme fields"). */
+data class BadgeScheme(
+    /** The scheme ID, for example `nl.kvk`. */
+    val id: String,
+    /** ISO 3166-1 alpha-2 country of the scheme, upper case. */
+    val country: String,
+    /** `bank` or `state` for a person, `registry+control` for a company. */
+    val assurance: String,
+    /** `org` only: the company's number in its registry. Opaque: shown as it is. */
+    val orgId: String?,
+) {
+    /** The seal comes from a scheme outside Brazil: the sheet names the issuer and the country (ADR 0272 decision 7). */
+    val isForeign: Boolean get() = country != "BR"
+
+    /** The country in the device's language, for example "Países Baixos". */
+    fun countryName(locale: java.util.Locale = java.util.Locale.getDefault()): String =
+        java.util.Locale("", country).getDisplayCountry(locale).ifEmpty { country }
 }
 
 /** How a company proved control of its CNPJ (ADR 0042). */
@@ -179,7 +216,21 @@ data class BadgePayload(
     @SerialName("iss") val issuer: String = "bipe",
     /** The issuer `name` from the signed issuer registry; null when a flat key list checked the badge. */
     @Transient val issuerName: String? = null,
+    /** `person` and `org` (ADR 0272): ISO 3166-1 alpha-2 country, scheme ID and assurance of the scheme. */
+    val country: String? = null,
+    val scheme: String? = null,
+    val assurance: String? = null,
+    /** `org` only: the company's number in its registry. */
+    @SerialName("org_id") val orgId: String? = null,
 ) {
+    /** `person` and `org`: the scheme fields. Null for every other level. */
+    val schemeInfo: BadgeScheme?
+        get() = if ((lvl == BadgeLevel.PERSON || lvl == BadgeLevel.ORG) && scheme != null && country != null && assurance != null) {
+            BadgeScheme(scheme, country, assurance, orgId.takeIf { lvl == BadgeLevel.ORG })
+        } else {
+            null
+        }
+
     /** The required fields of [lvl] (badge-attestation.md, step 4). */
     internal fun isWellFormed(): Boolean = !msk.isNullOrEmpty() && iat in BADGE_TIME_RANGE && exp in BADGE_TIME_RANGE && when (lvl) {
         BadgeLevel.CNPJ -> cnpj != null && CNPJ_PATTERN.matches(cnpj) && !legalName.isNullOrEmpty() &&
@@ -188,6 +239,11 @@ data class BadgePayload(
         BadgeLevel.BRAND_MARK -> cnpj != null && CNPJ_PATTERN.matches(cnpj) && name.isNotEmpty() &&
             !mark.isNullOrEmpty() && !brand.isNullOrEmpty() && label != null && label in BipeRegistries.BRAND_MARK_LABELS
         BadgeLevel.PIX, BadgeLevel.GOVBR -> true
+        // Parser rules for person and org (badge-attestation.md, verification step 5). bipe-core checked them first.
+        BadgeLevel.PERSON, BadgeLevel.ORG -> name.isNotEmpty() && !assurance.isNullOrEmpty() &&
+            country != null && COUNTRY_PATTERN.matches(country) && scheme != null && SCHEME_PATTERN.matches(scheme) &&
+            (lvl == BadgeLevel.PERSON || (orgId != null && orgId.length in 1..128)) &&
+            (lvl == BadgeLevel.PERSON || legalName == null || legalName.isNotEmpty())
     }
 
     /** `institution`: the verified domains, empty when absent; null when the field is not a list of domains. */
@@ -208,6 +264,8 @@ private val BADGE_TIME_RANGE = 0L..253_402_300_799L
 
 private val CNPJ_PATTERN = Regex("[0-9A-Z]{12}[0-9]{2}")
 private val MONTH_PATTERN = Regex("[0-9]{4}-(0[1-9]|1[0-2])")
+private val COUNTRY_PATTERN = Regex("[A-Z]{2}")
+private val SCHEME_PATTERN = Regex("[a-z]{2}\\.[a-z0-9-]{1,30}")
 
 sealed interface BadgeVerificationResult {
     data class Valid(val payload: BadgePayload) : BadgeVerificationResult

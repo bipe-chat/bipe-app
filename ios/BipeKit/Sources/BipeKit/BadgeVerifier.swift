@@ -79,8 +79,8 @@ public nonisolated struct BadgeVerifier: Sendable {
         BadgeVerificationFailure(rawValue: code) ?? .malformed
     }
 
-    /// The payload of an envelope that bipe-core accepted, as the app shows it. A level the app cannot show yet
-    /// (`person`, `org`, ADR 0272) is no seal: `malformed`, fail closed.
+    /// The payload of an envelope that bipe-core accepted, as the app shows it. A payload the app cannot read is no
+    /// seal: `malformed`, fail closed.
     private static func shown(_ envelopeJSON: Data, issuerName: String?) -> BadgeVerificationResult {
         guard let envelope = try? JSONDecoder().decode(BadgeEnvelope.self, from: envelopeJSON),
               let bytes = Data(base64URLEncoded: envelope.payload),
@@ -118,6 +118,47 @@ public nonisolated enum BadgeLevel: String, Sendable, Codable {
     case cnpj
     /// A brand's mark on a reseller's work account (ADR 0162), bound to the reseller's master key.
     case brandMark = "brand-mark"
+    /// A person proved by a scheme of any country (ADR 0272). `BadgePayload.scheme` names it.
+    case person
+    /// A company proved by a scheme of any country (ADR 0272). `BadgePayload.scheme` names it.
+    case org
+
+    /// What the level proves, for feature gates (ADR 0272 decision 11, bipe-shared `badgeClass`). `pix` and `govbr`
+    /// are aliases of person schemes, `cnpj` of an org scheme. `institution` and `brand-mark` have no class.
+    public var badgeClass: BadgeClass? {
+        switch self {
+        case .pix, .govbr, .person: .person
+        case .cnpj, .org: .org
+        case .institution, .brandMark: nil
+        }
+    }
+}
+
+/// The class of a badge (ADR 0272): what a feature gate reads instead of a level name.
+public nonisolated enum BadgeClass: String, Sendable {
+    case person
+    case org
+}
+
+/// The scheme fields of a `person` or `org` badge (ADR 0272, docs/badge-attestation.md "Scheme fields").
+public nonisolated struct BadgeScheme: Sendable, Equatable {
+    /// The scheme ID, for example `nl.kvk`.
+    public let id: String
+    /// ISO 3166-1 alpha-2 country of the scheme, upper case.
+    public let country: String
+    /// The assurance of the scheme: `bank` or `state` for a person, `registry+control` for a company.
+    public let assurance: String
+    /// `org` only: the company's number in its registry. Opaque: shown as it is.
+    public let orgId: String?
+    /// `org` only, optional: the registered name.
+    public let legalName: String?
+
+    /// The seal comes from a scheme outside Brazil. The sheet then names the issuer and the country, and says that it
+    /// is not a Brazilian seal (ADR 0272 decision 7).
+    public var isForeign: Bool { country != "BR" }
+
+    /// The country in the device's language, for example "Países Baixos". The code itself when the system has no name.
+    public var countryName: String { Locale.current.localizedString(forRegionCode: country) ?? country }
 }
 
 /// How a company proved control of its CNPJ (ADR 0042).
@@ -158,6 +199,8 @@ public nonisolated struct BadgePayload: Sendable, Equatable, Decodable {
     public let company: BadgeCompany?
     /// Present only for `brand-mark`.
     public let brandMark: BadgeBrandMark?
+    /// Present only for `person` and `org`.
+    public let scheme: BadgeScheme?
     /// `institution` only: the verified link domains (ADR 0036), lower case. Empty: no clickable link.
     public let domains: [String]
     /// The account's cross-signing master key the badge is bound to (`msk`, every level, ADR 0239).
@@ -182,6 +225,8 @@ public nonisolated struct BadgePayload: Sendable, Equatable, Decodable {
         case cvm
         case domains
         case mark, brand, label
+        case country, scheme, assurance
+        case orgId = "org_id"
     }
     
     public init(from decoder: Decoder) throws {
@@ -217,6 +262,7 @@ public nonisolated struct BadgePayload: Sendable, Equatable, Decodable {
                                        checkedMonth: checkedMonth)
             brandMark = nil
             domains = []
+            scheme = nil
         case .brandMark:
             let mark = try container.decode(String.self, forKey: .mark)
             let brand = try container.decode(String.self, forKey: .brand)
@@ -228,6 +274,7 @@ public nonisolated struct BadgePayload: Sendable, Equatable, Decodable {
             company = nil
             brandMark = BadgeBrandMark(mark: mark, brand: brand, label: label)
             domains = []
+            scheme = nil
         case .institution:
             let domains = try container.decodeIfPresent([String].self, forKey: .domains) ?? []
             guard let cnpj, cnpj.wholeMatch(of: /[0-9A-Z]{12}[0-9]{2}/) != nil,
@@ -237,7 +284,27 @@ public nonisolated struct BadgePayload: Sendable, Equatable, Decodable {
             company = nil
             brandMark = nil
             self.domains = domains
+            scheme = nil
         case .pix, .govbr:
+            company = nil
+            brandMark = nil
+            domains = []
+            scheme = nil
+        case .person, .org:
+            // Parser rules for person and org (badge-attestation.md, verification step 5). bipe-core checked them first.
+            let id = try container.decode(String.self, forKey: .scheme)
+            let country = try container.decode(String.self, forKey: .country)
+            let assurance = try container.decode(String.self, forKey: .assurance)
+            let orgId = try container.decodeIfPresent(String.self, forKey: .orgId)
+            let legalName = try container.decodeIfPresent(String.self, forKey: .legalName)
+            guard !name.isEmpty, !assurance.isEmpty, country.wholeMatch(of: /[A-Z]{2}/) != nil,
+                  id.wholeMatch(of: /[a-z]{2}\.[a-z0-9-]{1,30}/) != nil,
+                  lvl == .person || (orgId.map { (1...128).contains($0.count) } ?? false),
+                  legalName.map({ !$0.isEmpty }) ?? true else {
+                throw DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: "malformed scheme badge"))
+            }
+            scheme = BadgeScheme(id: id, country: country, assurance: assurance,
+                                 orgId: lvl == .org ? orgId : nil, legalName: lvl == .org ? legalName : nil)
             company = nil
             brandMark = nil
             domains = []

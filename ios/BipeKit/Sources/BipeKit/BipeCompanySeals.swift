@@ -293,7 +293,7 @@ public final class BipeCompanySeals {
                 return
             }
             switch verifier.verify(envelopeJSON: json, sender: userID, senderMasterKey: key) {
-            case .valid(let payload) where payload.lvl == .cnpj:
+            case .valid(let payload) where payload.lvl.badgeClass == .org:
                 setSeen(userID, true)
                 let expiry = min(Date(timeIntervalSince1970: TimeInterval(payload.exp)), .now.addingTimeInterval(Self.ttl))
                 entries[userID] = Entry(state: .verified(payload), expiry: expiry)
@@ -302,7 +302,7 @@ public final class BipeCompanySeals {
             case .valid(let payload) where payload.lvl == .institution:
                 store(.none, for: userID)
                 institutions[userID] = payload
-            case .valid(let payload) where payload.lvl == .pix || payload.lvl == .govbr:
+            case .valid(let payload) where payload.lvl.badgeClass == .person:
                 // The seal shows only when identityVerified holds (registries/trust-facts.json).
                 let identity = BipeTrustSources.Identity(masterKey: key, isVerified: false, hasVerificationViolation: false)
                 let facts = BipeTrustSources.profileFacts(userId: userID, identity: identity, seal: .verified(name: payload.name))
