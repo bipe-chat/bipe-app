@@ -8,17 +8,19 @@ import android.content.Context
 import android.icu.util.Measure
 import android.icu.util.MeasureUnit
 import android.icu.text.MeasureFormat
+import chat.bipe.core.ProfileFact
+import chat.bipe.core.ProfileFacts
+import chat.bipe.core.profileFactLines
 import chat.bipe.shared.api.BipeProfileFacts
 import chat.bipe.shared.generated.BipeRegistries
 import java.time.Instant
 import java.time.OffsetDateTime
 import java.util.Locale
-import kotlin.math.abs
 import kotlin.math.max
 
 /**
  * The facts lines of chat-request and person-profile, and the amber notice of chat-timeline (ADR 0049).
- * Port of bipe-shared `profileFactLines` (tools/lib/registries.mjs); test-vectors/profile-facts.json must pass.
+ * bipe-shared `profileFactLines`, run in bipe-core; test-vectors/profile-facts.json must pass.
  * Same rule as BipeKit `BipeProfileFactLines` on iOS.
  */
 data class BipeProfileFactLines(
@@ -67,37 +69,26 @@ data class BipeProfileFactLines(
     }
 
     companion object {
-        private const val DAY_MS = 86_400_000L
-        private const val HOUR_MS = 3_600_000L
-
-        /** [alwaysCreated]: person-profile keeps the account age at any age (ADR 0275 point 13). */
+        /** [alwaysCreated]: person-profile keeps the account age at any age (ADR 0275 point 13). The rule runs in bipe-core (`profileFactLines`). */
         fun of(facts: BipeProfileFacts, now: Instant = Instant.now(), alwaysCreated: Boolean = false): BipeProfileFactLines {
-            val nowMs = now.toEpochMilli()
-            val windowMs = BipeRegistries.PROFILE_FACTS_WINDOW_DAYS * DAY_MS
-            fun inWindow(list: List<String>): List<Long> =
-                list.mapNotNull { parse(it)?.toEpochMilli() }.filter { it <= nowMs && nowMs - it < windowMs }.sorted()
-            val names = inWindow(facts.nameChanges)
-            val photos = inWindow(facts.photoChanges)
-            val lines = mutableListOf<Line>()
-            val created = facts.createdAt?.let { parse(it) }?.toEpochMilli()
-            if (created != null && created <= nowMs && (alwaysCreated || nowMs - created < BipeRegistries.PROFILE_FACTS_NEW_ACCOUNT_DAYS * DAY_MS)) {
-                lines += Line(Fact.CREATED, null, Instant.ofEpochMilli(created))
+            val input = ProfileFacts(facts.createdAt, facts.nameChanges, facts.photoChanges, facts.numberMovedOut, facts.numberMovedIn)
+            val result = profileFactLines(input, now.toEpochMilli(), alwaysCreated)
+            val lines = result.lines.map { line ->
+                val fact = when (line.fact) {
+                    ProfileFact.CREATED -> Fact.CREATED
+                    ProfileFact.PHOTO -> Fact.PHOTO
+                    ProfileFact.NAME -> Fact.NAME
+                    ProfileFact.NUMBER_OUT -> Fact.NUMBER_OUT
+                    ProfileFact.NUMBER_IN -> Fact.NUMBER_IN
+                }
+                Line(fact, line.count?.toInt(), Instant.ofEpochMilli(line.atMs))
             }
-            if (photos.isNotEmpty()) lines += Line(Fact.PHOTO, photos.size, Instant.ofEpochMilli(photos.last()))
-            if (names.isNotEmpty()) lines += Line(Fact.NAME, names.size, Instant.ofEpochMilli(names.last()))
-            val movedOut = inWindow(facts.numberMovedOut).lastOrNull()
-            val movedIn = inWindow(facts.numberMovedIn).lastOrNull()
-            if (movedOut != null) lines += Line(Fact.NUMBER_OUT, null, Instant.ofEpochMilli(movedOut))
-            if (movedIn != null) lines += Line(Fact.NUMBER_IN, null, Instant.ofEpochMilli(movedIn))
-            val pairMs = BipeRegistries.PROFILE_FACTS_NOTICE_PAIR_HOURS * HOUR_MS
-            val noticeMs = BipeRegistries.PROFILE_FACTS_NOTICE_DAYS * DAY_MS
-            val notice = names.any { name -> photos.any { photo -> abs(name - photo) <= pairMs && nowMs - max(name, photo) < noticeMs } }
-            val numberNotice = when {
-                movedOut == null && movedIn == null -> null
-                (movedIn ?: -1L) > (movedOut ?: -1L) -> NumberNotice.IN
-                else -> NumberNotice.OUT
+            val numberNotice = when (result.numberNotice) {
+                chat.bipe.core.NumberNotice.IN -> NumberNotice.IN
+                chat.bipe.core.NumberNotice.OUT -> NumberNotice.OUT
+                null -> null
             }
-            return BipeProfileFactLines(lines, notice, numberNotice)
+            return BipeProfileFactLines(lines, result.notice, numberNotice)
         }
 
         /** An ISO 8601 date with a zone. Anything else is `null`. */
