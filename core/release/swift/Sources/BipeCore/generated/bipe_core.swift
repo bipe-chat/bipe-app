@@ -1182,6 +1182,60 @@ public func FfiConverterTypeCvmLines_lower(_ value: CvmLines) -> RustBuffer {
 }
 
 
+public struct GovbrResult: Equatable, Hashable {
+    public var phase: GovbrPhase
+    public var reason: GovbrReason?
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(phase: GovbrPhase, reason: GovbrReason?) {
+        self.phase = phase
+        self.reason = reason
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension GovbrResult: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeGovbrResult: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> GovbrResult {
+        return
+            try GovbrResult(
+                phase: FfiConverterTypeGovbrPhase.read(from: &buf), 
+                reason: FfiConverterOptionTypeGovbrReason.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: GovbrResult, into buf: inout [UInt8]) {
+        FfiConverterTypeGovbrPhase.write(value.phase, into: &buf)
+        FfiConverterOptionTypeGovbrReason.write(value.reason, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeGovbrResult_lift(_ buf: RustBuffer) throws -> GovbrResult {
+    return try FfiConverterTypeGovbrResult.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeGovbrResult_lower(_ value: GovbrResult) -> RustBuffer {
+    return FfiConverterTypeGovbrResult.lower(value)
+}
+
+
 /**
  * One invite slot of the bring-people sheet: the invite status (pending, used, expired, revoked) and its created_at.
  */
@@ -3912,6 +3966,302 @@ public func FfiConverterTypeForwardLine_lower(_ value: ForwardLine) -> RustBuffe
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /**
+ * What the app does with a PDF that arrives (share sheet, open with, or the "Já assinei" picker).
+ */
+
+public enum GovbrIncoming: Equatable, Hashable {
+    
+    /**
+     * Send it with PUT .../document.
+     */
+    case upload
+    /**
+     * Show bipe_govbr_no_open_verification and do not upload.
+     */
+    case noOpenVerification
+    /**
+     * A check runs; drop the file without a message.
+     */
+    case ignore
+    /**
+     * Empty or bigger than the limit: show the reason not_signed without an upload.
+     */
+    case notSigned
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension GovbrIncoming: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeGovbrIncoming: FfiConverterRustBuffer {
+    typealias SwiftType = GovbrIncoming
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> GovbrIncoming {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .upload
+        
+        case 2: return .noOpenVerification
+        
+        case 3: return .ignore
+        
+        case 4: return .notSigned
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: GovbrIncoming, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .upload:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .noOpenVerification:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .ignore:
+            writeInt(&buf, Int32(3))
+        
+        
+        case .notSigned:
+            writeInt(&buf, Int32(4))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeGovbrIncoming_lift(_ buf: RustBuffer) throws -> GovbrIncoming {
+    return try FfiConverterTypeGovbrIncoming.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeGovbrIncoming_lower(_ value: GovbrIncoming) -> RustBuffer {
+    return FfiConverterTypeGovbrIncoming.lower(value)
+}
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+
+public enum GovbrPhase: Equatable, Hashable {
+    
+    case ready
+    case preparing
+    case waitingForSignature
+    case checking
+    case verified
+    case rejected
+    case failed
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension GovbrPhase: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeGovbrPhase: FfiConverterRustBuffer {
+    typealias SwiftType = GovbrPhase
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> GovbrPhase {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .ready
+        
+        case 2: return .preparing
+        
+        case 3: return .waitingForSignature
+        
+        case 4: return .checking
+        
+        case 5: return .verified
+        
+        case 6: return .rejected
+        
+        case 7: return .failed
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: GovbrPhase, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .ready:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .preparing:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .waitingForSignature:
+            writeInt(&buf, Int32(3))
+        
+        
+        case .checking:
+            writeInt(&buf, Int32(4))
+        
+        
+        case .verified:
+            writeInt(&buf, Int32(5))
+        
+        
+        case .rejected:
+            writeInt(&buf, Int32(6))
+        
+        
+        case .failed:
+            writeInt(&buf, Int32(7))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeGovbrPhase_lift(_ buf: RustBuffer) throws -> GovbrPhase {
+    return try FfiConverterTypeGovbrPhase.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeGovbrPhase_lower(_ value: GovbrPhase) -> RustBuffer {
+    return FfiConverterTypeGovbrPhase.lower(value)
+}
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * Why gov.br verification refused the document.
+ */
+
+public enum GovbrReason: Equatable, Hashable {
+    
+    case notSigned
+    case notGovbr
+    case wrongDocument
+    case expired
+    case cpfInUse
+    case changedAfterSigning
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension GovbrReason: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeGovbrReason: FfiConverterRustBuffer {
+    typealias SwiftType = GovbrReason
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> GovbrReason {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .notSigned
+        
+        case 2: return .notGovbr
+        
+        case 3: return .wrongDocument
+        
+        case 4: return .expired
+        
+        case 5: return .cpfInUse
+        
+        case 6: return .changedAfterSigning
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: GovbrReason, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .notSigned:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .notGovbr:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .wrongDocument:
+            writeInt(&buf, Int32(3))
+        
+        
+        case .expired:
+            writeInt(&buf, Int32(4))
+        
+        
+        case .cpfInUse:
+            writeInt(&buf, Int32(5))
+        
+        
+        case .changedAfterSigning:
+            writeInt(&buf, Int32(6))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeGovbrReason_lift(_ buf: RustBuffer) throws -> GovbrReason {
+    return try FfiConverterTypeGovbrReason.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeGovbrReason_lower(_ value: GovbrReason) -> RustBuffer {
+    return FfiConverterTypeGovbrReason.lower(value)
+}
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
  * Why a handle is refused (docs/usernames.md). The ids are shared by every platform.
  */
 
@@ -6555,6 +6905,30 @@ fileprivate struct FfiConverterOptionTypeForwardLine: FfiConverterRustBuffer {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterOptionTypeGovbrReason: FfiConverterRustBuffer {
+    typealias SwiftType = GovbrReason?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeGovbrReason.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeGovbrReason.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterOptionTypeHandleProblem: FfiConverterRustBuffer {
     typealias SwiftType = HandleProblem?
 
@@ -7259,6 +7633,29 @@ public func cvmLines(fieldJson: String?) -> CvmLines  {
     return try!  FfiConverterTypeCvmLines_lift(try! rustCall() {
     uniffi_bipe_core_fn_func_cvm_lines(
         FfiConverterOptionString.lower(fieldJson),$0
+    )
+})
+}
+/**
+ * What to do with an incoming PDF of `byte_count` bytes in `phase`.
+ */
+public func govbrIncoming(phase: GovbrPhase, byteCount: Int64, maxDocumentBytes: Int64) -> GovbrIncoming  {
+    return try!  FfiConverterTypeGovbrIncoming_lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_govbr_incoming(
+        FfiConverterTypeGovbrPhase_lower(phase),
+        FfiConverterInt64.lower(byteCount),
+        FfiConverterInt64.lower(maxDocumentBytes),$0
+    )
+})
+}
+/**
+ * The phase after a VerificationStatus answer of PUT .../document. A reason the app does not know fails closed.
+ */
+public func govbrResult(state: String, reason: String?) -> GovbrResult  {
+    return try!  FfiConverterTypeGovbrResult_lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_govbr_result(
+        FfiConverterString.lower(state),
+        FfiConverterOptionString.lower(reason),$0
     )
 })
 }
@@ -8096,6 +8493,12 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_bipe_core_checksum_func_cvm_lines() != 47403) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_bipe_core_checksum_func_govbr_incoming() != 42371) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_bipe_core_checksum_func_govbr_result() != 35462) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_bipe_core_checksum_func_contact_collision() != 10619) {
