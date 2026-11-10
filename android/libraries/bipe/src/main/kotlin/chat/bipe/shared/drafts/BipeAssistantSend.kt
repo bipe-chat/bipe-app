@@ -4,13 +4,15 @@
 
 package chat.bipe.shared.drafts
 
+import chat.bipe.core.assistantReaders
+import chat.bipe.core.assistantSendAllowed
+import chat.bipe.core.assistantSender
 import chat.bipe.shared.generated.BipeRegistries
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
 
 /**
  * Assistant sends (bipe ADR 0210, bipe-chat/bipe#439; registries/mcp-tools.json personalSend). The switch in the global
@@ -31,28 +33,15 @@ object BipeAssistantSend {
     private val cache = ConcurrentHashMap<String, String>()
 
     /** assistantSendAllowed: on only when the content is an object with enabled exactly true. Absent is off. */
-    fun allowed(content: JsonElement?): Boolean {
-        val enabled = (content as? JsonObject)?.get("enabled") as? JsonPrimitive ?: return false
-        return !enabled.isString && enabled.content == "true"
-    }
+    fun allowed(content: JsonElement?): Boolean = assistantSendAllowed(content?.toString())
 
-    /** assistantSendAllowed for the raw JSON of the account data. Null (no account data) is off. */
-    fun allowed(json: String?): Boolean = allowed(parse(json))
+    fun allowed(json: String?): Boolean = assistantSendAllowed(json)
 
-    /** The account data content for the switch. */
     fun json(enabled: Boolean): String = if (enabled) """{"enabled":true}""" else """{"enabled":false}"""
 
     /** assistantSender: the client name of a message an assistant sent, or null. */
-    fun sender(content: JsonObject?): String? {
-        val marker = content?.get(MARKER_FIELD) as? JsonObject ?: return null
-        val client = (marker["client"] as? JsonPrimitive)?.takeIf { it.isString }?.content?.trim().orEmpty()
-        return client.takeIf { it.isNotEmpty() && it.length <= CLIENT_MAX_LENGTH }
-    }
+    fun sender(content: JsonObject?): String? = assistantSender(content?.toString())
 
-    /**
-     * assistantSender for the raw JSON of a message event (or its content). [eventId] keys a cache, so a timeline
-     * rebuild reads each event once; [json] is read only on a cache miss.
-     */
     fun sender(eventId: String?, json: () -> String?): String? {
         if (eventId != null) cache[eventId]?.let { return it.ifEmpty { null } }
         val event = parse(json()) as? JsonObject
@@ -74,25 +63,9 @@ object BipeAssistantSend {
      * that their assistant reads the room. A member sets only their own marker: the state key starts with @ and equals
      * the sender, and the field is exactly true.
      */
-    fun readers(stateEvents: JsonArray): List<String> {
-        val out = sortedSetOf<String>()
-        for (element in stateEvents) {
-            val event = element as? JsonObject ?: continue
-            if ((event["type"] as? JsonPrimitive)?.takeIf { it.isString }?.content != READER_EVENT_TYPE) continue
-            val stateKey = (event["state_key"] as? JsonPrimitive)?.takeIf { it.isString }?.content ?: continue
-            if (!stateKey.startsWith("@")) continue
-            if ((event["sender"] as? JsonPrimitive)?.takeIf { it.isString }?.content != stateKey) continue
-            val value = (event["content"] as? JsonObject)?.get(READER_FIELD) as? JsonPrimitive ?: continue
-            if (!value.isString && value.content == "true") out.add(stateKey)
-        }
-        return out.toList()
-    }
+    fun readers(stateEvents: JsonArray): List<String> = assistantReaders(stateEvents.toString())
 
-    /**
-     * assistantReaders for the raw JSON of GET /_matrix/client/v3/rooms/{roomId}/state (an array of state events).
-     * Null or a body that is not an array gives no readers.
-     */
-    fun readers(stateJson: String?): List<String> = (parse(stateJson) as? JsonArray)?.let(::readers).orEmpty()
+    fun readers(stateJson: String?): List<String> = stateJson?.let { assistantReaders(it) }.orEmpty()
 
     private fun parse(json: String?): JsonElement? = json?.let { runCatching { Json.parseToJsonElement(it) }.getOrNull() }
 }
