@@ -143,6 +143,27 @@ pub const WORK_NOTE_FIELD: &str = "chat.bipe.work_note";
 pub const WORK_REPLY_BY_FIELD: &str = "chat.bipe.reply_by";
 pub const WORK_NOTE_BODY_MAX_LENGTH: usize = 4000;
 
+/// registries/onboarding.json (bipe-chat/bipe#202, bipe-chat/bipe#752, bipe-chat/bipe#894).
+pub const PIN_REMINDER_DAYS: &[u32] = &[1, 3, 7, 14, 30];
+pub const PIN_REMINDER_THEN_EVERY_DAYS: u32 = 60;
+pub const BRING_PEOPLE_STOP_AFTER_DECLINES: u32 = 2;
+pub const BRING_PEOPLE_FOLLOW_UP_EVERY_DAYS: i64 = 7;
+pub const BRING_PEOPLE_PENDING_AFTER_DAYS: i64 = 3;
+/// (key, tier) in queue order.
+pub const CHAT_LIST_PROMPTS: &[(&str, &str)] = &[("remoteBanner", "critical"), ("appUpdate", "critical"), ("approvePhone", "access"), ("notifications", "safety"), ("notificationCheckup", "safety"), ("recovery", "safety"), ("pinReminder", "safety"), ("osTheftProtection", "safety"), ("handle", "identity"), ("photo", "identity"), ("profile", "identity"), ("bringPeopleReminder", "growth"), ("invite", "growth"), ("notes", "discovery")];
+pub const PROMPT_SLOT_HOURS: i64 = 24;
+
+/// registries/stickers.json search (ADR 0205). Maps keep registry order.
+pub const STICKER_PREFIX_MIN_LENGTH: usize = 3;
+pub const STICKER_TAGS: &[&str] = &["riso", "amor", "bom-dia", "boa-tarde", "boa-noite", "parabens", "obrigado", "sextou", "tmj", "amem", "choro", "raiva", "surpresa", "ok", "tchau", "festa", "fome", "cansado", "duvida"];
+pub const STICKER_WORDS: &[(&str, &[&str])] = &[("k", &["riso"]), ("rs", &["riso"]), ("rsrs", &["riso"]), ("rsrsrs", &["riso"]), ("haha", &["riso"]), ("hahaha", &["riso"]), ("hehe", &["riso"]), ("hihi", &["riso"]), ("kaka", &["riso"]), ("lol", &["riso"]), ("risada", &["riso"]), ("rindo", &["riso"]), ("mori", &["riso"]), ("te amo", &["amor"]), ("love", &["amor"]), ("coracao", &["amor"]), ("beijo", &["amor"]), ("bj", &["amor"]), ("bjs", &["amor"]), ("saudade", &["amor"]), ("bomdia", &["bom-dia"]), ("bdia", &["bom-dia"]), ("durma bem", &["boa-noite"]), ("feliz aniversario", &["parabens"]), ("aniversario", &["parabens"]), ("niver", &["parabens"]), ("felicidades", &["parabens"]), ("obrigada", &["obrigado"]), ("obg", &["obrigado"]), ("brigado", &["obrigado"]), ("valeu", &["obrigado"]), ("vlw", &["obrigado"]), ("gratidao", &["obrigado"]), ("sexta", &["sextou"]), ("tamo junto", &["tmj"]), ("juntos", &["tmj"]), ("deus", &["amem"]), ("gloria", &["amem"]), ("fe", &["amem"]), ("oracao", &["amem"]), ("bencao", &["amem"]), ("abencoe", &["amem"]), ("chorando", &["choro"]), ("triste", &["choro"]), ("tristeza", &["choro"]), ("bua", &["choro"]), ("bravo", &["raiva"]), ("brava", &["raiva"]), ("odio", &["raiva"]), ("af", &["raiva"]), ("afs", &["raiva"]), ("chocado", &["surpresa"]), ("chocada", &["surpresa"]), ("uau", &["surpresa"]), ("nosa", &["surpresa"]), ("eita", &["surpresa"]), ("oxe", &["surpresa"]), ("vixe", &["surpresa"]), ("blz", &["ok"]), ("beleza", &["ok"]), ("sim", &["ok"]), ("certo", &["ok"]), ("combinado", &["ok"]), ("fechado", &["ok"]), ("joia", &["ok"]), ("flw", &["tchau"]), ("falou", &["tchau"]), ("ate mais", &["tchau"]), ("bye", &["tchau"]), ("comemorar", &["festa"]), ("carnaval", &["festa"]), ("bora", &["festa"]), ("comida", &["fome"]), ("almoco", &["fome"]), ("janta", &["fome"]), ("cansada", &["cansado"]), ("sono", &["cansado"]), ("preguica", &["cansado"]), ("z", &["cansado"]), ("hein", &["duvida"]), ("pensando", &["duvida"])];
+pub const STICKER_EMOJI: &[(&str, &[&str])] = &[("😂", &["riso"]), ("🤣", &["riso"]), ("😆", &["riso"]), ("😹", &["riso"]), ("❤", &["amor"]), ("😍", &["amor"]), ("🥰", &["amor"]), ("😘", &["amor"]), ("💕", &["amor"]), ("💖", &["amor"]), ("☀", &["bom-dia"]), ("🌞", &["bom-dia"]), ("🌅", &["bom-dia"]), ("☕", &["bom-dia"]), ("🌙", &["boa-noite"]), ("🎂", &["parabens"]), ("🥳", &["parabens", "festa"]), ("🎉", &["parabens", "festa"]), ("🎈", &["parabens"]), ("🙏", &["obrigado", "amem"]), ("🍻", &["sextou", "festa"]), ("🍺", &["sextou"]), ("🤝", &["tmj"]), ("💪", &["tmj"]), ("😭", &["choro"]), ("😢", &["choro"]), ("🥺", &["choro"]), ("😡", &["raiva"]), ("🤬", &["raiva"]), ("😤", &["raiva"]), ("🙄", &["raiva"]), ("😱", &["surpresa"]), ("😮", &["surpresa"]), ("😲", &["surpresa"]), ("🤯", &["surpresa"]), ("👍", &["ok"]), ("👌", &["ok"]), ("🤙", &["ok"]), ("✅", &["ok"]), ("👋", &["tchau"]), ("💃", &["festa"]), ("🪩", &["festa"]), ("🎊", &["festa"]), ("🍕", &["fome"]), ("🍔", &["fome"]), ("🤤", &["fome"]), ("😴", &["cansado"]), ("💤", &["cansado"]), ("🥱", &["cansado"]), ("🤔", &["duvida"])];
+
+/// registries/accounts.json PIN check (ADR 0057).
+pub const PIN_LENGTH: usize = 8;
+pub const PIN_DATE_YEAR_MIN: u32 = 1900;
+pub const PIN_DATE_YEAR_MAX: u32 = 2099;
+
 /// `personAssurance` of registries/schemes.json (ADR 0275): the person assurances, strongest first, and the seal
 /// mark of each. personProofs reads it; test-vectors/person-proofs.json checks it.
 /// HOME_COUNTRY of tools/lib/registries.mjs: personProofs puts the proofs of this country first (ADR 0272 decision 7).
