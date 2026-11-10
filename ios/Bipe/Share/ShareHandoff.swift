@@ -134,16 +134,14 @@ enum ShareHandoff {
             candidates.append((manifest, folder))
         }
         candidates.sort { $0.0.createdAt > $1.0.createdAt }
-        for (index, candidate) in candidates.enumerated() {
-            if index > 0 {
-                try? FileManager.default.removeItem(at: candidate.1)
-                continue
-            }
-            let claimed = root.appendingPathComponent("claimed-\(candidate.0.id)", isDirectory: true)
-            guard (try? FileManager.default.moveItem(at: candidate.1, to: claimed)) != nil else { return nil }
-            return Claimed(manifest: candidate.0, folder: claimed)
+        // Only the newest is claimed; the older ones go.
+        for candidate in candidates.dropFirst() {
+            try? FileManager.default.removeItem(at: candidate.1)
         }
-        return nil
+        guard let newest = candidates.first else { return nil }
+        let claimed = root.appendingPathComponent("claimed-\(newest.0.id)", isDirectory: true)
+        guard (try? FileManager.default.moveItem(at: newest.1, to: claimed)) != nil else { return nil }
+        return Claimed(manifest: newest.0, folder: claimed)
     }
 
     /// Signed out: nothing is kept.

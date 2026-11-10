@@ -6,11 +6,17 @@
 
 mod badge;
 mod cvm;
+mod identity;
 mod issuer;
+mod message_data;
 mod notice;
+mod person;
+mod profile_facts;
 mod pix;
 mod pix_marks;
+mod scam;
 mod signed_list;
+mod text;
 mod theft;
 
 /// bipe-shared tools/gen.mjs output (bipe-chat/bipe#1277). Never edit by hand.
@@ -20,11 +26,17 @@ mod generated {
 
 pub use badge::*;
 pub use cvm::*;
+pub use identity::*;
 pub use issuer::*;
+pub use message_data::*;
 pub use notice::*;
+pub use person::*;
+pub use profile_facts::*;
 pub use pix::*;
 pub use pix_marks::*;
+pub use scam::*;
 pub use signed_list::*;
+pub use text::{TextFold, normalize_text};
 pub use theft::*;
 
 uniffi::setup_scaffolding!("bipe_core");

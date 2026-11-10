@@ -9,7 +9,7 @@
 
 use serde_json::Value;
 
-use crate::pix::js_trim;
+use crate::text::js_trim;
 
 const MAX_CATEGORIES: usize = 10;
 /// In UTF-16 units, as the reference's `.length`.

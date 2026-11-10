@@ -110,7 +110,7 @@ export async function check(call, pkg, versionCode) {
   const highest = await highestVersionCode(call, pkg);
   console.log(`${pkg}: highest uploaded versionCode ${highest}, this build ${versionCode}`);
   if (versionCode <= highest) {
-    throw new Error(`versionCode ${versionCode} is not higher than ${highest}: raise the build in bipe-shared product/version.json (node tools/bump-build.mjs)`);
+    throw new Error(`versionCode ${versionCode} is not higher than ${highest}: raise "build" in version.json (tools/version.mjs)`);
   }
   return highest;
 }

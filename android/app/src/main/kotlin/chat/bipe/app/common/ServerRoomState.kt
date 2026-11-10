@@ -23,6 +23,8 @@ suspend fun serverRoomState(client: Client, roomId: String): String = withContex
     val url = URL("${auth.homeserverUrl.trimEnd('/')}/_matrix/client/v3/rooms/$room/state")
     val connection = url.openConnection() as HttpURLConnection
     try {
+        connection.connectTimeout = 30_000
+        connection.readTimeout = 30_000
         connection.setRequestProperty("Authorization", "Bearer ${auth.accessToken}")
         when (connection.responseCode) {
             200 -> connection.inputStream.bufferedReader().use { it.readText() }

@@ -4,7 +4,7 @@
 
 # Rust core spike (ADR 0267, bipe-chat/bipe#1172). Each job builds bipe-core for one client, loads the
 # packaged artifact, runs bipe-shared test-vectors/badges.json through it and writes its numbers to the summary.
-# No production client uses this library.
+# iOS and Android link the pinned release (core/release/release.json), not the build of this run.
 name: core
 
 on:
@@ -80,11 +80,6 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: core
-      - name: Lockfiles
-        working-directory: core
-        run: |
-          [ -f Cargo.lock ] || cargo generate-lockfile
-          [ -f tools/uniffi-bindgen/Cargo.lock ] || cargo generate-lockfile --manifest-path tools/uniffi-bindgen/Cargo.toml
       # Agents have no Rust toolchain (bipe docs/agents/builds.md). When a manifest change needs a new lockfile,
       # this step shows cargo's own minimal change and the core-lockfiles artifact holds the file to commit.
       - name: Lockfile is current

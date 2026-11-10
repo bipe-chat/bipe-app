@@ -65,6 +65,7 @@ import chat.bipe.shared.company.normalized
 import chat.bipe.shared.company.proveBusinessWithEcnpj
 import chat.bipe.shared.company.withdrawBusiness
 import chat.bipe.shared.generated.BipeScreen
+import chat.bipe.shared.readAtMost
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlinx.coroutines.CancellationException
@@ -438,14 +439,3 @@ private fun NoticeLine(state: BusinessClaimModel.State, part: BusinessClaimModel
     Text(stringResource(notice.text), style = MaterialTheme.typography.bodySmall, color = BipeTheme.colors.inkSecondary)
 }
 
-/** Reads up to [limit] bytes (InputStream.readNBytes needs API 33). */
-private fun java.io.InputStream.readAtMost(limit: Int): ByteArray {
-    val output = java.io.ByteArrayOutputStream()
-    val buffer = ByteArray(8 * 1024)
-    while (output.size() < limit) {
-        val read = read(buffer, 0, minOf(buffer.size, limit - output.size()))
-        if (read < 0) break
-        output.write(buffer, 0, read)
-    }
-    return output.toByteArray()
-}

@@ -316,20 +316,6 @@ public struct BipeAPIClient: Sendable {
         let _: NoContent = try await send(method: "PUT", path: ["v1", "me", "invites", id], body: InviteName(name: name), accessToken: accessToken)
     }
     
-    // MARK: - Messaging
-    
-    /// `GET /v1/me/messaging`. Who can message the caller.
-    public func messagingSetting(accessToken: String) async throws(BipeAPIError) -> BipeWhoCanMessage {
-        let response: MessagingSetting = try await send(method: "GET", path: ["v1", "me", "messaging"], body: Empty?.none, accessToken: accessToken)
-        return response.whoCanMessage
-    }
-    
-    /// `PUT /v1/me/messaging`. The server enforces it on invites.
-    public func setMessagingSetting(_ value: BipeWhoCanMessage, accessToken: String) async throws(BipeAPIError) -> BipeWhoCanMessage {
-        let response: MessagingSetting = try await send(method: "PUT", path: ["v1", "me", "messaging"], body: MessagingSetting(whoCanMessage: value), accessToken: accessToken)
-        return response.whoCanMessage
-    }
-    
     // MARK: - Handles
     
     /// `GET /v1/handles/{handle}/availability`. No auth.
@@ -527,10 +513,6 @@ public struct BipeAPIClient: Sendable {
     
     private struct InviteName: Encodable {
         let name: String
-    }
-    
-    private struct MessagingSetting: Codable {
-        let whoCanMessage: BipeWhoCanMessage
     }
     
     private struct ResolveResponse: Decodable {

@@ -95,6 +95,8 @@ suspend fun timestampToEvent(client: Client, roomId: String, millis: Long): Time
     val url = URL("${auth.homeserverUrl.trimEnd('/')}/_matrix/client/v1/rooms/$room/timestamp_to_event?ts=${maxOf(0L, millis)}&dir=f")
     val connection = url.openConnection() as HttpURLConnection
     try {
+        connection.connectTimeout = 30_000
+        connection.readTimeout = 30_000
         connection.setRequestProperty("Authorization", "Bearer ${auth.accessToken}")
         when (connection.responseCode) {
             200 -> {

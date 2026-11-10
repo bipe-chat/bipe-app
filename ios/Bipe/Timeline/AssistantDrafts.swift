@@ -66,10 +66,6 @@ final class AssistantDraftsStore: ObservableObject {
         roomIds[userId]
     }
 
-    func isDraftsRoom(_ roomId: String, userId: String) -> Bool {
-        roomIds[userId] == roomId
-    }
-
     /// Reads chat.bipe.drafts_room for an account, without opening its timeline (the room lists of every account).
     @discardableResult
     func learnRoomId(session: AccountSession) async -> String? {

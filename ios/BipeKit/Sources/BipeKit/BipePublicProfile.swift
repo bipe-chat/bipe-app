@@ -2,6 +2,7 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
+import BipeCore
 import SwiftUI
 
 /// Same ids as `profileProblem()` in bipe-shared/tools/lib/registries.mjs and the API's `ProfileProblem`.
@@ -53,27 +54,17 @@ public enum BipeProfileProblem: String, Sendable, Equatable {
 
 /// Client-side profile checks for early feedback (ADR 0041). The server is the authority.
 public nonisolated enum BipePublicProfileRules {
-    /// Port of `profileProblem()`. Lengths count Unicode scalars, like JS `[...s].length`.
+    /// `profileProblem()` in bipe-core. Lengths count code points, like the API.
     public static func profileProblem(name: String, bio: String) -> BipeProfileProblem? {
-        let trimmedName = trim(name)
-        if trimmedName.unicodeScalars.isEmpty {
-            return .nameEmpty
+        BipeCore.profileProblem(name: name, bio: bio).map { problem in
+            switch problem {
+            case .nameEmpty: .nameEmpty
+            case .nameTooLong: .nameTooLong
+            case .nameReserved: .nameReserved
+            case .bioTooLong: .bioTooLong
+            case .bioTooManyLines: .bioTooManyLines
+            }
         }
-        if trimmedName.unicodeScalars.count > BipeRegistries.profileNameMaxLength {
-            return .nameTooLong
-        }
-        if NameNormalizer.reservedCategory(for: trimmedName) != nil {
-            return .nameReserved
-        }
-        let trimmedBio = trim(bio)
-        if trimmedBio.unicodeScalars.count > BipeRegistries.profileBioMaxLength {
-            return .bioTooLong
-        }
-        // JS `split("\n")`: count scalars, because Swift treats "\r\n" as one Character.
-        if trimmedBio.unicodeScalars.count(where: { $0 == "\n" }) + 1 > BipeRegistries.profileBioMaxLines {
-            return .bioTooManyLines
-        }
-        return nil
     }
     
     /// JS `String.prototype.trim()`.
@@ -84,34 +75,6 @@ public nonisolated enum BipePublicProfileRules {
             return ""
         }
         return String(scalars[start...end])
-    }
-}
-
-/// The bio from another user's public profile. Shows nothing when the user has none.
-public struct BipePublicProfileBioView: View {
-    private let userID: String
-    @Environment(\.bipeHandleResolver) private var handleResolver
-    @State private var bio: String?
-    
-    public init(userID: String) {
-        self.userID = userID
-    }
-    
-    public var body: some View {
-        // A stack, not a bare `if`: `.task` must run while the bio is still nil.
-        VStack(spacing: 0) {
-            if let bio {
-                Text(bio)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 16)
-                    .padding(.top, 8)
-            }
-        }
-        .task(id: userID) {
-            bio = await handleResolver?.publicProfile(for: userID)?.bio
-        }
     }
 }
 

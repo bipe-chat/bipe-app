@@ -196,6 +196,16 @@ public enum BipeStrings {
 
     public static var badgeCompanySuspended: String { NSLocalizedString("bipe_badge_company_suspended", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var badgeSealIssuer: String { NSLocalizedString("bipe_badge_seal_issuer", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var badgeSealCountry: String { NSLocalizedString("bipe_badge_seal_country", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var badgeOrgId: String { NSLocalizedString("bipe_badge_org_id", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var badgeOrgBody: String { NSLocalizedString("bipe_badge_org_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var badgeForeignBody: String { NSLocalizedString("bipe_badge_foreign_body", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static func cvmRegistered(_ p1: String) -> String {
         String(format: NSLocalizedString("bipe_cvm_registered", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
@@ -3350,32 +3360,6 @@ public enum BipeStrings {
 
     public static var archivedTitle: String { NSLocalizedString("bipe_archived_title", tableName: "Bipe", bundle: .module, comment: "") }
 
-    public static var groupActionAddExistingRooms: String { NSLocalizedString("bipe_group_action_add_existing_rooms", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupActionManageRooms: String { NSLocalizedString("bipe_group_action_manage_rooms", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupCommonCreatingRoom: String { NSLocalizedString("bipe_group_common_creating_room", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupCommonCurrentUserLeftRoom: String { NSLocalizedString("bipe_group_common_current_user_left_room", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupCommonLeavingRoom: String { NSLocalizedString("bipe_group_common_leaving_room", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupCommonPrivateRoom: String { NSLocalizedString("bipe_group_common_private_room", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupCommonPublicRoom: String { NSLocalizedString("bipe_group_common_public_room", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupCommonRoom: String { NSLocalizedString("bipe_group_common_room", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupCommonRoomName: String { NSLocalizedString("bipe_group_common_room_name", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static func groupCommonRooms(_ p1: String) -> String {
-        String(format: NSLocalizedString("bipe_group_common_rooms", tableName: "Bipe", bundle: .module, comment: ""), p1)
-    }
-
-    public static var groupCommonTopic: String { NSLocalizedString("bipe_group_common_topic", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupCommonTopicPlaceholder: String { NSLocalizedString("bipe_group_common_topic_placeholder", tableName: "Bipe", bundle: .module, comment: "") }
-
     public static func groupCryptoHistoryVisible(_ p1: String) -> String {
         String(format: NSLocalizedString("bipe_group_crypto_history_visible", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
@@ -3392,176 +3376,6 @@ public enum BipeStrings {
         String(format: NSLocalizedString("bipe_group_notification_unread_notified_messages_in_room_rooms", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
 
-    public static var groupScreenAdvancedSettingsHideInviteAvatarsToggleTitle: String { NSLocalizedString("bipe_group_screen_advanced_settings_hide_invite_avatars_toggle_title", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenAdvancedSettingsShowMediaTimelinePrivateRooms: String { NSLocalizedString("bipe_group_screen_advanced_settings_show_media_timeline_private_rooms", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenBottomSheetManageRoomMemberBan: String { NSLocalizedString("bipe_group_screen_bottom_sheet_manage_room_member_ban", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenBottomSheetManageRoomMemberBanMemberConfirmationDescription: String { NSLocalizedString("bipe_group_screen_bottom_sheet_manage_room_member_ban_member_confirmation_description", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenBottomSheetManageRoomMemberBanMemberFromSpaceConfirmationDescription: String { NSLocalizedString("bipe_group_screen_bottom_sheet_manage_room_member_ban_member_from_space_confirmation_description", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenBottomSheetManageRoomMemberKickMemberConfirmationDescription: String { NSLocalizedString("bipe_group_screen_bottom_sheet_manage_room_member_kick_member_confirmation_description", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenBottomSheetManageRoomMemberKickMemberFromSpaceConfirmationDescription: String { NSLocalizedString("bipe_group_screen_bottom_sheet_manage_room_member_kick_member_from_space_confirmation_description", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenBottomSheetManageRoomMemberUnban: String { NSLocalizedString("bipe_group_screen_bottom_sheet_manage_room_member_unban", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenBottomSheetManageRoomMemberUnbanMemberConfirmationDescription: String { NSLocalizedString("bipe_group_screen_bottom_sheet_manage_room_member_unban_member_confirmation_description", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenCreateRoomActionCreateRoom: String { NSLocalizedString("bipe_group_screen_create_room_action_create_room", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenCreateRoomErrorCreatingRoom: String { NSLocalizedString("bipe_group_screen_create_room_error_creating_room", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenCreateRoomNewRoomTitle: String { NSLocalizedString("bipe_group_screen_create_room_new_room_title", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenCreateRoomPublicOptionDescription: String { NSLocalizedString("bipe_group_screen_create_room_public_option_description", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenCreateRoomRoomVisibilitySectionTitle: String { NSLocalizedString("bipe_group_screen_create_room_room_visibility_section_title", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenCreateRoomTopicLabel: String { NSLocalizedString("bipe_group_screen_create_room_topic_label", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenDeactivateAccountListItem2: String { NSLocalizedString("bipe_group_screen_deactivate_account_list_item_2", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenJoinRoomCancelKnockAlertDescription: String { NSLocalizedString("bipe_group_screen_join_room_cancel_knock_alert_description", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenJoinRoomKnockSentDescription: String { NSLocalizedString("bipe_group_screen_join_room_knock_sent_description", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenJoinRoomSubtitleKnock: String { NSLocalizedString("bipe_group_screen_join_room_subtitle_knock", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenJoinRoomSubtitleNoPreview: String { NSLocalizedString("bipe_group_screen_join_room_subtitle_no_preview", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenJoinRoomTitleKnock: String { NSLocalizedString("bipe_group_screen_join_room_title_knock", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static func groupScreenKnockRequestsListBanAlertDescription(_ p1: String) -> String {
-        String(format: NSLocalizedString("bipe_group_screen_knock_requests_list_ban_alert_description", tableName: "Bipe", bundle: .module, comment: ""), p1)
-    }
-
-    public static func groupScreenKnockRequestsListDeclineAlertDescription(_ p1: String) -> String {
-        String(format: NSLocalizedString("bipe_group_screen_knock_requests_list_decline_alert_description", tableName: "Bipe", bundle: .module, comment: ""), p1)
-    }
-
-    public static var groupScreenKnockRequestsListEmptyStateDescription: String { NSLocalizedString("bipe_group_screen_knock_requests_list_empty_state_description", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static func groupScreenLeaveSpaceSubmit(_ p1: String) -> String {
-        String(format: NSLocalizedString("bipe_group_screen_leave_space_submit", tableName: "Bipe", bundle: .module, comment: ""), p1)
-    }
-
-    public static var groupScreenLeaveSpaceSubtitle: String { NSLocalizedString("bipe_group_screen_leave_space_subtitle", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenLeaveSpaceSubtitleOnlyLastAdmin: String { NSLocalizedString("bipe_group_screen_leave_space_subtitle_only_last_admin", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenManageAuthorizedSpacesHeader: String { NSLocalizedString("bipe_group_screen_manage_authorized_spaces_header", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenMediaBrowserFilesEmptyStateSubtitle: String { NSLocalizedString("bipe_group_screen_media_browser_files_empty_state_subtitle", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenMediaBrowserMediaEmptyStateSubtitle: String { NSLocalizedString("bipe_group_screen_media_browser_media_empty_state_subtitle", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenRoomAliasResolverResolveAliasFailure: String { NSLocalizedString("bipe_group_screen_room_alias_resolver_resolve_alias_failure", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenRoomChangePermissionsManageSpaceRooms: String { NSLocalizedString("bipe_group_screen_room_change_permissions_manage_space_rooms", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenRoomChangePermissionsRoomAvatar: String { NSLocalizedString("bipe_group_screen_room_change_permissions_room_avatar", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenRoomChangePermissionsRoomName: String { NSLocalizedString("bipe_group_screen_room_change_permissions_room_name", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenRoomChangePermissionsRoomTopic: String { NSLocalizedString("bipe_group_screen_room_change_permissions_room_topic", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenRoomChangeRoleConfirmChangeOwnersDescription: String { NSLocalizedString("bipe_group_screen_room_change_role_confirm_change_owners_description", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenRoomChangeRoleConfirmDemoteSelfDescription: String { NSLocalizedString("bipe_group_screen_room_change_role_confirm_demote_self_description", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenRoomDetailsAddTopicTitle: String { NSLocalizedString("bipe_group_screen_room_details_add_topic_title", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenRoomDetailsBadgePublic: String { NSLocalizedString("bipe_group_screen_room_details_badge_public", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenRoomDetailsEditionErrorTitle: String { NSLocalizedString("bipe_group_screen_room_details_edition_error_title", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenRoomDetailsErrorMuting: String { NSLocalizedString("bipe_group_screen_room_details_error_muting", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenRoomDetailsErrorUnmuting: String { NSLocalizedString("bipe_group_screen_room_details_error_unmuting", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenRoomDetailsLeaveRoomTitle: String { NSLocalizedString("bipe_group_screen_room_details_leave_room_title", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenRoomDetailsShareRoomTitle: String { NSLocalizedString("bipe_group_screen_room_details_share_room_title", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenRoomDetailsTitle: String { NSLocalizedString("bipe_group_screen_room_details_title", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenRoomDetailsUpdatingRoom: String { NSLocalizedString("bipe_group_screen_room_details_updating_room", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenRoomDirectorySearchTitle: String { NSLocalizedString("bipe_group_screen_room_directory_search_title", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenRoomEncryptedHistoryBannerUnverified: String { NSLocalizedString("bipe_group_screen_room_encrypted_history_banner_unverified", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenRoomMemberListManageMemberRemoveConfirmationBan: String { NSLocalizedString("bipe_group_screen_room_member_list_manage_member_remove_confirmation_ban", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenRoomMemberListManageMemberUnbanMessage: String { NSLocalizedString("bipe_group_screen_room_member_list_manage_member_unban_message", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenRoomMemberListManageMemberUnbanTitle: String { NSLocalizedString("bipe_group_screen_room_member_list_manage_member_unban_title", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenRoomMemberListRoomMembersHeaderTitle: String { NSLocalizedString("bipe_group_screen_room_member_list_room_members_header_title", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenRoomMentionsAtRoomSubtitle: String { NSLocalizedString("bipe_group_screen_room_mentions_at_room_subtitle", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static func groupScreenRoomMultipleKnockRequestsTitle(_ p1: String, _ p2: String) -> String {
-        String(format: NSLocalizedString("bipe_group_screen_room_multiple_knock_requests_title", tableName: "Bipe", bundle: .module, comment: ""), p1, p2)
-    }
-
-    public static var groupScreenRoomRolesAndPermissionsRoomDetails: String { NSLocalizedString("bipe_group_screen_room_roles_and_permissions_room_details", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static func groupScreenRoomSingleKnockRequestTitle(_ p1: String) -> String {
-        String(format: NSLocalizedString("bipe_group_screen_room_single_knock_request_title", tableName: "Bipe", bundle: .module, comment: ""), p1)
-    }
-
-    public static var groupScreenRoomlistA11yCreateMessage: String { NSLocalizedString("bipe_group_screen_roomlist_a11y_create_message", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenRoomlistFilterRooms: String { NSLocalizedString("bipe_group_screen_roomlist_filter_rooms", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenRoomlistFilterRoomsEmptyStateTitle: String { NSLocalizedString("bipe_group_screen_roomlist_filter_rooms_empty_state_title", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenSecurityAndPrivacyEnableEncryptionAlertDescription: String { NSLocalizedString("bipe_group_screen_security_and_privacy_enable_encryption_alert_description", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static func groupScreenSecurityAndPrivacyRoomAccessFooter(_ p1: String) -> String {
-        String(format: NSLocalizedString("bipe_group_screen_security_and_privacy_room_access_footer", tableName: "Bipe", bundle: .module, comment: ""), p1)
-    }
-
-    public static func groupScreenSecurityAndPrivacyRoomDirectoryVisibilitySectionFooter(_ p1: String) -> String {
-        String(format: NSLocalizedString("bipe_group_screen_security_and_privacy_room_directory_visibility_section_footer", tableName: "Bipe", bundle: .module, comment: ""), p1)
-    }
-
-    public static var groupScreenSecurityAndPrivacyRoomPublishingSectionFooter: String { NSLocalizedString("bipe_group_screen_security_and_privacy_room_publishing_section_footer", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenSecurityAndPrivacyRoomPublishingSectionHeader: String { NSLocalizedString("bipe_group_screen_security_and_privacy_room_publishing_section_header", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenSecurityAndPrivacyRoomVisibilitySectionFooter: String { NSLocalizedString("bipe_group_screen_security_and_privacy_room_visibility_section_footer", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenSpaceAddRoomAction: String { NSLocalizedString("bipe_group_screen_space_add_room_action", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenSpaceAddRoomsRoomAccessDescription: String { NSLocalizedString("bipe_group_screen_space_add_rooms_room_access_description", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenSpaceEmptyStateTitle: String { NSLocalizedString("bipe_group_screen_space_empty_state_title", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenSpaceListEmptyStateTitle: String { NSLocalizedString("bipe_group_screen_space_list_empty_state_title", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenSpaceRemoveRoomsConfirmationContent: String { NSLocalizedString("bipe_group_screen_space_remove_rooms_confirmation_content", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static func groupScreenSpaceRemoveRoomsConfirmationTitle(_ p1: String, _ p2: String) -> String {
-        String(format: NSLocalizedString("bipe_group_screen_space_remove_rooms_confirmation_title", tableName: "Bipe", bundle: .module, comment: ""), p1, p2)
-    }
-
-    public static func groupScreenSpaceRemoveRoomsConfirmationTitleIos(_ p1: String) -> String {
-        String(format: NSLocalizedString("bipe_group_screen_space_remove_rooms_confirmation_title_ios", tableName: "Bipe", bundle: .module, comment: ""), p1)
-    }
-
-    public static var groupScreenStartChatJoinRoomByAddressAction: String { NSLocalizedString("bipe_group_screen_start_chat_join_room_by_address_action", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenStartChatJoinRoomByAddressRoomFound: String { NSLocalizedString("bipe_group_screen_start_chat_join_room_by_address_room_found", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenStartChatJoinRoomByAddressRoomNotFound: String { NSLocalizedString("bipe_group_screen_start_chat_join_room_by_address_room_not_found", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenStartChatJoinRoomByAddressSupportingText: String { NSLocalizedString("bipe_group_screen_start_chat_join_room_by_address_supporting_text", tableName: "Bipe", bundle: .module, comment: "") }
-
     public static func groupStateEventRoomCreated(_ p1: String) -> String {
         String(format: NSLocalizedString("bipe_group_state_event_room_created", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
@@ -3569,12 +3383,6 @@ public enum BipeStrings {
     public static var groupStateEventRoomCreatedByYou: String { NSLocalizedString("bipe_group_state_event_room_created_by_you", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var groupA11yTombstonedRoom: String { NSLocalizedString("bipe_group_a11y_tombstoned_room", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupActionLeaveRoom: String { NSLocalizedString("bipe_group_action_leave_room", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupActionReportRoom: String { NSLocalizedString("bipe_group_action_report_room", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupCommonAndroidShortcutsRemoveReasonLeftRoom: String { NSLocalizedString("bipe_group_common_android_shortcuts_remove_reason_left_room", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var groupCommonNoRoomName: String { NSLocalizedString("bipe_group_common_no_room_name", tableName: "Bipe", bundle: .module, comment: "") }
 
@@ -3601,50 +3409,6 @@ public enum BipeStrings {
     public static func groupNotificationRoomInviteBodyWithSender(_ p1: String) -> String {
         String(format: NSLocalizedString("bipe_group_notification_room_invite_body_with_sender", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
-
-    public static var groupScreenDeclineAndBlockBlockUserOptionDescription: String { NSLocalizedString("bipe_group_screen_decline_and_block_block_user_option_description", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenDeclineAndBlockReportUserOptionDescription: String { NSLocalizedString("bipe_group_screen_decline_and_block_report_user_option_description", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static func groupScreenJoinRoomDeclineAndBlockAlertMessage(_ p1: String) -> String {
-        String(format: NSLocalizedString("bipe_group_screen_join_room_decline_and_block_alert_message", tableName: "Bipe", bundle: .module, comment: ""), p1)
-    }
-
-    public static var groupScreenJoinRoomLoadingAlertMessage: String { NSLocalizedString("bipe_group_screen_join_room_loading_alert_message", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenJoinRoomLoadingAlertTitle: String { NSLocalizedString("bipe_group_screen_join_room_loading_alert_title", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenMediaBrowserDeleteConfirmationSubtitle: String { NSLocalizedString("bipe_group_screen_media_browser_delete_confirmation_subtitle", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenNotificationSettingsMentionsOnlyDisclaimer: String { NSLocalizedString("bipe_group_screen_notification_settings_mentions_only_disclaimer", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenReportRoomLeaveFailedAlertMessage: String { NSLocalizedString("bipe_group_screen_report_room_leave_failed_alert_message", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenReportRoomLeaveFailedAlertTitle: String { NSLocalizedString("bipe_group_screen_report_room_leave_failed_alert_title", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenReportRoomReasonFooter: String { NSLocalizedString("bipe_group_screen_report_room_reason_footer", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenReportRoomTitle: String { NSLocalizedString("bipe_group_screen_report_room_title", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenRoomNotificationSettingsMentionsOnlyDisclaimer: String { NSLocalizedString("bipe_group_screen_room_notification_settings_mentions_only_disclaimer", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenRoomNotificationSettingsRoomCustomSettingsTitle: String { NSLocalizedString("bipe_group_screen_room_notification_settings_room_custom_settings_title", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenRoomPermalinkSameRoomAndroid: String { NSLocalizedString("bipe_group_screen_room_permalink_same_room_android", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenRoomTimelineNoPermissionToPost: String { NSLocalizedString("bipe_group_screen_room_timeline_no_permission_to_post", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static func groupScreenRoomTimelineStateChanges(_ p1: String) -> String {
-        String(format: NSLocalizedString("bipe_group_screen_room_timeline_state_changes", tableName: "Bipe", bundle: .module, comment: ""), p1)
-    }
-
-    public static var groupScreenRoomTimelineTombstonedRoomAction: String { NSLocalizedString("bipe_group_screen_room_timeline_tombstoned_room_action", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenRoomTimelineTombstonedRoomMessage: String { NSLocalizedString("bipe_group_screen_room_timeline_tombstoned_room_message", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenRoomTimelineUpgradedRoomMessage: String { NSLocalizedString("bipe_group_screen_room_timeline_upgraded_room_message", tableName: "Bipe", bundle: .module, comment: "") }
-
-    public static var groupScreenRoomlistTombstonedRoomDescription: String { NSLocalizedString("bipe_group_screen_roomlist_tombstoned_room_description", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static func groupStateEventRoomAvatarChanged(_ p1: String) -> String {
         String(format: NSLocalizedString("bipe_group_state_event_room_avatar_changed", tableName: "Bipe", bundle: .module, comment: ""), p1)

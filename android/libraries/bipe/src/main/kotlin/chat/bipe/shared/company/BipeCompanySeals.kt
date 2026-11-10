@@ -6,6 +6,7 @@ package chat.bipe.shared.company
 
 import android.content.SharedPreferences
 import androidx.compose.runtime.Immutable
+import chat.bipe.shared.BadgeClass
 import chat.bipe.shared.BadgeLevel
 import chat.bipe.shared.BadgePayload
 import chat.bipe.shared.BadgeVerificationResult
@@ -224,13 +225,13 @@ class BipeCompanySeals(
                     nowMillis = now,
                 )
                 when {
-                    result is BadgeVerificationResult.Valid && result.payload.lvl == BadgeLevel.CNPJ -> {
+                    result is BadgeVerificationResult.Valid && result.payload.lvl.badgeClass == BadgeClass.ORG -> {
                         seen.add(userId)
                         return Entry(BipeCompanySealState.Verified(result.payload), minOf(result.payload.exp * 1000, now + TTL_MILLIS))
                     }
                     result is BadgeVerificationResult.Valid && result.payload.lvl == BadgeLevel.INSTITUTION ->
                         return Entry(BipeCompanySealState.None, minOf(result.payload.exp * 1000, now + TTL_MILLIS), result.payload)
-                    result is BadgeVerificationResult.Valid && (result.payload.lvl == BadgeLevel.PIX || result.payload.lvl == BadgeLevel.GOVBR) -> {
+                    result is BadgeVerificationResult.Valid && result.payload.lvl.badgeClass == BadgeClass.PERSON -> {
                         // The seal shows only when identityVerified holds (registries/trust-facts.json).
                         val identity = BipeTrustSources.Identity(key, isVerified = false, hasVerificationViolation = false)
                         val facts = BipeTrustSources.profileFacts(userId, identity, BipeTrustSources.Seal.Verified(result.payload.name))

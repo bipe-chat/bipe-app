@@ -264,7 +264,7 @@ struct SharedVectorTests {
     func scamWarnings() throws {
         for vector in try SharedVectors.array("scam-warnings.json", key: "vectors") {
             let message = try #require(vector["message"] as? String)
-            let kind = ScamDetector.warningKind(forMatchIDs: ScamDetector.matchIDs(in: message), message: message)
+            let kind = ScamDetector.warningKind(in: message)
             #expect(kind?.rawValue == vector["kind"] as? String, "kind(\(message))")
         }
     }
@@ -304,14 +304,14 @@ struct SharedVectorTests {
         }
     }
     
-    /// The client checks length and characters only. Reserved names and lookalikes are the server's call.
+    /// The client runs `handleProblem` without a claimant (bipe-core): shape and reserved names. A claim by an owner
+    /// and lookalikes of taken handles are the server's call, so the cases with a claimant are not run here.
     @Test
     func handles() throws {
-        let localProblems: Set = ["too_short", "too_long", "invalid_characters"]
-        for vector in try SharedVectors.array("handles.json", key: "cases") {
+        for vector in try SharedVectors.array("handles.json", key: "cases") where vector["claimant"] == nil {
             let input = try #require(vector["input"] as? String)
-            let expected = (vector["problem"] as? String).flatMap { localProblems.contains($0) ? $0 : nil }
-            #expect(BipeHandle.localProblem(for: input)?.rawValue == expected, "localProblem(\(input))")
+            #expect(BipeHandle.localProblem(for: input)?.rawValue == vector["problem"] as? String, "localProblem(\(input))")
+            #expect(BipeHandle.skeleton(input) == vector["skeleton"] as? String, "skeleton(\(input))")
         }
     }
     
@@ -441,7 +441,7 @@ struct SharedVectorTests {
     }
     
     /// test-vectors/badge-issuers.json through the release path: bipe-core against an issuer registry (bipe-chat/bipe#637).
-    /// The app shows no `person` or `org` seal yet (ADR 0272), so a valid badge of those levels is no seal here: `malformed`.
+    /// `person` and `org` badges (ADR 0272) show as seals, so every vector gives its own verdict (bipe-chat/bipe#1193).
     @Test
     func badgeIssuers() throws {
         let file = try SharedVectors.object("badge-issuers.json")
@@ -455,11 +455,8 @@ struct SharedVectorTests {
         for vector in vectors {
             let name = try #require(vector["name"] as? String)
             let envelopeObject = try #require(vector["envelope"] as? [String: Any])
-            let payloadText = try #require(envelopeObject["payload"] as? String)
-            let payload = try #require(Data(base64URL: payloadText))
-            let level = try (JSONSerialization.jsonObject(with: payload) as? [String: Any])?["lvl"] as? String
-            let expect = try #require(vector["expect"] as? String)
-            let expected = expect == "valid" && (level == "person" || level == "org") ? "malformed" : expect
+            // person and org badges (ADR 0272) show as seals, so every vector gives its own verdict (bipe-chat/bipe#1193).
+            let expected = try #require(vector["expect"] as? String)
             let result = try verifier.verify(envelopeJSON: JSONSerialization.data(withJSONObject: envelopeObject),
                                              sender: #require(vector["sender"] as? String),
                                              senderMasterKey: vector["senderMasterKey"] as? String,
@@ -472,6 +469,33 @@ struct SharedVectorTests {
             if name == "other issuer: valid", case .valid(let shown) = result {
                 #expect(shown.issuerName == "Banco Exemplo")
             }
+        }
+    }
+
+    /// badge-issuers.json releaseRefuses (bipe-chat/bipe#1195): badges of the test-only region zz against the issuer
+    /// registry that this build bundles. A release registry has no test-only issuer, so the answer is unknown_issuer.
+    @Test
+    func badgeIssuersReleaseRefuses() throws {
+        let file = try SharedVectors.object("badge-issuers.json")
+        let now = try Date(timeIntervalSince1970: #require(file["now"] as? Double))
+        let bundled = try #require(JSONSerialization.jsonObject(with: Data(BipeRegistries.bundledIssuerRegistry.utf8)) as? [String: Any])
+        let payloadText = try #require(bundled["payload"] as? String)
+        let payload = try #require(Data(base64URL: payloadText))
+        let verifier = try BadgeVerifier(issuerRegistryJSON: #require(String(data: payload, encoding: .utf8)))
+        let vectors = try #require(file["releaseRefuses"] as? [[String: Any]])
+        #expect(!vectors.isEmpty)
+        for vector in vectors {
+            let name = try #require(vector["name"] as? String)
+            let envelopeObject = try #require(vector["envelope"] as? [String: Any])
+            let result = try verifier.verify(envelopeJSON: JSONSerialization.data(withJSONObject: envelopeObject),
+                                             sender: #require(vector["sender"] as? String),
+                                             senderMasterKey: vector["senderMasterKey"] as? String,
+                                             now: now)
+            let outcome = switch result {
+            case .valid: "valid"
+            case .invalid(let failure): failure.rawValue
+            }
+            #expect(outcome == (vector["expect"] as? String), "release refuses \(name)")
         }
     }
     
@@ -512,12 +536,18 @@ struct SharedVectorTests {
     @Test
     func personProofs() throws {
         let vectors = try #require(try SharedVectors.object("person-proofs.json")["vectors"] as? [[String: Any]])
+        let schemes = try #require(try SharedVectors.object("../registries/schemes.json")["schemes"] as? [Any])
         #expect(!vectors.isEmpty)
         for vector in vectors {
             let name = vector["name"] as? String ?? ""
+            // An issuer registry payload: the schemes of registries/schemes.json, the vector's extraSchemes, no issuer.
+            let all = schemes + (vector["extraSchemes"] as? [Any] ?? [])
+            let registryData = try JSONSerialization.data(withJSONObject: ["issuers": [Any](), "regions": [Any](), "schemes": all])
+            let registry = String(data: registryData, encoding: .utf8)
             let payloads = try #require(vector["payloads"] as? [[String: Any]])
             let expected = try #require(vector["expected"] as? [[String: Any]])
-            let result = BipePersonProofs.schemes(payloads.map { (lvl: $0["lvl"] as? String ?? "", scheme: $0["scheme"] as? String) })
+            let result = BipePersonProofs.schemes(payloads.map { (lvl: $0["lvl"] as? String ?? "", scheme: $0["scheme"] as? String) },
+                                                  issuerRegistryJSON: registry)
             #expect(result.map(\.id) == expected.compactMap { $0["scheme"] as? String }, "person proofs \(name)")
             #expect(result.map(\.assurance) == expected.compactMap { $0["assurance"] as? String }, "person proofs \(name)")
             #expect(result.map(\.mark) == expected.compactMap { $0["mark"] as? String }, "person proofs \(name)")

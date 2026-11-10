@@ -161,7 +161,7 @@ class SharedVectorTest {
     fun scamWarnings() {
         for (vector in vectors("scam-warnings.json", "vectors")) {
             val message = vector.string("message")!!
-            val kind = ScamDetector.warningKind(ScamDetector.matchIds(message), message)
+            val kind = ScamDetector.warningKind(message)
             assertWithMessage("kind($message)").that(kind?.id).isEqualTo(vector.string("kind"))
         }
     }
@@ -206,11 +206,11 @@ class SharedVectorTest {
     /** The client checks length and characters only. Reserved names and lookalikes are the server's call. */
     @Test
     fun handles() {
-        val localProblems = setOf("too_short", "too_long", "invalid_characters")
-        for (vector in vectors("handles.json", "cases")) {
+        // handleProblem without a claimant (bipe-core): shape and reserved names. Claims are the server's call.
+        for (vector in vectors("handles.json", "cases").filter { !it.containsKey("claimant") }) {
             val input = vector.string("input")!!
-            val expected = vector.string("problem")?.takeIf { it in localProblems }
-            assertWithMessage("localProblem($input)").that(BipeHandle.localProblem(input)?.id).isEqualTo(expected)
+            assertWithMessage("localProblem($input)").that(BipeHandle.localProblem(input)?.id).isEqualTo(vector.string("problem"))
+            assertWithMessage("skeleton($input)").that(BipeHandle.skeleton(input)).isEqualTo(vector.string("skeleton"))
         }
     }
 
@@ -353,7 +353,7 @@ class SharedVectorTest {
 
     /**
      * test-vectors/badge-issuers.json through the release path: bipe-core against an issuer registry (bipe-chat/bipe#637).
-     * The app shows no `person` or `org` seal yet (ADR 0272), so a valid badge of those levels is no seal here: `malformed`.
+     * `person` and `org` badges (ADR 0272) show as seals, so every vector gives its own verdict (bipe-chat/bipe#1193).
      */
     @Test
     fun badgeIssuers() {
@@ -365,8 +365,7 @@ class SharedVectorTest {
         assertWithMessage("badge-issuers vectors").that(vectors).isNotEmpty()
         for (vector in vectors) {
             val envelope = vector.getValue("envelope").jsonObject
-            val level = Json.parseToJsonElement(Base64Url.decode(envelope.string("payload")!!)!!.decodeToString()).jsonObject.string("lvl")
-            val expected = vector.string("expect").takeUnless { it == "valid" && (level == "person" || level == "org") } ?: "malformed"
+            val expected = vector.string("expect")
             val result = verifier.verify(envelope.toString(), vector.string("sender")!!, vector.string("senderMasterKey"), nowMillis)
             val outcome = when (result) {
                 is BadgeVerificationResult.Valid -> "valid"
@@ -376,6 +375,29 @@ class SharedVectorTest {
             if (vector.string("name") == "other issuer: valid") {
                 assertWithMessage("issuer name").that((result as BadgeVerificationResult.Valid).payload.issuerName).isEqualTo("Banco Exemplo")
             }
+        }
+    }
+
+    /**
+     * badge-issuers.json releaseRefuses (bipe-chat/bipe#1195): badges of the test-only region zz against the issuer
+     * registry that this build bundles. A release registry has no test-only issuer, so the answer is unknown_issuer.
+     */
+    @Test
+    fun badgeIssuersReleaseRefuses() {
+        val file = load("badge-issuers.json")
+        val nowMillis = file.getValue("now").jsonPrimitive.long * 1000
+        val bundled = Json.parseToJsonElement(BipeRegistries.BUNDLED_ISSUER_REGISTRY).jsonObject
+        val registry = Base64Url.decode(bundled.string("payload")!!)!!.decodeToString()
+        val verifier = BadgeVerifier(issuerRegistryJson = registry)
+        val vectors = file.getValue("releaseRefuses").jsonArray.map { it.jsonObject }
+        assertWithMessage("releaseRefuses vectors").that(vectors).isNotEmpty()
+        for (vector in vectors) {
+            val result = verifier.verify(vector.getValue("envelope").jsonObject.toString(), vector.string("sender")!!, vector.string("senderMasterKey"), nowMillis)
+            val outcome = when (result) {
+                is BadgeVerificationResult.Valid -> "valid"
+                is BadgeVerificationResult.Invalid -> result.failure.code
+            }
+            assertWithMessage("release refuses ${vector.string("name")}").that(outcome).isEqualTo(vector.string("expect"))
         }
     }
 
@@ -403,13 +425,17 @@ class SharedVectorTest {
 
     @Test
     fun personProofs() {
+        val schemes = Json.parseToJsonElement(File(vectorsDir, "../registries/schemes.json").readText()).jsonObject.getValue("schemes").jsonArray
         val cases = vectors("person-proofs.json", "vectors")
         assertWithMessage("person proofs vectors").that(cases).isNotEmpty()
         for (vector in cases) {
             val name = vector.string("name")
             val badges = vector.getValue("payloads").jsonArray.map { it.jsonObject }.map { chat.bipe.shared.company.BipePersonProofs.Badge(it.string("lvl")!!, it.string("scheme")) }
             val expected = vector.getValue("expected").jsonArray.map { it.jsonObject }
-            val result = chat.bipe.shared.company.BipePersonProofs.schemes(badges)
+            // An issuer registry payload: the schemes of registries/schemes.json, the vector's extraSchemes, no issuer.
+            val extra = (vector["extraSchemes"] as? JsonArray).orEmpty()
+            val registry = JsonObject(mapOf("issuers" to JsonArray(emptyList()), "regions" to JsonArray(emptyList()), "schemes" to JsonArray(schemes + extra))).toString()
+            val result = chat.bipe.shared.company.BipePersonProofs.schemes(badges, registryJson = registry)
             assertWithMessage("person proofs $name").that(result.map { listOf(it.id, it.assurance, it.mark) })
                 .isEqualTo(expected.map { listOf(it.string("scheme"), it.string("assurance"), it.string("mark")) })
         }

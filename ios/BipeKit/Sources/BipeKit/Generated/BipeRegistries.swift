@@ -871,7 +871,7 @@ public enum BipeRegistries {
     ]
 
     /// Terms and privacy accepted at sign-up (ADR 0113; registries/legal.json). Paths are on the public site.
-    public static let legalVersion = "2026-10-16"
+    public static let legalVersion = "2026-11-09"
     public static let termsPath = "/termos/"
     public static let privacyPath = "/privacidade/"
     public static let enTermsPath = "/en/terms/"

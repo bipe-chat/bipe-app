@@ -2,8 +2,7 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
-// Moved from BipeKit.
-
+import BipeCore
 import Foundation
 
 /// Same ids as `handleProblem()` in bipe-shared/tools/lib/registries.mjs and the API's `HandleProblem`.
@@ -38,63 +37,32 @@ public nonisolated enum BipeHandle {
         return handle
     }
     
-    /// Length and character checks only, the same as a lookup. `nil` means the server must decide.
-    /// An owned handle may be shorter than `handleMinLength` (ADR 0065); the server decides who may claim it.
+    /// Length, characters and reserved names, the same as a lookup (bipe-core `handleProblem` without a claimant). `nil`
+    /// means the server must decide. An owned handle may be shorter than `handleMinLength` (ADR 0065).
     public static func localProblem(for handle: String) -> BipeHandleProblem? {
-        // JS `length` counts UTF-16 code units; the pattern is ASCII-only, so any non-ASCII input fails it anyway.
-        let length = handle.utf16.count
-        if length < BipeRegistries.handleOwnerMinLength {
-            return .tooShort
-        }
-        if length > BipeRegistries.handleMaxLength {
-            return .tooLong
-        }
-        if length < BipeRegistries.handleMinLength, !BipeRegistries.ownedHandles.contains(handle) {
-            return .tooShort
-        }
-        if handle.range(of: BipeRegistries.handlePattern, options: .regularExpression) == nil {
-            return .invalidCharacters
-        }
-        return nil
+        handleProblem(handle: handle, claimant: nil).map(BipeHandleProblem.init(core:))
     }
 
-    /// Port of `handleSkeleton()`: normalize, then the separators and the spaces removed.
-    /// Two handles with the same skeleton cannot both exist.
+    /// `handleSkeleton()` in bipe-core. Two handles with the same skeleton cannot both exist.
     public static func skeleton(_ handle: String) -> String {
-        // normalize() turns every JS whitespace run into one " ", so removing " " is JS `\s+`.
-        NameNormalizer.normalize(handle)
-            .replacingOccurrences(of: BipeRegistries.handleSkeletonStrip, with: "", options: .regularExpression)
-            .replacingOccurrences(of: " ", with: "")
+        handleSkeleton(handle: handle)
     }
 
-    /// The skeletons of the reserved names (`reservedHandleSkeletons()`). The names are already normalised.
-    public static let reservedSkeletons: Set<String> = Set(BipeRegistries.reservedNames.keys.map { $0.replacingOccurrences(of: " ", with: "") })
-
-    /// Escolha seu @ (bipe-chat/bipe#200): port of `handleSuggestions()` in bipe-shared tools/lib/registries.mjs.
-    /// Must match test-vectors/handle-suggestions.json. The caller checks availability in this order.
+    /// Escolha seu @ (bipe-chat/bipe#200): `handleSuggestions()` in bipe-core. The caller checks availability in this order.
     public static func suggestions(for displayName: String) -> [String] {
-        let normalized = NameNormalizer.normalize(displayName, homoglyphs: [:])
-        let letters: ClosedRange<Unicode.Scalar> = "a"..."z"
-        let digits: ClosedRange<Unicode.Scalar> = "0"..."9"
-        let words = normalized.unicodeScalars
-            .split { !(letters.contains($0) || digits.contains($0)) }
-            .map { String($0) }
-        guard let first = words.first, let last = words.last else { return [] }
-        let raw = words.count > 1
-            ? ["\(first).\(last)", "\(first)\(last)", "\(first)_\(last)", first, "\(last).\(first)",
-               "\(first).\(last)1", "\(first)\(last)1"]
-            : [first, "\(first)1", "\(first)2", "\(first)_"]
-        var result: [String] = []
-        for candidate in raw {
-            var cut = String(candidate.prefix(BipeRegistries.handleMaxLength))
-            while cut.hasSuffix(".") { cut.removeLast() }
-            guard cut.count >= BipeRegistries.handleMinLength,
-                  cut.range(of: BipeRegistries.handlePattern, options: .regularExpression) != nil,
-                  !result.contains(cut) else { continue }
-            result.append(cut)
-            if result.count == BipeRegistries.handleSuggestionCandidates { break }
+        handleSuggestions(displayName: displayName)
+    }
+}
+
+nonisolated extension BipeHandleProblem {
+    /// The bipe-core problem of the same id.
+    init(core: HandleProblem) {
+        self = switch core {
+        case .tooShort: .tooShort
+        case .tooLong: .tooLong
+        case .invalidCharacters: .invalidCharacters
+        case .reserved: .reserved
         }
-        return result
     }
 }
 

@@ -19,6 +19,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import chat.bipe.app.BipeTheme
 import chat.bipe.shared.R
+import chat.bipe.shared.readAtMost
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
@@ -159,19 +160,8 @@ class PixCheckActivity : ComponentActivity() {
     private fun readText(uri: Uri): String? = runCatching {
         contentResolver.openInputStream(uri)?.use { input ->
             // At most the text limit in UTF-8 (4 bytes a code point); the check rejects longer text.
-            val bytes = input.readNBytesCompat(PixCheckReceiveModel.MAX_TEXT_CODE_POINTS * 4 + 1)
+            val bytes = input.readAtMost(PixCheckReceiveModel.MAX_TEXT_CODE_POINTS * 4 + 1)
             String(bytes, Charsets.UTF_8)
         }
     }.getOrNull()
-
-    private fun java.io.InputStream.readNBytesCompat(limit: Int): ByteArray {
-        val output = java.io.ByteArrayOutputStream()
-        val buffer = ByteArray(64 * 1024)
-        while (output.size() < limit) {
-            val read = read(buffer, 0, minOf(buffer.size, limit - output.size()))
-            if (read < 0) break
-            output.write(buffer, 0, read)
-        }
-        return output.toByteArray()
-    }
 }

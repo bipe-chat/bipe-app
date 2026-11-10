@@ -5,6 +5,11 @@
 package chat.bipe.shared
 
 import android.content.Context
+import chat.bipe.core.HandleProblem
+import chat.bipe.core.extractInviteCode
+import chat.bipe.core.handleProblem
+import chat.bipe.core.handleSkeleton
+import chat.bipe.core.handleSuggestions
 import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.generated.BipeRegistries
 import kotlinx.coroutines.CoroutineScope
@@ -38,57 +43,24 @@ enum class BipeHandleProblem(val id: String) {
 
 /** Early handle checks (registries/handles.json, test-vectors/handles.json). The server is the authority. */
 object BipeHandle {
-    private val pattern = Regex(BipeRegistries.HANDLE_PATTERN)
-
     /** Trims spaces and one leading @. */
     fun sanitize(input: String): String = input.trim().removePrefix("@")
 
-    /** Length and characters only. `null`: the server decides. Owned handles may be shorter (ADR 0065). */
-    fun localProblem(handle: String): BipeHandleProblem? {
-        val length = handle.length
-        return when {
-            length < BipeRegistries.HANDLE_OWNER_MIN_LENGTH -> BipeHandleProblem.TOO_SHORT
-            length > BipeRegistries.HANDLE_MAX_LENGTH -> BipeHandleProblem.TOO_LONG
-            length < BipeRegistries.HANDLE_MIN_LENGTH && handle !in BipeRegistries.ownedHandles -> BipeHandleProblem.TOO_SHORT
-            !pattern.matches(handle) -> BipeHandleProblem.INVALID_CHARACTERS
-            else -> null
+    /** Length, characters and reserved names (bipe-core `handleProblem` without a claimant). `null`: the server decides. Owned handles may be shorter (ADR 0065). */
+    fun localProblem(handle: String): BipeHandleProblem? = handleProblem(handle, null)?.let { problem ->
+        when (problem) {
+            HandleProblem.TOO_SHORT -> BipeHandleProblem.TOO_SHORT
+            HandleProblem.TOO_LONG -> BipeHandleProblem.TOO_LONG
+            HandleProblem.INVALID_CHARACTERS -> BipeHandleProblem.INVALID_CHARACTERS
+            HandleProblem.RESERVED -> BipeHandleProblem.RESERVED
         }
     }
 
-    private val skeletonStrip = Regex(BipeRegistries.HANDLE_SKELETON_STRIP)
+    /** `handleSkeleton()` in bipe-core. Two handles with the same skeleton cannot both exist. */
+    fun skeleton(handle: String): String = handleSkeleton(handle)
 
-    /**
-     * Port of `handleSkeleton()`: normalize, then the separators and the spaces removed. normalize() turns every JS
-     * whitespace run into one " ", so removing " " is JS `\s+`.
-     */
-    fun skeleton(handle: String): String = NameNormalizer.normalize(handle).replace(skeletonStrip, "").replace(" ", "")
-
-    /** The skeletons of the reserved names (`reservedHandleSkeletons()`). The names are already normalised. */
-    val reservedSkeletons: Set<String> by lazy { BipeRegistries.reservedNames.keys.mapTo(HashSet()) { it.replace(" ", "") } }
-
-    /**
-     * Escolha seu @ (bipe-chat/bipe#200): port of `handleSuggestions()` in bipe-shared tools/lib/registries.mjs. Must
-     * match test-vectors/handle-suggestions.json. The caller checks availability in this order.
-     */
-    fun suggestions(displayName: String): List<String> {
-        val words = NameNormalizer.normalize(displayName, emptyMap()).split(Regex("[^a-z0-9]+")).filter { it.isNotEmpty() }
-        if (words.isEmpty()) return emptyList()
-        val first = words.first()
-        val last = words.last()
-        val raw = if (words.size > 1) {
-            listOf("$first.$last", "$first$last", "${first}_$last", first, "$last.$first", "$first.${last}1", "$first${last}1")
-        } else {
-            listOf(first, "${first}1", "${first}2", "${first}_")
-        }
-        val result = mutableListOf<String>()
-        for (candidate in raw) {
-            val cut = candidate.take(BipeRegistries.HANDLE_MAX_LENGTH).trimEnd('.')
-            if (cut.length < BipeRegistries.HANDLE_MIN_LENGTH || !pattern.matches(cut) || cut in result) continue
-            result += cut
-            if (result.size == BipeRegistries.HANDLE_SUGGESTION_CANDIDATES) break
-        }
-        return result
-    }
+    /** Escolha seu @ (bipe-chat/bipe#200): `handleSuggestions()` in bipe-core. The caller checks availability in this order. */
+    fun suggestions(displayName: String): List<String> = handleSuggestions(displayName)
 }
 
 /** The result of checking a typed handle. */
@@ -144,15 +116,13 @@ object BipeSignupRules {
 
 /** Invite codes and links (registries/invite-codes.json, test-vectors/invite-codes.json). */
 object BipeInviteLink {
-    private val pattern = Regex(BipeRegistries.INVITE_CODE_PATTERN)
     // The old host proseio.com.br redirects to bipe.chat, so its links still count.
     private val hosts = setOf("bipe.chat", "www.bipe.chat", "proseio.com.br", "www.proseio.com.br")
 
     /** `XXXX-XXXX-XXXX` from a code, a link or a whole message. `null` when it holds no code. */
     fun normalizedCode(raw: String): String? {
-        val text = raw.take(BipeRegistries.INVITE_CODE_MAX_INPUT_LENGTH).uppercase()
-        val match = pattern.find(text) ?: return null
-        return match.groupValues.drop(1).joinToString("-")
+        // bipe-core `extractInviteCode`: rule in registries/invite-codes.json, cases in test-vectors/invite-codes.json.
+        return extractInviteCode(raw)
     }
 
     /**

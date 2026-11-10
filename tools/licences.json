@@ -322,6 +322,13 @@
       "checked": "2026-11-06",
       "note": "macOS only; unmodified v1.8.0 C encoder; macos/QRCode/provenance.json records file hashes."
     },
+    "cargo:aho-corasick": {
+      "ecosystem": "cargo",
+      "licence": "MIT",
+      "source": "https://github.com/BurntSushi/aho-corasick",
+      "checked": "2026-11-10",
+      "note": "Unlicense OR MIT; MIT chosen."
+    },
     "cargo:anyhow": {
       "ecosystem": "cargo",
       "licence": "Apache-2.0",
@@ -586,6 +593,27 @@
       "checked": "2026-11-07",
       "note": "MIT OR Apache-2.0; Apache-2.0 chosen."
     },
+    "cargo:regex": {
+      "ecosystem": "cargo",
+      "licence": "Apache-2.0",
+      "source": "https://github.com/rust-lang/regex",
+      "checked": "2026-11-10",
+      "note": "MIT OR Apache-2.0; Apache-2.0 chosen."
+    },
+    "cargo:regex-automata": {
+      "ecosystem": "cargo",
+      "licence": "Apache-2.0",
+      "source": "https://github.com/rust-lang/regex",
+      "checked": "2026-11-10",
+      "note": "MIT OR Apache-2.0; Apache-2.0 chosen."
+    },
+    "cargo:regex-syntax": {
+      "ecosystem": "cargo",
+      "licence": "Apache-2.0",
+      "source": "https://github.com/rust-lang/regex",
+      "checked": "2026-11-10",
+      "note": "MIT OR Apache-2.0; Apache-2.0 chosen."
+    },
     "cargo:rustc_version": {
       "ecosystem": "cargo",
       "licence": "Apache-2.0",
@@ -698,6 +726,13 @@
       "checked": "2026-11-07",
       "note": "MIT OR Apache-2.0; Apache-2.0 chosen."
     },
+    "cargo:tinyvec": {
+      "ecosystem": "cargo",
+      "licence": "Apache-2.0",
+      "source": "https://github.com/Lokathor/tinyvec",
+      "checked": "2026-11-10",
+      "note": "Zlib OR Apache-2.0 OR MIT; Apache-2.0 chosen."
+    },
     "cargo:toml": {
       "ecosystem": "cargo",
       "licence": "Apache-2.0",
@@ -739,6 +774,13 @@
       "source": "https://github.com/dtolnay/unicode-ident",
       "checked": "2026-11-07",
       "note": "Licence text: (MIT OR Apache-2.0) AND Unicode-3.0. Unicode-3.0 is not in the allowed list. This crate is a dependency of syn, for proc macros at build time, and is not in the shipped library (core.yml, \"Shipped graph\"). bipe-chat/bipe#1172."
+    },
+    "cargo:unicode-normalization": {
+      "ecosystem": "cargo",
+      "licence": "Apache-2.0",
+      "source": "https://github.com/unicode-rs/unicode-normalization",
+      "checked": "2026-11-10",
+      "note": "MIT OR Apache-2.0; Apache-2.0 chosen."
     },
     "cargo:uniffi": {
       "ecosystem": "cargo",
