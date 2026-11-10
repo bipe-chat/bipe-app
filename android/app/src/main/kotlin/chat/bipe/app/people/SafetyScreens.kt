@@ -134,7 +134,13 @@ fun CompanySealDialog(state: BipeCompanySealState, onClose: () -> Unit) {
                         Text(stringResource(R.string.bipe_cvm_source), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary)
                     }
                     verified?.payload?.let { payload ->
+                        // A company proved by a scheme of any country (ADR 0272): the issuer and the country are named.
+                        val scheme = payload.schemeInfo
+                        if (scheme != null && payload.legalName == null) Fact(stringResource(R.string.bipe_badge_company_legal_name), payload.name)
                         payload.legalName?.let { Fact(stringResource(R.string.bipe_badge_company_legal_name), it) }
+                        scheme?.orgId?.let { Fact(stringResource(R.string.bipe_badge_org_id), it) }
+                        scheme?.let { Fact(stringResource(R.string.bipe_badge_seal_country), it.countryName()) }
+                        if (scheme != null) payload.issuerName?.let { Fact(stringResource(R.string.bipe_badge_seal_issuer), it) }
                         payload.tradeName?.let { Fact(stringResource(R.string.bipe_badge_company_trade_name), it) }
                         payload.cnpj?.let { Fact(stringResource(R.string.bipe_badge_company_cnpj), BipeCnpj.formatted(it)) }
                         payload.checkedMonth?.let(BipeCnpj::checkedDate)?.let {
@@ -144,7 +150,12 @@ fun CompanySealDialog(state: BipeCompanySealState, onClose: () -> Unit) {
                             stringResource(R.string.bipe_badge_company_valid_until),
                             Instant.ofEpochSecond(payload.exp).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofLocalizedDate(FormatStyle.LONG)),
                         )
-                        Text(stringResource(R.string.bipe_badge_company_body), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary)
+                        val body = when {
+                            scheme == null -> stringResource(R.string.bipe_badge_company_body)
+                            scheme.isForeign -> stringResource(R.string.bipe_badge_org_body) + "\n\n" + stringResource(R.string.bipe_badge_foreign_body)
+                            else -> stringResource(R.string.bipe_badge_org_body)
+                        }
+                        Text(body, style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary)
                     }
                 }
             }
@@ -179,9 +190,17 @@ fun PersonSealDialog(proof: BipePersonProof, onClose: () -> Unit) {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.verticalScroll(rememberScrollState())) {
                     Fact(stringResource(R.string.bipe_badge_verified), proof.payload.name)
                     Fact(stringResource(R.string.bipe_person_seal_scheme), proof.schemeName(context))
+                    // A scheme of another country (ADR 0272 decision 7): the country and the issuer are named.
+                    val foreign = proof.payload.schemeInfo?.takeIf { it.isForeign }
+                    foreign?.let { Fact(stringResource(R.string.bipe_badge_seal_country), it.countryName()) }
+                    if (foreign != null) proof.payload.issuerName?.let { Fact(stringResource(R.string.bipe_badge_seal_issuer), it) }
                     Fact(stringResource(R.string.bipe_person_seal_checked), month(proof.payload.iat))
                     Fact(stringResource(R.string.bipe_person_seal_valid_until), month(proof.payload.exp))
-                    Text(stringResource(R.string.bipe_person_seal_body), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary)
+                    Text(
+                        stringResource(R.string.bipe_person_seal_body) + if (foreign != null) "\n\n" + stringResource(R.string.bipe_badge_foreign_body) else "",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colors.inkSecondary,
+                    )
                 }
             }
         },

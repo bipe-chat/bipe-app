@@ -31,10 +31,21 @@ struct PersonSealSheet: View {
                 Section {
                     fact(BipeStrings.badgeVerified, proof.payload.name)
                     fact(BipeStrings.personSealScheme, proof.schemeName)
+                    // A scheme of another country (ADR 0272 decision 7): the country and the issuer are named.
+                    if let scheme = proof.payload.scheme, scheme.isForeign {
+                        fact(BipeStrings.badgeSealCountry, scheme.countryName)
+                        if let issuer = proof.payload.issuerName {
+                            fact(BipeStrings.badgeSealIssuer, issuer)
+                        }
+                    }
                     fact(BipeStrings.personSealChecked, month(proof.payload.iat))
                     fact(BipeStrings.personSealValidUntil, month(proof.payload.exp))
                 } footer: {
-                    Text(BipeStrings.personSealBody)
+                    if proof.payload.scheme?.isForeign == true {
+                        Text("\(BipeStrings.personSealBody)\n\n\(BipeStrings.badgeForeignBody)")
+                    } else {
+                        Text(BipeStrings.personSealBody)
+                    }
                 }
             }
             .navigationBarTitleDisplayMode(.inline)

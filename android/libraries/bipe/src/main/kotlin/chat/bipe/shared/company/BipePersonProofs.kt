@@ -6,9 +6,11 @@ package chat.bipe.shared.company
 
 import android.content.Context
 import androidx.compose.runtime.Immutable
+import chat.bipe.core.ListType
 import chat.bipe.shared.BadgeLevel
 import chat.bipe.shared.BadgePayload
 import chat.bipe.shared.R
+import chat.bipe.shared.SignedLists
 import chat.bipe.shared.generated.BipeRegistries
 import chat.bipe.shared.generated.PersonScheme
 
@@ -28,6 +30,28 @@ data class BipePersonProof(val scheme: PersonScheme, val payload: BadgePayload) 
 fun PersonScheme.localizedName(context: Context): String =
     if (context.resources.configuration.locales[0].language == "en") nameEn else namePtBR
 
+/**
+ * Scheme names (ADR 0272). A Brazilian scheme has its name in the app build. Another country's scheme takes its name
+ * from the newest valid issuer registry, so a new country needs no app release. Null: the scheme is unknown.
+ */
+object BipeSchemeNames {
+    fun name(
+        id: String,
+        english: Boolean,
+        registryJson: String? = SignedLists.shared.current(ListType.ISSUERS)?.payloadJson,
+    ): String? {
+        BipeRegistries.personSchemes.firstOrNull { it.id == id }?.let { return if (english) it.nameEn else it.namePtBR }
+        val root = registryJson?.let { runCatching { kotlinx.serialization.json.Json.parseToJsonElement(it) }.getOrNull() }
+            as? kotlinx.serialization.json.JsonObject ?: return null
+        val scheme = (root["schemes"] as? kotlinx.serialization.json.JsonArray)
+            ?.mapNotNull { it as? kotlinx.serialization.json.JsonObject }
+            ?.firstOrNull { (it["id"] as? kotlinx.serialization.json.JsonPrimitive)?.content == id } ?: return null
+        val names = scheme["names"] as? kotlinx.serialization.json.JsonObject ?: return null
+        fun text(key: String) = (names[key] as? kotlinx.serialization.json.JsonPrimitive)?.takeIf { it.isString }?.content
+        return (if (english) text("en") else text("pt-BR")) ?: text("pt-BR") ?: text("en")
+    }
+}
+
 /** Port of bipe-shared `personProofs` (tools/lib/registries.mjs); test-vectors/person-proofs.json must pass. */
 object BipePersonProofs {
     /** A badge level and, for `lvl` person, its scheme. */
@@ -42,11 +66,25 @@ object BipePersonProofs {
         return all.filter { it.id in found }
     }
 
-    /** The proofs of badges that already passed the verifier, strongest first. */
-    fun proofs(payloads: List<BadgePayload>): List<BipePersonProof> =
-        schemes(payloads.map { Badge(it.lvl.alias, null) }).mapNotNull { scheme ->
-            payloads.firstOrNull { it.lvl.alias == scheme.alias }?.let { BipePersonProof(scheme, it) }
+    /**
+     * The proofs of badges that already passed the verifier, strongest first. Brazilian schemes come first in their
+     * registry order. A person scheme of another country follows, state before bank, named from the issuer registry
+     * (ADR 0272). A scheme with no name anywhere gives no proof (fail closed).
+     */
+    fun proofs(payloads: List<BadgePayload>, english: Boolean = false): List<BipePersonProof> {
+        val local = schemes(payloads.map { Badge(if (it.lvl == BadgeLevel.PERSON) "person" else it.lvl.alias, it.scheme) }).mapNotNull { scheme ->
+            payloads.firstOrNull { it.lvl.alias == scheme.alias || (it.lvl == BadgeLevel.PERSON && it.scheme == scheme.id) }
+                ?.let { BipePersonProof(scheme, it) }
         }
+        val foreign = payloads.mapNotNull { payload ->
+            val info = payload.schemeInfo ?: return@mapNotNull null
+            if (payload.lvl != BadgeLevel.PERSON || BipeRegistries.personSchemes.any { it.id == info.id }) return@mapNotNull null
+            val name = BipeSchemeNames.name(info.id, english) ?: return@mapNotNull null
+            val mark = if (info.assurance == "state") "fill" else "regular"
+            BipePersonProof(PersonScheme(info.id, null, info.assurance, mark, name, name), payload)
+        }
+        return local + foreign.sortedByDescending { it.isFill }
+    }
 
     /** The registry alias of a person level. Any other level has none and gives no proof. */
     private val BadgeLevel.alias: String

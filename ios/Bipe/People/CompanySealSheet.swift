@@ -65,6 +65,17 @@ struct CompanySealSheet: View {
                 }
                 if case .verified(let payload) = state {
                     Section {
+                        // A company proved by a scheme of any country (ADR 0272): the issuer and the country are named.
+                        if let scheme = payload.scheme {
+                            fact(BipeStrings.badgeCompanyLegalName, scheme.legalName ?? payload.name)
+                            if let orgId = scheme.orgId {
+                                fact(BipeStrings.badgeOrgId, orgId)
+                            }
+                            fact(BipeStrings.badgeSealCountry, scheme.countryName)
+                            if let issuer = payload.issuerName {
+                                fact(BipeStrings.badgeSealIssuer, issuer)
+                            }
+                        }
                         if let company = payload.company {
                             fact(BipeStrings.badgeCompanyLegalName, company.legalName)
                             if let tradeName = company.tradeName {
@@ -80,7 +91,11 @@ struct CompanySealSheet: View {
                         fact(BipeStrings.badgeCompanyValidUntil,
                              Date(timeIntervalSince1970: TimeInterval(payload.exp)).formatted(date: .long, time: .omitted))
                     } footer: {
-                        Text(BipeStrings.badgeCompanyBody)
+                        if let scheme = payload.scheme {
+                            Text(scheme.isForeign ? "\(BipeStrings.badgeOrgBody)\n\n\(BipeStrings.badgeForeignBody)" : BipeStrings.badgeOrgBody)
+                        } else {
+                            Text(BipeStrings.badgeCompanyBody)
+                        }
                     }
                 }
             }

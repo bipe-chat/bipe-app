@@ -353,7 +353,7 @@ class SharedVectorTest {
 
     /**
      * test-vectors/badge-issuers.json through the release path: bipe-core against an issuer registry (bipe-chat/bipe#637).
-     * The app shows no `person` or `org` seal yet (ADR 0272), so a valid badge of those levels is no seal here: `malformed`.
+     * `person` and `org` badges (ADR 0272) show as seals, so every vector gives its own verdict (bipe-chat/bipe#1193).
      */
     @Test
     fun badgeIssuers() {
@@ -365,8 +365,7 @@ class SharedVectorTest {
         assertWithMessage("badge-issuers vectors").that(vectors).isNotEmpty()
         for (vector in vectors) {
             val envelope = vector.getValue("envelope").jsonObject
-            val level = Json.parseToJsonElement(Base64Url.decode(envelope.string("payload")!!)!!.decodeToString()).jsonObject.string("lvl")
-            val expected = vector.string("expect").takeUnless { it == "valid" && (level == "person" || level == "org") } ?: "malformed"
+            val expected = vector.string("expect")
             val result = verifier.verify(envelope.toString(), vector.string("sender")!!, vector.string("senderMasterKey"), nowMillis)
             val outcome = when (result) {
                 is BadgeVerificationResult.Valid -> "valid"
