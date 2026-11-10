@@ -252,7 +252,7 @@ struct AppLockPinCheckView: View {
         NavigationStack {
             PinPadView(title: title,
                        message: BipeStrings.pinEnterTitle,
-                       error: waiting ? BipeStrings.errorRateLimited : wrong ? BipeStrings.pinMismatch : nil,
+                       error: waiting ? BipeStrings.errorRateLimited : wrong ? BipeStrings.appLockWrong : nil,
                        pin: pin,
                        onDigit: type,
                        onDelete: { if !pin.isEmpty { pin.removeLast() } })

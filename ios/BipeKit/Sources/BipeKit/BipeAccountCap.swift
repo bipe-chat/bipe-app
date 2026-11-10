@@ -4,34 +4,6 @@
 
 import Foundation
 
-/// Personal accounts on one phone (ADR 0086). Company accounts do not count (bipe#269). The Android counterpart is
-/// `BipeAccountCap` in libraries/bipe.
-public nonisolated enum BipeAccountCap {
-    private static let maxKey = "bipe.accounts.maxPersonal"
-    
-    /// The last `max_accounts` any account read from `GET /v1/me/account`, else the shared registry value.
-    public static func maxPersonalAccounts(defaults: UserDefaults = .standard) -> Int {
-        let stored = defaults.integer(forKey: maxKey)
-        return stored > 0 ? stored : BipeRegistries.maxPersonalAccounts
-    }
-    
-    /// `maxAccounts` is `nil` from an older server: the stored value stays.
-    public static func onServerValue(_ maxAccounts: Int?, defaults: UserDefaults = .standard) {
-        guard let maxAccounts, maxAccounts > 0 else { return }
-        defaults.set(maxAccounts, forKey: maxKey)
-    }
-    
-    public static func canAdd(personalAccounts: Int, defaults: UserDefaults = .standard) -> Bool {
-        personalAccounts < maxPersonalAccounts(defaults: defaults)
-    }
-    
-    /// Counts the personal accounts among `signedInUserIDs`; company accounts do not count.
-    public static func canAdd(signedInUserIDs: some Collection<String>, defaults: UserDefaults = .standard) -> Bool {
-        let personal = signedInUserIDs.filter { !BipeAccountLabels.isCompany($0, defaults: defaults) }.count
-        return canAdd(personalAccounts: personal, defaults: defaults)
-    }
-}
-
 /// The name each account on this phone showed last, so the account menu can name accounts without a live session.
 public nonisolated enum BipeAccountLabels {
     private static func key(_ userID: String) -> String {
