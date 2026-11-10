@@ -54,7 +54,7 @@ class MatrixAccountRuntime private constructor(
     private var sync: SyncPhase = SyncPhase.Idle
 
     /** Build/start sync as an owned task, so cancellation retires late construction as well as callbacks. */
-    suspend fun startSync(): SyncService = lifetime.async { syncLock.withLock {
+    suspend fun startSync(): SyncService = try { lifetime.async { syncLock.withLock {
         lifetime.requireCurrent()
         (sync as? SyncPhase.Running)?.let { return@withLock it.service }
         val initial = client.syncService()
@@ -67,7 +67,11 @@ class MatrixAccountRuntime private constructor(
         lifetime.requireCurrent()
         sync = SyncPhase.Running(service)
         service
-    } }.await()
+    } }.await() }
+    catch (error: Exception) {
+        withContext(NonCancellable) { lifetime.closeAsync().await() }
+        throw error
+    }
 
     /** Token persistence stays pending until the phone approval and secret transfer have completed. */
     fun completePhoneLink(repository: AccountRepository) {
