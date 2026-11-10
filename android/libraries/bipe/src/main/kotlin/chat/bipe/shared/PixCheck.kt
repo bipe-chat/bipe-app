@@ -9,14 +9,13 @@ import chat.bipe.core.PixCodeStatus
 import chat.bipe.core.PixKeyType
 import chat.bipe.core.findPixCode
 import chat.bipe.core.pixKeyType
-import chat.bipe.shared.generated.BipeRegistries
-import java.util.regex.Pattern
+import chat.bipe.core.pixKeys
 
 /**
  * "Conferir no Bipe" phase 1 (bipe ADR 0091): the Pix code and the Pix keys in text that the user
  * shared from another app. Runs on the device only. Must match bipe-shared/test-vectors/pix-check.json.
  * iOS: `PixCheck` in BipeKit. The BR Code, its CRC and the key type come from bipe-core (`findPixCode`, ADR 0267).
- * The warning comes from bipe-core too (`scamWarningKind`). The keys in the text stay here for now.
+ * The keys in the text (`pixKeys`) and the warning (`scamWarningKind`) come from bipe-core too.
  */
 data class PixCheck(
     val code: Code?,
@@ -77,7 +76,7 @@ data class PixCheck(
             } ?: text
             return PixCheck(
                 code = found?.let { code(it.code) },
-                keys = keys(rest),
+                keys = pixKeys(text).map { key -> Key(key.value, key.types.mapNotNull { KeyType.fromId(it) }) },
                 warning = ScamDetector.warningKind(rest, skipping = skippedWarnings),
             )
         }
@@ -108,26 +107,6 @@ data class PixCheck(
                 txid = code.txid,
                 info = code.info,
             )
-        }
-
-        private val keyExpressions: List<Pair<KeyType, Pattern>> by lazy {
-            BipeRegistries.pixKeyPatterns.mapNotNull { pattern ->
-                val type = KeyType.fromId(pattern.id) ?: return@mapNotNull null
-                runCatchingExceptions { Pattern.compile(pattern.regex, Pattern.UNICODE_CHARACTER_CLASS) }.getOrNull()?.let { type to it }
-            }
-        }
-
-        private fun keys(text: String): List<Key> {
-            val spans = LinkedHashMap<Pair<Int, Int>, MutableList<KeyType>>()
-            for ((type, expression) in keyExpressions) {
-                val matcher = expression.matcher(text)
-                while (matcher.find()) {
-                    spans.getOrPut(matcher.start() to matcher.end()) { mutableListOf() } += type
-                }
-            }
-            return spans.entries
-                .sortedWith(compareBy<Map.Entry<Pair<Int, Int>, MutableList<KeyType>>> { it.key.first }.thenByDescending { it.key.second - it.key.first })
-                .map { Key(text.substring(it.key.first, it.key.second), it.value.toList()) }
         }
     }
 }
