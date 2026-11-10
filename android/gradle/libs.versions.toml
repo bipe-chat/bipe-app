@@ -9,6 +9,8 @@
 jsoup = "1.23.2"
 agp = "8.13.0"
 kotlin = "2.2.21"
+desktop-compose = "1.9.3"
+desktop-material3 = "1.9.0"
 matrix-rust-sdk = "26.08.11"
 # Must be the rustls-platform-verifier-android version of that SDK release (bipe-chat/bipe#626); vendor/maven holds it.
 rustls-platform-verifier = "0.1.1"
@@ -51,6 +53,9 @@ kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serializa
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
 jna = { module = "net.java.dev.jna:jna", version.ref = "jna" }
 jna-platform = { module = "net.java.dev.jna:jna-platform", version.ref = "jna" }
+compose-desktop-windows = { module = "org.jetbrains.compose.desktop:desktop-jvm-windows-x64", version.ref = "desktop-compose" }
+compose-desktop-material3 = { module = "org.jetbrains.compose.material3:material3", version.ref = "desktop-material3" }
+kotlinx-coroutines-swing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-swing", version.ref = "kotlinx-coroutines" }
 # Test only (ADR 0148): JUnit is EPL-1.0 and must stay on testImplementation lines.
 junit = { module = "junit:junit", version.ref = "junit" }
 truth = { module = "com.google.truth:truth", version.ref = "truth" }
@@ -88,6 +93,7 @@ play-age-signals = { module = "com.google.android.play:age-signals", version.ref
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+compose-desktop = { id = "org.jetbrains.compose", version.ref = "desktop-compose" }
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }

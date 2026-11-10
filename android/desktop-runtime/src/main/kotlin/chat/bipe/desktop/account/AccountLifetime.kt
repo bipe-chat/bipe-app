@@ -67,6 +67,8 @@ class AccountLifetime(val lease: AccountLease) {
         operation()
     }
 
+    internal fun childJob(): Job = SupervisorJob(job)
+
     suspend fun <T : AccountResource> own(resource: T): T {
         val accepted = synchronized(monitor) {
             (phase as? Phase.Active)?.takeIf { job.isActive && lease.isCurrent() }?.resources?.add(resource) == true

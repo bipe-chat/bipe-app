@@ -9,6 +9,12 @@ on:
     paths:
       - "android/desktop-spike/**"
       - "android/desktop-runtime/**"
+      - "android/desktop-app/**"
+      - "tools/desktop-resources*"
+      - "android/app/src/main/kotlin/chat/bipe/app/BipeType.kt"
+      - "android/app/src/main/kotlin/chat/bipe/app/common/VectorDiff.kt"
+      - "android/libraries/bipe/src/main/kotlin/chat/bipe/shared/BipeFavouritesOrder.kt"
+      - "android/libraries/bipe/src/main/kotlin/chat/bipe/shared/generated/BipeRegistries.kt"
       - "android/gradle/libs.versions.toml"
       - "core/**"
       - "sdk-version"
@@ -18,6 +24,12 @@ on:
     paths:
       - "android/desktop-spike/**"
       - "android/desktop-runtime/**"
+      - "android/desktop-app/**"
+      - "tools/desktop-resources*"
+      - "android/app/src/main/kotlin/chat/bipe/app/BipeType.kt"
+      - "android/app/src/main/kotlin/chat/bipe/app/common/VectorDiff.kt"
+      - "android/libraries/bipe/src/main/kotlin/chat/bipe/shared/BipeFavouritesOrder.kt"
+      - "android/libraries/bipe/src/main/kotlin/chat/bipe/shared/generated/BipeRegistries.kt"
       - "android/gradle/libs.versions.toml"
       - "core/**"
       - "sdk-version"
@@ -156,6 +168,10 @@ jobs:
           android/gradlew -p android/desktop-spike --no-daemon :desktop-runtime:test run 2>&1 | tee "$RUNNER_TEMP/windows-spike/jvm.log"
           grep '^BIPE_WINDOWS_SPIKE ' "$RUNNER_TEMP/windows-spike/jvm.log" > "$RUNNER_TEMP/windows-spike/result.txt"
           test -s "$RUNNER_TEMP/windows-spike/result.txt"
+      - name: Compile the native Compose window source
+        env:
+          BIPE_SHARED: ${{ github.workspace }}/bipe-shared
+        run: android/gradlew -p android/desktop-app --no-daemon compileKotlin
       - name: Record source and limits
         if: always()
         run: |
@@ -170,7 +186,7 @@ jobs:
           cp android/desktop-spike/README.md "$RUNNER_TEMP/windows-spike/README.md"
           {
             echo '### Windows SDK/core feasibility — x64 only'
-            echo 'CI diagnostic only. Native storage tests use synthetic sessions. No Compose app, real phone linking/sync, installer or Windows on Arm acceptance.'
+            echo 'CI diagnostic only. Native storage tests use synthetic sessions. Compose source compilation is not real phone linking/sync, installer or Windows on Arm acceptance.'
             if [ -f "$RUNNER_TEMP/windows-spike/result.txt" ]; then cat "$RUNNER_TEMP/windows-spike/result.txt"; fi
           } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4

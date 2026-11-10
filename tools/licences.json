@@ -831,11 +831,43 @@
     },
     "net.java.dev.jna:jna-platform": {
       "ecosystem": "gradle",
-      "platforms": ["windows"],
+      "platforms": [
+        "windows"
+      ],
       "licence": "Apache-2.0",
       "source": "https://github.com/java-native-access/jna/blob/5.18.1/LICENSE",
       "checked": "2026-11-10",
       "note": "Windows native adapter only. JNA platform shares the core library dual licence; Bipe chooses Apache-2.0."
+    },
+    "org.jetbrains.compose.desktop:desktop-jvm-windows-x64": {
+      "ecosystem": "gradle",
+      "platforms": [
+        "windows"
+      ],
+      "licence": "Apache-2.0",
+      "source": "https://github.com/JetBrains/compose-multiplatform/blob/v1.9.3/LICENSE.txt",
+      "checked": "2026-11-10",
+      "note": "Windows desktop target only; source checkpoint, not native build validation."
+    },
+    "org.jetbrains.compose.material3:material3": {
+      "ecosystem": "gradle",
+      "platforms": [
+        "windows"
+      ],
+      "licence": "Apache-2.0",
+      "source": "https://github.com/JetBrains/compose-multiplatform/blob/v1.9.3/LICENSE.txt",
+      "checked": "2026-11-10",
+      "note": "Windows desktop target only; source checkpoint, not native build validation."
+    },
+    "org.jetbrains.kotlinx:kotlinx-coroutines-swing": {
+      "ecosystem": "gradle",
+      "platforms": [
+        "windows"
+      ],
+      "licence": "Apache-2.0",
+      "source": "https://github.com/Kotlin/kotlinx.coroutines/blob/1.10.2/LICENSE.txt",
+      "checked": "2026-11-10",
+      "note": "Windows desktop target only; source checkpoint, not native build validation."
     }
   }
 }

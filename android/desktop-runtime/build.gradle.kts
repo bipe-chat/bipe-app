@@ -9,7 +9,15 @@ plugins {
 kotlin {
     jvmToolchain(17)
     sourceSets["main"].kotlin.srcDir("generated")
+    sourceSets["main"].kotlin.srcDir(layout.buildDirectory.dir("generated/portable-kotlin"))
 }
+val portableVectorDiff by tasks.registering(Sync::class) {
+    from("../app/src/main/kotlin/chat/bipe/app/common/VectorDiff.kt")
+    from("../libraries/bipe/src/main/kotlin/chat/bipe/shared/BipeFavouritesOrder.kt")
+    from("../libraries/bipe/src/main/kotlin/chat/bipe/shared/generated/BipeRegistries.kt")
+    into(layout.buildDirectory.dir("generated/portable-kotlin"))
+}
+tasks.named("compileKotlin") { dependsOn(portableVectorDiff) }
 dependencies {
     api(libs.jna)
     implementation(libs.jna.platform)
