@@ -3,3 +3,4 @@ dist/
 rust_modules/
 src/generated/
 *.tsbuildinfo
+src/bipe-core/

@@ -21,6 +21,8 @@ on:
       - "web/**"
       - "!web/src/bipe/**"
       - "sdk-version"
+      - "core/release/release.json"
+      - "tools/web-core.mjs"
       - ".github/workflows/web.yml"
   push:
     branches: [main]
@@ -28,6 +30,8 @@ on:
       - "web/**"
       - "!web/src/bipe/**"
       - "sdk-version"
+      - "core/release/release.json"
+      - "tools/web-core.mjs"
       - ".github/workflows/web.yml"
   workflow_dispatch:
 
@@ -169,6 +173,11 @@ jobs:
           path: web/src/generated
           if-no-files-found: error
 
+      # bipe-chat/bipe#1458: the shared rules come from the pinned bipe-core release, as on the other clients.
+      - name: Put the pinned bipe-core into web/src/bipe-core
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node tools/web-core.mjs
       - name: Build the page
         working-directory: web
         run: pnpm build

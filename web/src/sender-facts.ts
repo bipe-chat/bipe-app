@@ -9,7 +9,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { apiFor } from './api';
-import { normalize } from './bipe/generated/lib/registries.mjs';
+import { normalize } from './core';
 import { homoglyphs } from './bipe/generated/registries.json';
 import { MembershipState, RoomMemberRole, type RoomLike as Room, type RoomMember } from './generated';
 import { useClient } from './media';

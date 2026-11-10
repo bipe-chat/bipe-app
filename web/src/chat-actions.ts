@@ -6,7 +6,7 @@
 // report-chat, group-leave) as SDK calls, and the account state they read (cleared DMs, the ignore list).
 
 import { useEffect, useState } from 'react';
-import { clearedChatMarker, clearedChatsWithClear } from './bipe/generated/lib/registries.mjs';
+import { clearedChatMarker, clearedChatsWithClear } from './core';
 import { clearedChats } from './bipe/generated/registries.json';
 import {
   ReceiptType,

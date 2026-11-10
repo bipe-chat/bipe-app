@@ -77,7 +77,7 @@ Upstream candidates: 0001 and 0003 are plain fixes. 0004 is better fixed upstrea
 ## Hand test for MZ
 
 1. Open the last green `web` run of this PR or of `main` and download the artifact `web-bindings`.
-2. In `bipe-app/web`: unzip it into `src/generated/`, run `pnpm install`, then `pnpm dev`, and open the address it prints in Chrome.
+2. In `bipe-app/web`: unzip it into `src/generated/`, run `node ../tools/web-core.mjs` (the pinned bipe-core into `src/bipe-core/`), run `pnpm install`, then `pnpm dev`, and open the address it prints in Chrome.
 3. The page shows a QR code. On the phone (Bipe from TestFlight or the tester APK): Settings > Linked devices > Link a computer, scan the code.
 4. Type the two-digit code that the phone shows into the page. Approve on the phone.
 5. The page shows your chats. Open one chat: older messages must show as text, not "(unable to decrypt)".

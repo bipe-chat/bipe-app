@@ -30,7 +30,7 @@ import { useAccounts } from './accounts-context';
 import { AccountSwitcher } from './AccountSwitcher';
 import { DmDeleteAlert, NotifySheet } from './ChatActions';
 import { markRead, markUnread, useClearedChats } from './chat-actions';
-import { clearedChatHidden } from './bipe/generated/lib/registries.mjs';
+import { clearedChatHidden } from './core';
 import { Mural } from './Mural';
 import { useMuralEnabled, useMuralTiles, useScreenAtRest } from './mural-plan';
 import { NewChat, NewGroup } from './NewChat';

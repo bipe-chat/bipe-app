@@ -11,7 +11,7 @@
 // never a note (msgtype m.notice). The room is read live once a chat of the queue opens.
 
 import { useEffect, useSyncExternalStore } from 'react';
-import { replyByFromEvent, workNoteFromEvent } from '../bipe/generated/lib/registries.mjs';
+import { replyByFromEvent, workNoteFromEvent } from '../core';
 import { workNotes } from '../bipe/generated/registries.json';
 import {
   EventOrTransactionId,
