@@ -7,6 +7,7 @@ import { createRoot } from 'react-dom/client';
 import './index.css';
 import { App } from './App.tsx';
 import { applyLook } from './appearance';
+import { coreReady } from './signed-lists';
 
 // Spike trace (bipe-chat/bipe#900): the SDK writes no logs on wasm, so log every request it makes
 // with its status and ETag. A stalled QR sign-in then shows its last step in the console.
@@ -29,8 +30,14 @@ window.fetch = async (input, init) => {
 // The stored theme and palette, before the first screen draws (the CSS is loaded by now).
 applyLook();
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
+// The shared rules come from bipe-core (shared-rules.ts): load it before the first screen draws. Without it no screen draws,
+// because the safety rules would be missing (fail closed).
+coreReady().then(
+  () =>
+    createRoot(document.getElementById('root')!).render(
+      <StrictMode>
+        <App />
+      </StrictMode>,
+    ),
+  (e) => console.error('bipe-core did not load', e),
 );
