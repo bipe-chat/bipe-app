@@ -16,6 +16,7 @@ The shared Rust core of ADR 0267. Spike: bipe-chat/bipe#1172.
   - `scam.rs`: scam match IDs and the one warning kind of a message (`scam-detection.json`, `scam-warnings.json`). The regexes come translated from bipe-shared (`docs/scam-matching.md`).
   - `text.rs`: `normalize()` with the name, host or no homoglyph map, and JavaScript whitespace (`normalization.json`).
   - `theft.rs`: theft marks against the badge keys (`theft-marks.json`).
+  - `small_rules.rs`: onboarding schedules, the remote banner, sticker search and the PIN check (`onboarding-schedule.json`, `remote-banner.json`, `sticker-search.json`, `pins.json`).
   - `signed_list.rs`: the operator list and the issuer registry (`signed-lists.json`, bipe-chat/bipe#645).
 - `harness/`: loads each packaged artifact and runs `bipe-shared/test-vectors/badges.json`, `badge-issuers.json` and `theft-marks.json` through it.
 - `tools/uniffi-bindgen`: the bindings generator, with its own lockfile.
