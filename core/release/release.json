@@ -1,16 +1,16 @@
 {
-  "version": "0.1.10",
-  "tag": "core-0.1.10",
-  "commit": "a03c9c3998a6b62e97b48ad07b15408a8e5ff065",
-  "run": "https://github.com/bipe-chat/bipe-app/actions/runs/42868848661",
+  "version": "0.1.12",
+  "tag": "core-0.1.12",
+  "commit": "e914895b2462d81ed49999501fb2806abb475356",
+  "run": "https://github.com/bipe-chat/bipe-app/actions/runs/42892996677",
   "rust": "1.95.0",
   "uniffi": "e5f4821410bea19e71984ea5e06a7bc8b11ed9e5",
   "sdkVersion": "26.08.11",
   "assets": {
-    "bipe-core-0.1.10.aar": "a37c30c4834d95703659a1d31a525390bc3318d3bcb9836ae8d2446ccdb310e6",
-    "bipe-core-jvm-0.1.10.jar": "4e5640ef8098945b27e1607eb1af3afca820c49dee96c7fca4d65ac062a57f4d",
-    "bipe-core-web-0.1.10.tgz": "ddb40d6ec44478d6b0d5fcfeebf3ad551a6f04a4fa4bf0b57359b0a20bfe615f",
-    "bipe_core-0.1.10.swift": "63238e7876b70e6cd1efb75f06ef590a4c27e6476ae478c6ab3c35c0950b36b6",
-    "bipe_coreFFI-0.1.10.xcframework.zip": "dc14614e2bdcdea2a316ac5926833721fbdfbf9f42812bddedcc01d8860f021f"
+    "bipe-core-0.1.12.aar": "3a816c79f1d0afa1ce257a7167f9d9943e8fa8aae77583d75ebc6c6320a3f1db",
+    "bipe-core-jvm-0.1.12.jar": "6a890f2b35b8d1a96b3c6b313853ac3ad012512baffc359d3a919d80ec17b54d",
+    "bipe-core-web-0.1.12.tgz": "6afd2fd17715368a3215ec5ee13223adc19546c6692962c4ecb0af7534279566",
+    "bipe_core-0.1.12.swift": "ef0ef46a60fd0d95af7129a03263794d12124612af7a66782d67fcbddd08c1e7",
+    "bipe_coreFFI-0.1.12.xcframework.zip": "59a0baced9c20f68a331f34c7d25bcda49a1cfdfb4ae1d125f11b740a785428f"
   }
 }
