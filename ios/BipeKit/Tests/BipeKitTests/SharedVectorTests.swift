@@ -511,8 +511,7 @@ struct SharedVectorTests {
         let vectors = try #require(try SharedVectors.object("person-proofs.json")["vectors"] as? [[String: Any]])
         let schemes = try #require(try SharedVectors.object("../registries/schemes.json")["schemes"] as? [Any])
         #expect(!vectors.isEmpty)
-        // Until the app takes person proofs from bipe-core (bipe-chat/bipe#637), it cannot read the foreign test schemes.
-        for vector in vectors where vector["extraSchemes"] == nil {
+        for vector in vectors {
             let name = vector["name"] as? String ?? ""
             // An issuer registry payload: the schemes of registries/schemes.json, the vector's extraSchemes, no issuer.
             let all = schemes + (vector["extraSchemes"] as? [Any] ?? [])

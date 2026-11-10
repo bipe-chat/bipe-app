@@ -406,8 +406,6 @@ class SharedVectorTest {
         val cases = vectors("person-proofs.json", "vectors")
         assertWithMessage("person proofs vectors").that(cases).isNotEmpty()
         for (vector in cases) {
-            // Until the app takes person proofs from bipe-core (bipe-chat/bipe#637), it cannot read the foreign test schemes.
-            if (vector.containsKey("extraSchemes")) continue
             val name = vector.string("name")
             val badges = vector.getValue("payloads").jsonArray.map { it.jsonObject }.map { chat.bipe.shared.company.BipePersonProofs.Badge(it.string("lvl")!!, it.string("scheme")) }
             val expected = vector.getValue("expected").jsonArray.map { it.jsonObject }
