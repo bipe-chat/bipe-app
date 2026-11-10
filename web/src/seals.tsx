@@ -299,7 +299,7 @@ function CompanySealSheet({ seal, onClose }: { seal: ShownBadge; onClose: () => 
   const foreign = isForeign(claims);
   let cvm: { lines: { key: StringKey; arg?: string }[]; danger: boolean } = { lines: [], danger: false };
   try {
-    if (claims.cvmJson) cvm = cvmLines(JSON.parse(claims.cvmJson));
+    if (claims.cvmJson) cvm = cvmLines(JSON.parse(claims.cvmJson)) as typeof cvm;
   } catch {
     // A bad CVM field is no CVM line, never a bad seal.
   }
