@@ -5,10 +5,11 @@
 //! The BR Code part of "Conferir no Bipe" (bipe ADR 0091). Reference: bipe-shared tools/lib/pix.mjs (`pixCheck`,
 //! `pixKeyType`, `crc16`). Vectors: bipe-shared test-vectors/pix-check.json, field `code`.
 //!
-//! The Pix keys in the text and the warning stay in the apps: the key patterns of registries/scam-patterns.json use
-//! look-around, and they move with scam matching (ADR 0267, last step).
+//! The Pix keys in the text use the pixKeyPatterns of registries/scam-patterns.json (scam.rs); the warning is
+//! scam_warning_kind of the text without the code.
 
-use crate::text::js_trim;
+use crate::scam::compiled_group;
+use crate::text::{find_all, js_trim, utf16_len};
 
 const PIX_GUI: &str = "br.gov.bcb.pix";
 
@@ -64,6 +65,40 @@ pub fn find_pix_code(text: String) -> Option<PixCodeMatch> {
     let points: Vec<char> = text.chars().collect();
     let (start, end, code) = find(&points)?;
     Some(PixCodeMatch { start: start as u32, end: end as u32, code })
+}
+
+/// A Pix key in shared text outside the BR Code: the text of one span and every key pattern that matched it.
+#[derive(Clone, Debug, PartialEq, Eq, uniffi::Record)]
+pub struct PixKeyFound {
+    pub value: String,
+    /// pixKeyPatterns ids (cpf, cnpj, phone, email, random) in registry order.
+    pub types: Vec<String>,
+}
+
+/// `pixCheck` field `keys`: the Pix keys outside the first BR Code, one entry per span, in text order (a longer span
+/// first when two start at the same place). The code counts as one space.
+#[uniffi::export]
+pub fn pix_keys(text: String) -> Vec<PixKeyFound> {
+    let points: Vec<char> = text.chars().collect();
+    let rest: String = match find(&points) {
+        Some((start, end, _)) => points[..start].iter().chain(std::iter::once(&' ')).chain(points[end..].iter()).collect(),
+        None => text,
+    };
+    // (UTF-16 index, UTF-16 length, value, types), in the order the reference first saw each span.
+    let mut spans: Vec<(usize, usize, String, Vec<String>)> = Vec::new();
+    for c in compiled_group("pixKeyPatterns") {
+        for range in find_all(&c.regex, c.pattern.guard_before, &rest) {
+            let index = utf16_len(&rest[..range.start]);
+            let value = &rest[range];
+            let length = utf16_len(value);
+            match spans.iter_mut().find(|(i, l, _, _)| *i == index && *l == length) {
+                Some(span) => span.3.push(c.pattern.id.to_owned()),
+                None => spans.push((index, length, value.to_owned(), vec![c.pattern.id.to_owned()])),
+            }
+        }
+    }
+    spans.sort_by(|a, b| a.0.cmp(&b.0).then(b.1.cmp(&a.1)));
+    spans.into_iter().map(|(_, _, value, types)| PixKeyFound { value, types }).collect()
 }
 
 /// Email has "@", phone is "+" and 12 or 13 digits, random is a UUID, cpf is 11 digits, cnpj is 12 of [0-9A-Z] then

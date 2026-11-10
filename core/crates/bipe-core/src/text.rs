@@ -104,3 +104,25 @@ pub(crate) fn byte_offset(text: &str, utf16: usize) -> Option<usize> {
     }
     (units == utf16).then_some(text.len())
 }
+
+/// Every match of a translated registry regex, as JavaScript `matchAll` finds them: the byte ranges of capture group 1
+/// (bipe-shared docs/scam-matching.md "Iteration"). With `guard_before`, the pattern consumes the character before the
+/// match, so each next search starts one character early to let the guard read the end of the previous match.
+pub(crate) fn find_all(regex: &regex::Regex, guard_before: bool, text: &str) -> Vec<std::ops::Range<usize>> {
+    let mut found = Vec::new();
+    let mut start = 0;
+    while start <= text.len() {
+        let from = if guard_before && start > 0 { text[..start].char_indices().next_back().map_or(0, |(i, _)| i) } else { start };
+        let Some(m) = regex.captures_at(text, from).and_then(|caps| caps.get(1)) else { break };
+        found.push(m.range());
+        start = if m.end() > m.start() {
+            m.end()
+        } else {
+            match text[m.end()..].chars().next() {
+                Some(ch) => m.end() + ch.len_utf8(),
+                None => break,
+            }
+        };
+    }
+    found
+}
