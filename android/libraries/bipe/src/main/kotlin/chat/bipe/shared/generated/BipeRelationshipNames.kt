@@ -11,19 +11,15 @@
 
 package chat.bipe.shared.generated
 
-import chat.bipe.shared.NameNormalizer
+import chat.bipe.core.RelationshipNameWarning
+import chat.bipe.core.relationshipNameWarning
 
 object BipeRelationshipNames {
     /** null: no known discrepancy; mismatch: differing full name; confirm: unconfirmed family label or nickname. */
-    fun warning(savedName: String?, verifiedName: String?, nicknameConfirmed: Boolean = false): String? {
-        if (savedName == null || verifiedName == null) return null
-        val saved = NameNormalizer.normalize(savedName)
-        val verified = NameNormalizer.normalize(verifiedName)
-        if (saved.isEmpty() || verified.isEmpty() || saved == verified) return null
-        val words = saved.split(' ').filter { word -> word.codePoints().anyMatch { Character.isLetter(it) } }
-        val padded = " " + saved.replace(Regex("[^0-9a-z]+"), " ") + " "
-        val family = BipeRegistries.familyTerms.any { padded.contains(" $it ") }
-        if (words.size >= 2 && !family) return "mismatch"
-        return if (nicknameConfirmed) null else "confirm"
-    }
+    fun warning(savedName: String?, verifiedName: String?, nicknameConfirmed: Boolean = false): String? =
+        when (relationshipNameWarning(savedName, verifiedName, nicknameConfirmed)) {
+            RelationshipNameWarning.MISMATCH -> "mismatch"
+            RelationshipNameWarning.CONFIRM -> "confirm"
+            null -> null
+        }
 }
