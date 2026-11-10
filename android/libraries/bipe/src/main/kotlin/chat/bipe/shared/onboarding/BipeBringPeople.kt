@@ -5,6 +5,10 @@
 package chat.bipe.shared.onboarding
 
 import android.content.Context
+import chat.bipe.core.BringPeopleState
+import chat.bipe.core.InviteSlot
+import chat.bipe.core.InviteSlotKind
+import chat.bipe.core.bringPeopleReminder
 import chat.bipe.shared.generated.BipeOnboarding
 
 /**
@@ -20,23 +24,11 @@ object BipeBringPeople {
 
     data class Pick(val slot: Int, val kind: Kind)
 
-    private const val DAY = 86_400_000L
-
-    /** The slot that the weekly reminder names, or null. The oldest qualifying slot wins; on a tie, the first one. */
+    /** The slot that the weekly reminder names, or null (bipe-core `bringPeopleReminder`). The oldest qualifying slot wins. */
     fun reminder(declines: Int, lastAskAt: Long?, slots: List<RuleSlot>, now: Long): Pick? {
-        if (declines >= BipeOnboarding.BRING_PEOPLE_STOP_AFTER_DECLINES) return null
-        if (lastAskAt == null || now - lastAskAt < BipeOnboarding.BRING_PEOPLE_FOLLOW_UP_EVERY_DAYS * DAY) return null
-        var best: Pick? = null
-        slots.forEachIndexed { index, slot ->
-            val kind = when {
-                slot.status == "expired" -> Kind.EXPIRED
-                slot.status == "pending" && now - slot.sentAt >= BipeOnboarding.BRING_PEOPLE_PENDING_AFTER_DAYS * DAY -> Kind.PENDING
-                else -> null
-            } ?: return@forEachIndexed
-            val current = best
-            if (current == null || slot.sentAt < slots[current.slot].sentAt) best = Pick(index, kind)
-        }
-        return best
+        val state = BringPeopleState(declines.coerceAtLeast(0).toUInt(), lastAskAt, slots.map { InviteSlot(it.status, it.sentAt) })
+        val found = bringPeopleReminder(state, now) ?: return null
+        return Pick(found.slot.toInt(), if (found.kind == InviteSlotKind.EXPIRED) Kind.EXPIRED else Kind.PENDING)
     }
 }
 
