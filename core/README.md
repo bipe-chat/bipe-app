@@ -5,6 +5,7 @@ The shared Rust core of ADR 0267. Spike: bipe-chat/bipe#1172.
 - `crates/bipe-core`: the crate. Pure logic: no network, files, clock, secrets or Matrix session.
   - `badge.rs`: badges against a flat key list (`badges.json`).
   - `cvm.rs`: the CVM lines of the company seal detail (`cvm-lines.json`).
+  - `govbr.rs`: the pure parts of Verificar com gov.br: what to do with an incoming PDF and the phase after a check (`govbr-verify.json`).
   - `identity.rs`: handles, invite codes, phone numbers, social handles, profile checks and the name checks of security rule 8 (`handles.json`, `handle-suggestions.json`, `invite-codes.json`, `phone-numbers.json`, `social-handles.json`, `profile-checks.json`, `relationship-names.json`).
   - `issuer.rs`: badges from several issuers against the issuer registry, with `person` and `org` schemes (`badge-issuers.json`, bipe-chat/bipe#637).
   - `message_data.rs`: rules on Matrix event content: forward marks, cleared chats, assistant send, drafts and work notes (`forward-marks.json`, `cleared-chats.json`, `assistant-send.json`, `drafts.json`, `work-notes.json`).

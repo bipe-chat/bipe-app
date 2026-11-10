@@ -6,6 +6,7 @@
 
 mod badge;
 mod cvm;
+mod govbr;
 mod identity;
 mod issuer;
 mod message_data;
@@ -27,6 +28,7 @@ mod generated {
 
 pub use badge::*;
 pub use cvm::*;
+pub use govbr::*;
 pub use identity::*;
 pub use issuer::*;
 pub use message_data::*;
