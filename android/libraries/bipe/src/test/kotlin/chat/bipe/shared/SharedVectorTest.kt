@@ -378,6 +378,29 @@ class SharedVectorTest {
         }
     }
 
+    /**
+     * badge-issuers.json releaseRefuses (bipe-chat/bipe#1195): badges of the test-only region zz against the issuer
+     * registry that this build bundles. A release registry has no test-only issuer, so the answer is unknown_issuer.
+     */
+    @Test
+    fun badgeIssuersReleaseRefuses() {
+        val file = load("badge-issuers.json")
+        val nowMillis = file.getValue("now").jsonPrimitive.long * 1000
+        val bundled = Json.parseToJsonElement(BipeRegistries.BUNDLED_ISSUER_REGISTRY).jsonObject
+        val registry = Base64Url.decode(bundled.string("payload")!!)!!.decodeToString()
+        val verifier = BadgeVerifier(issuerRegistryJson = registry)
+        val vectors = file.getValue("releaseRefuses").jsonArray.map { it.jsonObject }
+        assertWithMessage("releaseRefuses vectors").that(vectors).isNotEmpty()
+        for (vector in vectors) {
+            val result = verifier.verify(vector.getValue("envelope").jsonObject.toString(), vector.string("sender")!!, vector.string("senderMasterKey"), nowMillis)
+            val outcome = when (result) {
+                is BadgeVerificationResult.Valid -> "valid"
+                is BadgeVerificationResult.Invalid -> result.failure.code
+            }
+            assertWithMessage("release refuses ${vector.string("name")}").that(outcome).isEqualTo(vector.string("expect"))
+        }
+    }
+
     @Test
     fun profileFacts() {
         val now = BipeProfileFactLines.parse(load("profile-facts.json").string("now")!!)!!

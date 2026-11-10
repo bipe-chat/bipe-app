@@ -471,6 +471,32 @@ struct SharedVectorTests {
             }
         }
     }
+
+    /// badge-issuers.json releaseRefuses (bipe-chat/bipe#1195): badges of the test-only region zz against the issuer
+    /// registry that this build bundles. A release registry has no test-only issuer, so the answer is unknown_issuer.
+    @Test
+    func badgeIssuersReleaseRefuses() throws {
+        let file = try SharedVectors.object("badge-issuers.json")
+        let now = try Date(timeIntervalSince1970: #require(file["now"] as? Double))
+        let bundled = try #require(JSONSerialization.jsonObject(with: Data(BipeRegistries.bundledIssuerRegistry.utf8)) as? [String: Any])
+        let payload = try #require(Data(base64URL: #require(bundled["payload"] as? String)))
+        let verifier = try BadgeVerifier(issuerRegistryJSON: #require(String(data: payload, encoding: .utf8)))
+        let vectors = try #require(file["releaseRefuses"] as? [[String: Any]])
+        #expect(!vectors.isEmpty)
+        for vector in vectors {
+            let name = try #require(vector["name"] as? String)
+            let envelopeObject = try #require(vector["envelope"] as? [String: Any])
+            let result = try verifier.verify(envelopeJSON: JSONSerialization.data(withJSONObject: envelopeObject),
+                                             sender: #require(vector["sender"] as? String),
+                                             senderMasterKey: vector["senderMasterKey"] as? String,
+                                             now: now)
+            let outcome = switch result {
+            case .valid: "valid"
+            case .invalid(let failure): failure.rawValue
+            }
+            #expect(outcome == (vector["expect"] as? String), "release refuses \(name)")
+        }
+    }
     
     @Test
     func profileFacts() throws {
