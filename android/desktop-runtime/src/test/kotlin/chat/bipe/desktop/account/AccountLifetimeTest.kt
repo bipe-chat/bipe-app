@@ -54,8 +54,10 @@ class AccountLifetimeTest {
         })
         assertTrue(owner.closeAsync().await() is AccountCloseResult.Blocked)
         assertFalse(owner.isCurrent())
+        assertEquals(lease.slot, AccountLifetime.pendingCleanup()[owner.epoch])
         expect(StorageCode.SLOT_BUSY) { repository.open(lease.slot) }
-        assertEquals(AccountCloseResult.Closed, owner.closeAsync().await())
+        assertEquals(AccountCloseResult.Closed, AccountLifetime.retryCleanup(owner.epoch)!!.await())
+        assertFalse(owner.epoch in AccountLifetime.pendingCleanup())
         assertEquals(2, attempts.get())
         repository.open(lease.slot).close()
     }

@@ -5,9 +5,11 @@
 package chat.bipe.desktop.account
 
 import chat.bipe.desktop.storage.AccountLease
+import chat.bipe.desktop.storage.AccountSlot
 import chat.bipe.desktop.storage.StorageCode
 import chat.bipe.desktop.storage.StorageFailure
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
@@ -97,11 +99,16 @@ class AccountLifetime(val lease: AccountLease) {
                     closing.resources.removeAt(closing.resources.lastIndex)
                 }
                 synchronized(monitor) { phase = Phase.Closed }
+                unresolved.remove(epoch, this@AccountLifetime)
                 closing.completion.complete(AccountCloseResult.Closed)
             } catch (error: Exception) {
                 val reason = (error as? StorageFailure)?.code ?: StorageCode.IO_FAILURE
                 // Keep the remaining resources, especially the exclusive slot lock, for an explicit retry.
-                synchronized(monitor) { phase = Phase.Blocked(closing.resources, reason) }
+                synchronized(monitor) {
+                    phase = Phase.Blocked(closing.resources, reason)
+                    // Factory failures may never return a runtime to the UI. Keep their lock/resources reachable.
+                    unresolved[epoch] = this@AccountLifetime
+                }
                 closing.completion.complete(AccountCloseResult.Blocked(reason))
             }
         }
@@ -110,5 +117,10 @@ class AccountLifetime(val lease: AccountLease) {
 
     companion object {
         private val cleanup = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        private val unresolved = ConcurrentHashMap<UUID, AccountLifetime>()
+
+        /** Safe identifiers only; a settings/recovery surface can retry instead of losing a failed owner to GC. */
+        fun pendingCleanup(): Map<UUID, AccountSlot> = unresolved.mapValues { it.value.lease.slot }
+        fun retryCleanup(epoch: UUID): Deferred<AccountCloseResult>? = unresolved[epoch]?.closeAsync()
     }
 }
