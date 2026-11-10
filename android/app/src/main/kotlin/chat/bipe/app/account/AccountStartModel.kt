@@ -6,6 +6,7 @@ package chat.bipe.app.account
 
 import android.content.Context
 import android.util.Log
+import chat.bipe.app.BuildConfig
 import chat.bipe.app.business.CompanyRole
 import chat.bipe.app.common.AppConfig
 import chat.bipe.app.settings.DeletionDates
@@ -564,7 +565,8 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            Log.w(AccountStep.TAG, "sign-in failed: ${e.javaClass.simpleName}: ${e.message}")
+            // The SDK message can name the account or the server: debug builds only (bipe-chat/bipe#1122).
+            Log.w(AccountStep.TAG, "sign-in failed: ${e.javaClass.simpleName}" + if (BuildConfig.DEBUG) ": ${e.message}" else "")
             null
         }
     }

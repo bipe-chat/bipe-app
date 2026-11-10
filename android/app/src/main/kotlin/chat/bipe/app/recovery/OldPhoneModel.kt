@@ -7,6 +7,7 @@ package chat.bipe.app.recovery
 import android.content.Context
 import android.util.Log
 import android.util.Base64
+import chat.bipe.app.BuildConfig
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.account.QrLogin
 import chat.bipe.app.account.SessionStore
@@ -158,7 +159,8 @@ class OldPhoneModel(
     /** Action taskFailed: maps the SDK error to a string. */
     private fun taskFailed(error: Exception) {
         job = null
-        Log.w("OldPhoneModel", "QR login failed: ${error::class.simpleName}: ${error.message}")
+        // The SDK message can name the account or the server: debug builds only (bipe-chat/bipe#1122).
+        Log.w("OldPhoneModel", "QR login failed: ${error::class.simpleName}" + if (BuildConfig.DEBUG) ": ${error.message}" else "")
         fail(
             when (error) {
                 is HumanQrLoginException.NotFound, is HumanQrLoginException.Expired -> Failure.EXPIRED

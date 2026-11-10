@@ -140,7 +140,7 @@ class SignedLists internal constructor(private val directory: File?) {
                 connection.useCaches = false
                 connection.setRequestProperty("Accept", "application/json")
                 if (connection.responseCode != 200) return@runCatching null
-                val bytes = connection.inputStream.use { it.readNBytes(MAX_BYTES + 1) }
+                val bytes = connection.inputStream.use { it.readAtMost(MAX_BYTES + 1) }
                 if (bytes.size > MAX_BYTES) null else bytes.toString(Charsets.UTF_8)
             } finally {
                 connection.disconnect()
