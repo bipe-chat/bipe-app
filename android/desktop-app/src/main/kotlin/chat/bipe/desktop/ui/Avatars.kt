@@ -29,21 +29,22 @@ import kotlinx.coroutines.withContext
 import org.jetbrains.skia.Image as SkiaImage
 
 /** Shared DM/room identity: peer photo for DMs, room photo then up to three heroes for groups. */
-@Composable internal fun Avatar(row: ChatRow, media: AccountMedia, colors: DesktopColors) {
+@Composable internal fun Avatar(row: ChatRow, media: AccountMedia, colors: DesktopColors, size: Dp = 48.dp) {
     if (!row.isDm && row.avatar == null && row.members.isNotEmpty()) {
         val members = row.members.take(3)
-        if (members.size == 1) AvatarPhoto(members[0].name, members[0].url, media, colors)
-        else Box(Modifier.size(48.dp).clip(CircleShape).background(colors["accent.wash"])) {
+        if (members.size == 1) AvatarPhoto(members[0].name, members[0].url, media, colors, size)
+        else Box(Modifier.size(size).clip(CircleShape).background(colors["accent.wash"])) {
             members.forEachIndexed { index, member ->
-                val position = if (members.size == 2) listOf(0.dp to 0.dp, 18.dp to 18.dp)
-                    else listOf(0.dp to 0.dp, 18.dp to 0.dp, 9.dp to 18.dp)
+                val step = size * 0.375f
+                val position = if (members.size == 2) listOf(0.dp to 0.dp, step to step)
+                    else listOf(0.dp to 0.dp, step to 0.dp, step / 2 to step)
                 val (x, y) = position[index]
                 Box(Modifier.offset(x, y).border(1.dp, colors["surface.base"], CircleShape)) {
-                    AvatarPhoto(member.name, member.url, media, colors, 30.dp)
+                    AvatarPhoto(member.name, member.url, media, colors, size * 0.625f)
                 }
             }
         }
-    } else AvatarPhoto(row.name, row.avatar, media, colors)
+    } else AvatarPhoto(row.name, row.avatar, media, colors, size)
 }
 
 @Composable private fun AvatarPhoto(name: String, url: String?, media: AccountMedia, colors: DesktopColors, size: Dp = 48.dp) {

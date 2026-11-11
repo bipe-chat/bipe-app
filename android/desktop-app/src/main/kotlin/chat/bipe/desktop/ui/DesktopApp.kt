@@ -6,9 +6,9 @@ package chat.bipe.desktop.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
@@ -36,7 +36,6 @@ import chat.bipe.desktop.safety.MessageSafety
 import chat.bipe.desktop.safety.registryId
 import chat.bipe.desktop.storage.StoredSlot
 import chat.bipe.desktop.ui.common.BipeButton
-import chat.bipe.shared.BipeFavouritesOrder
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -184,10 +183,9 @@ private enum class Destination(val key: String) { CHATS("bipe_tab_chats"), GROUP
     val order by account.list.favouriteOrder.collectAsState()
     val draftPreviews by account.runtime.drafts.previews.collectAsState()
     val allRows = when (val snapshot = load) { is LoadPhase.Ready -> snapshot.value; else -> emptyList() }
-    val rows = allRows.filter {
-        !it.archived && (if (profile.kind == AccountKind.COMPANY) true else it.isDm == (destination == Destination.CHATS)) &&
-            (search.isEmpty() || it.name.contains(search, ignoreCase = true) || it.preview.orEmpty().contains(search, ignoreCase = true))
-    }
+    val scope = if (profile.kind == AccountKind.COMPANY) ChatScope.ALL
+        else if (destination == Destination.CHATS) ChatScope.DIRECT else ChatScope.GROUPS
+    val sections = ChatListSections.from(allRows, order, scope, search)
     Column {
         Row(Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.width(304.dp)) {
@@ -219,24 +217,42 @@ private enum class Destination(val key: String) { CHATS("bipe_tab_chats"), GROUP
             Column(Modifier.width(320.dp).fillMaxHeight()) {
                 OutlinedTextField(search, { searches[destination] = it }, singleLine = true,
                     placeholder = { Text(s.text("bipe_app_search_placeholder")) }, modifier = Modifier.fillMaxWidth().padding(12.dp))
-                val favourites = BipeFavouritesOrder.sorted(rows.filter { it.favourite }, order, { it.id }, { it.name })
-                if (favourites.isNotEmpty()) LazyRow(Modifier.fillMaxWidth(), contentPadding = PaddingValues(8.dp)) {
-                    items(favourites, key = { it.id }) { row ->
-                        SelectionSurface(row.id == selected, colors, { selections[destination] = row.id }, Modifier.width(104.dp).padding(4.dp)) {
-                            Column(Modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                                Avatar(row, account.runtime.media, colors)
-                                Text(row.name, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
+                LazyColumn(Modifier.weight(1f)) {
+                    items(sections.favourites.chunked(3), key = { "favourites:${it.first().id}" }) { line ->
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp)
+                            .semantics { contentDescription = s.text("bipe_chat_favourites") },
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            line.forEach { row ->
+                                val unreadLabel = s.text("bipe_chat_unread_state")
+                                val label = if (row.unread > 0) "${row.name}, $unreadLabel" else row.name
+                                SelectionSurface(row.id == selected, colors, { selections[destination] = row.id },
+                                    Modifier.weight(1f).semantics(mergeDescendants = true) { contentDescription = label }) {
+                                    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                        BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                                            val size = minOf(maxWidth * 0.8f, 92.dp)
+                                            Box(Modifier.size(size)) {
+                                                Avatar(row, account.runtime.media, colors, size)
+                                                if (row.unread > 0) Box(Modifier.align(Alignment.TopEnd).size(20.dp)
+                                                    .border(2.dp, colors["surface.base"], CircleShape).padding(2.dp)
+                                                    .background(colors["accent.fill"], CircleShape))
+                                            }
+                                        }
+                                        Text(row.name, Modifier.padding(horizontal = 4.dp, vertical = 6.dp), maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
+                                    }
+                                }
                             }
+                            repeat(3 - line.size) { Spacer(Modifier.weight(1f)) }
                         }
                     }
-                }
-                when (load) {
-                    LoadPhase.Loading -> Text(s.text("bipe_web_loading"), Modifier.padding(16.dp))
-                    LoadPhase.Failed -> BipeButton(s.text("bipe_app_retry"), { model.open(account.slots.first { it.slot == account.runtime.slot }) }, Modifier.padding(16.dp))
-                    is LoadPhase.Ready -> if (rows.isEmpty()) Text(s.text(if (destination == Destination.CHATS) "bipe_app_chat_list_empty" else "bipe_app_groups_empty"), Modifier.padding(16.dp))
-                }
-                LazyColumn(Modifier.weight(1f)) {
-                    items(rows, key = { it.id }) { row ->
+                    item(key = "load-state") {
+                        when (load) {
+                            LoadPhase.Loading -> Text(s.text("bipe_web_loading"), Modifier.padding(16.dp))
+                            LoadPhase.Failed -> BipeButton(s.text("bipe_app_retry"), { model.open(account.slots.first { it.slot == account.runtime.slot }) }, Modifier.padding(16.dp))
+                            is LoadPhase.Ready -> if (sections.isEmpty) Text(s.text(if (destination == Destination.CHATS) "bipe_app_chat_list_empty" else "bipe_app_groups_empty"), Modifier.padding(16.dp))
+                        }
+                    }
+                    items(sections.history, key = { it.id }) { row ->
                         SelectionSurface(row.id == selected, colors, { selections[destination] = row.id }, Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp)) {
                             Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 Avatar(row, account.runtime.media, colors)
