@@ -2532,6 +2532,12 @@ public enum BipeStrings {
 
     public static var devicesSectionPrograms: String { NSLocalizedString("bipe_devices_section_programs", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var devicesSectionAssistants: String { NSLocalizedString("bipe_devices_section_assistants", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var devicesNoAssistants: String { NSLocalizedString("bipe_devices_no_assistants", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var devicesNoAssistantsFooter: String { NSLocalizedString("bipe_devices_no_assistants_footer", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var devicesSectionOthersAssistants: String { NSLocalizedString("bipe_devices_section_others_assistants", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var devicesThisDevice: String { NSLocalizedString("bipe_devices_this_device", tableName: "Bipe", bundle: .module, comment: "") }

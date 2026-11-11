@@ -1808,6 +1808,7 @@
   "root": [
    "privacy",
    "account",
+   "devices",
    "notifications",
    "chats",
    "help"
@@ -1956,20 +1957,6 @@
         "adr": "0109"
        }
       ]
-     },
-     {
-      "key": "assistants",
-      "title": "bipe_privacy_assistants",
-      "rows": [
-       {
-        "key": "assistantSend",
-        "scope": "account",
-        "title": "bipe_privacy_assistant_send",
-        "footer": "bipe_privacy_assistant_send_footer",
-        "kind": "switch",
-        "adr": "0210"
-       }
-      ]
      }
     ]
    },
@@ -2053,31 +2040,6 @@
       ]
      },
      {
-      "key": "devices",
-      "title": "bipe_account_devices",
-      "rows": [
-       {
-        "key": "linkPhone",
-        "title": "bipe_app_link_phone_action",
-        "kind": "action",
-        "adr": "0059"
-       },
-       {
-        "key": "linkedDevices",
-        "title": "bipe_linked_devices_title",
-        "kind": "link",
-        "adr": "0116"
-       },
-       {
-        "key": "oldMessages",
-        "title": "bipe_account_old_messages",
-        "footer": "bipe_account_old_messages_footer",
-        "kind": "link",
-        "adr": "0073"
-       }
-      ]
-     },
-     {
       "key": "leave",
       "rows": [
        {
@@ -2090,6 +2052,61 @@
         "title": "bipe_account_delete",
         "kind": "destructive",
         "adr": "0140"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "key": "devices",
+    "title": "bipe_devices_group_title",
+    "icon": "devices",
+    "sections": [
+     {
+      "key": "devices",
+      "title": "bipe_devices_section_devices",
+      "rows": [
+       {
+        "key": "linkComputer",
+        "title": "bipe_devices_link_computer_or_browser",
+        "kind": "action",
+        "adr": "0291"
+       },
+       {
+        "key": "linkPhone",
+        "title": "bipe_app_link_phone_action",
+        "kind": "action",
+        "adr": "0059"
+       },
+       {
+        "key": "oldMessages",
+        "title": "bipe_account_old_messages",
+        "footer": "bipe_account_old_messages_footer",
+        "kind": "link",
+        "adr": "0073"
+       }
+      ]
+     },
+     {
+      "key": "assistants",
+      "title": "bipe_devices_section_assistants",
+      "rows": [
+       {
+        "key": "assistantSend",
+        "scope": "account",
+        "title": "bipe_privacy_assistant_send",
+        "footer": "bipe_privacy_assistant_send_footer",
+        "kind": "switch",
+        "adr": "0210"
+       },
+       {
+        "key": "noAssistants",
+        "scope": "account",
+        "title": "bipe_devices_no_assistants",
+        "footer": "bipe_devices_no_assistants_footer",
+        "kind": "switch",
+        "adr": "0255",
+        "gate": "planned:1081"
        }
       ]
      }
@@ -4319,9 +4336,10 @@
   "clientMaxLength": 64
  },
  "deviceKinds": {
-  "$comment": "Device kinds and device entries (bipe ADR 0291, bipe-chat/bipe#1479). Every device of an account has a kind. A Bipe client, bipe-mcp and the Beeper bridge each write their own device entry: an end-to-end encrypted event of type eventType in the account's drafts room (registries/drafts.json, docs/drafts-room.md), with source \"self\". The phone that approves a new device may write an entry for it with source \"approval\", from the user agent on the consent screen (userAgents, browsers, systems). A self entry beats an approval entry; the newest of each wins. Text fields are at most fieldMaxLength characters. `section`: devices (Aparelhos) or programs (Assistentes e programas). `icon`: a Phosphor icon in bipe-app tools/phosphor.json. `leavesBrazil`: the row says fora do Brasil. unknownWarning: false until every Bipe writer ships (#1481 to #1485), so a Bipe device that has no entry yet is not flagged; while false, a device with no entry shows kind unknown with no warning. Rules: deviceInfoFromEvent, userAgentInfo, deviceRows in tools/lib/registries.mjs; test-vectors/device-kinds.json.",
+  "$comment": "Device kinds and device entries (bipe ADR 0291, bipe-chat/bipe#1479). Every device of an account has a kind. A Bipe client, bipe-mcp and the Beeper bridge each write their own device entry: an m.room.message with msgtype `msgtype` and the field `field`, end-to-end encrypted in the account's drafts room (registries/drafts.json, docs/drafts-room.md), with source \"self\". The phone that approves a new device may write an entry for it with source \"approval\", from the user agent on the consent screen (userAgents, browsers, systems). A self entry beats an approval entry; the newest of each wins. Text fields are at most fieldMaxLength characters. `section`: devices (Aparelhos) or programs (Assistentes e programas). `icon`: a Phosphor icon in bipe-app tools/phosphor.json. `leavesBrazil`: the row says fora do Brasil. unknownWarning: false until every Bipe writer ships (#1481 to #1485), so a Bipe device that has no entry yet is not flagged; while false, a device with no entry shows kind unknown with no warning. Rules: deviceInfoFromEvent, userAgentInfo, deviceRows in tools/lib/registries.mjs; test-vectors/device-kinds.json.",
   "version": 1,
-  "eventType": "chat.bipe.device_info",
+  "field": "chat.bipe.device_info",
+  "msgtype": "m.notice",
   "fieldMaxLength": 64,
   "unknownWarning": false,
   "kinds": [
@@ -4370,21 +4388,21 @@
   ],
   "userAgents": [
    {
-    "pattern": "^Bipe/([0-9][0-9.]*) \\(([^;()]+); (iOS [0-9.]+)\\)$",
+    "pattern": "^Bipe/([0-9][0-9.]*) \\(([A-Za-z0-9 ,._-]+); (iOS [0-9.]+)\\)$",
     "kind": "phone",
     "app": "Bipe $1",
     "model": "$2",
     "os": "$3"
    },
    {
-    "pattern": "^Bipe/([0-9][0-9.]*) \\(([^;()]+); (Android [0-9.]+)\\)$",
+    "pattern": "^Bipe/([0-9][0-9.]*) \\(([A-Za-z0-9 ,._-]+); (Android [0-9.]+)\\)$",
     "kind": "phone",
     "app": "Bipe $1",
     "model": "$2",
     "os": "$3"
    },
    {
-    "pattern": "^Bipe/([0-9][0-9.]*) \\(([^;()]+); ((?:macOS|Windows) [0-9.]+)\\)$",
+    "pattern": "^Bipe/([0-9][0-9.]*) \\(([A-Za-z0-9 ,._-]+); ((?:macOS|Windows) [0-9.]+)\\)$",
     "kind": "computer-app",
     "app": "Bipe $1",
     "model": "$2",
@@ -5631,6 +5649,9 @@
    "bipe_devices_summary_unknown": "Aparelhos desconhecidos: %1$s",
    "bipe_devices_section_devices": "Aparelhos",
    "bipe_devices_section_programs": "Assistentes e programas",
+   "bipe_devices_section_assistants": "Assistentes",
+   "bipe_devices_no_assistants": "Não quero assistentes lendo minhas mensagens",
+   "bipe_devices_no_assistants_footer": "Vale para o que você mandar daqui em diante. Um app modificado ainda pode copiar suas mensagens.",
    "bipe_devices_section_others_assistants": "Assistentes dos outros",
    "bipe_devices_this_device": "Este aparelho",
    "bipe_devices_this_device_hint": "Para tirar sua conta deste aparelho, use Sair deste aparelho em Sua conta.",
@@ -8180,6 +8201,9 @@
    "bipe_devices_summary_unknown": "Unknown devices: %1$s",
    "bipe_devices_section_devices": "Devices",
    "bipe_devices_section_programs": "Assistants and programs",
+   "bipe_devices_section_assistants": "Assistants",
+   "bipe_devices_no_assistants": "I don't want assistants reading my messages",
+   "bipe_devices_no_assistants_footer": "Applies to what you send from now on. A modified app can still copy your messages.",
    "bipe_devices_section_others_assistants": "Other people's assistants",
    "bipe_devices_this_device": "This device",
    "bipe_devices_this_device_hint": "To take your account off this device, use Sign out of this device in Your account.",

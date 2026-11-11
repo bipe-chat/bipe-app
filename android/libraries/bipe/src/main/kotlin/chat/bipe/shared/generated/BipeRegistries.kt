@@ -952,7 +952,8 @@ object BipeRegistries {
     const val WORK_REPLY_BY_BODY = "Resposta enviada"
     const val WORK_NOTE_BODY_MAX_LENGTH = 4000
     /** Device kinds and device entries (bipe ADR 0291, bipe-chat/bipe#1479; registries/device-kinds.json). Rules: test-vectors/device-kinds.json. */
-    const val DEVICE_INFO_EVENT_TYPE = "chat.bipe.device_info"
+    const val DEVICE_INFO_FIELD = "chat.bipe.device_info"
+    const val DEVICE_INFO_MSGTYPE = "m.notice"
     const val DEVICE_FIELD_MAX_LENGTH = 64
     const val DEVICE_UNKNOWN_WARNING = false
     val DEVICE_KINDS: List<DeviceKind> = listOf(
@@ -964,9 +965,9 @@ object BipeRegistries {
         DeviceKind("unknown", "warning", "bipe_device_kind_unknown", "devices", false),
     )
     val DEVICE_USER_AGENTS: List<DeviceUserAgentRule> = listOf(
-        DeviceUserAgentRule("^Bipe/([0-9][0-9.]*) \\(([^;()]+); (iOS [0-9.]+)\\)\$", "phone", "Bipe \$1", "\$2", "\$3"),
-        DeviceUserAgentRule("^Bipe/([0-9][0-9.]*) \\(([^;()]+); (Android [0-9.]+)\\)\$", "phone", "Bipe \$1", "\$2", "\$3"),
-        DeviceUserAgentRule("^Bipe/([0-9][0-9.]*) \\(([^;()]+); ((?:macOS|Windows) [0-9.]+)\\)\$", "computer-app", "Bipe \$1", "\$2", "\$3"),
+        DeviceUserAgentRule("^Bipe/([0-9][0-9.]*) \\(([A-Za-z0-9 ,._-]+); (iOS [0-9.]+)\\)\$", "phone", "Bipe \$1", "\$2", "\$3"),
+        DeviceUserAgentRule("^Bipe/([0-9][0-9.]*) \\(([A-Za-z0-9 ,._-]+); (Android [0-9.]+)\\)\$", "phone", "Bipe \$1", "\$2", "\$3"),
+        DeviceUserAgentRule("^Bipe/([0-9][0-9.]*) \\(([A-Za-z0-9 ,._-]+); ((?:macOS|Windows) [0-9.]+)\\)\$", "computer-app", "Bipe \$1", "\$2", "\$3"),
         DeviceUserAgentRule("^Mozilla/", "browser", null, null, null),
     )
     val DEVICE_BROWSERS: List<DeviceNameRule> = listOf(

@@ -1072,6 +1072,9 @@
     <string name="bipe_devices_summary_unknown">Aparelhos desconhecidos: %1$s</string>
     <string name="bipe_devices_section_devices">Aparelhos</string>
     <string name="bipe_devices_section_programs">Assistentes e programas</string>
+    <string name="bipe_devices_section_assistants">Assistentes</string>
+    <string name="bipe_devices_no_assistants">Não quero assistentes lendo minhas mensagens</string>
+    <string name="bipe_devices_no_assistants_footer">Vale para o que você mandar daqui em diante. Um app modificado ainda pode copiar suas mensagens.</string>
     <string name="bipe_devices_section_others_assistants">Assistentes dos outros</string>
     <string name="bipe_devices_this_device">Este aparelho</string>
     <string name="bipe_devices_this_device_hint">Para tirar sua conta deste aparelho, use Sair deste aparelho em Sua conta.</string>
