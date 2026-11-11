@@ -105,6 +105,8 @@ class AccountLifetime(val lease: AccountLease) {
                 closing.completion.complete(AccountCloseResult.Closed)
             } catch (error: Exception) {
                 val reason = (error as? StorageFailure)?.code ?: StorageCode.IO_FAILURE
+                // Local diagnostics contain only our resource type and safe code, never exception bodies or identities.
+                System.err.println("BIPE_ACCOUNT_CLEANUP_BLOCKED resource=${closing.resources.lastOrNull()?.javaClass?.simpleName ?: "tasks"} code=$reason")
                 // Keep the remaining resources, especially the exclusive slot lock, for an explicit retry.
                 synchronized(monitor) {
                     phase = Phase.Blocked(closing.resources, reason)

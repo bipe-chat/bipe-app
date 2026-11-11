@@ -98,28 +98,34 @@ class DesktopRoomList private constructor(
 
     private suspend fun summary(room: Room): ChatRow? {
         val info = room.roomInfo()
-        if (info.membership != Membership.JOINED || info.isSpace) return null
-        val own = runtime.client.userId()
-        val heroes = info.heroes.filter { it.userId != own }
-        val peer = heroes.firstOrNull()
-        val name = if (info.isDm) realName(peer?.displayName, peer?.userId, labels.noName)
-            else info.rawName?.takeIf { it.isNotBlank() } ?: heroes.takeIf { it.isNotEmpty() }
-                ?.joinToString(", ") { realName(it.displayName, it.userId, labels.noName) } ?: labels.unnamed
-        var preview: String? = null
-        var timestamp: Long? = null
-        when (val latest = room.latestEvent()) {
-            is LatestEventValue.Remote -> { preview = preview(latest.content); timestamp = latest.timestamp.toLong() }
-            is LatestEventValue.Local -> { preview = preview(latest.content); timestamp = latest.timestamp.toLong() }
-            else -> Unit
-        }
-        val draft = try { room.loadComposerDraft(null)?.takeIf {
-            it.draftType is ComposerDraftType.NewMessage && it.attachments.isEmpty()
-        }?.plainText?.takeIf { it.isNotBlank() } }
-        catch (cancelled: CancellationException) { throw cancelled }
-        catch (_: Exception) { null } // The composer presents a retryable load failure; rows keep their last message.
-        return ChatRow(info.id, name, if (info.isDm) peer?.avatarUrl else info.avatarUrl,
-            heroes.take(3).map { ChatAvatar(realName(it.displayName, it.userId, labels.noName), it.avatarUrl) },
-            info.isDm, info.isFavourite, info.isLowPriority, info.numUnreadMessages.toLong(), preview, timestamp, draft)
+        try {
+            if (info.membership != Membership.JOINED || info.isSpace) return null
+            val own = runtime.client.userId()
+            val heroes = info.heroes.filter { it.userId != own }
+            val peer = heroes.firstOrNull()
+            val name = if (info.isDm) realName(peer?.displayName, peer?.userId, labels.noName)
+                else info.rawName?.takeIf { it.isNotBlank() } ?: heroes.takeIf { it.isNotEmpty() }
+                    ?.joinToString(", ") { realName(it.displayName, it.userId, labels.noName) } ?: labels.unnamed
+            var preview: String? = null
+            var timestamp: Long? = null
+            val latest = room.latestEvent()
+            try { when (latest) {
+                is LatestEventValue.Remote -> { preview = preview(latest.content); timestamp = latest.timestamp.toLong() }
+                is LatestEventValue.Local -> { preview = preview(latest.content); timestamp = latest.timestamp.toLong() }
+                else -> Unit
+            } } finally { latest.destroy() }
+            val draft = try {
+                val saved = room.loadComposerDraft(null)
+                try { saved?.takeIf { it.draftType is ComposerDraftType.NewMessage && it.attachments.isEmpty() }
+                    ?.plainText?.takeIf { it.isNotBlank() } }
+                finally { saved?.destroy() }
+            }
+            catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) { null } // The composer presents a retryable load failure; rows keep their last message.
+            return ChatRow(info.id, name, if (info.isDm) peer?.avatarUrl else info.avatarUrl,
+                heroes.take(3).map { ChatAvatar(realName(it.displayName, it.userId, labels.noName), it.avatarUrl) },
+                info.isDm, info.isFavourite, info.isLowPriority, info.numUnreadMessages.toLong(), preview, timestamp, draft)
+        } finally { info.destroy() }
     }
 
     private fun preview(content: TimelineItemContent): String? = when (val kind = (content as? TimelineItemContent.MsgLike)?.content?.kind) {

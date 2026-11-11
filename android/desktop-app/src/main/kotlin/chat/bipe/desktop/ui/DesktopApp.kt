@@ -43,7 +43,7 @@ import java.time.format.DateTimeFormatter
 import kotlin.math.floor
 
 @Composable
-fun DesktopApp(model: DesktopAppModel, phase: AppPhase, colors: DesktopColors) {
+fun DesktopApp(model: DesktopAppModel, phase: AppPhase, colors: DesktopColors, onClose: () -> Unit) {
     val s = model.catalog
     Surface(Modifier.fillMaxSize(), color = colors["surface.base"]) {
         when (phase) {
@@ -64,6 +64,11 @@ fun DesktopApp(model: DesktopAppModel, phase: AppPhase, colors: DesktopColors) {
             is AppPhase.Linking -> PhoneLinkView(model, phase, colors)
             is AppPhase.Recovering -> PendingRecoveryView(model, phase)
             is AppPhase.Ready -> Workspace(model, phase, colors)
+            is AppPhase.Closing -> Centered { Text(s.text("bipe_web_loading")) }
+            is AppPhase.CloseFailed -> Centered {
+                Text(s.text("bipe_error_generic"))
+                BipeButton(s.text("bipe_app_retry"), onClose)
+            }
             is AppPhase.Failed -> Centered {
                 Text(s.text("bipe_app_start_error"))
                 if (phase.needsPhone) Text(s.text("bipe_mac_linked_devices_footer"))

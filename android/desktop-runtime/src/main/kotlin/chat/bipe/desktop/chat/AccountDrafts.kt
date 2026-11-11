@@ -35,8 +35,10 @@ class SdkComposerDraftStore(private val client: Client) : ComposerDraftStore {
         val room = client.getRoom(roomId) ?: throw StorageFailure(StorageCode.MISSING_STORE)
         try {
             val saved = room.loadComposerDraft(null) ?: return SavedComposerDraft.Text("")
-            return if (saved.draftType is ComposerDraftType.NewMessage && saved.attachments.isEmpty()) SavedComposerDraft.Text(saved.plainText)
-                else SavedComposerDraft.Unsupported
+            try {
+                return if (saved.draftType is ComposerDraftType.NewMessage && saved.attachments.isEmpty()) SavedComposerDraft.Text(saved.plainText)
+                    else SavedComposerDraft.Unsupported
+            } finally { saved.destroy() }
         } finally { room.destroy() }
     }
 

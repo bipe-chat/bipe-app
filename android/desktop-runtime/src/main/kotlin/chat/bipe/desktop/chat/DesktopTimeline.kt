@@ -233,7 +233,7 @@ class DesktopTimeline private constructor(
                 safety = messageSafety(body, event.isOwn, type == MessageRow.Kind.TEXT, safetyEngine),
                 eventId = reactionTarget,
                 reactions = if (reactionTarget == null) emptyList() else reactionSnapshots(content.reactions, runtime.client.userId()))
-        } finally { event.lazyProvider.destroy() }
+        } finally { event.destroy() }
     }
 
     companion object {

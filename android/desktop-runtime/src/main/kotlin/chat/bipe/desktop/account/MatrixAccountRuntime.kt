@@ -85,7 +85,8 @@ class MatrixAccountRuntime private constructor(
         service
     } }.await() }
     catch (error: Exception) {
-        withContext(NonCancellable) { lifetime.closeAsync().await() }
+        // The caller can itself be an account-owned room/list task. Let it unwind before cleanup joins it.
+        lifetime.closeAsync()
         throw error
     }
 
@@ -114,7 +115,10 @@ class MatrixAccountRuntime private constructor(
                         configuredBuilder(lease, key, homeserver, userAgent, delegate, purpose)
                     }
                     val client = try { builder.build() } finally { builder.destroy() }
-                    lifetime.own(ClientResource(client, lease))
+                    lifetime.own(NativeClientRelease(
+                        pause = { client.pause() }, release = { client.destroy() },
+                        drain = { WindowsStoreDrain.await(lease.paths) },
+                    ))
                     val drafts = lifetime.own(AccountDrafts(lifetime, SdkComposerDraftStore(client)))
                     currentCoroutineContext().ensureActive()
                     lifetime.requireCurrent()
@@ -239,16 +243,5 @@ private class SyncResource(private val service: SyncService) : AccountResource {
         if (phase == Phase.RELEASED) return
         try { service.stop() }
         finally { service.destroy(); phase = Phase.RELEASED }
-    }
-}
-
-private class ClientResource(private val client: Client, private val lease: AccountLease) : AccountResource {
-    private enum class Phase { OPEN, DRAINING, RELEASED }
-    private var phase = Phase.OPEN
-    override suspend fun close() {
-        if (phase == Phase.RELEASED) return
-        if (phase == Phase.OPEN) { client.destroy(); phase = Phase.DRAINING }
-        WindowsStoreDrain.await(lease.paths)
-        phase = Phase.RELEASED
     }
 }

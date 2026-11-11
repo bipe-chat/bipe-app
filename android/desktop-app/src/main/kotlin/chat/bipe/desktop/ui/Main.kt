@@ -41,7 +41,7 @@ fun main() = application {
             background = colors["surface.base"], onBackground = colors["ink.primary"],
             surfaceVariant = colors["surface.raised"], onSurfaceVariant = colors["ink.secondary"],
             outline = colors["line.strong"], error = colors["trust.danger.ink"],
-        ), typography = BipeTypography) { DesktopApp(model, phase, colors) }
+        ), typography = BipeTypography) { DesktopApp(model, phase, colors, onClose = { model.closeWindow(::exitApplication) }) }
     }
 }
 

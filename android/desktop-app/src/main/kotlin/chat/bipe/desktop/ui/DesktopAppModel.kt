@@ -33,6 +33,8 @@ sealed interface AppPhase {
     class Ready(val runtime: MatrixAccountRuntime, val list: DesktopRoomList, val profile: StateFlow<AccountProfile>,
                 val slots: List<StoredSlot>, val appearance: AccountAppearance) : AppPhase
     data class Failed(val needsPhone: Boolean = false) : AppPhase
+    class Closing(val source: AppPhase) : AppPhase
+    class CloseFailed(val source: AppPhase) : AppPhase
 }
 
 sealed interface SelectedTimeline {
@@ -66,27 +68,29 @@ class DesktopAppModel(val catalog: DesktopCatalog) {
 
     fun refresh() = scope.launch { transitions.withLock {
         val previous = mutablePhase.value
-        mutablePhase.value = AppPhase.Loading
+        if (previous is AppPhase.Closing || previous is AppPhase.CloseFailed) return@withLock
+        show(AppPhase.Loading)
         try {
             close(previous)
             retryCleanup()
-            mutablePhase.value = AppPhase.Welcome(repository.slots())
-        } catch (_: Exception) { mutablePhase.value = AppPhase.Failed() }
+            show(AppPhase.Welcome(repository.slots()))
+        } catch (_: Exception) { show(AppPhase.Failed()) }
     } }
 
     fun open(slot: StoredSlot) = scope.launch { transitions.withLock {
         val previous = mutablePhase.value
-        mutablePhase.value = AppPhase.Loading
+        if (previous is AppPhase.Closing || previous is AppPhase.CloseFailed) return@withLock
+        show(AppPhase.Loading)
         try {
             close(previous)
             if (slot is StoredSlot.Pending || slot is StoredSlot.Discarding || slot is StoredSlot.Revoked) {
-                mutablePhase.value = AppPhase.Recovering(PendingDeviceRecovery(slot.slot, repository, SdkPendingLogout(userAgent())), slot)
+                show(AppPhase.Recovering(PendingDeviceRecovery(slot.slot, repository, SdkPendingLogout(userAgent())), slot))
                 return@withLock
             }
-            if (slot !is StoredSlot.Linked) { mutablePhase.value = AppPhase.Failed(needsPhone = true); return@withLock }
+            if (slot !is StoredSlot.Linked) { show(AppPhase.Failed(needsPhone = true)); return@withLock }
             val runtime = MatrixAccountRuntime.restore(repository.open(slot.slot), userAgent())
             connect(runtime)
-        } catch (_: Exception) { mutablePhase.value = AppPhase.Failed() }
+        } catch (_: Exception) { show(AppPhase.Failed()) }
     } }
 
     fun recoverPending(action: PendingRecoveryAction) {
@@ -98,9 +102,10 @@ class DesktopAppModel(val catalog: DesktopCatalog) {
     }
 
     fun link() = scope.launch { transitions.withLock {
-        if (mutablePhase.value is AppPhase.Linking || mutablePhase.value == AppPhase.Loading) return@withLock
+        if (mutablePhase.value is AppPhase.Linking || mutablePhase.value == AppPhase.Loading ||
+            mutablePhase.value is AppPhase.Closing || mutablePhase.value is AppPhase.CloseFailed) return@withLock
         val previous = mutablePhase.value
-        mutablePhase.value = AppPhase.Loading
+        show(AppPhase.Loading)
         try {
             close(previous)
             val registration = WindowsLoginRegistration(catalog.windowsClientId ?: throw PhoneLinkException(PhoneLinkFailure.REGISTRATION_REQUIRED))
@@ -108,18 +113,18 @@ class DesktopAppModel(val catalog: DesktopCatalog) {
             val attempt = try { PhoneLinkAttempt.create(runtime, repository, registration) }
                 catch (error: Exception) { runtime.closeAsync().await(); throw error }
             val linking = AppPhase.Linking(runtime, attempt)
-            mutablePhase.value = linking
+            show(linking)
             attempt.start()
             scope.launch {
                 attempt.phase.first { it == PhoneLinkPhase.Linked || it is PhoneLinkPhase.Failed || it == PhoneLinkPhase.Cancelled }
                 transitions.withLock {
                     if (mutablePhase.value !== linking) return@withLock
                     if (attempt.phase.value == PhoneLinkPhase.Linked) {
-                        try { connect(runtime) } catch (_: Exception) { runtime.closeAsync().await(); mutablePhase.value = AppPhase.Failed() }
+                        try { connect(runtime) } catch (_: Exception) { runtime.closeAsync().await(); show(AppPhase.Failed()) }
                     }
                 }
             }
-        } catch (_: Exception) { mutablePhase.value = AppPhase.Failed() }
+        } catch (_: Exception) { show(AppPhase.Failed()) }
     } }
 
     /** Cancellation preserves the pending slot for explicit recovery. It never claims a partial server device was removed. */
@@ -128,9 +133,9 @@ class DesktopAppModel(val catalog: DesktopCatalog) {
         try {
             linking.attempt.cancel()
             if (linking.runtime.closeAsync().await() != AccountCloseResult.Closed) {
-                mutablePhase.value = AppPhase.Failed(needsPhone = true)
-            } else mutablePhase.value = AppPhase.Welcome(repository.slots())
-        } catch (_: Exception) { mutablePhase.value = AppPhase.Failed(needsPhone = true) }
+                show(AppPhase.Failed(needsPhone = true))
+            } else show(AppPhase.Welcome(repository.slots()))
+        } catch (_: Exception) { show(AppPhase.Failed(needsPhone = true)) }
     } }
 
     fun selectRoom(roomId: String) {
@@ -166,11 +171,32 @@ class DesktopAppModel(val catalog: DesktopCatalog) {
         } }
     }
 
-    fun closeWindow(onClosed: () -> Unit) = scope.launch {
-        try { transitions.withLock { close(mutablePhase.value); retryCleanup() } }
-        catch (_: Exception) { mutablePhase.value = AppPhase.Failed(); return@launch }
-        withContext(NonCancellable + Dispatchers.Main) { onClosed() }
-        scope.cancel()
+    @Synchronized fun closeWindow(onClosed: () -> Unit) {
+        val previous = mutablePhase.value
+        if (previous is AppPhase.Closing) return
+        val source = (previous as? AppPhase.CloseFailed)?.source ?: previous
+        val closing = AppPhase.Closing(source)
+        // Remove interactive account views immediately; repeated Close cannot enqueue a second teardown.
+        mutablePhase.value = closing
+        scope.launch {
+            try { transitions.withLock {
+                val latest = (mutablePhase.value as? AppPhase.Closing)?.source ?: source
+                close(latest)
+                retryCleanup()
+            } }
+            catch (_: Exception) {
+                val latest = (mutablePhase.value as? AppPhase.Closing)?.source ?: source
+                mutablePhase.value = AppPhase.CloseFailed(latest)
+                return@launch
+            }
+            withContext(NonCancellable + Dispatchers.Main) { onClosed() }
+            scope.cancel()
+        }
+    }
+
+    /** A Close requested during restore/linking keeps its intent while that serial operation settles. */
+    @Synchronized private fun show(next: AppPhase) {
+        mutablePhase.value = if (mutablePhase.value is AppPhase.Closing) AppPhase.Closing(next) else next
     }
 
     private suspend fun retryCleanup() {
@@ -208,13 +234,13 @@ class DesktopAppModel(val catalog: DesktopCatalog) {
             val liveProfile = MutableStateFlow(profile)
             val appearance = AccountAppearance.open(runtime, catalog.appearancePolicy)
             val ready = AppPhase.Ready(runtime, list, liveProfile.asStateFlow(), repository.slots(), appearance)
-            mutablePhase.value = ready
+            show(ready)
             scope.launch {
                 runtime.signal.first { it != AccountSignal.Healthy }
                 transitions.withLock {
                     if (mutablePhase.value === ready) {
                         close(ready)
-                        mutablePhase.value = AppPhase.Failed(needsPhone = true)
+                        show(AppPhase.Failed(needsPhone = true))
                     }
                 }
             }
