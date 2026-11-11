@@ -44,6 +44,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: windows-spike-${{ github.event.pull_request.number || github.ref }}
@@ -121,8 +122,35 @@ jobs:
         with:
           path: sdk-source/target/x86_64-pc-windows-msvc/release/matrix_sdk_ffi.dll
           key: windows2025-sdk-x64-msvc-rust${{ env.RUST_VERSION }}-release-${{ steps.sdk.outputs.rev }}-v1
-      - name: Build the unmodified SDK DLL
+      - name: Restore SDK from the verified Windows checkpoint
+        id: sdk-checkpoint
         if: steps.sdk-native.outputs.cache-hit != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # This successful checkpoint used Rust 1.95.0 and the same Windows x64 MSVC release command.
+          # A changed source/compiler always falls back to a source build.
+          if [ "$BIPE_SDK_REV" != '15a3ce2369a1e96fcad02cb2b1da3198ef23348a' ] || [ "$RUST_VERSION" != '1.95.0' ]; then
+            echo 'restored=false' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          checkpoint="$RUNNER_TEMP/sdk-checkpoint"
+          if ! gh run download 42892990419 --repo bipe-chat/bipe-app --name bipe-windows-sdk-spike-x64 --dir "$checkpoint"; then
+            echo 'restored=false' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          test "$(tr -d '\r\n' < "$checkpoint/app-source.txt")" = 'e914895b2462d81ed49999501fb2806abb475356'
+          test "$(tr -d '\r\n' < "$checkpoint/sdk-source.txt")" = "$BIPE_SDK_REV"
+          (
+            cd "$checkpoint/natives"
+            printf '%s *matrix_sdk_ffi.dll\n' '7524cb8ef99d4bba3c206717eb6c9b794c12169e5db66cc120a71b1598025f14' | sha256sum -c -
+          )
+          mkdir -p sdk-source/target/x86_64-pc-windows-msvc/release
+          cp "$checkpoint/natives/matrix_sdk_ffi.dll" sdk-source/target/x86_64-pc-windows-msvc/release/
+          echo 'restored=true' >> "$GITHUB_OUTPUT"
+      - name: Build the unmodified SDK DLL
+        if: steps.sdk-native.outputs.cache-hit != 'true' && steps.sdk-checkpoint.outputs.restored != 'true'
         working-directory: sdk-source
         run: cargo build --locked --release -p matrix-sdk-ffi --target x86_64-pc-windows-msvc
       # Save after the native build, so a later binding/JVM failure does not discard an unchanged SDK DLL.
