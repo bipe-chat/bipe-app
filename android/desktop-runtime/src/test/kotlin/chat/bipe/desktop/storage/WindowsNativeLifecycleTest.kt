@@ -12,6 +12,8 @@ import com.sun.net.httpserver.HttpServer
 import java.net.InetSocketAddress
 import java.nio.file.Files
 import java.util.UUID
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.*
@@ -29,11 +31,14 @@ class WindowsNativeLifecycleTest {
         val online = AtomicBoolean(true)
         val seeded = CompletableDeferred<Unit>()
         val requests = AtomicInteger()
+        val syncResponses = CountDownLatch(1)
         val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
         server.createContext("/") { exchange ->
             try {
                 exchange.requestBody.use { it.readBytes() }
                 val path = exchange.requestURI.path
+                // Subscribe before releasing the first sync failure: the SDK observer emits changes, not an initial value.
+                if (path.endsWith("/sync") && exchange.requestMethod == "POST") check(syncResponses.await(20, TimeUnit.SECONDS))
                 val (status, body) = when {
                     path.endsWith("/versions") && online.get() -> 200 to
                         """{"versions":["v1.12"],"unstable_features":{"org.matrix.simplified_msc3575":true}}"""
@@ -96,6 +101,7 @@ class WindowsNativeLifecycleTest {
                     }
                 })
                 first.lifetime.own(chat.bipe.desktop.account.TaskResource(state))
+                syncResponses.countDown()
                 println("BIPE_NATIVE_LIFECYCLE stage=draft")
                 val timeline = DesktopTimeline.open(first, room, labels)
                 timeline.composer.state.first { it is ComposerState.Editing }
@@ -119,6 +125,7 @@ class WindowsNativeLifecycleTest {
                 current = null
             }
         } finally {
+            syncResponses.countDown()
             try { withContext(NonCancellable) { current?.let { assertEquals(AccountCloseResult.Closed, it.closeAsync().await()) } } }
             finally { server.stop(0); lease.close(); vault.remove(lease.slot); root.toFile().deleteRecursively() }
         }
