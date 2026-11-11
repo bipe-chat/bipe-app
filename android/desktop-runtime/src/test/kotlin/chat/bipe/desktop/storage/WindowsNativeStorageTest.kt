@@ -150,10 +150,14 @@ class WindowsNativeStorageTest {
                 val path = exchange.requestURI.path
                 val (status, body) = when {
                     path.endsWith("/versions") -> 200 to """{"versions":["v1.12"],"unstable_features":{"org.matrix.simplified_msc3575":true}}"""
-                    exchange.requestMethod == "POST" && path.contains("/join/") -> 200 to """{"room_id":"$roomId"}"""
+                    exchange.requestMethod == "POST" && (path.contains("/join/") || path.endsWith("/join")) ->
+                        200 to """{"room_id":"$roomId"}"""
                     path.endsWith("/messages") -> 200 to """{"chunk":[],"start":"synthetic","state":[]}"""
                     path.endsWith("/sync") -> 503 to """{"errcode":"M_UNKNOWN","error":"Synthetic offline sync"}"""
-                    else -> 404 to """{"errcode":"M_NOT_FOUND","error":"Synthetic fixture"}"""
+                    else -> {
+                        println("BIPE_NATIVE_TIMELINE fixture_unhandled=${exchange.requestMethod} $path")
+                        404 to """{"errcode":"M_NOT_FOUND","error":"Synthetic fixture"}"""
+                    }
                 }
                 val bytes = body.toByteArray(Charsets.UTF_8)
                 exchange.responseHeaders.set("Content-Type", "application/json")
