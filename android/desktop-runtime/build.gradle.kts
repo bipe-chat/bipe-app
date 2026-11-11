@@ -16,6 +16,7 @@ val portableVectorDiff by tasks.registering(Sync::class) {
     from("../app/src/main/kotlin/chat/bipe/app/common/VectorDiff.kt")
     from("../libraries/bipe/src/main/kotlin/chat/bipe/shared/BipeFavouritesOrder.kt")
     from("../libraries/bipe/src/main/kotlin/chat/bipe/shared/generated/BipeRegistries.kt")
+    from("../libraries/bipe/src/main/kotlin/chat/bipe/shared/generated/BipeReactions.kt")
     into(layout.buildDirectory.dir("generated/portable-kotlin"))
 }
 tasks.named("compileKotlin") { dependsOn(portableVectorDiff) }

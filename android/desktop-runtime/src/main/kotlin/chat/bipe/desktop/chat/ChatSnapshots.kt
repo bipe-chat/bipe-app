@@ -20,9 +20,16 @@ data class MessageRow(
     val id: String, val sender: String, val own: Boolean, val body: String, val kind: Kind,
     val timestamp: Long, val delivery: Delivery, val canRetry: Boolean = false,
     val safety: MessageSafety = MessageSafety.NotApplicable,
+    val eventId: String? = null,
+    val reactions: List<MessageReaction> = emptyList(),
 ) {
     enum class Kind { TEXT, UNDECRYPTABLE, UNSUPPORTED }
     enum class Delivery { SENT, SENDING, FAILED }
+}
+data class ReactionSender(val userId: String, val reactedAt: Long)
+data class ReactionPerson(val name: String, val reactedAt: Long)
+data class MessageReaction(val key: String, val senders: List<ReactionSender>, val includesOwn: Boolean) {
+    val count get() = senders.size
 }
 sealed interface LoadPhase<out T> {
     data object Loading : LoadPhase<Nothing>

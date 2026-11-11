@@ -224,7 +224,7 @@ private enum class Destination(val key: String) { CHATS("bipe_tab_chats"), GROUP
                     items(favourites, key = { it.id }) { row ->
                         SelectionSurface(row.id == selected, colors, { selections[destination] = row.id }, Modifier.width(104.dp).padding(4.dp)) {
                             Column(Modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                                Avatar(row, colors)
+                                Avatar(row, account.runtime.media, colors)
                                 Text(row.name, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
                             }
                         }
@@ -239,7 +239,7 @@ private enum class Destination(val key: String) { CHATS("bipe_tab_chats"), GROUP
                     items(rows, key = { it.id }) { row ->
                         SelectionSurface(row.id == selected, colors, { selections[destination] = row.id }, Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp)) {
                             Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                Avatar(row, colors)
+                                Avatar(row, account.runtime.media, colors)
                                 Column(Modifier.weight(1f)) {
                                     Text(row.name, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
                                     val draftPreview = if (draftPreviews.containsKey(row.id)) draftPreviews[row.id] else row.draft
@@ -260,7 +260,19 @@ private enum class Destination(val key: String) { CHATS("bipe_tab_chats"), GROUP
                     SelectedTimeline.Empty -> Centered { Text(s.text("bipe_tab_chats")) }
                     is SelectedTimeline.Opening -> Centered { Text(s.text("bipe_web_loading")) }
                     is SelectedTimeline.Failed -> Centered { BipeButton(s.text("bipe_app_retry"), { selected?.let(model::selectRoom) }) }
-                    is SelectedTimeline.Showing -> TimelineView(state.model, s, colors)
+                    is SelectedTimeline.Showing -> key(state.model) {
+                        Column {
+                            allRows.firstOrNull { it.id == state.model.roomId }?.let { row ->
+                                Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    Avatar(row, account.runtime.media, colors)
+                                    Text(row.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                }
+                                HorizontalDivider(color = colors["line.subtle"])
+                            }
+                            Box(Modifier.weight(1f)) { TimelineView(state.model, s, colors) }
+                        }
+                    }
                 }
             }
         }
@@ -274,24 +286,14 @@ private enum class Destination(val key: String) { CHATS("bipe_tab_chats"), GROUP
         contentColor = if (selected) colors["ink.onAccent"] else colors["ink.primary"], content = content)
 }
 
-@Composable private fun Avatar(row: ChatRow, colors: DesktopColors) {
-    val names = if (!row.isDm && row.members.size > 1) row.members.take(4).map { it.name } else listOf(row.name)
-    Box(Modifier.size(48.dp).clip(CircleShape).background(colors["accent.wash"]), contentAlignment = Alignment.Center) {
-        if (names.size == 1) Text(names.first().take(1), color = colors["accent.ink"])
-        else Column {
-            names.chunked(2).forEach { pair -> Row { pair.forEach { name ->
-                Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) { Text(name.take(1), color = colors["accent.ink"] , style = MaterialTheme.typography.labelSmall) }
-            } } }
-        }
-    }
-}
-
 @Composable private fun TimelineView(model: DesktopTimeline, s: DesktopCatalog, colors: DesktopColors) {
     val load by model.rows.collectAsState()
     val composer by model.composer.state.collectAsState()
     val draft = (composer as? ComposerState.Editing)?.text.orEmpty()
     val sending by model.sendPhase.collectAsState()
     val pauses by model.pauseSeconds.collectAsState()
+    val reactionAction by model.reactions.phase.collectAsState()
+    var reactionPopup by remember(model) { mutableStateOf<ReactionPopup?>(null) }
     val rows = when (val snapshot = load) { is LoadPhase.Ready -> snapshot.value; else -> emptyList() }
     Column(Modifier.fillMaxSize().chatBackdrop(s, colors)) {
         TextButton(onClick = { model.loadEarlier() }) { Text(s.text("bipe_action_show_more")) }
@@ -320,6 +322,7 @@ private enum class Destination(val key: String) { CHATS("bipe_tab_chats"), GROUP
                                 }
                             }
                         }
+                        MessageReactions(model, message, reactionPopup, { reactionPopup = it }, s, colors)
                         when (val safety = message.safety) {
                             is MessageSafety.Warning -> ScamWarningCard(model, message.id, safety.kind, seconds, s, colors)
                             MessageSafety.Unavailable -> Row(verticalAlignment = Alignment.CenterVertically) {
@@ -332,6 +335,10 @@ private enum class Destination(val key: String) { CHATS("bipe_tab_chats"), GROUP
                     }
                 }
             }
+        }
+        if (reactionAction is ReactionActionPhase.Failed) Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(s.text("bipe_app_reaction_failed"), modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+            TextButton(onClick = { model.reactions.dismissFailure() }) { Text(s.text("bipe_app_close")) }
         }
         if (sending == SendPhase.Failed) Text(s.text("bipe_app_timeline_failed"), Modifier.padding(horizontal = 16.dp))
         when (val state = composer) {
@@ -350,6 +357,7 @@ private enum class Destination(val key: String) { CHATS("bipe_tab_chats"), GROUP
             BipeButton(s.text("bipe_app_timeline_send"), model::send, enabled = draft.isNotBlank() && sending != SendPhase.Sending)
         }
     }
+    ReactionDialog(model, reactionPopup, { reactionPopup = null }, s)
 }
 
 @Composable private fun DraftFailure(message: String, s: DesktopCatalog, retry: () -> Unit) {

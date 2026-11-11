@@ -44,6 +44,11 @@ class DesktopTimeline private constructor(
     val sendPhase = mutableSend.asStateFlow()
     private val paging = Mutex()
     private lateinit var timeline: Timeline
+    private lateinit var room: Room
+    val reactions = ReactionActions(group, ::currentRow) { eventId, key ->
+        timeline.toggleReaction(EventOrTransactionId.EventId(eventId), key)
+        Unit
+    }
     private val failedSends = mutableMapOf<String, SendHandle>()
     private val retrying = mutableSetOf<String>()
     private val pause = MoneyPause()
@@ -81,6 +86,18 @@ class DesktopTimeline private constructor(
         is LoadPhase.Ready -> state.value.firstOrNull { it.id == id }
         else -> null
     }
+
+    suspend fun reactionPeople(rowId: String, key: String, ownName: String): List<ReactionPerson> = group.async {
+        val senders = currentRow(rowId)?.reactions?.firstOrNull { it.key == key }?.senders.orEmpty()
+        val ownId = runtime.client.userId()
+        senders.map { sender ->
+            val name = if (sender.userId == ownId) ownName else try {
+                realName(room.memberDisplayName(sender.userId), sender.userId, labels.noName)
+            } catch (cancelled: CancellationException) { throw cancelled }
+              catch (_: Exception) { labels.noName }
+            ReactionPerson(name, sender.reactedAt)
+        }
+    }.await()
 
     fun retry(id: String) {
         val handle = synchronized(failedSends) {
@@ -137,7 +154,7 @@ class DesktopTimeline private constructor(
     override suspend fun close() = group.close()
 
     private suspend fun start() {
-        val room = runtime.client.getRoom(roomId) ?: error("Room unavailable")
+        room = runtime.client.getRoom(roomId) ?: error("Room unavailable")
         group.own(NativeResource { room.destroy() })
         val configuration = TimelineConfiguration(
             focus = TimelineFocus.Live(hideThreadedEvents = false), filter = TimelineFilter.All,
@@ -184,7 +201,8 @@ class DesktopTimeline private constructor(
     private fun message(item: TimelineItem): MessageRow? {
         val event = item.asEvent() ?: return null
         try {
-            val kind = (event.content as? TimelineItemContent.MsgLike)?.content?.kind ?: return null
+            val content = (event.content as? TimelineItemContent.MsgLike)?.content ?: return null
+            val kind = content.kind
             val type = when (kind) {
                 is MsgLikeKind.Message -> if (kind.content.msgType is MessageType.Text || kind.content.msgType is MessageType.Notice ||
                                                kind.content.msgType is MessageType.Emote) MessageRow.Kind.TEXT else MessageRow.Kind.UNSUPPORTED
@@ -203,6 +221,8 @@ class DesktopTimeline private constructor(
                 else -> MessageRow.Delivery.SENT
             }
             val id = item.uniqueId().id
+            val reactionTarget = (event.eventOrTransactionId as? EventOrTransactionId.EventId)?.eventId
+                ?.takeIf { event.isRemote && event.localSendState == null && kind !is MsgLikeKind.UnableToDecrypt && kind != MsgLikeKind.Redacted }
             val handle = if (event.isOwn && delivery == MessageRow.Delivery.FAILED) event.lazyProvider.getSendHandle() else null
             synchronized(failedSends) {
                 failedSends.remove(id)?.destroy()
@@ -210,7 +230,9 @@ class DesktopTimeline private constructor(
             }
             return MessageRow(id, realName(profile?.displayName, event.sender, labels.noName),
                 event.isOwn, body, type, event.timestamp.toLong(), delivery, canRetry = handle != null,
-                safety = messageSafety(body, event.isOwn, type == MessageRow.Kind.TEXT, safetyEngine))
+                safety = messageSafety(body, event.isOwn, type == MessageRow.Kind.TEXT, safetyEngine),
+                eventId = reactionTarget,
+                reactions = if (reactionTarget == null) emptyList() else reactionSnapshots(content.reactions, runtime.client.userId()))
         } finally { event.lazyProvider.destroy() }
     }
 

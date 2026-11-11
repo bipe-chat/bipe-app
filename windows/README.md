@@ -13,3 +13,5 @@ The environment `BIPE_WINDOWS_OAUTH_CLIENT_ID`, if supplied, must match the revi
 `--kotlin <directory>` generates the SDK's public name, issuer, homeserver and callback constants. `tools/desktop-resources.mjs` packages the reviewed id. The SDK builder and package metadata therefore read one source. Native installation/protocol association, signing/update and Windows11/released-phone acceptance remain open; no installer is delivered by this gate.
 
 11 November 2026: MZ authorized the Windows feature-branch pushes and CI, then explicitly authorized registering the Windows client in production and getting its QR working. The earlier hold is lifted for that scope. Windows stays planned in the parity matrix; Mac feature work remains paused under ADR0288. No installer or completed real-phone acceptance is claimed here.
+
+MZ then authorized continuing Windows feature parity, starting with avatars and reactions. This expands source implementation and Windows CI/device testing; it does not promote the public client registry, authorize a store release or resume Mac features.

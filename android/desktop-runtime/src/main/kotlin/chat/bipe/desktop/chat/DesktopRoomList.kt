@@ -118,7 +118,7 @@ class DesktopRoomList private constructor(
         catch (cancelled: CancellationException) { throw cancelled }
         catch (_: Exception) { null } // The composer presents a retryable load failure; rows keep their last message.
         return ChatRow(info.id, name, if (info.isDm) peer?.avatarUrl else info.avatarUrl,
-            heroes.take(4).map { ChatAvatar(realName(it.displayName, it.userId, labels.noName), it.avatarUrl) },
+            heroes.take(3).map { ChatAvatar(realName(it.displayName, it.userId, labels.noName), it.avatarUrl) },
             info.isDm, info.isFavourite, info.isLowPriority, info.numUnreadMessages.toLong(), preview, timestamp, draft)
     }
 

@@ -17,6 +17,7 @@ import java.net.InetSocketAddress
 import java.nio.file.Files
 import java.security.SecureRandom
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
@@ -143,11 +144,20 @@ class WindowsNativeStorageTest {
 
     @Test fun nativeTimelineOpensAndReopensWithoutRetiringItsAccount() = runBlocking {
         val roomId = "!windows-timeline:example.test"
+        val mediaAuthenticated = AtomicBoolean()
+        val thumbnail = java.util.Base64.getDecoder().decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aT1sAAAAASUVORK5CYII=")
         val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
         server.createContext("/") { exchange ->
             try {
                 exchange.requestBody.use { it.readBytes() }
                 val path = exchange.requestURI.path
+                if (path.contains("/media/thumbnail/")) {
+                    mediaAuthenticated.set(exchange.requestHeaders.getFirst("Authorization") == "Bearer synthetic-access")
+                    exchange.responseHeaders.set("Content-Type", "image/png")
+                    exchange.sendResponseHeaders(200, thumbnail.size.toLong())
+                    exchange.responseBody.use { it.write(thumbnail) }
+                    return@createContext
+                }
                 val (status, body) = when {
                     path.endsWith("/versions") -> 200 to """{"versions":["v1.12"],"unstable_features":{"org.matrix.simplified_msc3575":true}}"""
                     exchange.requestMethod == "POST" && (path.contains("/join/") || path.endsWith("/join")) ->
@@ -179,6 +189,9 @@ class WindowsNativeStorageTest {
                 runtime = linked
                 linked.lifetime.async { linked.client.restoreSession(session().copy(homeserverUrl = homeserver)) }.await()
                 linked.completePhoneLink(repository) // Synthetic session boundary; no real phone/account is used.
+                println("BIPE_NATIVE_TIMELINE stage=authenticated_thumbnail")
+                assertArrayEquals(thumbnail, linked.media.thumbnail("mxc://example.test/synthetic-photo", 96))
+                assertTrue("The SDK must authenticate the media request", mediaAuthenticated.get())
                 println("BIPE_NATIVE_TIMELINE stage=sync")
                 val sync = linked.startSync()
                 assertSame(sync, linked.startSync())
