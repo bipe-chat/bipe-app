@@ -112,6 +112,9 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
       - uses: gradle/actions/setup-gradle@v4
       - uses: actions/cache/restore@v4
         id: sdk-native
@@ -190,6 +193,16 @@ jobs:
         env:
           BIPE_SHARED: ${{ github.workspace }}/bipe-shared
         run: android/gradlew -p android/desktop-app --no-daemon compileKotlin
+      - name: Prepare source build inputs for the Windows VM
+        env:
+          BIPE_SHARED: ${{ github.workspace }}/bipe-shared
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/windows-spike"
+          cp -R android/desktop-runtime/generated "$out/kotlin-bindings"
+          node tools/desktop-resources.mjs "$out/desktop-resources"
+          git archive --format=zip --output="$out/bipe-app-source.zip" HEAD
+          git -C bipe-shared archive --format=zip --output="$out/bipe-shared-source.zip" HEAD
       - name: Record source and limits
         if: always()
         run: |
