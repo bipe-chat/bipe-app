@@ -8,6 +8,7 @@ mod badge;
 mod chat_state;
 mod cvm;
 mod govbr;
+mod home_score;
 mod identity;
 mod issuer;
 mod message_data;
@@ -21,6 +22,7 @@ mod signed_list;
 mod small_rules;
 mod text;
 mod theft;
+mod trust;
 
 /// bipe-shared tools/gen.mjs output (bipe-chat/bipe#1277). Never edit by hand.
 mod generated {
@@ -31,6 +33,7 @@ pub use badge::*;
 pub use chat_state::*;
 pub use cvm::*;
 pub use govbr::*;
+pub use home_score::*;
 pub use identity::*;
 pub use issuer::*;
 pub use message_data::*;
@@ -44,6 +47,7 @@ pub use signed_list::*;
 pub use small_rules::*;
 pub use text::{TextFold, normalize_text};
 pub use theft::*;
+pub use trust::*;
 
 uniffi::setup_scaffolding!("bipe_core");
 
