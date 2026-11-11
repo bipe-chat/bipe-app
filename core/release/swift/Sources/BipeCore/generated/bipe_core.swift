@@ -483,6 +483,22 @@ fileprivate struct FfiConverterInt64: FfiConverterPrimitive {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterDouble: FfiConverterPrimitive {
+    typealias FfiType = Double
+    typealias SwiftType = Double
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> Double {
+        return try lift(readDouble(&buf))
+    }
+
+    public static func write(_ value: Double, into buf: inout [UInt8]) {
+        writeDouble(&buf, lower(value))
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterBool : FfiConverter {
     typealias FfiType = Int8
     typealias SwiftType = Bool
@@ -1369,6 +1385,239 @@ public func FfiConverterTypeGovbrResult_lift(_ buf: RustBuffer) throws -> GovbrR
 #endif
 public func FfiConverterTypeGovbrResult_lower(_ value: GovbrResult) -> RustBuffer {
     return FfiConverterTypeGovbrResult.lower(value)
+}
+
+
+/**
+ * The explicit inputs of one chat. Pass joined, not archived chats only. Step 1 of ADR 0246 passes no model fields.
+ */
+public struct HomeChat: Equatable, Hashable {
+    public var id: String
+    public var kind: HomeChatKind
+    public var hasSeal: Bool
+    public var official: Bool
+    public var favourite: Bool
+    public var muted: Bool
+    public var mentioned: Bool
+    public var unreadCount: Int64
+    public var lastFromOther: Bool
+    /**
+     * None: the time of the latest event is unknown.
+     */
+    public var minutesSinceActivity: Int64?
+    public var messagesPerWeek: Int64
+    public var trustWarning: Bool
+    public var modelAttention: String?
+    public var modelDue: Bool
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(id: String, kind: HomeChatKind, hasSeal: Bool, official: Bool, favourite: Bool, muted: Bool, mentioned: Bool, unreadCount: Int64, lastFromOther: Bool, 
+        /**
+         * None: the time of the latest event is unknown.
+         */minutesSinceActivity: Int64?, messagesPerWeek: Int64, trustWarning: Bool, modelAttention: String?, modelDue: Bool) {
+        self.id = id
+        self.kind = kind
+        self.hasSeal = hasSeal
+        self.official = official
+        self.favourite = favourite
+        self.muted = muted
+        self.mentioned = mentioned
+        self.unreadCount = unreadCount
+        self.lastFromOther = lastFromOther
+        self.minutesSinceActivity = minutesSinceActivity
+        self.messagesPerWeek = messagesPerWeek
+        self.trustWarning = trustWarning
+        self.modelAttention = modelAttention
+        self.modelDue = modelDue
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension HomeChat: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeHomeChat: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> HomeChat {
+        return
+            try HomeChat(
+                id: FfiConverterString.read(from: &buf), 
+                kind: FfiConverterTypeHomeChatKind.read(from: &buf), 
+                hasSeal: FfiConverterBool.read(from: &buf), 
+                official: FfiConverterBool.read(from: &buf), 
+                favourite: FfiConverterBool.read(from: &buf), 
+                muted: FfiConverterBool.read(from: &buf), 
+                mentioned: FfiConverterBool.read(from: &buf), 
+                unreadCount: FfiConverterInt64.read(from: &buf), 
+                lastFromOther: FfiConverterBool.read(from: &buf), 
+                minutesSinceActivity: FfiConverterOptionInt64.read(from: &buf), 
+                messagesPerWeek: FfiConverterInt64.read(from: &buf), 
+                trustWarning: FfiConverterBool.read(from: &buf), 
+                modelAttention: FfiConverterOptionString.read(from: &buf), 
+                modelDue: FfiConverterBool.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: HomeChat, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.id, into: &buf)
+        FfiConverterTypeHomeChatKind.write(value.kind, into: &buf)
+        FfiConverterBool.write(value.hasSeal, into: &buf)
+        FfiConverterBool.write(value.official, into: &buf)
+        FfiConverterBool.write(value.favourite, into: &buf)
+        FfiConverterBool.write(value.muted, into: &buf)
+        FfiConverterBool.write(value.mentioned, into: &buf)
+        FfiConverterInt64.write(value.unreadCount, into: &buf)
+        FfiConverterBool.write(value.lastFromOther, into: &buf)
+        FfiConverterOptionInt64.write(value.minutesSinceActivity, into: &buf)
+        FfiConverterInt64.write(value.messagesPerWeek, into: &buf)
+        FfiConverterBool.write(value.trustWarning, into: &buf)
+        FfiConverterOptionString.write(value.modelAttention, into: &buf)
+        FfiConverterBool.write(value.modelDue, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeHomeChat_lift(_ buf: RustBuffer) throws -> HomeChat {
+    return try FfiConverterTypeHomeChat.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeHomeChat_lower(_ value: HomeChat) -> RustBuffer {
+    return FfiConverterTypeHomeChat.lower(value)
+}
+
+
+public struct HomeScored: Equatable, Hashable {
+    public var scorePercent: Int32
+    public var reason: HomeReason?
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(scorePercent: Int32, reason: HomeReason?) {
+        self.scorePercent = scorePercent
+        self.reason = reason
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension HomeScored: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeHomeScored: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> HomeScored {
+        return
+            try HomeScored(
+                scorePercent: FfiConverterInt32.read(from: &buf), 
+                reason: FfiConverterOptionTypeHomeReason.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: HomeScored, into buf: inout [UInt8]) {
+        FfiConverterInt32.write(value.scorePercent, into: &buf)
+        FfiConverterOptionTypeHomeReason.write(value.reason, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeHomeScored_lift(_ buf: RustBuffer) throws -> HomeScored {
+    return try FfiConverterTypeHomeScored.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeHomeScored_lower(_ value: HomeScored) -> RustBuffer {
+    return FfiConverterTypeHomeScored.lower(value)
+}
+
+
+public struct HomeTile: Equatable, Hashable {
+    public var id: String
+    public var scorePercent: Int32
+    /**
+     * None: no tile. The chat is only in the plain list.
+     */
+    public var tier: UInt32?
+    public var reason: HomeReason?
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(id: String, scorePercent: Int32, 
+        /**
+         * None: no tile. The chat is only in the plain list.
+         */tier: UInt32?, reason: HomeReason?) {
+        self.id = id
+        self.scorePercent = scorePercent
+        self.tier = tier
+        self.reason = reason
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension HomeTile: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeHomeTile: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> HomeTile {
+        return
+            try HomeTile(
+                id: FfiConverterString.read(from: &buf), 
+                scorePercent: FfiConverterInt32.read(from: &buf), 
+                tier: FfiConverterOptionUInt32.read(from: &buf), 
+                reason: FfiConverterOptionTypeHomeReason.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: HomeTile, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.id, into: &buf)
+        FfiConverterInt32.write(value.scorePercent, into: &buf)
+        FfiConverterOptionUInt32.write(value.tier, into: &buf)
+        FfiConverterOptionTypeHomeReason.write(value.reason, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeHomeTile_lift(_ buf: RustBuffer) throws -> HomeTile {
+    return try FfiConverterTypeHomeTile.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeHomeTile_lower(_ value: HomeTile) -> RustBuffer {
+    return FfiConverterTypeHomeTile.lower(value)
 }
 
 
@@ -3133,6 +3382,188 @@ public func FfiConverterTypeTheftStatement_lower(_ value: TheftStatement) -> Rus
 
 
 /**
+ * The trust facts of one contact. Facts only; no trust score (ADR 0074).
+ */
+public struct TrustFacts: Equatable, Hashable {
+    public var identity: String
+    public var verifiedName: String?
+    public var contact: String
+    public var change: String
+    public var warningKind: String?
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(identity: String, verifiedName: String?, contact: String, change: String, warningKind: String?) {
+        self.identity = identity
+        self.verifiedName = verifiedName
+        self.contact = contact
+        self.change = change
+        self.warningKind = warningKind
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension TrustFacts: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeTrustFacts: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> TrustFacts {
+        return
+            try TrustFacts(
+                identity: FfiConverterString.read(from: &buf), 
+                verifiedName: FfiConverterOptionString.read(from: &buf), 
+                contact: FfiConverterString.read(from: &buf), 
+                change: FfiConverterString.read(from: &buf), 
+                warningKind: FfiConverterOptionString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: TrustFacts, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.identity, into: &buf)
+        FfiConverterOptionString.write(value.verifiedName, into: &buf)
+        FfiConverterString.write(value.contact, into: &buf)
+        FfiConverterString.write(value.change, into: &buf)
+        FfiConverterOptionString.write(value.warningKind, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeTrustFacts_lift(_ buf: RustBuffer) throws -> TrustFacts {
+    return try FfiConverterTypeTrustFacts.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeTrustFacts_lower(_ value: TrustFacts) -> RustBuffer {
+    return FfiConverterTypeTrustFacts.lower(value)
+}
+
+
+/**
+ * registries/trust-facts.json (ADR 0074): the inputs of trust_facts. Times are Unix seconds.
+ */
+public struct TrustInput: Equatable, Hashable {
+    public var accountId: String?
+    public var deviceKey: String?
+    public var lifecycleKnown: Bool?
+    public var deviceChangedAt: Double?
+    public var identityChangedAt: Double?
+    public var badgeStatus: String?
+    public var badgeAccountId: String?
+    public var badgeDeviceKey: String?
+    public var badgeName: String?
+    public var badgeIssuedAt: Double?
+    public var confirmationMethod: String?
+    public var confirmationAccountId: String?
+    public var confirmationDeviceKey: String?
+    public var confirmedAt: Double?
+    public var priorInPersonConfirmedAt: Double?
+    public var warningKind: String?
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(accountId: String?, deviceKey: String?, lifecycleKnown: Bool?, deviceChangedAt: Double?, identityChangedAt: Double?, badgeStatus: String?, badgeAccountId: String?, badgeDeviceKey: String?, badgeName: String?, badgeIssuedAt: Double?, confirmationMethod: String?, confirmationAccountId: String?, confirmationDeviceKey: String?, confirmedAt: Double?, priorInPersonConfirmedAt: Double?, warningKind: String?) {
+        self.accountId = accountId
+        self.deviceKey = deviceKey
+        self.lifecycleKnown = lifecycleKnown
+        self.deviceChangedAt = deviceChangedAt
+        self.identityChangedAt = identityChangedAt
+        self.badgeStatus = badgeStatus
+        self.badgeAccountId = badgeAccountId
+        self.badgeDeviceKey = badgeDeviceKey
+        self.badgeName = badgeName
+        self.badgeIssuedAt = badgeIssuedAt
+        self.confirmationMethod = confirmationMethod
+        self.confirmationAccountId = confirmationAccountId
+        self.confirmationDeviceKey = confirmationDeviceKey
+        self.confirmedAt = confirmedAt
+        self.priorInPersonConfirmedAt = priorInPersonConfirmedAt
+        self.warningKind = warningKind
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension TrustInput: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeTrustInput: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> TrustInput {
+        return
+            try TrustInput(
+                accountId: FfiConverterOptionString.read(from: &buf), 
+                deviceKey: FfiConverterOptionString.read(from: &buf), 
+                lifecycleKnown: FfiConverterOptionBool.read(from: &buf), 
+                deviceChangedAt: FfiConverterOptionDouble.read(from: &buf), 
+                identityChangedAt: FfiConverterOptionDouble.read(from: &buf), 
+                badgeStatus: FfiConverterOptionString.read(from: &buf), 
+                badgeAccountId: FfiConverterOptionString.read(from: &buf), 
+                badgeDeviceKey: FfiConverterOptionString.read(from: &buf), 
+                badgeName: FfiConverterOptionString.read(from: &buf), 
+                badgeIssuedAt: FfiConverterOptionDouble.read(from: &buf), 
+                confirmationMethod: FfiConverterOptionString.read(from: &buf), 
+                confirmationAccountId: FfiConverterOptionString.read(from: &buf), 
+                confirmationDeviceKey: FfiConverterOptionString.read(from: &buf), 
+                confirmedAt: FfiConverterOptionDouble.read(from: &buf), 
+                priorInPersonConfirmedAt: FfiConverterOptionDouble.read(from: &buf), 
+                warningKind: FfiConverterOptionString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: TrustInput, into buf: inout [UInt8]) {
+        FfiConverterOptionString.write(value.accountId, into: &buf)
+        FfiConverterOptionString.write(value.deviceKey, into: &buf)
+        FfiConverterOptionBool.write(value.lifecycleKnown, into: &buf)
+        FfiConverterOptionDouble.write(value.deviceChangedAt, into: &buf)
+        FfiConverterOptionDouble.write(value.identityChangedAt, into: &buf)
+        FfiConverterOptionString.write(value.badgeStatus, into: &buf)
+        FfiConverterOptionString.write(value.badgeAccountId, into: &buf)
+        FfiConverterOptionString.write(value.badgeDeviceKey, into: &buf)
+        FfiConverterOptionString.write(value.badgeName, into: &buf)
+        FfiConverterOptionDouble.write(value.badgeIssuedAt, into: &buf)
+        FfiConverterOptionString.write(value.confirmationMethod, into: &buf)
+        FfiConverterOptionString.write(value.confirmationAccountId, into: &buf)
+        FfiConverterOptionString.write(value.confirmationDeviceKey, into: &buf)
+        FfiConverterOptionDouble.write(value.confirmedAt, into: &buf)
+        FfiConverterOptionDouble.write(value.priorInPersonConfirmedAt, into: &buf)
+        FfiConverterOptionString.write(value.warningKind, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeTrustInput_lift(_ buf: RustBuffer) throws -> TrustInput {
+    return try FfiConverterTypeTrustInput.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeTrustInput_lower(_ value: TrustInput) -> RustBuffer {
+    return FfiConverterTypeTrustInput.lower(value)
+}
+
+
+/**
  * One trusted Ed25519 public key.
  */
 public struct TrustedKey: Equatable, Hashable {
@@ -4476,6 +4907,147 @@ public func FfiConverterTypeHandleProblem_lift(_ buf: RustBuffer) throws -> Hand
 #endif
 public func FfiConverterTypeHandleProblem_lower(_ value: HandleProblem) -> RustBuffer {
     return FfiConverterTypeHandleProblem.lower(value)
+}
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+
+public enum HomeChatKind: Equatable, Hashable {
+    
+    case person
+    case company
+    case group
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension HomeChatKind: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeHomeChatKind: FfiConverterRustBuffer {
+    typealias SwiftType = HomeChatKind
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> HomeChatKind {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .person
+        
+        case 2: return .company
+        
+        case 3: return .group
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: HomeChatKind, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .person:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .company:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .group:
+            writeInt(&buf, Int32(3))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeHomeChatKind_lift(_ buf: RustBuffer) throws -> HomeChatKind {
+    return try FfiConverterTypeHomeChatKind.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeHomeChatKind_lower(_ value: HomeChatKind) -> RustBuffer {
+    return FfiConverterTypeHomeChatKind.lower(value)
+}
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+
+public enum HomeReason: Equatable, Hashable {
+    
+    case mention
+    case unanswered
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension HomeReason: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeHomeReason: FfiConverterRustBuffer {
+    typealias SwiftType = HomeReason
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> HomeReason {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .mention
+        
+        case 2: return .unanswered
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: HomeReason, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .mention:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .unanswered:
+            writeInt(&buf, Int32(2))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeHomeReason_lift(_ buf: RustBuffer) throws -> HomeReason {
+    return try FfiConverterTypeHomeReason.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeHomeReason_lower(_ value: HomeReason) -> RustBuffer {
+    return FfiConverterTypeHomeReason.lower(value)
 }
 
 
@@ -6777,6 +7349,30 @@ fileprivate struct FfiConverterOptionInt64: FfiConverterRustBuffer {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterOptionDouble: FfiConverterRustBuffer {
+    typealias SwiftType = Double?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterDouble.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterDouble.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterOptionBool: FfiConverterRustBuffer {
     typealias SwiftType = Bool?
 
@@ -7113,6 +7709,30 @@ fileprivate struct FfiConverterOptionTypeHandleProblem: FfiConverterRustBuffer {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterOptionTypeHomeReason: FfiConverterRustBuffer {
+    typealias SwiftType = HomeReason?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeHomeReason.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeHomeReason.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterOptionTypeNumberNotice: FfiConverterRustBuffer {
     typealias SwiftType = NumberNotice?
 
@@ -7397,6 +8017,56 @@ fileprivate struct FfiConverterSequenceTypeDmCandidate: FfiConverterRustBuffer {
         seq.reserveCapacity(Int(len))
         for _ in 0 ..< len {
             seq.append(try FfiConverterTypeDmCandidate.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterSequenceTypeHomeChat: FfiConverterRustBuffer {
+    typealias SwiftType = [HomeChat]
+
+    public static func write(_ value: [HomeChat], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeHomeChat.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [HomeChat] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [HomeChat]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypeHomeChat.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterSequenceTypeHomeTile: FfiConverterRustBuffer {
+    typealias SwiftType = [HomeTile]
+
+    public static func write(_ value: [HomeTile], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeHomeTile.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [HomeTile] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [HomeTile]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypeHomeTile.read(from: &buf))
         }
         return seq
     }
@@ -7934,6 +8604,27 @@ public func govbrResult(state: String, reason: String?) -> GovbrResult  {
     uniffi_bipe_core_fn_func_govbr_result(
         FfiConverterString.lower(state),
         FfiConverterOptionString.lower(reason),$0
+    )
+})
+}
+/**
+ * The tiles in screen order: score descending, then latest activity first (unknown last), then room ID by UTF-16
+ * code unit. Each chat takes the first tier it reaches that is not full.
+ */
+public func homePlan(chats: [HomeChat]) -> [HomeTile]  {
+    return try!  FfiConverterSequenceTypeHomeTile.lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_home_plan(
+        FfiConverterSequenceTypeHomeChat.lower(chats),$0
+    )
+})
+}
+/**
+ * The score of one chat and the reason it shows.
+ */
+public func homeScore(chat: HomeChat) -> HomeScored  {
+    return try!  FfiConverterTypeHomeScored_lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_home_score(
+        FfiConverterTypeHomeChat_lower(chat),$0
     )
 })
 }
@@ -8739,6 +9430,17 @@ public func verifyTheftMark(envelopeJson: String, subject: String, trustedKeys: 
     )
 })
 }
+/**
+ * Identity proof, personal confirmation, lifecycle change and the selected warning of one contact. The inputs come
+ * from authenticated adapters; the warning kind is kept as given.
+ */
+public func trustFacts(input: TrustInput) -> TrustFacts  {
+    return try!  FfiConverterTypeTrustFacts_lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_trust_facts(
+        FfiConverterTypeTrustInput_lower(input),$0
+    )
+})
+}
 
 private enum InitializationResult {
     case ok
@@ -8792,6 +9494,12 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_bipe_core_checksum_func_govbr_result() != 35462) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_bipe_core_checksum_func_home_plan() != 45803) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_bipe_core_checksum_func_home_score() != 9682) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_bipe_core_checksum_func_contact_collision() != 10619) {
@@ -9002,6 +9710,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_bipe_core_checksum_func_verify_theft_mark() != 16530) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_bipe_core_checksum_func_trust_facts() != 57573) {
         return InitializationResult.apiChecksumMismatch
     }
 
