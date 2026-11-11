@@ -164,6 +164,110 @@ pub const PIN_LENGTH: usize = 8;
 pub const PIN_DATE_YEAR_MIN: u32 = 1900;
 pub const PIN_DATE_YEAR_MAX: u32 = 2099;
 
+/// registries/trust-facts.json (ADR 0074): the inputs of trust_facts. Times are Unix seconds.
+#[derive(Clone, Debug, Default, PartialEq, uniffi::Record)]
+pub struct TrustInput {
+    pub account_id: Option<String>,
+    pub device_key: Option<String>,
+    pub lifecycle_known: Option<bool>,
+    pub device_changed_at: Option<f64>,
+    pub identity_changed_at: Option<f64>,
+    pub badge_status: Option<String>,
+    pub badge_account_id: Option<String>,
+    pub badge_device_key: Option<String>,
+    pub badge_name: Option<String>,
+    pub badge_issued_at: Option<f64>,
+    pub confirmation_method: Option<String>,
+    pub confirmation_account_id: Option<String>,
+    pub confirmation_device_key: Option<String>,
+    pub confirmed_at: Option<f64>,
+    pub prior_in_person_confirmed_at: Option<f64>,
+    pub warning_kind: Option<String>,
+}
+
+/// The trust facts of one contact. Facts only; no trust score (ADR 0074).
+#[derive(Clone, Debug, PartialEq, Eq, uniffi::Record)]
+pub struct TrustFacts {
+    pub identity: String,
+    pub verified_name: Option<String>,
+    pub contact: String,
+    pub change: String,
+    pub warning_kind: Option<String>,
+}
+
+/// The rules of registries/trust-facts.json, compiled. Reference: evaluateTrustFacts in tools/lib/trust.mjs.
+#[allow(unused_parens, clippy::nonminimal_bool)]
+pub(crate) fn trust_rules(input: &TrustInput) -> TrustFacts {
+    fn nonempty(value: &Option<String>) -> bool { value.as_deref().is_some_and(|v| !v.is_empty()) }
+    fn valid_time(value: Option<f64>) -> bool { value.is_some_and(|v| v.is_finite() && v >= 0.0) }
+    fn nullable_time(value: Option<f64>) -> bool { value.is_none() || valid_time(value) }
+    fn after_change(proof: Option<f64>, change: Option<f64>) -> bool {
+        valid_time(proof) && (change.is_none() || (valid_time(change) && proof > change))
+    }
+    fn at_or_before(first: Option<f64>, second: Option<f64>) -> bool { valid_time(first) && valid_time(second) && first <= second }
+    let context_known = (nonempty(&input.account_id) && nonempty(&input.device_key) && (input.lifecycle_known == Some(true)) && nullable_time(input.device_changed_at) && nullable_time(input.identity_changed_at));
+    let badge_bound = ((input.badge_status.as_deref() == Some("valid")) && (input.badge_account_id == input.account_id));
+    let identity_verified = (context_known && badge_bound && (input.badge_device_key == input.device_key) && nonempty(&input.badge_name) && valid_time(input.badge_issued_at) && after_change(input.badge_issued_at, input.device_changed_at) && after_change(input.badge_issued_at, input.identity_changed_at));
+    let identity_suspended = (context_known && !(identity_verified) && ((input.badge_status.as_deref() == Some("master_key_mismatch")) || (badge_bound && (!(input.badge_device_key == input.device_key) || (valid_time(input.badge_issued_at) && ((valid_time(input.device_changed_at) && !(after_change(input.badge_issued_at, input.device_changed_at))) || (valid_time(input.identity_changed_at) && !(after_change(input.badge_issued_at, input.identity_changed_at)))))))));
+    let contact_confirmed = (context_known && (input.confirmation_account_id == input.account_id) && (input.confirmation_device_key == input.device_key) && valid_time(input.confirmed_at) && after_change(input.confirmed_at, input.device_changed_at) && after_change(input.confirmed_at, input.identity_changed_at) && ((input.confirmation_method.as_deref() == Some("in_person")) || ((input.confirmation_method.as_deref() == Some("old_device_approval")) && valid_time(input.prior_in_person_confirmed_at) && at_or_before(input.prior_in_person_confirmed_at, input.confirmed_at) && after_change(input.prior_in_person_confirmed_at, input.identity_changed_at))));
+    let identity = if identity_verified {
+            "verified".to_owned()
+        } else if identity_suspended {
+            "suspended".to_owned()
+        } else {
+            "unverified".to_owned()
+        };
+    let verified_name = if identity_verified {
+            input.badge_name.clone()
+        } else {
+            None
+        };
+    let contact = if contact_confirmed {
+            "confirmed".to_owned()
+        } else {
+            "unconfirmed".to_owned()
+        };
+    let change = if !(context_known) {
+            "unknown".to_owned()
+        } else if (valid_time(input.device_changed_at) && valid_time(input.identity_changed_at)) {
+            "device_and_identity".to_owned()
+        } else if valid_time(input.device_changed_at) {
+            "device".to_owned()
+        } else if valid_time(input.identity_changed_at) {
+            "identity".to_owned()
+        } else {
+            "none".to_owned()
+        };
+    let warning_kind = if nonempty(&input.warning_kind) {
+            input.warning_kind.clone()
+        } else {
+            None
+        };
+    TrustFacts { identity, verified_name, contact, change, warning_kind }
+}
+
+/// registries/home-score.json (ADR 0246): weights and limits of home_score.rs.
+pub const HOME_WEIGHT_MENTION: f64 = 0.24;
+pub const HOME_WEIGHT_UNREAD_DIRECT: f64 = 0.22;
+pub const HOME_WEIGHT_UNREAD_COMPANY_NO_SEAL: f64 = 0.1;
+pub const HOME_WEIGHT_UNANSWERED_DIRECT: f64 = 0.06;
+pub const HOME_WEIGHT_FAVOURITE: f64 = 0.1;
+pub const HOME_UNREAD_GROUP_MIN: f64 = 0.02;
+pub const HOME_UNREAD_GROUP_MAX: f64 = 0.08;
+pub const HOME_UNREAD_GROUP_LOG_SCALE: f64 = 0.03;
+pub const HOME_TIE_MAX: f64 = 0.16;
+pub const HOME_TIE_LOG_SCALE: f64 = 0.03;
+pub const HOME_RECENCY_MAX: f64 = 0.14;
+pub const HOME_RECENCY_DECAY_MINUTES: f64 = 480.0;
+pub const HOME_UNANSWERED_MAX_MINUTES: i64 = 4320;
+pub const HOME_MUTED_FACTOR: f64 = 0.4;
+pub const HOME_OFFICIAL_CAP: f64 = 0.14;
+/// (tier, minScore, maxChats) in registry order.
+pub const HOME_TIERS: &[(u32, f64, Option<u32>)] = &[(1, 0.6, Some(2)), (2, 0.3, Some(6)), (3, 0.14, None), (4, 0.0, Some(12))];
+pub const HOME_MODEL_ATTENTION: &[(&str, f64)] = &[("reply", 0.2), ("decide", 0.2), ("fyi", 0.02), ("none", -0.18)];
+pub const HOME_MODEL_DUE: f64 = 0.06;
+pub const HOME_MODEL_MAX_WEIGHT: f64 = 0.26;
+
 /// `personAssurance` of registries/schemes.json (ADR 0275): the person assurances, strongest first, and the seal
 /// mark of each. personProofs reads it; test-vectors/person-proofs.json checks it.
 /// HOME_COUNTRY of tools/lib/registries.mjs: personProofs puts the proofs of this country first (ADR 0272 decision 7).
