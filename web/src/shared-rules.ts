@@ -190,3 +190,56 @@ export function chatArchiveSync(
 export function isBipeUserID(userId: string, _reg?: unknown): boolean {
   return core.isBipeUserId(userId, currentList(core.ListType.Operators), big(Date.now() / 1000));
 }
+
+// --- Mural home score (ADR 0246, bipe-chat/bipe#1478) -------------------------
+
+export type HomeChatInput = {
+  id: string;
+  kind: 'person' | 'company' | 'group';
+  hasSeal?: boolean;
+  official?: boolean;
+  favourite?: boolean;
+  muted?: boolean;
+  mentioned?: boolean;
+  unreadCount?: number;
+  lastFromOther?: boolean;
+  /** null: the time of the latest event is unknown. */
+  minutesSinceActivity?: number | null;
+  messagesPerWeek?: number;
+  trustWarning?: boolean;
+  modelAttention?: string | null;
+  modelDue?: boolean;
+};
+export type HomeReason = 'mention' | 'unanswered' | null;
+export type HomeTile = { id: string; scorePercent: number; score: number; tier: number | null; reason: HomeReason };
+
+const HOME_KINDS = { person: core.HomeChatKind.Person, company: core.HomeChatKind.Company, group: core.HomeChatKind.Group } as const;
+
+/** The tiles in screen order. tier null: no tile, the chat is only in the plain list. */
+export function homePlan(chats: HomeChatInput[]): HomeTile[] {
+  const tiles = core.homePlan(
+    chats.map((c) => ({
+      id: c.id,
+      kind: HOME_KINDS[c.kind],
+      hasSeal: c.hasSeal ?? false,
+      official: c.official ?? false,
+      favourite: c.favourite ?? false,
+      muted: c.muted ?? false,
+      mentioned: c.mentioned ?? false,
+      unreadCount: big(c.unreadCount ?? 0),
+      lastFromOther: c.lastFromOther ?? false,
+      minutesSinceActivity: optionalBig(c.minutesSinceActivity),
+      messagesPerWeek: big(c.messagesPerWeek ?? 0),
+      trustWarning: c.trustWarning ?? false,
+      modelAttention: c.modelAttention ?? undefined,
+      modelDue: c.modelDue ?? false,
+    })),
+  );
+  return tiles.map((t) => ({
+    id: t.id,
+    scorePercent: t.scorePercent,
+    score: t.scorePercent / 100,
+    tier: t.tier ?? null,
+    reason: t.reason === undefined ? null : t.reason === core.HomeReason.Mention ? 'mention' : 'unanswered',
+  }));
+}

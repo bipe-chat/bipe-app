@@ -3,16 +3,16 @@
 // Copyright 2026 Bipe contributors
 
 // Mural (spec chat-list, ADR 0246, bipe-chat/bipe#1044), step 1: the fixed rules only. This file holds the
-// setting, the plan inputs and the held plan. Mural.tsx draws the tiles. The generated homePlan is the one
+// setting, the plan inputs and the held plan. Mural.tsx draws the tiles. bipe-core homePlan (shared-rules.ts) is the one
 // source of the score and the tiers. The score and its inputs stay in this browser. The web gets no model in
 // any step of ADR 0246, so the model fields stay absent.
 
 import { useEffect, useRef, useState, useSyncExternalStore, type RefObject } from 'react';
 import { accountType, apiFor } from './api';
-import { homePlan } from './bipe/generated/lib/home-score.mjs';
 import type { ChatSummary } from './chat-model';
 import { RoomNotificationMode, type ClientLike as Client } from './generated/matrix_sdk_ffi';
 import { homeScore, isOfficial } from './registries';
+import { homePlan, type HomeChatInput } from './shared-rules';
 
 // The setting: per account, in this browser, off by default, no sync.
 
@@ -62,7 +62,7 @@ export function useMuralEnabled(userId: string): boolean {
 type Signals = { companies: ReadonlySet<string>; newsRoomId?: string; now: number };
 
 /** The BipeHomeChat of a chat (spec chat-list, Mural inputs and messagesPerWeek). */
-function homeChatOf(chat: ChatSummary, { companies, newsRoomId, now }: Signals) {
+function homeChatOf(chat: ChatSummary, { companies, newsRoomId, now }: Signals): HomeChatInput {
   const info = chat.info;
   const peer = chat.face.peer?.userId;
   const since = now - homeScore.tie.windowDays * 24 * 60 * 60 * 1000;
@@ -149,10 +149,7 @@ export function useMuralTiles({
     return [];
   }
   const now = Date.now();
-  const plan = homePlan(
-    chats.map((c) => homeChatOf(c, { companies, newsRoomId, now })),
-    homeScore,
-  ) as PlanEntry[];
+  const plan: PlanEntry[] = homePlan(chats.map((c) => homeChatOf(c, { companies, newsRoomId, now })));
   const placed = plan.flatMap((p) => (p.tier === null ? [] : [{ id: p.id, tier: p.tier }]));
   const key = placed.map((p) => `${p.id} ${p.tier}`).join('\n');
   if (!held.current || (held.current.key !== key && atRest)) held.current = { key, placed };
