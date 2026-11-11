@@ -47,7 +47,7 @@ import org.jetbrains.skia.Image as SkiaImage
     } else AvatarPhoto(row.name, row.avatar, media, colors, size)
 }
 
-@Composable private fun AvatarPhoto(name: String, url: String?, media: AccountMedia, colors: DesktopColors, size: Dp = 48.dp) {
+@Composable internal fun AvatarPhoto(name: String, url: String?, media: AccountMedia, colors: DesktopColors, size: Dp = 48.dp) {
     val pixels = with(LocalDensity.current) { size.roundToPx() }
     // Re-key the state itself, so even the first frame cannot show another account's cached image.
     val image by key(media, url, pixels) { produceState<ImageBitmap?>(null) {

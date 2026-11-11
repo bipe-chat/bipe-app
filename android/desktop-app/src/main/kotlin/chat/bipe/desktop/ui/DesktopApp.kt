@@ -35,6 +35,7 @@ import chat.bipe.desktop.link.*
 import chat.bipe.desktop.safety.MessageSafety
 import chat.bipe.desktop.safety.registryId
 import chat.bipe.desktop.storage.StoredSlot
+import chat.bipe.desktop.settings.AppearancePhase
 import chat.bipe.desktop.ui.common.BipeButton
 import java.time.Instant
 import java.time.ZoneId
@@ -169,6 +170,8 @@ private enum class Destination(val key: String) { CHATS("bipe_tab_chats"), GROUP
 @Composable private fun Workspace(model: DesktopAppModel, account: AppPhase.Ready, colors: DesktopColors) {
     val s = model.catalog
     val profile by account.profile.collectAsState()
+    val appearance by account.appearance.phase.collectAsState()
+    val background = (appearance as? AppearancePhase.Ready)?.values?.background(s.appearancePolicy) ?: s.appearancePolicy.defaultBackground
     var destination by remember(account) { mutableStateOf(Destination.CHATS) }
     val selections = remember(account) { mutableStateMapOf<Destination, String>() }
     val searches = remember(account) { mutableStateMapOf<Destination, String>() }
@@ -205,10 +208,11 @@ private enum class Destination(val key: String) { CHATS("bipe_tab_chats"), GROUP
             }
         }
         HorizontalDivider(color = colors["line.subtle"])
-        if (destination == Destination.YOU || (destination == Destination.GROUPS && profile.kind == AccountKind.COMPANY)) {
+        if (destination == Destination.YOU) {
+            YouSettings(model, account, colors)
+        } else if (destination == Destination.GROUPS && profile.kind == AccountKind.COMPANY) {
             Centered {
                 Text(profile.name, style = MaterialTheme.typography.headlineMedium)
-                Text(s.text("bipe_chats_colors") + ": " + s.text("bipe_colors_${profile.palette}"))
                 Text(s.text("bipe_mac_account_change_on_phone"))
                 Text(s.versionLabel, style = MaterialTheme.typography.bodySmall)
                 BipeButton(s.text("bipe_linked_devices_link_computer"), { model.link() })
@@ -286,7 +290,7 @@ private enum class Destination(val key: String) { CHATS("bipe_tab_chats"), GROUP
                                 }
                                 HorizontalDivider(color = colors["line.subtle"])
                             }
-                            Box(Modifier.weight(1f)) { TimelineView(state.model, s, colors) }
+                            Box(Modifier.weight(1f)) { TimelineView(state.model, s, colors, background) }
                         }
                     }
                 }
@@ -302,7 +306,7 @@ private enum class Destination(val key: String) { CHATS("bipe_tab_chats"), GROUP
         contentColor = if (selected) colors["ink.onAccent"] else colors["ink.primary"], content = content)
 }
 
-@Composable private fun TimelineView(model: DesktopTimeline, s: DesktopCatalog, colors: DesktopColors) {
+@Composable private fun TimelineView(model: DesktopTimeline, s: DesktopCatalog, colors: DesktopColors, background: String) {
     val load by model.rows.collectAsState()
     val composer by model.composer.state.collectAsState()
     val draft = (composer as? ComposerState.Editing)?.text.orEmpty()
@@ -311,7 +315,7 @@ private enum class Destination(val key: String) { CHATS("bipe_tab_chats"), GROUP
     val reactionAction by model.reactions.phase.collectAsState()
     var reactionPopup by remember(model) { mutableStateOf<ReactionPopup?>(null) }
     val rows = when (val snapshot = load) { is LoadPhase.Ready -> snapshot.value; else -> emptyList() }
-    Column(Modifier.fillMaxSize().chatBackdrop(s, colors)) {
+    Column(Modifier.fillMaxSize().chatBackdrop(s, colors, background)) {
         TextButton(onClick = { model.loadEarlier() }) { Text(s.text("bipe_action_show_more")) }
         when (load) {
             LoadPhase.Loading -> Text(s.text("bipe_web_loading"), Modifier.padding(16.dp))

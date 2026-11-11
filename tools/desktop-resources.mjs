@@ -15,6 +15,9 @@ export async function desktopCatalog(sharedRoot) {
   const tokens = read('design/tokens.json');
   const patterns = read('registries/scam-patterns.json');
   const warningKinds = read('product/screens/scam-warning.json').types.ScamWarning.kind.values;
+  const settings = read('registries/settings.json');
+  const { fruitTile, svgPath } = await import(pathToFileURL(join(sharedRoot, 'design/chat-fruits.mjs')).href);
+  const fruit = fruitTile();
   const { resolveThemes } = await import(pathToFileURL(join(sharedRoot, 'tools/lib/gen-tokens.mjs')).href);
   return {
     schema: 1,
@@ -26,6 +29,12 @@ export async function desktopCatalog(sharedRoot) {
     // The default + order come from the same registry as every other client's picker.
     palettes: Object.keys(tokens.appThemes.palettes),
     syncedSettings: read('registries/synced-settings.json'),
+    settings,
+    appearance: read('product/screens/settings-group.json').strings
+      .filter(key => key.startsWith('bipe_chats_appearance_'))
+      .map(title => ({ id: title.replace('bipe_chats_appearance_', ''), title: title.endsWith('_system') ? 'bipe_web_appearance_system' : title })),
+    fruit: { ...fruit, glyphs: fruit.glyphs.map(glyph => ({ ...glyph,
+      bodies: glyph.bodies.map(svgPath), lines: glyph.lines.map(svgPath), dots: glyph.dots.map(svgPath) })) },
     safety: {
       warnings: warningKinds.map(id => ({ id, messageKey: `bipe_scam_warning_${id.replace(/[A-Z]/g, c => `_${c.toLowerCase()}`)}` })),
       moneyPauseKinds: patterns.moneyPauseKinds,
@@ -50,6 +59,10 @@ export async function writeDesktopResources(output, sharedRoot = resolve(REPO_RO
   }
   const phosphor = join(REPO_ROOT, 'ios/Phosphor');
   writeFileSync(join(output, 'warning-circle.svg'), readFileSync(join(phosphor, 'Sources/Phosphor/Resources/Phosphor.xcassets/warning-circle.imageset/warning-circle.svg')));
+  for (const id of [...new Set([...catalog.settings.groups.map(group => group.icon).filter(Boolean), 'caret-left', 'caret-right', 'check'])]) {
+    writeFileSync(join(output, `phosphor-${id}.svg`), readFileSync(join(phosphor, `Sources/Phosphor/Resources/Phosphor.xcassets/${id}.imageset/${id}.svg`)));
+  }
+  writeFileSync(join(output, 'open-source-licences.json'), readFileSync(join(REPO_ROOT, 'android/app/src/main/assets/open_source_licences.json')));
   writeFileSync(join(output, 'phosphor-LICENSE.txt'), readFileSync(join(phosphor, 'LICENSE')));
 }
 

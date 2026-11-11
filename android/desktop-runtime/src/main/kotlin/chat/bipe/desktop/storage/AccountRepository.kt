@@ -290,6 +290,22 @@ class AccountLease internal constructor(
         AccountRepository.withKey(vault, slot, operation)
     }
 
+    /** The appearance cache and pending account writes are protected by this slot's key and Windows user. */
+    internal fun readAppearance(): String? = useStoreKey { key ->
+        val file = paths.root.resolve("appearance.bin")
+        if (!Files.exists(file, NOFOLLOW_LINKS)) return@useStoreKey null
+        if (!Files.isRegularFile(file, NOFOLLOW_LINKS) || Files.size(file) > 4 * 1024 * 1024) throw StorageFailure(StorageCode.CORRUPT_RECORD)
+        val clear = protection.unprotect(Files.readAllBytes(file), key)
+        try { clear.toString(Charsets.UTF_8) } finally { clear.fill(0) }
+    }
+
+    internal fun writeAppearance(value: String) = useStoreKey { key ->
+        val clear = value.toByteArray(Charsets.UTF_8)
+        if (clear.size > 4 * 1024 * 1024) { clear.fill(0); throw StorageFailure(StorageCode.IO_FAILURE) }
+        try { AccountRepository.atomicWrite(paths.root.resolve("appearance.bin"), protection.protect(clear, key)) }
+        finally { clear.fill(0) }
+    }
+
     /** Invalidates callbacks first. Persistence is a separate required step for an explicit unlink. */
     @Synchronized fun retire() {
         if (phase !is Phase.Closed) phase = Phase.Retired

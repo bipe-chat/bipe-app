@@ -8,6 +8,7 @@ import chat.bipe.desktop.account.*
 import chat.bipe.desktop.chat.*
 import chat.bipe.desktop.link.*
 import chat.bipe.desktop.storage.*
+import chat.bipe.desktop.settings.*
 import java.net.URI
 import java.net.URLEncoder
 import java.net.http.HttpClient
@@ -22,7 +23,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.*
 
 enum class AccountKind { PERSONAL, COMPANY, UNKNOWN }
-data class AccountProfile(val name: String, val kind: AccountKind, val palette: String)
+data class AccountProfile(val name: String, val kind: AccountKind, val avatar: String?)
 
 sealed interface AppPhase {
     data object Loading : AppPhase
@@ -30,7 +31,7 @@ sealed interface AppPhase {
     class Linking(val runtime: MatrixAccountRuntime, val attempt: PhoneLinkAttempt) : AppPhase
     class Recovering(val recovery: PendingDeviceRecovery, val source: StoredSlot) : AppPhase
     class Ready(val runtime: MatrixAccountRuntime, val list: DesktopRoomList, val profile: StateFlow<AccountProfile>,
-                val slots: List<StoredSlot>) : AppPhase
+                val slots: List<StoredSlot>, val appearance: AccountAppearance) : AppPhase
     data class Failed(val needsPhone: Boolean = false) : AppPhase
 }
 
@@ -51,6 +52,7 @@ private fun SelectedTimeline.owned(): DesktopTimeline? = when (this) {
 /** Serial account transitions; rendering never selects a global SDK client or receives a native Room. */
 class DesktopAppModel(val catalog: DesktopCatalog) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    val deviceAppearance = DeviceAppearance(catalog.appearanceOptions.map { it.first }, scope)
     private val transitions = Mutex()
     private val repository by lazy { AccountRepository.windowsDefault() }
     private val mutablePhase = MutableStateFlow<AppPhase>(AppPhase.Loading)
@@ -201,25 +203,12 @@ class DesktopAppModel(val catalog: DesktopCatalog) {
             val profile = runtime.lifetime.async {
                 val userId = runtime.client.userId()
                 val name = realName(runCatching { runtime.client.displayName() }.getOrNull(), userId, catalog.text("bipe_tab_you"))
-                val settings = runCatching { runtime.client.accountData(catalog.settingsEventType) }
-                    .getOrNull()?.let { runCatching { Json.parseToJsonElement(it).jsonObject }.getOrNull() }
-                AccountProfile(name, accountKind(userId), (settings?.get("palette") as? JsonPrimitive)?.takeIf { it.isString }?.content
-                    ?.takeIf { it in catalog.palettes } ?: catalog.defaultPalette)
+                AccountProfile(name, accountKind(userId), runCatching { runtime.client.avatarUrl() }.getOrNull())
             }.await()
             val liveProfile = MutableStateFlow(profile)
-            val ready = AppPhase.Ready(runtime, list, liveProfile.asStateFlow(), repository.slots())
+            val appearance = AccountAppearance.open(runtime, catalog.appearancePolicy)
+            val ready = AppPhase.Ready(runtime, list, liveProfile.asStateFlow(), repository.slots(), appearance)
             mutablePhase.value = ready
-            runtime.lifetime.launch {
-                // This SDK observes only standard account-data types. Read its synced local custom-event cache;
-                // no periodic HTTP request or independent Windows palette list is introduced.
-                while (isActiveCoroutine()) {
-                    delay(5_000)
-                    val settings = runCatching { runtime.client.accountData(catalog.settingsEventType) }
-                        .getOrNull()?.let { runCatching { Json.parseToJsonElement(it).jsonObject }.getOrNull() }
-                    val palette = (settings?.get("palette") as? JsonPrimitive)?.takeIf { it.isString }?.content?.takeIf { it in catalog.palettes } ?: continue
-                    runtime.lifetime.publish(runtime.lifetime.epoch) { liveProfile.value = liveProfile.value.copy(palette = palette) }
-                }
-            }
             scope.launch {
                 runtime.signal.first { it != AccountSignal.Healthy }
                 transitions.withLock {
@@ -251,5 +240,3 @@ class DesktopAppModel(val catalog: DesktopCatalog) {
 
     private fun userAgent() = "Bipe Windows/${catalog.build.getValue("version").jsonPrimitive.content} (${catalog.build.getValue("build").jsonPrimitive.content})"
 }
-
-private suspend fun isActiveCoroutine() = currentCoroutineContext().isActive

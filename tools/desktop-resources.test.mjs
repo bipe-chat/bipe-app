@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
+import { pathToFileURL } from 'node:url';
 import { desktopCatalog, writeDesktopResources } from './desktop-resources.mjs';
 import { REPO_ROOT, walk } from './lib.mjs';
 import { version } from './version.mjs';
@@ -35,6 +36,19 @@ test('every desktop UI string key exists in both canonical languages', async () 
   }
   for (const palette of catalog.palettes) keys.add(`bipe_colors_${palette}`);
   for (const locale of ['pt-BR', 'en']) for (const key of keys) assert.equal(typeof catalog.strings[locale][key], 'string', `${locale}: missing ${key}`);
+});
+
+test('desktop settings hierarchy, choices and fruit artwork come from the shared sources', async () => {
+  const catalog = await desktopCatalog(shared);
+  assert.deepEqual(catalog.settings, JSON.parse(readFileSync(join(shared, 'registries/settings.json'))));
+  assert.deepEqual(catalog.appearance.map(option => option.id), ['system', 'light', 'dark']);
+  assert.equal(catalog.appearance[0].title, 'bipe_web_appearance_system');
+  assert.deepEqual(catalog.backgrounds.options, ['marca', 'frutas', 'cor', 'liso']);
+  const { fruitTile, svgPath } = await import(pathToFileURL(join(shared, 'design/chat-fruits.mjs')).href);
+  const fruit = fruitTile();
+  assert.deepEqual(catalog.fruit.placements, fruit.placements);
+  assert.deepEqual(catalog.fruit.glyphs[0].bodies, fruit.glyphs[0].bodies.map(svgPath));
+  for (const option of catalog.appearance) for (const locale of ['pt-BR', 'en']) assert.equal(typeof catalog.strings[locale][option.title], 'string');
 });
 
 test('every Rust scam kind has canonical warning text and the shared pause policy', async () => {
@@ -67,5 +81,10 @@ test('desktop resource generation uses the shared version/build and existing Bip
     }
     assert.match(readFileSync(join(directory, 'warning-circle.svg'), 'utf8'), /<svg /);
     assert.match(readFileSync(join(directory, 'phosphor-LICENSE.txt'), 'utf8'), /MIT License/);
+    for (const group of catalog.settings.groups.filter(group => group.icon)) {
+      assert.match(readFileSync(join(directory, `phosphor-${group.icon}.svg`), 'utf8'), /<svg /);
+    }
+    assert.deepEqual(JSON.parse(readFileSync(join(directory, 'open-source-licences.json'))),
+      JSON.parse(readFileSync(join(REPO_ROOT, 'android/app/src/main/assets/open_source_licences.json'))));
   } finally { rmSync(directory, { recursive: true }); }
 });

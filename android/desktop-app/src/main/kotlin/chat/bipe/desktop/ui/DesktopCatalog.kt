@@ -6,6 +6,7 @@ package chat.bipe.desktop.ui
 
 import androidx.compose.ui.graphics.Color
 import chat.bipe.desktop.chat.ChatLabels
+import chat.bipe.desktop.settings.AppearancePolicy
 import java.util.Locale
 import kotlinx.serialization.json.*
 
@@ -17,6 +18,13 @@ class DesktopCatalog private constructor(private val root: JsonObject, val build
     val defaultPalette = root.getValue("defaultPalette").jsonPrimitive.content
     val backgroundGeometry = root.getValue("backgrounds").jsonObject
     val markGeometry = root.getValue("mark").jsonObject
+    val fruitGeometry = root.getValue("fruit").jsonObject
+    val settingsRegistry = root.getValue("settings").jsonObject
+    val appearanceOptions = root.getValue("appearance").jsonArray.map { option ->
+        option.jsonObject.let { it.getValue("id").jsonPrimitive.content to it.getValue("title").jsonPrimitive.content }
+    }
+    val backgroundOptions = backgroundGeometry.getValue("options").jsonArray.map { it.jsonPrimitive.content }
+    val appearancePolicy = AppearancePolicy(palettes, defaultPalette, backgroundOptions, backgroundGeometry.getValue("default").jsonPrimitive.content)
     val settingsEventType = root.getValue("syncedSettings").jsonObject.getValue("eventType").jsonPrimitive.content
     val windowsClientId = config["windowsOAuthClientId"]?.takeUnless { it == JsonNull }?.jsonPrimitive?.content
     val moneyPauseKinds = root.getValue("safety").jsonObject.getValue("moneyPauseKinds").jsonArray.map { it.jsonPrimitive.content }.toSet()
@@ -24,6 +32,11 @@ class DesktopCatalog private constructor(private val root: JsonObject, val build
     fun warningKey(id: String): String = root.getValue("safety").jsonObject.getValue("warnings").jsonArray
         .first { it.jsonObject.getValue("id").jsonPrimitive.content == id }.jsonObject.getValue("messageKey").jsonPrimitive.content
     val versionLabel get() = "${build.getValue("version").jsonPrimitive.content} (${build.getValue("build").jsonPrimitive.content}) · ${build.getValue("commit").jsonPrimitive.content}"
+    val shortVersion get() = "${build.getValue("version").jsonPrimitive.content} (${build.getValue("build").jsonPrimitive.content})"
+    fun settingsUrl(key: String) = settingsRegistry.getValue("urls").jsonObject.getValue(key).jsonObject
+        .getValue(if (locale == "en") "en" else "pt").jsonPrimitive.content
+    fun settingGroup(key: String) = settingsRegistry.getValue("groups").jsonArray.first { it.jsonObject.getValue("key").jsonPrimitive.content == key }.jsonObject
+    val settingsGroups get() = settingsRegistry.getValue("root").jsonArray.map { settingGroup(it.jsonPrimitive.content) }
 
     fun text(key: String, vararg args: String): String {
         var value = strings.getValue(key).jsonPrimitive.content
@@ -42,7 +55,7 @@ class DesktopCatalog private constructor(private val root: JsonObject, val build
         text("bipe_web_timeline_undecryptable"), text("bipe_app_timeline_unsupported"))
 
     companion object {
-        private fun json(name: String): JsonObject = DesktopCatalog::class.java.getResourceAsStream("/$name")!!.use {
+        internal fun json(name: String): JsonObject = DesktopCatalog::class.java.getResourceAsStream("/$name")!!.use {
             Json.parseToJsonElement(it.readBytes().toString(Charsets.UTF_8)).jsonObject
         }
         fun load(): DesktopCatalog = DesktopCatalog(json("bipe-desktop.json"), json("bipe-build.json"), json("bipe-config.json"))

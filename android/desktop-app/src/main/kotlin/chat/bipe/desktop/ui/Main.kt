@@ -13,6 +13,7 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import chat.bipe.app.BipeTypography
+import chat.bipe.desktop.settings.AppearancePhase
 import java.awt.Dimension
 import java.awt.Toolkit
 import java.beans.PropertyChangeListener
@@ -22,13 +23,15 @@ fun main() = application {
     val model = remember { DesktopAppModel(catalog) }
     val phase by model.phase.collectAsState()
     val palette = when (val current = phase) {
-        is AppPhase.Ready -> current.profile.collectAsState().value.palette
+        is AppPhase.Ready -> (current.appearance.phase.collectAsState().value as? AppearancePhase.Ready)?.values
+            ?.palette(catalog.appearancePolicy) ?: catalog.defaultPalette
         else -> catalog.defaultPalette
     }
+    val deviceAppearance by model.deviceAppearance.phase.collectAsState()
     Window(onCloseRequest = { model.closeWindow(::exitApplication) }, title = "Bipe",
            icon = painterResource("bipe-icon-${palette}.png"), state = rememberWindowState(width = 1180.dp, height = 800.dp)) {
         LaunchedEffect(Unit) { window.minimumSize = Dimension(900, 600) }
-        val dark = isSystemInDarkTheme()
+        val dark = when (deviceAppearance.mode) { "dark" -> true; "light" -> false; else -> isSystemInDarkTheme() }
         val highContrast = windowsHighContrast()
         val colors = remember(catalog, palette, dark, highContrast) { DesktopColors(catalog, palette, dark, highContrast) }
         val scheme = if (dark) darkColorScheme() else lightColorScheme()
@@ -42,7 +45,7 @@ fun main() = application {
     }
 }
 
-class DesktopColors(private val catalog: DesktopCatalog, val palette: String, private val dark: Boolean, private val highContrast: Boolean) {
+class DesktopColors(private val catalog: DesktopCatalog, val palette: String, val dark: Boolean, val highContrast: Boolean) {
     operator fun get(role: String) = catalog.color(role, palette, dark, highContrast)
     fun qr(role: String) = catalog.color(role, catalog.defaultPalette, dark = false, highContrast = true)
 }
