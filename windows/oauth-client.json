@@ -1,8 +1,9 @@
 {
-  "$comment": "Public Windows OAuth metadata only. Registration is pending until the deployed MAS record and native callback are verified under bipe#1456. Never put a client secret here.",
+  "$comment": "Public Windows OAuth metadata only. MAS registration and device-code grants are confirmed. Native callback/installer ownership remains unverified under bipe#1456; registered permits source QR testing, not distribution. Never put a client secret here.",
   "schema": 1,
-  "status": "pending",
-  "clientId": null,
+  "status": "registered",
+  "clientId": "01M74ZTMNCGG9Q8XS4N33JMATQ",
+  "registeredOn": "2026-11-11",
   "verifiedOn": null,
   "issuer": "https://account.bipe.net.br/",
   "homeserver": "https://matrix.bipe.net.br",

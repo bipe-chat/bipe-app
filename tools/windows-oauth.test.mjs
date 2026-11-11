@@ -10,14 +10,26 @@ import { join } from 'node:path';
 import { loadWindowsOAuth, knownMacClientIds, validateWindowsOAuth, writeWindowsOAuthKotlin } from './windows-oauth.mjs';
 
 const base = () => structuredClone(loadWindowsOAuth());
-const verified = () => ({ ...base(), status: 'verified', clientId: '01K00000000000000000000001', verifiedOn: '2026-11-10' });
+const pending = () => ({ ...base(), status: 'pending', clientId: null, registeredOn: null, verifiedOn: null });
+const registered = () => ({ ...base(), status: 'registered', clientId: '01K00000000000000000000001', registeredOn: '2026-11-10', verifiedOn: null });
+const verified = () => ({ ...registered(), status: 'verified', verifiedOn: '2026-11-11' });
 
 test('pending metadata is source-valid but cannot produce a usable distribution', () => {
-  const record = base();
+  const record = pending();
   assert.equal(record.status, 'pending');
   assert.deepEqual(validateWindowsOAuth(record), []);
   assert.ok(validateWindowsOAuth(record, { requireVerified: true }).length);
   assert.ok(validateWindowsOAuth(record, { requestedId: '01K00000000000000000000001' }).length);
+});
+
+test('a verified server registration enables source QR sign-in while distribution still requires its native callback', () => {
+  const record = registered();
+  assert.deepEqual(validateWindowsOAuth(record, { requestedId: record.clientId }), []);
+  assert.ok(validateWindowsOAuth(record, { requireVerified: true }).length);
+  assert.ok(validateWindowsOAuth({ ...record, verifiedOn: '2026-11-11' }).length);
+  assert.ok(validateWindowsOAuth({ ...record, registeredOn: '2026-02-30' }).length);
+  assert.ok(validateWindowsOAuth(record, { requestedId: '01K00000000000000000000002' }).length);
+  for (const clientId of knownMacClientIds()) assert.ok(validateWindowsOAuth({ ...record, clientId }, { forbiddenIds: knownMacClientIds() }).length);
 });
 
 test('a verified public record must match the requested release id and remain separate from Mac', () => {

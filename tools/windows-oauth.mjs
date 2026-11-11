@@ -25,9 +25,9 @@ export function validateWindowsOAuth(record, { forbiddenIds = [], requireVerifie
     if (!value || typeof value !== 'object' || Array.isArray(value)) { failures.push(`${label}: object required`); return; }
     for (const key of Object.keys(value)) if (!allowed.includes(key)) failures.push(`${label}: unexpected field ${key}`);
   };
-  keys(record, ['$comment', 'schema', 'status', 'clientId', 'verifiedOn', 'issuer', 'homeserver', 'metadata'], 'registration');
+  keys(record, ['$comment', 'schema', 'status', 'clientId', 'registeredOn', 'verifiedOn', 'issuer', 'homeserver', 'metadata'], 'registration');
   if (record?.schema !== 1) failures.push('Unsupported registration schema');
-  if (!['pending', 'verified'].includes(record?.status)) failures.push('Registration status must be pending or verified');
+  if (!['pending', 'registered', 'verified'].includes(record?.status)) failures.push('Registration status must be pending, registered or verified');
   if (record?.issuer !== 'https://account.bipe.net.br/' || record?.homeserver !== 'https://matrix.bipe.net.br') failures.push('Unexpected Bipe issuer/homeserver');
   const m = record?.metadata;
   keys(m, ['client_name', 'client_uri', 'application_type', 'token_endpoint_auth_method', 'redirect_uris', 'grant_types', 'response_types'], 'public metadata');
@@ -37,16 +37,23 @@ export function validateWindowsOAuth(record, { forbiddenIds = [], requireVerifie
   if (!equal(m?.grant_types, ['authorization_code', 'refresh_token', 'urn:ietf:params:oauth:grant-type:device_code']) ||
       !equal(m?.response_types, ['code'])) failures.push('Unexpected native grant/response types');
   if (record?.status === 'pending') {
-    if (record.clientId !== null || record.verifiedOn !== null) failures.push('Pending registration cannot claim an id or verification');
+    if (record.clientId !== null || record.registeredOn !== null || record.verifiedOn !== null) failures.push('Pending registration cannot claim an id or verification');
     if (requireVerified || requestedId) failures.push('Windows MAS registration/callback has not been verified');
   }
-  if (record?.status === 'verified') {
+  const validDate = value => /^\d{4}-\d{2}-\d{2}$/.test(value ?? '') && !Number.isNaN(Date.parse(value)) &&
+    new Date(value).toISOString().slice(0, 10) === value;
+  if (record?.status === 'registered' || record?.status === 'verified') {
     if (!/^[0-7][0-9A-HJKMNP-TV-Z]{25}$/.test(record.clientId ?? '')) failures.push('Invalid MAS public client id');
-    const date = Date.parse(record.verifiedOn);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(record.verifiedOn ?? '') || Number.isNaN(date) ||
-        new Date(date).toISOString().slice(0, 10) !== record.verifiedOn) failures.push('Verification date required');
+    if (!validDate(record.registeredOn)) failures.push('Server registration verification date required');
     if (forbiddenIds.includes(record.clientId)) failures.push('A Mac/web client id cannot be reused for Windows');
     if (requestedId && requestedId !== record.clientId) failures.push('Environment and verified Windows registration disagree');
+  }
+  if (record?.status === 'registered') {
+    if (record.verifiedOn !== null) failures.push('A registered client cannot claim installer callback verification');
+    if (requireVerified) failures.push('Windows installer callback association has not been verified');
+  }
+  if (record?.status === 'verified') {
+    if (!validDate(record.verifiedOn) || record.verifiedOn < record.registeredOn) failures.push('Callback verification date required after server registration');
   }
   return failures;
 }
