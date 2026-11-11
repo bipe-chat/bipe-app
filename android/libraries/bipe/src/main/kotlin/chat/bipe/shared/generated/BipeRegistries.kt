@@ -25,6 +25,15 @@ data class PersonScheme(val id: String, val alias: String?, val assurance: Strin
 /** A network a public profile may link to (ADR 0228). [url] holds {handle} once. */
 data class SocialPlatform(val id: String, val name: String, val pattern: String, val url: String)
 
+/** A device kind (bipe ADR 0291, registries/device-kinds.json). [section] is devices or programs. */
+data class DeviceKind(val key: String, val icon: String, val label: String, val section: String, val leavesBrazil: Boolean)
+
+/** A user-agent rule (bipe ADR 0291). [app], [model] and [os] hold $1 to $9 for the pattern's groups; null when the rule does not say. A browser rule takes app from DEVICE_BROWSERS and os from DEVICE_SYSTEMS. */
+data class DeviceUserAgentRule(val pattern: String, val kind: String, val app: String?, val model: String?, val os: String?)
+
+/** A name rule for a browser or a system (bipe ADR 0291). [name] holds $1 to $9 for the pattern's groups. The first match wins. */
+data class DeviceNameRule(val pattern: String, val name: String)
+
 object BipeRegistries {
     /** Normalised reserved display names and their category. */
     val reservedNames: Map<String, ReservedNameCategory> = mapOf(
@@ -942,6 +951,39 @@ object BipeRegistries {
     const val WORK_REPLY_BY_FIELD = "chat.bipe.reply_by"
     const val WORK_REPLY_BY_BODY = "Resposta enviada"
     const val WORK_NOTE_BODY_MAX_LENGTH = 4000
+    /** Device kinds and device entries (bipe ADR 0291, bipe-chat/bipe#1479; registries/device-kinds.json). Rules: test-vectors/device-kinds.json. */
+    const val DEVICE_INFO_EVENT_TYPE = "chat.bipe.device_info"
+    const val DEVICE_FIELD_MAX_LENGTH = 64
+    const val DEVICE_UNKNOWN_WARNING = false
+    val DEVICE_KINDS: List<DeviceKind> = listOf(
+        DeviceKind("phone", "phone", "bipe_device_kind_phone", "devices", false),
+        DeviceKind("computer-app", "desktop", "bipe_device_kind_computer", "devices", false),
+        DeviceKind("browser", "link", "bipe_device_kind_browser", "devices", false),
+        DeviceKind("assistant", "chat-text", "bipe_device_kind_assistant", "programs", true),
+        DeviceKind("bridge", "share-network", "bipe_device_kind_bridge", "programs", true),
+        DeviceKind("unknown", "warning", "bipe_device_kind_unknown", "devices", false),
+    )
+    val DEVICE_USER_AGENTS: List<DeviceUserAgentRule> = listOf(
+        DeviceUserAgentRule("^Bipe/([0-9][0-9.]*) \\(([^;()]+); (iOS [0-9.]+)\\)\$", "phone", "Bipe \$1", "\$2", "\$3"),
+        DeviceUserAgentRule("^Bipe/([0-9][0-9.]*) \\(([^;()]+); (Android [0-9.]+)\\)\$", "phone", "Bipe \$1", "\$2", "\$3"),
+        DeviceUserAgentRule("^Bipe/([0-9][0-9.]*) \\(([^;()]+); ((?:macOS|Windows) [0-9.]+)\\)\$", "computer-app", "Bipe \$1", "\$2", "\$3"),
+        DeviceUserAgentRule("^Mozilla/", "browser", null, null, null),
+    )
+    val DEVICE_BROWSERS: List<DeviceNameRule> = listOf(
+        DeviceNameRule("Edg/([0-9]+)", "Edge \$1"),
+        DeviceNameRule("OPR/([0-9]+)", "Opera \$1"),
+        DeviceNameRule("Firefox/([0-9]+)", "Firefox \$1"),
+        DeviceNameRule("Chrome/([0-9]+)", "Chrome \$1"),
+        DeviceNameRule("Version/([0-9]+)[0-9.]* .*Safari/", "Safari \$1"),
+    )
+    val DEVICE_SYSTEMS: List<DeviceNameRule> = listOf(
+        DeviceNameRule("(?:iPhone|iPad).* OS ([0-9]+)", "iOS \$1"),
+        DeviceNameRule("Android ([0-9]+)", "Android \$1"),
+        DeviceNameRule("Windows NT", "Windows"),
+        DeviceNameRule("CrOS", "ChromeOS"),
+        DeviceNameRule("Mac OS X", "macOS"),
+        DeviceNameRule("Linux", "Linux"),
+    )
     /** Localpart prefix of a member identity (bipe ADR 0284 point 1, registries/accounts.json). */
     const val MEMBER_LOCALPART_PREFIX = "m_"
 

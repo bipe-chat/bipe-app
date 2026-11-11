@@ -4318,6 +4318,132 @@
   "bodyMaxLength": 8000,
   "clientMaxLength": 64
  },
+ "deviceKinds": {
+  "$comment": "Device kinds and device entries (bipe ADR 0291, bipe-chat/bipe#1479). Every device of an account has a kind. A Bipe client, bipe-mcp and the Beeper bridge each write their own device entry: an end-to-end encrypted event of type eventType in the account's drafts room (registries/drafts.json, docs/drafts-room.md), with source \"self\". The phone that approves a new device may write an entry for it with source \"approval\", from the user agent on the consent screen (userAgents, browsers, systems). A self entry beats an approval entry; the newest of each wins. Text fields are at most fieldMaxLength characters. `section`: devices (Aparelhos) or programs (Assistentes e programas). `icon`: a Phosphor icon in bipe-app tools/phosphor.json. `leavesBrazil`: the row says fora do Brasil. unknownWarning: false until every Bipe writer ships (#1481 to #1485), so a Bipe device that has no entry yet is not flagged; while false, a device with no entry shows kind unknown with no warning. Rules: deviceInfoFromEvent, userAgentInfo, deviceRows in tools/lib/registries.mjs; test-vectors/device-kinds.json.",
+  "version": 1,
+  "eventType": "chat.bipe.device_info",
+  "fieldMaxLength": 64,
+  "unknownWarning": false,
+  "kinds": [
+   {
+    "key": "phone",
+    "icon": "phone",
+    "label": "bipe_device_kind_phone",
+    "section": "devices",
+    "leavesBrazil": false
+   },
+   {
+    "key": "computer-app",
+    "icon": "desktop",
+    "label": "bipe_device_kind_computer",
+    "section": "devices",
+    "leavesBrazil": false
+   },
+   {
+    "key": "browser",
+    "icon": "link",
+    "label": "bipe_device_kind_browser",
+    "section": "devices",
+    "leavesBrazil": false
+   },
+   {
+    "key": "assistant",
+    "icon": "chat-text",
+    "label": "bipe_device_kind_assistant",
+    "section": "programs",
+    "leavesBrazil": true
+   },
+   {
+    "key": "bridge",
+    "icon": "share-network",
+    "label": "bipe_device_kind_bridge",
+    "section": "programs",
+    "leavesBrazil": true
+   },
+   {
+    "key": "unknown",
+    "icon": "warning",
+    "label": "bipe_device_kind_unknown",
+    "section": "devices",
+    "leavesBrazil": false
+   }
+  ],
+  "userAgents": [
+   {
+    "pattern": "^Bipe/([0-9][0-9.]*) \\(([^;()]+); (iOS [0-9.]+)\\)$",
+    "kind": "phone",
+    "app": "Bipe $1",
+    "model": "$2",
+    "os": "$3"
+   },
+   {
+    "pattern": "^Bipe/([0-9][0-9.]*) \\(([^;()]+); (Android [0-9.]+)\\)$",
+    "kind": "phone",
+    "app": "Bipe $1",
+    "model": "$2",
+    "os": "$3"
+   },
+   {
+    "pattern": "^Bipe/([0-9][0-9.]*) \\(([^;()]+); ((?:macOS|Windows) [0-9.]+)\\)$",
+    "kind": "computer-app",
+    "app": "Bipe $1",
+    "model": "$2",
+    "os": "$3"
+   },
+   {
+    "pattern": "^Mozilla/",
+    "kind": "browser"
+   }
+  ],
+  "browsers": [
+   {
+    "pattern": "Edg/([0-9]+)",
+    "name": "Edge $1"
+   },
+   {
+    "pattern": "OPR/([0-9]+)",
+    "name": "Opera $1"
+   },
+   {
+    "pattern": "Firefox/([0-9]+)",
+    "name": "Firefox $1"
+   },
+   {
+    "pattern": "Chrome/([0-9]+)",
+    "name": "Chrome $1"
+   },
+   {
+    "pattern": "Version/([0-9]+)[0-9.]* .*Safari/",
+    "name": "Safari $1"
+   }
+  ],
+  "systems": [
+   {
+    "pattern": "(?:iPhone|iPad).* OS ([0-9]+)",
+    "name": "iOS $1"
+   },
+   {
+    "pattern": "Android ([0-9]+)",
+    "name": "Android $1"
+   },
+   {
+    "pattern": "Windows NT",
+    "name": "Windows"
+   },
+   {
+    "pattern": "CrOS",
+    "name": "ChromeOS"
+   },
+   {
+    "pattern": "Mac OS X",
+    "name": "macOS"
+   },
+   {
+    "pattern": "Linux",
+    "name": "Linux"
+   }
+  ]
+ },
  "workNotes": {
   "$comment": "Notes room of a work account (bipe ADR 0284 points 18 and 19, bipe-chat/bipe#1291, bipe-chat/bipe#1293). Each work account has one private, end-to-end encrypted notes room with only the account's own devices, like the drafts room (registries/drafts.json). Its room ID is in global account data accountDataType as {\"room_id\": ...}. The creating device sets the creation type roomType when its SDK can. A note is an m.room.message with msgtype m.text: body is the note text, and noteField holds {\"room_id\", \"seat_id\"?}: the customer chat it is about and the seat that wrote it. After a send to a customer, the sending device sends one m.room.message with msgtype m.notice, body replyByBody, and replyByField {\"room_id\", \"event_id\", \"seat_id\"}: inside the account, the apps show the name of that seat on that reply. Both are m.room.message because matrix-sdk-ui drops custom event types from the timeline (matrix-sdk-ffi 26.08.11). Customers see nothing of this room. A modified client can skip or fake these fields, so a name is a help, not proof. Rules: test-vectors/work-notes.json.",
   "version": 1,
@@ -5500,6 +5626,35 @@
    "bipe_linked_devices_sign_out_body": "O aparelho sai da sua conta e para de receber suas conversas. Na página que abre, confirme a saída.",
    "bipe_linked_devices_sign_out_biometric": "Confirme que é você para desconectar um aparelho.",
    "bipe_linked_devices_error": "Não deu para carregar os aparelhos. Tente de novo.",
+   "bipe_devices_group_title": "Aparelhos e assistentes",
+   "bipe_devices_summary": "Aparelhos: %1$s · Assistentes: %2$s",
+   "bipe_devices_summary_unknown": "Aparelhos desconhecidos: %1$s",
+   "bipe_devices_section_devices": "Aparelhos",
+   "bipe_devices_section_programs": "Assistentes e programas",
+   "bipe_devices_section_others_assistants": "Assistentes dos outros",
+   "bipe_devices_this_device": "Este aparelho",
+   "bipe_devices_this_device_hint": "Para tirar sua conta deste aparelho, use Sair deste aparelho em Sua conta.",
+   "bipe_devices_link_computer_or_browser": "Conectar computador ou navegador",
+   "bipe_devices_sign_out_others": "Desconectar todos os outros",
+   "bipe_devices_sign_out_others_title": "Desconectar todos os outros aparelhos?",
+   "bipe_devices_sign_out_others_body": "Só este aparelho fica na sua conta. Os outros param de receber suas conversas.",
+   "bipe_devices_unknown_warning": "Este aparelho tem acesso total à sua conta. Se você não sabe de onde ele veio, desconecte agora.",
+   "bipe_devices_in_brazil": "no Brasil",
+   "bipe_devices_outside_brazil": "fora do Brasil",
+   "bipe_device_kind_phone": "Celular",
+   "bipe_device_kind_computer": "Computador",
+   "bipe_device_kind_browser": "Navegador",
+   "bipe_device_kind_assistant": "Assistente",
+   "bipe_device_kind_bridge": "Ponte",
+   "bipe_device_kind_unknown": "Aparelho desconhecido",
+   "bipe_device_detail_linked_at": "Conectado em %1$s",
+   "bipe_device_detail_linked_by": "Aprovado por %1$s",
+   "bipe_device_detail_attested": "Conferido pela Apple ou pelo Google",
+   "bipe_device_detail_not_attested": "Não conferido pela Apple nem pelo Google",
+   "bipe_device_detail_ip": "IP: %1$s",
+   "bipe_device_detail_place": "Lugar: %1$s",
+   "bipe_device_detail_id": "ID interno: %1$s",
+   "bipe_device_detail_id_copied": "ID copiado",
    "bipe_link_computer_warning_title": "Este computador vai ter acesso a todas as suas conversas",
    "bipe_link_computer_warning_body": "Quem usar o computador pode ler suas mensagens e mandar mensagens no seu nome. Continue só se o computador for seu e se foi você que abriu web.bipe.chat nele.",
    "bipe_link_computer_warning_scam": "Se alguém pediu para você ler este código, pare. É golpe.",
@@ -8020,6 +8175,35 @@
    "bipe_linked_devices_sign_out_body": "The device leaves your account and stops getting your chats. On the page that opens, confirm the sign-out.",
    "bipe_linked_devices_sign_out_biometric": "Confirm it's you to sign out a device.",
    "bipe_linked_devices_error": "Couldn't load the devices. Try again.",
+   "bipe_devices_group_title": "Devices and assistants",
+   "bipe_devices_summary": "Devices: %1$s · Assistants: %2$s",
+   "bipe_devices_summary_unknown": "Unknown devices: %1$s",
+   "bipe_devices_section_devices": "Devices",
+   "bipe_devices_section_programs": "Assistants and programs",
+   "bipe_devices_section_others_assistants": "Other people's assistants",
+   "bipe_devices_this_device": "This device",
+   "bipe_devices_this_device_hint": "To take your account off this device, use Sign out of this device in Your account.",
+   "bipe_devices_link_computer_or_browser": "Link a computer or browser",
+   "bipe_devices_sign_out_others": "Sign out all others",
+   "bipe_devices_sign_out_others_title": "Sign out all other devices?",
+   "bipe_devices_sign_out_others_body": "Only this device stays in your account. The others stop getting your chats.",
+   "bipe_devices_unknown_warning": "This device has full access to your account. If you don't know where it came from, sign it out now.",
+   "bipe_devices_in_brazil": "in Brazil",
+   "bipe_devices_outside_brazil": "outside Brazil",
+   "bipe_device_kind_phone": "Phone",
+   "bipe_device_kind_computer": "Computer",
+   "bipe_device_kind_browser": "Browser",
+   "bipe_device_kind_assistant": "Assistant",
+   "bipe_device_kind_bridge": "Bridge",
+   "bipe_device_kind_unknown": "Unknown device",
+   "bipe_device_detail_linked_at": "Linked on %1$s",
+   "bipe_device_detail_linked_by": "Approved by %1$s",
+   "bipe_device_detail_attested": "Checked by Apple or Google",
+   "bipe_device_detail_not_attested": "Not checked by Apple or Google",
+   "bipe_device_detail_ip": "IP: %1$s",
+   "bipe_device_detail_place": "Place: %1$s",
+   "bipe_device_detail_id": "Internal ID: %1$s",
+   "bipe_device_detail_id_copied": "ID copied",
    "bipe_link_computer_warning_title": "This computer will get access to all your chats",
    "bipe_link_computer_warning_body": "Anyone at the computer can read your messages and send messages as you. Only continue if the computer is yours and you opened web.bipe.chat on it.",
    "bipe_link_computer_warning_scam": "If someone asked you to scan this code, stop. It's a scam.",

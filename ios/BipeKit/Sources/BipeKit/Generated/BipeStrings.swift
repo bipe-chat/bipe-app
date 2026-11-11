@@ -2518,6 +2518,78 @@ public enum BipeStrings {
 
     public static var linkedDevicesError: String { NSLocalizedString("bipe_linked_devices_error", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var devicesGroupTitle: String { NSLocalizedString("bipe_devices_group_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func devicesSummary(_ p1: String, _ p2: String) -> String {
+        String(format: NSLocalizedString("bipe_devices_summary", tableName: "Bipe", bundle: .module, comment: ""), p1, p2)
+    }
+
+    public static func devicesSummaryUnknown(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_devices_summary_unknown", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var devicesSectionDevices: String { NSLocalizedString("bipe_devices_section_devices", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var devicesSectionPrograms: String { NSLocalizedString("bipe_devices_section_programs", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var devicesSectionOthersAssistants: String { NSLocalizedString("bipe_devices_section_others_assistants", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var devicesThisDevice: String { NSLocalizedString("bipe_devices_this_device", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var devicesThisDeviceHint: String { NSLocalizedString("bipe_devices_this_device_hint", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var devicesLinkComputerOrBrowser: String { NSLocalizedString("bipe_devices_link_computer_or_browser", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var devicesSignOutOthers: String { NSLocalizedString("bipe_devices_sign_out_others", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var devicesSignOutOthersTitle: String { NSLocalizedString("bipe_devices_sign_out_others_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var devicesSignOutOthersBody: String { NSLocalizedString("bipe_devices_sign_out_others_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var devicesUnknownWarning: String { NSLocalizedString("bipe_devices_unknown_warning", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var devicesInBrazil: String { NSLocalizedString("bipe_devices_in_brazil", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var devicesOutsideBrazil: String { NSLocalizedString("bipe_devices_outside_brazil", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var deviceKindPhone: String { NSLocalizedString("bipe_device_kind_phone", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var deviceKindComputer: String { NSLocalizedString("bipe_device_kind_computer", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var deviceKindBrowser: String { NSLocalizedString("bipe_device_kind_browser", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var deviceKindAssistant: String { NSLocalizedString("bipe_device_kind_assistant", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var deviceKindBridge: String { NSLocalizedString("bipe_device_kind_bridge", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var deviceKindUnknown: String { NSLocalizedString("bipe_device_kind_unknown", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func deviceDetailLinkedAt(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_device_detail_linked_at", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func deviceDetailLinkedBy(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_device_detail_linked_by", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var deviceDetailAttested: String { NSLocalizedString("bipe_device_detail_attested", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var deviceDetailNotAttested: String { NSLocalizedString("bipe_device_detail_not_attested", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func deviceDetailIp(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_device_detail_ip", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func deviceDetailPlace(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_device_detail_place", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func deviceDetailId(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_device_detail_id", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var deviceDetailIdCopied: String { NSLocalizedString("bipe_device_detail_id_copied", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var linkComputerWarningTitle: String { NSLocalizedString("bipe_link_computer_warning_title", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var linkComputerWarningBody: String { NSLocalizedString("bipe_link_computer_warning_body", tableName: "Bipe", bundle: .module, comment: "") }
