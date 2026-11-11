@@ -2414,6 +2414,16 @@
     <string name="bipe_feed_older">Publicações anteriores</string>
     <string name="bipe_feed_all_posts">Todas as publicações</string>
     <string name="bipe_feed_notify">Instale o Bipe para receber um aviso quando %1$s publicar.</string>
+    <string name="bipe_feed_report">Denunciar</string>
+    <string name="bipe_feed_report_title">Por que esta publicação deve sair?</string>
+    <string name="bipe_feed_report_scam">Golpe ou fraude</string>
+    <string name="bipe_feed_report_illegal">Crime ou conteúdo ilegal</string>
+    <string name="bipe_feed_report_hate">Ódio, ameaça ou assédio</string>
+    <string name="bipe_feed_report_privacy">Expõe dados ou imagens íntimas de alguém</string>
+    <string name="bipe_feed_report_other">Outro motivo</string>
+    <string name="bipe_feed_report_send">Enviar denúncia</string>
+    <string name="bipe_feed_report_note">A denúncia não leva seu nome. O Bipe analisa cada uma.</string>
+    <string name="bipe_feed_report_done">Recebemos sua denúncia. O Bipe vai analisar.</string>
     <string name="bipe_handle_move_action">Levar para a conta de trabalho</string>
     <string name="bipe_handle_move_confirm_title">Levar @%1$s para %2$s?</string>
     <string name="bipe_handle_move_confirm_body">O @ sai desta conta e vai para a conta de trabalho, com a página pública, se houver. Seu perfil, seu selo e suas conversas ficam aqui.</string>
