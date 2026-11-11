@@ -5610,6 +5610,26 @@ public enum BipeStrings {
         String(format: NSLocalizedString("bipe_feed_notify", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
 
+    public static var feedReport: String { NSLocalizedString("bipe_feed_report", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var feedReportTitle: String { NSLocalizedString("bipe_feed_report_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var feedReportScam: String { NSLocalizedString("bipe_feed_report_scam", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var feedReportIllegal: String { NSLocalizedString("bipe_feed_report_illegal", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var feedReportHate: String { NSLocalizedString("bipe_feed_report_hate", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var feedReportPrivacy: String { NSLocalizedString("bipe_feed_report_privacy", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var feedReportOther: String { NSLocalizedString("bipe_feed_report_other", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var feedReportSend: String { NSLocalizedString("bipe_feed_report_send", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var feedReportNote: String { NSLocalizedString("bipe_feed_report_note", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var feedReportDone: String { NSLocalizedString("bipe_feed_report_done", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var handleMoveAction: String { NSLocalizedString("bipe_handle_move_action", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static func handleMoveConfirmTitle(_ p1: String, _ p2: String) -> String {
