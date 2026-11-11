@@ -13,6 +13,7 @@ import java.net.InetSocketAddress
 import java.nio.file.Files
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.first
 import org.junit.Assert.*
@@ -27,10 +28,11 @@ class WindowsNativeLifecycleTest {
         val room = "!lifecycle:example.test"
         val online = AtomicBoolean(true)
         val seeded = CompletableDeferred<Unit>()
+        val requests = AtomicInteger()
         val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
         server.createContext("/") { exchange ->
             try {
-                exchange.requestBody.close()
+                exchange.requestBody.use { it.readBytes() }
                 val path = exchange.requestURI.path
                 val (status, body) = when {
                     path.endsWith("/versions") && online.get() -> 200 to
@@ -50,8 +52,12 @@ class WindowsNativeLifecycleTest {
                     }"""
                     path.endsWith("/sync") -> 400 to """{"errcode":"M_UNKNOWN","error":"Synthetic offline sync"}"""
                     path.endsWith("/messages") -> 200 to """{"chunk":[],"state":[],"start":"before"}"""
+                    path.endsWith("/keys/upload") -> 200 to """{"one_time_key_counts":{"signed_curve25519":50}}"""
+                    path.endsWith("/keys/query") -> 200 to """{"device_keys":{},"failures":{}}"""
+                    path.endsWith("/keys/claim") -> 200 to """{"one_time_keys":{},"failures":{}}"""
                     else -> 404 to """{"errcode":"M_NOT_FOUND","error":"Synthetic fixture"}"""
                 }
+                if (requests.incrementAndGet() <= 60) println("BIPE_NATIVE_LIFECYCLE http=${exchange.requestMethod} $path status=$status")
                 val bytes = body.toByteArray(Charsets.UTF_8)
                 exchange.responseHeaders.set("Content-Type", "application/json")
                 exchange.sendResponseHeaders(status, bytes.size.toLong())
@@ -84,7 +90,10 @@ class WindowsNativeLifecycleTest {
                 assertEquals("Lifecycle fixture", rows.value.single { it.id == room }.name)
                 val offline = CompletableDeferred<Unit>()
                 val state = first.startSync().state(object : SyncServiceStateObserver {
-                    override fun onUpdate(state: SyncServiceState) { if (state == SyncServiceState.OFFLINE) offline.complete(Unit) }
+                    override fun onUpdate(state: SyncServiceState) {
+                        println("BIPE_NATIVE_LIFECYCLE sync=$state")
+                        if (state == SyncServiceState.OFFLINE) offline.complete(Unit)
+                    }
                 })
                 first.lifetime.own(chat.bipe.desktop.account.TaskResource(state))
                 println("BIPE_NATIVE_LIFECYCLE stage=draft")
