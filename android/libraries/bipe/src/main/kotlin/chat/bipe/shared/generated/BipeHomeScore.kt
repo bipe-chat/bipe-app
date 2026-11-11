@@ -11,10 +11,11 @@
 
 package chat.bipe.shared.generated
 
-import kotlin.math.exp
-import kotlin.math.floor
-import kotlin.math.log10
-import kotlin.math.log2
+import chat.bipe.core.HomeChat
+import chat.bipe.core.HomeChatKind
+import chat.bipe.core.HomeReason
+import chat.bipe.core.homePlan
+import chat.bipe.core.homeScore
 
 enum class BipeHomeChatKind { PERSON, COMPANY, GROUP }
 
@@ -68,62 +69,36 @@ object BipeHomeScore {
     const val DUE_MAX_LENGTH = 24
     const val DRAFT_MAX_LENGTH = 120
 
-    private val modelAttentionUnits: Map<String, Int> = mapOf("reply" to 2000, "decide" to 2000, "fyi" to 200, "none" to -1800)
+    private fun core(chat: BipeHomeChat) = HomeChat(
+        id = chat.id,
+        kind = when (chat.kind) {
+            BipeHomeChatKind.PERSON -> HomeChatKind.PERSON
+            BipeHomeChatKind.COMPANY -> HomeChatKind.COMPANY
+            BipeHomeChatKind.GROUP -> HomeChatKind.GROUP
+        },
+        hasSeal = chat.hasSeal,
+        official = chat.official,
+        favourite = chat.favourite,
+        muted = chat.muted,
+        mentioned = chat.mentioned,
+        unreadCount = chat.unreadCount.toLong(),
+        lastFromOther = chat.lastFromOther,
+        minutesSinceActivity = chat.minutesSinceActivity?.toLong(),
+        messagesPerWeek = chat.messagesPerWeek.toLong(),
+        trustWarning = chat.trustWarning,
+        modelAttention = chat.modelAttention,
+        modelDue = chat.modelDue,
+    )
 
-    private fun units(value: Double): Int = floor(value * 10000.0 + 0.5).toInt()
-
-    private fun modelUnits(chat: BipeHomeChat, unread: Int): Int {
-        if ((chat.kind == BipeHomeChatKind.COMPANY && !chat.hasSeal) || chat.official || chat.trustWarning) return 0
-        var sum = 0
-        val attention = chat.modelAttention
-        val weight = attention?.let { modelAttentionUnits[it] }
-        if (weight != null && (attention != "none" || unread > 0)) sum += weight
-        if (chat.modelDue) sum += 600
-        return minOf(sum, 2600)
+    private fun reason(reason: HomeReason?): BipeHomeReason? = when (reason) {
+        HomeReason.MENTION -> BipeHomeReason.MENTION
+        HomeReason.UNANSWERED -> BipeHomeReason.UNANSWERED
+        null -> null
     }
 
-    fun score(chat: BipeHomeChat): BipeHomeScored {
-        val unread = maxOf(chat.unreadCount, 0)
-        val minutes = chat.minutesSinceActivity?.let { maxOf(it, 0) }
-        val direct = chat.kind != BipeHomeChatKind.GROUP
-        var sum = 0
-        if (chat.mentioned) sum += 2400
-        if (unread > 0) {
-            if (direct) {
-                sum += if (chat.kind == BipeHomeChatKind.COMPANY && !chat.hasSeal) 1000 else 2200
-            } else {
-                sum += minOf(800, units(0.02 + 0.03 * log10(1.0 + unread.toDouble())))
-            }
-        }
-        val unanswered = direct && unread == 0 && chat.lastFromOther && minutes != null && minutes < 4320
-        if (unanswered) sum += 600
-        if (chat.favourite) sum += 1000
-        sum += minOf(1600, units(0.03 * log2(1.0 + maxOf(chat.messagesPerWeek, 0).toDouble())))
-        if (minutes != null) sum += units(0.14 * exp(-minutes.toDouble() / 480.0))
-        sum += modelUnits(chat, unread)
-        if (chat.muted && !chat.mentioned) sum = floor(sum.toDouble() * 0.4 + 0.5).toInt()
-        if (chat.official) sum = minOf(sum, 1400)
-        sum = minOf(maxOf(sum, 0), 10000)
-        val reason = if (chat.mentioned) BipeHomeReason.MENTION else if (unanswered) BipeHomeReason.UNANSWERED else null
-        return BipeHomeScored((sum + 50) / 100, reason)
-    }
+    fun score(chat: BipeHomeChat): BipeHomeScored =
+        homeScore(core(chat)).let { BipeHomeScored(it.scorePercent, reason(it.reason)) }
 
-    /** The tiles in screen order. */
-    fun plan(chats: List<BipeHomeChat>): List<BipeHomeTile> {
-        val ordered = chats.map { it to score(it) }.sortedWith(Comparator { a, b ->
-            if (a.second.scorePercent != b.second.scorePercent) return@Comparator b.second.scorePercent.compareTo(a.second.scorePercent)
-            val am = a.first.minutesSinceActivity?.let { maxOf(it, 0) } ?: Int.MAX_VALUE
-            val bm = b.first.minutesSinceActivity?.let { maxOf(it, 0) } ?: Int.MAX_VALUE
-            if (am != bm) return@Comparator am.compareTo(bm)
-            a.first.id.compareTo(b.first.id)
-        })
-        val counts = mutableMapOf<Int, Int>()
-        return ordered.map { (chat, scored) ->
-            val rule = tiers.firstOrNull { candidate ->
-                scored.scorePercent >= candidate.minPercent && (candidate.maxChats == null || (counts[candidate.tier] ?: 0) < candidate.maxChats)
-            }
-            if (rule != null) counts[rule.tier] = (counts[rule.tier] ?: 0) + 1
-            BipeHomeTile(chat.id, scored.scorePercent, rule?.tier, scored.reason)
-        }
-    }
+    fun plan(chats: List<BipeHomeChat>): List<BipeHomeTile> =
+        homePlan(chats.map(::core)).map { BipeHomeTile(it.id, it.scorePercent, it.tier?.toInt(), reason(it.reason)) }
 }
