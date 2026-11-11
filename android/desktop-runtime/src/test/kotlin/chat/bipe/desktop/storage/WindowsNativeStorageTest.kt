@@ -141,7 +141,7 @@ class WindowsNativeStorageTest {
         }
     }
 
-    @Test fun nativeTimelineOpensAndReopensWithDecryptionReportingAfterSyncStarts() = runBlocking {
+    @Test fun nativeTimelineOpensAndReopensWithoutRetiringItsAccount() = runBlocking {
         val roomId = "!windows-timeline:example.test"
         val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
         server.createContext("/") { exchange ->
@@ -161,39 +161,50 @@ class WindowsNativeStorageTest {
                 exchange.responseBody.use { it.write(bytes) }
             } finally { exchange.close() }
         }
-        server.start()
         val root = Files.createTempDirectory("bipe-native-timeline-")
         val vault = testVault()
         val repository = AccountRepository(root, vault, WindowsDataProtection())
         val lease = repository.provision()
         var runtime: MatrixAccountRuntime? = null
         try {
+            server.start()
             withTimeout(30_000) {
                 val homeserver = "http://127.0.0.1:${server.address.port}"
+                println("BIPE_NATIVE_TIMELINE stage=client")
                 val linked = MatrixAccountRuntime.open(lease, homeserver, "Bipe Windows timeline test")
                 runtime = linked
                 linked.lifetime.async { linked.client.restoreSession(session().copy(homeserverUrl = homeserver)) }.await()
                 linked.completePhoneLink(repository) // Synthetic session boundary; no real phone/account is used.
+                println("BIPE_NATIVE_TIMELINE stage=sync")
                 val sync = linked.startSync()
-                assertSame(sync, linked.startSync()) // A second open must not try to install the hook again.
+                assertSame(sync, linked.startSync())
+                println("BIPE_NATIVE_TIMELINE stage=join")
                 linked.client.joinRoomById(roomId).destroy()
                 repeat(2) {
+                    println("BIPE_NATIVE_TIMELINE stage=open pass=$it")
                     val timeline = DesktopTimeline.open(linked, roomId, ChatLabels("Room", "Person", "Locked", "Unsupported"))
                     try {
                         assertTrue(timeline.rows.first { it !is LoadPhase.Loading } is LoadPhase.Ready<*>)
                         assertTrue(timeline.composer.state.first { it != ComposerState.Loading } is ComposerState.Editing)
-                    } finally { timeline.close() }
+                    } finally {
+                        println("BIPE_NATIVE_TIMELINE stage=close_timeline pass=$it")
+                        timeline.close()
+                    }
                     assertTrue(linked.lifetime.isCurrent())
                 }
             }
         } finally {
-            withContext(NonCancellable) {
-                runtime?.let { assertEquals(AccountCloseResult.Closed, it.closeAsync().await()) }
+            try {
+                println("BIPE_NATIVE_TIMELINE stage=close_account")
+                withContext(NonCancellable) {
+                    runtime?.let { assertEquals(AccountCloseResult.Closed, it.closeAsync().await()) }
+                }
+            } finally {
+                server.stop(0)
+                lease.close()
+                vault.remove(lease.slot)
+                root.toFile().deleteRecursively()
             }
-            lease.close()
-            vault.remove(lease.slot)
-            server.stop(0)
-            root.toFile().deleteRecursively()
         }
     }
 

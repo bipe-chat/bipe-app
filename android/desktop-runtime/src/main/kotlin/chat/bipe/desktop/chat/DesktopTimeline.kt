@@ -142,7 +142,8 @@ class DesktopTimeline private constructor(
         val configuration = TimelineConfiguration(
             focus = TimelineFocus.Live(hideThreadedEvents = false), filter = TimelineFilter.All,
             internalIdPrefix = null, dateDividerMode = DateDividerMode.DAILY,
-            trackReadReceipts = TimelineReadReceiptTracking.MESSAGE_LIKE_EVENTS, reportUtds = true,
+            // Windows has no UTD diagnostic collector. The SDK still decrypts and emits locked-message items.
+            trackReadReceipts = TimelineReadReceiptTracking.MESSAGE_LIKE_EVENTS, reportUtds = false,
         )
         timeline = room.timelineWithConfiguration(configuration)
         group.own(NativeResource { timeline.destroy() })

@@ -39,6 +39,7 @@ dependencies {
 
 // Native tests run only on a Windows CI host with the pinned SDK DLL already staged.
 tasks.test {
+    testLogging.showStandardStreams = true
     providers.environmentVariable("BIPE_NATIVE_DIR").orNull?.let { systemProperty("jna.library.path", it) }
     environment("BIPE_SHARED", providers.environmentVariable("BIPE_SHARED").getOrElse(projectDir.resolve("../../../bipe-shared").absolutePath))
 }

@@ -23,9 +23,6 @@ import org.matrix.rustcomponents.sdk.SlidingSyncVersionBuilder
 import org.matrix.rustcomponents.sdk.SqliteStoreBuilder
 import org.matrix.rustcomponents.sdk.SyncService
 import org.matrix.rustcomponents.sdk.TaskHandle
-import org.matrix.rustcomponents.sdk.UnableToDecryptDelegate
-import org.matrix.rustcomponents.sdk.UnableToDecryptInfo
-import java.util.concurrent.atomic.AtomicLong
 import uniffi.matrix_sdk_common.BackgroundTaskFailureReason
 import uniffi.matrix_sdk.BackupDownloadStrategy
 import uniffi.matrix_sdk_crypto.CollectStrategy
@@ -52,9 +49,6 @@ class MatrixAccountRuntime private constructor(
 ) {
     val slot get() = lifetime.lease.slot
     val signal = mutableSignal.asStateFlow()
-    private val decryptionFailures = AtomicLong()
-    /** Per-account, in-memory aggregate only. No event/room IDs or message data are retained here. */
-    val undecryptableEventCount: Long get() = decryptionFailures.get()
     private val syncLock = Mutex()
     private sealed interface SyncPhase {
         data object Idle : SyncPhase
@@ -77,12 +71,6 @@ class MatrixAccountRuntime private constructor(
     suspend fun startSync(): SyncService = try { lifetime.async { syncLock.withLock {
         lifetime.requireCurrent()
         (sync as? SyncPhase.Running)?.let { return@withLock it.service }
-        // Room/sync wrappers capture this hook when constructed. A reporting timeline rejects a missing hook.
-        client.setUtdDelegate(object : UnableToDecryptDelegate {
-            override fun onUtd(info: UnableToDecryptInfo) {
-                lifetime.publish(lifetime.epoch) { decryptionFailures.incrementAndGet() }
-            }
-        })
         val initial = client.syncService()
         val builder = try { initial.withOfflineMode() } finally { initial.destroy() }
         val service = try { builder.finish() } finally { builder.destroy() }
