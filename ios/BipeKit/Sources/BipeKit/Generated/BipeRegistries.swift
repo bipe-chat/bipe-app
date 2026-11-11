@@ -33,6 +33,30 @@ public struct SocialPlatform: Sendable, Equatable {
     public let url: String
 }
 
+/// A device kind (bipe ADR 0291, registries/device-kinds.json). section: devices or programs.
+public struct DeviceKind: Sendable, Equatable {
+    public let key: String
+    public let icon: String
+    public let label: String
+    public let section: String
+    public let leavesBrazil: Bool
+}
+
+/// A user-agent rule (bipe ADR 0291). app, model and os hold $1 to $9 for the pattern's groups; nil when the rule does not say. A browser rule takes app from deviceBrowsers and os from deviceSystems.
+public struct DeviceUserAgentRule: Sendable, Equatable {
+    public let pattern: String
+    public let kind: String
+    public let app: String?
+    public let model: String?
+    public let os: String?
+}
+
+/// A name rule for a browser or a system (bipe ADR 0291). name holds $1 to $9 for the pattern's groups. The first match wins.
+public struct DeviceNameRule: Sendable, Equatable {
+    public let pattern: String
+    public let name: String
+}
+
 public enum BipeRegistries {
     /// Normalised reserved display names and their category.
     public static let reservedNames: [String: ReservedNameCategory] = [
@@ -950,6 +974,39 @@ public enum BipeRegistries {
     public static let workReplyByField = "chat.bipe.reply_by"
     public static let workReplyByBody = "Resposta enviada"
     public static let workNoteBodyMaxLength = 4000
+    /// Device kinds and device entries (bipe ADR 0291, bipe-chat/bipe#1479; registries/device-kinds.json). Rules: test-vectors/device-kinds.json.
+    public static let deviceInfoEventType = "chat.bipe.device_info"
+    public static let deviceFieldMaxLength = 64
+    public static let deviceUnknownWarning = false
+    public static let deviceKinds: [DeviceKind] = [
+        DeviceKind(key: "phone", icon: "phone", label: "bipe_device_kind_phone", section: "devices", leavesBrazil: false),
+        DeviceKind(key: "computer-app", icon: "desktop", label: "bipe_device_kind_computer", section: "devices", leavesBrazil: false),
+        DeviceKind(key: "browser", icon: "link", label: "bipe_device_kind_browser", section: "devices", leavesBrazil: false),
+        DeviceKind(key: "assistant", icon: "chat-text", label: "bipe_device_kind_assistant", section: "programs", leavesBrazil: true),
+        DeviceKind(key: "bridge", icon: "share-network", label: "bipe_device_kind_bridge", section: "programs", leavesBrazil: true),
+        DeviceKind(key: "unknown", icon: "warning", label: "bipe_device_kind_unknown", section: "devices", leavesBrazil: false),
+    ]
+    public static let deviceUserAgents: [DeviceUserAgentRule] = [
+        DeviceUserAgentRule(pattern: "^Bipe/([0-9][0-9.]*) \\(([^;()]+); (iOS [0-9.]+)\\)$", kind: "phone", app: "Bipe $1", model: "$2", os: "$3"),
+        DeviceUserAgentRule(pattern: "^Bipe/([0-9][0-9.]*) \\(([^;()]+); (Android [0-9.]+)\\)$", kind: "phone", app: "Bipe $1", model: "$2", os: "$3"),
+        DeviceUserAgentRule(pattern: "^Bipe/([0-9][0-9.]*) \\(([^;()]+); ((?:macOS|Windows) [0-9.]+)\\)$", kind: "computer-app", app: "Bipe $1", model: "$2", os: "$3"),
+        DeviceUserAgentRule(pattern: "^Mozilla/", kind: "browser", app: nil, model: nil, os: nil),
+    ]
+    public static let deviceBrowsers: [DeviceNameRule] = [
+        DeviceNameRule(pattern: "Edg/([0-9]+)", name: "Edge $1"),
+        DeviceNameRule(pattern: "OPR/([0-9]+)", name: "Opera $1"),
+        DeviceNameRule(pattern: "Firefox/([0-9]+)", name: "Firefox $1"),
+        DeviceNameRule(pattern: "Chrome/([0-9]+)", name: "Chrome $1"),
+        DeviceNameRule(pattern: "Version/([0-9]+)[0-9.]* .*Safari/", name: "Safari $1"),
+    ]
+    public static let deviceSystems: [DeviceNameRule] = [
+        DeviceNameRule(pattern: "(?:iPhone|iPad).* OS ([0-9]+)", name: "iOS $1"),
+        DeviceNameRule(pattern: "Android ([0-9]+)", name: "Android $1"),
+        DeviceNameRule(pattern: "Windows NT", name: "Windows"),
+        DeviceNameRule(pattern: "CrOS", name: "ChromeOS"),
+        DeviceNameRule(pattern: "Mac OS X", name: "macOS"),
+        DeviceNameRule(pattern: "Linux", name: "Linux"),
+    ]
     /// Localpart prefix of a member identity (bipe ADR 0284 point 1, registries/accounts.json).
     public static let memberLocalpartPrefix = "m_"
 

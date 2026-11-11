@@ -178,6 +178,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Account deletion asked on another device (flow settings). Spec: bipe-shared/product/screens/deletion-alert.json
     case deletionAlert = "deletion-alert"
 
+    /// Device detail (flow devices). Spec: bipe-shared/product/screens/device-detail.json
+    case deviceDetail = "device-detail"
+
     /// Approve this phone (flow encryption). Spec: bipe-shared/product/screens/device-verification.json
     case deviceVerification = "device-verification"
 

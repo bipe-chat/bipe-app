@@ -120,6 +120,8 @@ export const BipeScreen = {
   dataUse: "data-use",
   /** Account deletion asked on another device (flow settings). Spec: bipe-shared/product/screens/deletion-alert.json */
   deletionAlert: "deletion-alert",
+  /** Device detail (flow devices). Spec: bipe-shared/product/screens/device-detail.json */
+  deviceDetail: "device-detail",
   /** Approve this phone (flow encryption). Spec: bipe-shared/product/screens/device-verification.json */
   deviceVerification: "device-verification",
   /** Delete a DM (Apagar conversa) (flow chat). Spec: bipe-shared/product/screens/dm-delete.json */
