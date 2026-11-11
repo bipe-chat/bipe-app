@@ -126,7 +126,8 @@ class MatrixAccountRuntime private constructor(
                         }
                         override fun onBackgroundTaskErrorReport(taskName: String, error: BackgroundTaskFailureReason) {}
                     })
-                    lifetime.own(TaskResource(auth))
+                    // The SDK accepts a null delegate; this client always requires an owned auth listener.
+                    lifetime.own(TaskResource(checkNotNull(auth) { "Missing SDK authentication listener" }))
                     MatrixAccountRuntime(lifetime, client, drafts, signal)
                 }.await()
             } catch (error: Exception) {
