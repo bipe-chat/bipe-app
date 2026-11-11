@@ -233,6 +233,8 @@ final class SettingsModel: ObservableObject {
         case .account: waysBack?.summary
         case .notifications: notificationsOn.map { $0 ? BipeStrings.settingsNotificationsOn : BipeStrings.settingsNotificationsOff }
         case .help: BipeStrings.helpVersion(AppVersion.nameAndBuild)
+        // The device counts come with bipe-chat/bipe#1481 part 2 (deviceRows in bipe-core).
+        case .devices: nil
         // chats: SettingsRootSection reads the theme and palette itself.
         case .profile, .chats: nil
         }

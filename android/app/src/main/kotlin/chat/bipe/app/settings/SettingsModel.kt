@@ -187,7 +187,8 @@ class SettingsModel(
         }
         BipeSettingsGroup.HELP -> context.getString(R.string.bipe_help_version, appVersionWithBuild(context))
         // chats: SettingsRootSection reads the theme and palette from AppTheme state.
-        BipeSettingsGroup.PROFILE, BipeSettingsGroup.CHATS -> null
+        // The device counts come with bipe-chat/bipe#1481 part 2 (deviceRows in bipe-core).
+        BipeSettingsGroup.PROFILE, BipeSettingsGroup.CHATS, BipeSettingsGroup.DEVICES -> null
     }
 
     fun needsAttention(state: State, group: BipeSettingsGroup): Boolean =

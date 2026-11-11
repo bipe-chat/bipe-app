@@ -74,6 +74,7 @@ final class MacSettingsModel: ObservableObject {
         case .account: waysBack?.summary
         case .notifications: notificationsOn.map { $0 ? BipeStrings.settingsNotificationsOn : BipeStrings.macNotificationsOff }
         case .help: BipeStrings.helpVersion(MacSettingsText.version)
+        case .devices: nil
         case .profile, .chats: nil
         }
     }
@@ -247,7 +248,7 @@ private struct MacSettingsGroupView: View {
         switch row {
         case .privacyMessaging, .privacyReadReceipts,
              .accountWaysBackStatus, .accountEmail, .accountLinkedAccounts, .accountRecoveryKey,
-             .accountLinkedDevices, .accountSignOut,
+             .devicesLinkComputer, .accountSignOut,
              .chatsAppearance, .chatsColors, .chatsShowMedia, .chatsMediaQuality: return true
         default: return false
         }
@@ -335,8 +336,9 @@ private struct MacSettingsGroupView: View {
             valueRow(row, linkedSummary)
         case .accountRecoveryKey:
             valueRow(row, model.hasRecoveryKey ? BipeStrings.accountRecoveryKeySaved : BipeStrings.accountRecoveryKeyMissing)
-        case .accountLinkedDevices:
-            NavigationLink { MacLinkedDevicesView(account: model.account) } label: { Text(row.title) }
+        case .devicesLinkComputer:
+            // ADR 0291: the Mac shows the list read-only; linking starts on the computer (ADR 0266).
+            NavigationLink { MacLinkedDevicesView(account: model.account) } label: { Text(BipeStrings.linkedDevicesTitle) }
         case .accountSignOut:
             Button(role: .destructive) { showsSignOut = true } label: {
                 Text(row.title).foregroundStyle(BipeColor.trustDangerInk)

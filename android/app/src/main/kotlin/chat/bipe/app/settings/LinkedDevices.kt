@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -38,9 +39,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
@@ -52,7 +50,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import chat.bipe.app.BipeTheme
-import chat.bipe.app.linkcomputer.LinkComputerScreen
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 import chat.bipe.shared.account.BipeAccountVault
@@ -189,73 +186,76 @@ class LinkedDevicesModel(private val context: Context, private val model: Settin
     }
 }
 
+/** The device list of the group Aparelhos e assistentes (ADR 0291), kept while the group screen is shown. */
 @Composable
-fun LinkedDevicesScreen(model: SettingsModel, onBack: () -> Unit) {
+fun rememberLinkedDevices(model: SettingsModel): LinkedDevicesModel {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val devices = remember { LinkedDevicesModel(context.applicationContext, model, scope) }
-    val state by devices.state.collectAsState()
-    val colors = BipeTheme.colors
     LaunchedEffect(devices) { devices.load() }
-    var showsLinkComputer by rememberSaveable { mutableStateOf(false) }
-    if (showsLinkComputer) {
-        // Spec link-computer-scan: the only entry to a web sign-in (ADR 0116, rule 5).
-        LinkComputerScreen(model, onClose = {
-            showsLinkComputer = false
-            devices.load()
-        })
-        return
-    }
+    return devices
+}
+
+/** True while the MAS page of a sign-out is in front: the group screen shows only that page. */
+@Composable
+fun LinkedDevicesPage(devices: LinkedDevicesModel): Boolean {
+    val state by devices.state.collectAsState()
     val page = state.signOutPhase
     if (page is LinkedDevicesModel.SignOutPhase.Page || page == LinkedDevicesModel.SignOutPhase.Loading) {
         MasPage(devices, page)
-        return
+        return true
     }
-    SettingsPage(stringResource(R.string.bipe_linked_devices_title), BipeScreen.LINKED_DEVICES.id, onBack) {
-        item(key = "link-computer") {
-            // Action linkComputer: opens link-computer-scan.
-            Row(
-                modifier = Modifier.fillMaxWidth().clickable { showsLinkComputer = true }.padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(painterResource(PhosphorIcon.DESKTOP.drawable), contentDescription = null, tint = colors.glyphPrimary, modifier = Modifier.size(22.dp))
-                Text(
-                    stringResource(R.string.bipe_linked_devices_link_computer),
-                    color = colors.inkPrimary,
-                    modifier = Modifier.padding(start = 12.dp),
-                )
+    return false
+}
+
+/** Spec linked-devices: the device rows, as the first section of the group (ADR 0291). */
+fun LazyListScope.linkedDevicesItems(state: LinkedDevicesModel.State, devices: LinkedDevicesModel) {
+    item(key = "linked-devices-header") {
+        Text(
+            stringResource(R.string.bipe_devices_section_devices),
+            style = MaterialTheme.typography.titleSmall,
+            color = BipeTheme.colors.inkSecondary,
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp).testTag(BipeScreen.LINKED_DEVICES.id),
+        )
+    }
+    when (state.phase) {
+        LinkedDevicesModel.Phase.LOADING -> item(key = "linked-devices-loading") {
+            Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = BipeTheme.colors.accentFill)
             }
-            Text(
-                stringResource(R.string.bipe_linked_devices_footer),
-                style = MaterialTheme.typography.bodySmall,
-                color = colors.inkSecondary,
-                modifier = Modifier.padding(horizontal = 16.dp),
-            )
-            HorizontalDivider(color = colors.lineSubtle, modifier = Modifier.padding(top = 12.dp))
         }
-        when (state.phase) {
-            LinkedDevicesModel.Phase.LOADING -> item(key = "loading") {
-                Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = colors.accentFill)
-                }
+        LinkedDevicesModel.Phase.FAILED -> item(key = "linked-devices-failed") {
+            Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(stringResource(R.string.bipe_linked_devices_error), color = BipeTheme.colors.inkSecondary)
+                TextButton(onClick = devices::retry) { Text(stringResource(R.string.bipe_app_retry)) }
             }
-            LinkedDevicesModel.Phase.FAILED -> item(key = "failed") {
-                Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(stringResource(R.string.bipe_linked_devices_error), color = colors.inkSecondary)
-                    TextButton(onClick = devices::retry) { Text(stringResource(R.string.bipe_app_retry)) }
-                }
+        }
+        LinkedDevicesModel.Phase.LOADED -> if (state.devices.isEmpty()) {
+            item(key = "linked-devices-empty") {
+                Text(stringResource(R.string.bipe_linked_devices_empty), color = BipeTheme.colors.inkSecondary, modifier = Modifier.padding(16.dp))
             }
-            LinkedDevicesModel.Phase.LOADED -> if (state.devices.isEmpty()) {
-                item(key = "empty") {
-                    Text(stringResource(R.string.bipe_linked_devices_empty), color = colors.inkSecondary, modifier = Modifier.padding(16.dp))
-                }
-            } else {
-                items(state.devices, key = { it.deviceId }) { device ->
-                    DeviceRow(device) { devices.askSignOut(device) }
-                }
+        } else {
+            items(state.devices, key = { "linked-device-${it.deviceId}" }) { device ->
+                DeviceRow(device) { devices.askSignOut(device) }
             }
         }
     }
+    item(key = "linked-devices-footer") {
+        Text(
+            stringResource(R.string.bipe_linked_devices_footer),
+            style = MaterialTheme.typography.bodySmall,
+            color = BipeTheme.colors.inkSecondary,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        )
+    }
+}
+
+/** The sign-out sheet and its error. */
+@Composable
+fun LinkedDevicesDialogs(devices: LinkedDevicesModel) {
+    val context = LocalContext.current
+    val state by devices.state.collectAsState()
+    val colors = BipeTheme.colors
     val candidate = state.signOutCandidate
     if (candidate != null && state.signOutPhase == LinkedDevicesModel.SignOutPhase.Idle) {
         AlertDialog(

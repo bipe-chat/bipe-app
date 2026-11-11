@@ -36,10 +36,13 @@ struct SettingsGroupView: View {
     @State private var showsEmail = false
     @State private var showsLockSetup = false
     @State private var showsLinkPhone = false
+    @State private var showsLinkComputer = false
     @State private var pinCheck: PinCheckRequest?
     @State private var notice: String?
     /// Spec encryption-status, from AppTabsView. The oldMessages row opens its sheet.
     @Environment(\.encryptionStatus) private var encryption
+    /// Set by AppTabsView for the account row of Link a computer (bipe-chat/bipe#985).
+    @EnvironmentObject private var tabs: AppTabsModel
 
     init(model: SettingsModel, group: BipeSettingsGroup, onSignedOut: @escaping () -> Void) {
         self.model = model
@@ -96,6 +99,10 @@ struct SettingsGroupView: View {
                         .listRowBackground(BipeColor.trustCautionWash)
                 }
             }
+            // Spec linked-devices (ADR 0291): the device rows open the group Aparelhos e assistentes.
+            if group == .devices {
+                LinkedDevicesSection(model: model)
+            }
             ForEach(sections, id: \.section.key) { visible in
                 let section = visible.section
                 Section {
@@ -136,9 +143,13 @@ struct SettingsGroupView: View {
         .sheet(isPresented: $showsDelete, onDismiss: { Task { await model.load() } }) {
             AccountDeleteView(model: model)
         }
-        // Spec link-phone-show: Sua conta › Aparelhos › Trocar de celular is the only way in (bipe-chat/bipe#988).
+        // Spec link-phone-show: Aparelhos e assistentes › Trocar de celular is the only way in (bipe-chat/bipe#988).
         .fullScreenCover(isPresented: $showsLinkPhone) {
             LinkComputerView(settings: model, mode: .phone)
+        }
+        // Spec linked-devices action linkComputer: the only entry to a web or computer sign-in (ADR 0116, rule 5).
+        .fullScreenCover(isPresented: $showsLinkComputer) {
+            LinkComputerView(settings: model, tabs: tabs)
         }
         .sheet(isPresented: $showsSignOut) {
             SignOutView(model: model, onSignedOut: onSignedOut)
@@ -163,7 +174,7 @@ struct SettingsGroupView: View {
         // While a deletion waits, the banner (or the alert on the other devices) takes its place.
         case .accountDelete: model.account?.deletion == nil
         // Shown while the model says needsApproval; OldMessagesRow follows it (bipe-chat/bipe#793).
-        case .accountOldMessages: encryption != nil
+        case .devicesOldMessages: encryption != nil
         default: true
         }
     }
@@ -226,7 +237,7 @@ struct SettingsGroupView: View {
                                  footer: model.phone == .notLinked ? BipeStrings.phoneNotLinked : row.footer)
             }
             .disabled(model.discoverableByPhone == nil || model.phone == nil || model.phone == .notLinked)
-        case .privacyAssistantSend:
+        case .devicesAssistantSend:
             // ADR 0210: off by default; on lets the user's own assistant send as the user, with a label in the chat.
             Toggle(isOn: Binding(get: { model.assistantSend ?? false }, set: { isOn in
                 Task {
@@ -263,12 +274,6 @@ struct SettingsGroupView: View {
         case .accountReachStatus:
             NavigationLink {
                 AccountStatusView(settings: model)
-            } label: {
-                SettingsRowLabel(title: row.title)
-            }
-        case .accountLinkedDevices:
-            NavigationLink {
-                LinkedDevicesView(model: model)
             } label: {
                 SettingsRowLabel(title: row.title)
             }
@@ -366,7 +371,7 @@ struct SettingsGroupView: View {
         // Spec settings-group (MZ, 3 Nov 2026): the year recap is the last row of Conversas e mídia (ADR 0223).
         case .chatsYearRecap:
             NavigationLink(value: SettingsRoute.yearRecap) { SettingsRowLabel(title: row.title) }
-        case .accountOldMessages:
+        case .devicesOldMessages:
             if let encryption {
                 OldMessagesRow(model: encryption) { tapButton(row) }
             }
@@ -439,9 +444,11 @@ struct SettingsGroupView: View {
             showsDelete = true
         case .accountRecoveryKey:
             showsRecoveryKey = true
-        case .accountLinkPhone:
+        case .devicesLinkPhone:
             showsLinkPhone = true
-        case .accountOldMessages:
+        case .devicesLinkComputer:
+            showsLinkComputer = true
+        case .devicesOldMessages:
             // Spec encryption-status, action openSheet: the same sheet as the chat list banner.
             encryption?.openSheet()
         case .accountEmail:
