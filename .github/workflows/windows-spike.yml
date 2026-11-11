@@ -76,6 +76,7 @@ jobs:
           version=$(tr -d '[:space:]' < sdk-version)
           gh release view "$version" --repo matrix-org/matrix-rust-components-swift --json body --jq .body | grep -Fq "$rev"
           echo "rev=$rev" >> "$GITHUB_OUTPUT"
+          echo "core=$(git rev-parse HEAD:core)" >> "$GITHUB_OUTPUT"
           echo "BIPE_SDK_REV=$rev" >> "$GITHUB_ENV"
       - uses: actions/checkout@v4
         with:
@@ -159,7 +160,15 @@ jobs:
         with:
           path: sdk-source/target/x86_64-pc-windows-msvc/release/matrix_sdk_ffi.dll
           key: windows2025-sdk-x64-msvc-rust${{ env.RUST_VERSION }}-release-${{ steps.sdk.outputs.rev }}-v1
+      - uses: actions/cache/restore@v4
+        id: native-bindings
+        with:
+          path: |
+            ${{ runner.temp }}/windows-spike/natives
+            android/desktop-runtime/generated
+          key: windows2025-native-bindings-x64-rust${{ env.RUST_VERSION }}-${{ steps.sdk.outputs.rev }}-${{ steps.sdk.outputs.core }}-${{ hashFiles('.github/workflows/windows-spike.yml') }}-v1
       - name: Build core and generate both Kotlin bindings
+        if: steps.native-bindings.outputs.cache-hit != 'true'
         run: |
           set -euo pipefail
           cargo build --locked --release --manifest-path core/Cargo.toml -p bipe-core --target x86_64-pc-windows-msvc
@@ -207,6 +216,19 @@ jobs:
           }
           console.log(`Verified ${packages.size} distinct generated Kotlin component packages.`);
           JS
+      - uses: actions/cache/save@v4
+        if: steps.native-bindings.outputs.cache-hit != 'true'
+        with:
+          path: |
+            ${{ runner.temp }}/windows-spike/natives
+            android/desktop-runtime/generated
+          key: windows2025-native-bindings-x64-rust${{ env.RUST_VERSION }}-${{ steps.sdk.outputs.rev }}-${{ steps.sdk.outputs.core }}-${{ hashFiles('.github/workflows/windows-spike.yml') }}-v1
+      - name: Configure the verified native build inputs
+        run: |
+          set -euo pipefail
+          test -s "$RUNNER_TEMP/windows-spike/natives/matrix_sdk_ffi.dll"
+          test -s "$RUNNER_TEMP/windows-spike/natives/bipe_core.dll"
+          test -d android/desktop-runtime/generated
           echo "BIPE_NATIVE_DIR=$(cygpath -m "$RUNNER_TEMP/windows-spike/natives")" >> "$GITHUB_ENV"
       - name: Test native credential storage, account isolation and SDK/core coexistence
         env:

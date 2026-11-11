@@ -18,11 +18,11 @@ dependencies {
 }
 
 val repository = layout.projectDirectory.dir("../..")
-val sharedResources = layout.buildDirectory.dir("generated/bipe-resources")
+val desktopResourceDirectory = layout.buildDirectory.dir("generated/bipe-resources")
 val sharedKotlin = layout.buildDirectory.dir("generated/bipe-kotlin")
 val desktopResources by tasks.registering(Exec::class) {
     workingDir(repository)
-    commandLine("node", "tools/desktop-resources.mjs", sharedResources.get().asFile.absolutePath)
+    commandLine("node", "tools/desktop-resources.mjs", desktopResourceDirectory.get().asFile.absolutePath)
     inputs.dir(repository.dir("../bipe-shared/strings"))
     inputs.dir(repository.dir("../bipe-shared/design"))
     inputs.file(repository.file("../bipe-shared/registries/scam-patterns.json"))
@@ -38,7 +38,7 @@ val desktopTypography by tasks.registering(Sync::class) {
     into(sharedKotlin)
 }
 kotlin.sourceSets["main"].kotlin.srcDir(sharedKotlin)
-sourceSets["main"].resources.srcDir(sharedResources)
+sourceSets["main"].resources.srcDir(desktopResourceDirectory)
 tasks.named("compileKotlin") { dependsOn(desktopTypography) }
 tasks.named("processResources") { dependsOn(desktopResources) }
 
