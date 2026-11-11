@@ -6,20 +6,28 @@ package chat.bipe.desktop.storage
 
 import chat.bipe.desktop.account.AccountCloseResult
 import chat.bipe.desktop.account.MatrixAccountRuntime
+import chat.bipe.desktop.chat.ChatLabels
+import chat.bipe.desktop.chat.ComposerState
+import chat.bipe.desktop.chat.DesktopTimeline
+import chat.bipe.desktop.chat.LoadPhase
 import com.sun.jna.Native
 import com.sun.jna.Platform
+import com.sun.net.httpserver.HttpServer
+import java.net.InetSocketAddress
 import java.nio.file.Files
 import java.security.SecureRandom
 import java.util.UUID
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.flow.first
 import org.junit.Assert.*
 import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Test
 
-/** Actual Windows APIs and the pinned SDK DLL. Synthetic credentials only; never sync or contact a real server. */
+/** Actual Windows APIs and the pinned SDK DLL. Synthetic credentials and loopback fixtures only. */
 class WindowsNativeStorageTest {
     @Before fun windowsHost() { assumeTrue("Requires Windows native APIs", Platform.isWindows()) }
 
@@ -129,6 +137,62 @@ class WindowsNativeStorageTest {
             }
             lease.close()
             vault.remove(slot)
+            root.toFile().deleteRecursively()
+        }
+    }
+
+    @Test fun nativeTimelineOpensAndReopensWithDecryptionReportingAfterSyncStarts() = runBlocking {
+        val roomId = "!windows-timeline:example.test"
+        val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+        server.createContext("/") { exchange ->
+            try {
+                exchange.requestBody.use { it.readBytes() }
+                val path = exchange.requestURI.path
+                val (status, body) = when {
+                    path.endsWith("/versions") -> 200 to """{"versions":["v1.12"],"unstable_features":{"org.matrix.simplified_msc3575":true}}"""
+                    exchange.requestMethod == "POST" && path.contains("/join/") -> 200 to """{"room_id":"$roomId"}"""
+                    path.endsWith("/messages") -> 200 to """{"chunk":[],"start":"synthetic","state":[]}"""
+                    path.endsWith("/sync") -> 503 to """{"errcode":"M_UNKNOWN","error":"Synthetic offline sync"}"""
+                    else -> 404 to """{"errcode":"M_NOT_FOUND","error":"Synthetic fixture"}"""
+                }
+                val bytes = body.toByteArray(Charsets.UTF_8)
+                exchange.responseHeaders.set("Content-Type", "application/json")
+                exchange.sendResponseHeaders(status, bytes.size.toLong())
+                exchange.responseBody.use { it.write(bytes) }
+            } finally { exchange.close() }
+        }
+        server.start()
+        val root = Files.createTempDirectory("bipe-native-timeline-")
+        val vault = testVault()
+        val repository = AccountRepository(root, vault, WindowsDataProtection())
+        val lease = repository.provision()
+        var runtime: MatrixAccountRuntime? = null
+        try {
+            withTimeout(30_000) {
+                val homeserver = "http://127.0.0.1:${server.address.port}"
+                val linked = MatrixAccountRuntime.open(lease, homeserver, "Bipe Windows timeline test")
+                runtime = linked
+                linked.lifetime.async { linked.client.restoreSession(session().copy(homeserverUrl = homeserver)) }.await()
+                linked.completePhoneLink(repository) // Synthetic session boundary; no real phone/account is used.
+                val sync = linked.startSync()
+                assertSame(sync, linked.startSync()) // A second open must not try to install the hook again.
+                linked.client.joinRoomById(roomId).destroy()
+                repeat(2) {
+                    val timeline = DesktopTimeline.open(linked, roomId, ChatLabels("Room", "Person", "Locked", "Unsupported"))
+                    try {
+                        assertTrue(timeline.rows.first { it !is LoadPhase.Loading } is LoadPhase.Ready<*>)
+                        assertTrue(timeline.composer.state.first { it != ComposerState.Loading } is ComposerState.Editing)
+                    } finally { timeline.close() }
+                    assertTrue(linked.lifetime.isCurrent())
+                }
+            }
+        } finally {
+            withContext(NonCancellable) {
+                runtime?.let { assertEquals(AccountCloseResult.Closed, it.closeAsync().await()) }
+            }
+            lease.close()
+            vault.remove(lease.slot)
+            server.stop(0)
             root.toFile().deleteRecursively()
         }
     }
