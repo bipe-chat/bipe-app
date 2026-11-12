@@ -17,10 +17,14 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import chat.bipe.shared.generated.BipeRegistries
 import org.matrix.rustcomponents.sdk.*
 import uniffi.matrix_sdk_ui.TimelineReadReceiptTracking
 
@@ -42,6 +46,11 @@ class DesktopTimeline private constructor(
     val composer = runtime.drafts.room(roomId)
     private val mutableSend = MutableStateFlow<SendPhase>(SendPhase.Idle)
     val sendPhase = mutableSend.asStateFlow()
+    val replies = ReplyActions(group, composer, ::currentRow)
+    private val mutableOriginal = MutableStateFlow<OriginalNavigation>(OriginalNavigation.Idle)
+    val originalNavigation = mutableOriginal.asStateFlow()
+    private enum class ReplyLoad { LOADING, SETTLED }
+    private val replyLoads = mutableMapOf<String, ReplyLoad>()
     private val paging = Mutex()
     private lateinit var timeline: Timeline
     private lateinit var room: Room
@@ -87,6 +96,78 @@ class DesktopTimeline private constructor(
         else -> null
     }
 
+    /** Copy is guarded again at dispatch, including the first frame before the warning's clock starts. */
+    fun copyText(id: String): String? {
+        var result: String? = null
+        group.publish {
+            val row = currentRow(id) ?: return@publish
+            if (row.kind != MessageRow.Kind.TEXT) return@publish
+            val warning = row.safety as? MessageSafety.Warning
+            val seconds = pause.remaining(MoneyPause.nowMs())[id]
+                ?: if (warning?.kind?.registryId() in BipeRegistries.scamMoneyPauseKinds) BipeRegistries.SCAM_MONEY_PAUSE_SECONDS else 0
+            if (seconds == 0) result = row.body
+        }
+        return result
+    }
+
+    suspend fun replyDetails(eventId: String): MessageQuote = group.async {
+        val details = timeline.loadReplyDetails(eventId)
+        try { quote(details) } finally { details.destroy() }
+    }.await()
+
+    /** Visible quotes ask the SDK once; errors stay retryable from the quote without a recomposition loop. */
+    fun loadReply(rowId: String, retry: Boolean = false) {
+        var target: String? = null
+        group.publish {
+            val row = currentRow(rowId) ?: return@publish
+            if (row.reply == null || row.reply.details is MessageQuote.Details.Ready) return@publish
+            val eventId = row.eventId ?: return@publish
+            val previous = replyLoads[eventId]
+            if (previous == null || (retry && previous == ReplyLoad.SETTLED)) {
+                replyLoads[eventId] = ReplyLoad.LOADING; target = eventId
+            }
+        }
+        val eventId = target ?: return
+        group.launch {
+            try { timeline.fetchDetailsForEvent(eventId) }
+            catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) { group.publish {
+                val current = mutableRows.value as? LoadPhase.Ready ?: return@publish
+                mutableRows.value = LoadPhase.Ready(current.value.map { row ->
+                    if (row.eventId == eventId) row.copy(reply = row.reply?.copy(details = MessageQuote.Details.Unavailable)) else row
+                })
+            } }
+            finally { group.publish { replyLoads[eventId] = ReplyLoad.SETTLED } }
+        }
+    }
+
+    fun openOriginal(eventId: String) {
+        var accepted = false
+        group.publish {
+            if (mutableOriginal.value == OriginalNavigation.Idle) {
+                mutableOriginal.value = OriginalNavigation.Searching(eventId); accepted = true
+            }
+        }
+        if (!accepted) return
+        group.launch {
+            try {
+                for (page in 0..5) {
+                    val found = (mutableRows.value as? LoadPhase.Ready)?.value?.firstOrNull { it.originalEventId == eventId }
+                    if (found != null) {
+                        group.publish { mutableOriginal.value = OriginalNavigation.Found(found.id) }
+                        delay(1_500)
+                        return@launch
+                    }
+                    if (page == 5) break
+                    paging.withLock { timeline.paginateBackwards(50u) }
+                    withTimeoutOrNull(1_000) { rows.first { it is LoadPhase.Ready && it.value.any { row -> row.originalEventId == eventId } } }
+                }
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) { /* A missing original never navigates to another room or loses the draft. */ }
+            finally { group.publish { mutableOriginal.value = OriginalNavigation.Idle } }
+        }
+    }
+
     suspend fun reactionPeople(rowId: String, key: String, ownName: String): List<ReactionPerson> = group.async {
         val senders = currentRow(rowId)?.reactions?.firstOrNull { it.key == key }?.senders.orEmpty()
         val ownId = runtime.client.userId()
@@ -130,8 +211,19 @@ class DesktopTimeline private constructor(
                 // A send tap authorizes queueing. View cancellation retains this operation's native owner;
                 // it must not leave a queued message's old draft behind merely because the room closed.
                 withContext(NonCancellable) {
+                    // A restored reply may refer to an unloaded event. For loaded events re-read native capability;
+                    // the SDK resolves missing originals and never silently downgrades a reply to a new message.
+                    submitted.replyTo?.let { target ->
+                        check(room.membership() == Membership.JOINED)
+                        val event = try { timeline.getEventTimelineItemByEventId(target) }
+                            catch (_: Exception) { null }
+                        if (event != null) try { check(event.canBeRepliedTo) } finally { event.destroy() }
+                    }
                     val content = messageEventContentFromMarkdown(submitted.text)
-                    try { timeline.send(content).destroy() } // Releasing a handle does not abort its SDK queue entry.
+                    try {
+                        if (submitted.replyTo != null) timeline.sendReply(content, submitted.replyTo)
+                        else timeline.send(content).destroy() // Releasing a handle does not abort its SDK queue entry.
+                    }
                     finally { content.destroy() }
                     composer.accepted(submitted)
                 }
@@ -207,11 +299,13 @@ class DesktopTimeline private constructor(
                 is MsgLikeKind.Message -> if (kind.content.msgType is MessageType.Text || kind.content.msgType is MessageType.Notice ||
                                                kind.content.msgType is MessageType.Emote) MessageRow.Kind.TEXT else MessageRow.Kind.UNSUPPORTED
                 is MsgLikeKind.UnableToDecrypt -> MessageRow.Kind.UNDECRYPTABLE
+                MsgLikeKind.Redacted -> MessageRow.Kind.DELETED
                 else -> MessageRow.Kind.UNSUPPORTED
             }
             val body = when (type) {
                 MessageRow.Kind.TEXT -> (kind as MsgLikeKind.Message).content.body
                 MessageRow.Kind.UNDECRYPTABLE -> labels.undecryptable
+                MessageRow.Kind.DELETED -> labels.deleted
                 MessageRow.Kind.UNSUPPORTED -> labels.unsupported
             }
             val profile = event.senderProfile as? ProfileDetails.Ready
@@ -232,7 +326,33 @@ class DesktopTimeline private constructor(
                 event.isOwn, body, type, event.timestamp.toLong(), delivery, canRetry = handle != null,
                 safety = messageSafety(body, event.isOwn, type == MessageRow.Kind.TEXT, safetyEngine),
                 eventId = reactionTarget,
-                reactions = if (reactionTarget == null) emptyList() else reactionSnapshots(content.reactions, runtime.client.userId()))
+                reactions = if (reactionTarget == null) emptyList() else reactionSnapshots(content.reactions, runtime.client.userId()),
+                canReply = reactionTarget != null && event.canBeRepliedTo,
+                reply = content.inReplyTo?.let(::quote), isEdited = (kind as? MsgLikeKind.Message)?.content?.isEdited == true,
+                originalEventId = (event.eventOrTransactionId as? EventOrTransactionId.EventId)?.eventId)
+        } finally { event.destroy() }
+    }
+
+    private fun quote(details: InReplyToDetails): MessageQuote {
+        val event = details.event()
+        try {
+            val state = when (event) {
+                is EmbeddedEventDetails.Ready -> {
+                    val kind = (event.content as? TimelineItemContent.MsgLike)?.content?.kind
+                    val preview = when (kind) {
+                        is MsgLikeKind.Message -> kind.content.body
+                        MsgLikeKind.Redacted -> labels.deleted
+                        is MsgLikeKind.UnableToDecrypt -> labels.undecryptable
+                        else -> labels.unsupported
+                    }
+                    val name = if (event.sender == runtime.client.userId()) labels.you
+                        else realName((event.senderProfile as? ProfileDetails.Ready)?.displayName, event.sender, labels.noName)
+                    MessageQuote.Details.Ready(name, preview)
+                }
+                is EmbeddedEventDetails.Error -> MessageQuote.Details.Unavailable
+                else -> MessageQuote.Details.Loading
+            }
+            return MessageQuote(details.eventId(), state)
         } finally { event.destroy() }
     }
 

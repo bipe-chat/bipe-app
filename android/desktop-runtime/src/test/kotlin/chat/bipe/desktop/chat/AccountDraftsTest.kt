@@ -127,6 +127,55 @@ class AccountDraftsTest {
         assertTrue(store.writes.isEmpty())
     }
 
+    @Test(timeout = 20_000) fun blankRepliesRestoreTheirTargetAndCancelWithoutLosingTheText() = runBlocking {
+        val store = Store()
+        val (owner, drafts) = createDrafts(store)
+        val composer = drafts.room("room"); ready(composer)
+        composer.replyTo("\$original")
+        saved(composer)
+        assertEquals("\$original", store.replyTargets["room"])
+        assertNull(composer.submission())
+        assertEquals(AccountCloseResult.Closed, owner.closeAsync().await())
+        val (_, restored) = createDrafts(store, owner.lease.slot)
+        val next = restored.room("room")
+        assertEquals("\$original", ready(next).replyTo)
+        next.edit("keep while cancelling")
+        next.cancelReply(); saved(next)
+        assertEquals("keep while cancelling", store.saved["room"])
+        assertFalse(store.replyTargets.containsKey("room"))
+    }
+
+    @Test(timeout = 20_000) fun queueAcceptanceCannotEraseAReplyTargetChangedAwayAndBack() = runBlocking {
+        val (_, drafts) = createDrafts(Store())
+        val composer = drafts.room("room"); ready(composer)
+        composer.edit("reply body"); composer.replyTo("\$first")
+        val submitted = composer.submission()!!
+        assertEquals("\$first", submitted.replyTo)
+        composer.replyTo("\$second"); composer.replyTo("\$first")
+        composer.accepted(submitted)
+        assertEquals("\$first", (composer.state.value as ComposerState.Editing).replyTo)
+        assertEquals("reply body", (composer.state.value as ComposerState.Editing).text)
+        composer.accepted(composer.submission()!!)
+        saved(composer)
+        assertEquals("", (composer.state.value as ComposerState.Editing).text)
+        assertNull((composer.state.value as ComposerState.Editing).replyTo)
+    }
+
+    @Test(timeout = 20_000) fun aFailedReplyWriteRetriesItsLatestBodyAndTargetOnClose() = runBlocking {
+        val store = Store()
+        val (owner, drafts) = createDrafts(store)
+        val composer = drafts.room("room"); ready(composer)
+        store.failSave = true
+        composer.edit("reply body"); composer.replyTo("\$old")
+        failed(composer)
+        composer.replyTo("\$latest"); failed(composer)
+        assertTrue(owner.closeAsync().await() is AccountCloseResult.Blocked)
+        store.failSave = false
+        assertEquals(AccountCloseResult.Closed, AccountLifetime.retryCleanup(owner.epoch)!!.await())
+        assertEquals("reply body", store.saved["room"])
+        assertEquals("\$latest", store.replyTargets["room"])
+    }
+
     private suspend fun createDrafts(store: Store, slot: AccountSlot? = null): Pair<AccountLifetime, AccountDrafts> {
         val owner = AccountLifetime(slot?.let(repository::open) ?: repository.provision()).also { owners += it }
         return owner to owner.own(AccountDrafts(owner, store))
@@ -140,6 +189,7 @@ class AccountDraftsTest {
     } }
     private class Store : ComposerDraftStore {
         val saved = java.util.concurrent.ConcurrentHashMap<String, String>()
+        val replyTargets = java.util.concurrent.ConcurrentHashMap<String, String>()
         val writes = java.util.Collections.synchronizedList(mutableListOf<Pair<String, String>>())
         @Volatile var failLoad = false
         @Volatile var failSave = false
@@ -147,13 +197,15 @@ class AccountDraftsTest {
         var beforeSave: suspend (String) -> Unit = {}
         override suspend fun load(roomId: String): SavedComposerDraft {
             if (failLoad) throw IllegalStateException("synthetic-private-body")
-            return if (unsupported) SavedComposerDraft.Unsupported else SavedComposerDraft.Text(saved[roomId].orEmpty())
+            return if (unsupported) SavedComposerDraft.Unsupported else SavedComposerDraft.Text(saved[roomId].orEmpty(), replyTargets[roomId])
         }
-        override suspend fun save(roomId: String, body: String) {
+        override suspend fun save(roomId: String, draft: SavedComposerDraft.Text) {
+            val body = draft.body
             beforeSave(body)
             if (failSave) throw IllegalStateException("synthetic-private-body")
             writes += roomId to body
             saved[roomId] = body
+            if (draft.replyTo == null) replyTargets.remove(roomId) else replyTargets[roomId] = draft.replyTo
         }
     }
 }

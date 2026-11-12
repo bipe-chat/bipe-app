@@ -21,6 +21,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.Rect
@@ -381,8 +383,16 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
     val sending by model.sendPhase.collectAsState()
     val pauses by model.pauseSeconds.collectAsState()
     val reactionAction by model.reactions.phase.collectAsState()
-    var reactionPopup by remember(model) { mutableStateOf<ReactionPopup?>(null) }
+    var popup by remember(model) { mutableStateOf<TimelinePopup?>(null) }
+    val listState = rememberLazyListState()
+    val composerFocus = remember(model) { FocusRequester() }
+    val original by model.originalNavigation.collectAsState()
     val rows = when (val snapshot = load) { is LoadPhase.Ready -> snapshot.value; else -> emptyList() }
+    LaunchedEffect(original) {
+        val target = (original as? OriginalNavigation.Found)?.rowId ?: return@LaunchedEffect
+        val index = rows.asReversed().indexOfFirst { it.id == target }
+        if (index >= 0) listState.scrollToItem(index)
+    }
     Column(Modifier.fillMaxSize().chatBackdrop(s, colors, background)) {
         TextButton(onClick = { model.loadEarlier() }) { Text(s.text("bipe_action_show_more")) }
         when (load) {
@@ -390,19 +400,27 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
             LoadPhase.Failed -> Text(s.text("bipe_error_generic"), Modifier.padding(16.dp))
             is LoadPhase.Ready -> Unit
         }
-        LazyColumn(Modifier.weight(1f).fillMaxWidth(), reverseLayout = true, contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = listState, reverseLayout = true, contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(rows.asReversed(), key = { it.id }) { message ->
                 val warning = message.safety as? MessageSafety.Warning
                 val seconds = pauses[message.id] ?: if (warning?.kind?.registryId() in s.moneyPauseKinds) s.moneyPauseSeconds else 0
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = if (message.own) Arrangement.End else Arrangement.Start) {
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp),
                         horizontalAlignment = if (message.own) Alignment.End else Alignment.Start) {
-                        Surface(Modifier.widthIn(max = 540.dp), shape = RoundedCornerShape(18.dp),
-                            color = colors[if (message.own) "bubble.own" else "bubble.other"], contentColor = colors["ink.primary"]) {
+                        MessageSurface(model, message, seconds, (original as? OriginalNavigation.Found)?.rowId == message.id,
+                            popup, { popup = it }, s, colors, { composerFocus.requestFocus() }) {
                             Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
                                 if (!message.own) Text(message.sender, style = MaterialTheme.typography.labelMedium)
+                                message.reply?.let { quote ->
+                                    LaunchedEffect(message.id) { model.loadReply(message.id) }
+                                    ReplyQuote(quote, s, {
+                                        if (quote.details is MessageQuote.Details.Ready) model.openOriginal(quote.eventId)
+                                        else model.loadReply(message.id, retry = true)
+                                    })
+                                }
                                 if (seconds > 0) Text(message.body) else SelectionContainer { Text(message.body) }
                                 Text(timeLabel(message.timestamp), style = MaterialTheme.typography.labelSmall)
+                                if (message.isEdited) Text(s.text("bipe_app_message_edited"), style = MaterialTheme.typography.labelSmall)
                                 if (message.delivery == MessageRow.Delivery.SENDING) Text(s.text("bipe_app_timeline_sending"), style = MaterialTheme.typography.bodySmall)
                                 if (message.delivery == MessageRow.Delivery.FAILED) {
                                     if (message.canRetry) TextButton(onClick = { model.retry(message.id) }) { Text(s.text("bipe_app_timeline_failed")) }
@@ -410,7 +428,7 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
                                 }
                             }
                         }
-                        MessageReactions(model, message, reactionPopup, { reactionPopup = it }, s, colors)
+                        MessageReactions(model, message, popup, { popup = it }, s, colors)
                         when (val safety = message.safety) {
                             is MessageSafety.Warning -> ScamWarningCard(model, message.id, safety.kind, seconds, s, colors)
                             MessageSafety.Unavailable -> Row(verticalAlignment = Alignment.CenterVertically) {
@@ -436,16 +454,17 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
             is ComposerState.Editing -> if (state.persistence == DraftPersistence.FAILED)
                 DraftFailure(s.text("bipe_desktop_draft_save_error"), s, model.composer::retry)
         }
+        (composer as? ComposerState.Editing)?.replyTo?.let { ComposerReply(model, it, rows, s) }
         Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             OutlinedTextField(draft, model::draftChanged, placeholder = { Text(s.text("bipe_app_timeline_composer_placeholder")) },
                 enabled = composer is ComposerState.Editing,
-                shape = RoundedCornerShape(24.dp), maxLines = 8, modifier = Modifier.weight(1f).onPreviewKeyEvent {
+                shape = RoundedCornerShape(24.dp), maxLines = 8, modifier = Modifier.weight(1f).focusRequester(composerFocus).onPreviewKeyEvent {
                     if (it.type == KeyEventType.KeyDown && it.key == Key.Enter && !it.isShiftPressed && composer is ComposerState.Editing) { model.send(); true } else false
                 })
             BipeButton(s.text("bipe_app_timeline_send"), model::send, enabled = draft.isNotBlank() && sending != SendPhase.Sending)
         }
     }
-    ReactionDialog(model, reactionPopup, { reactionPopup = null }, s)
+    ReactionDialog(model, popup, { popup = null }, s)
 }
 
 @Composable private fun DraftFailure(message: String, s: DesktopCatalog, retry: () -> Unit) {

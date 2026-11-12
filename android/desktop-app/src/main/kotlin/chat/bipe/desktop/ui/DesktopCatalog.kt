@@ -52,7 +52,7 @@ class DesktopCatalog private constructor(private val root: JsonObject, val build
     }
 
     fun chatLabels() = ChatLabels(text("bipe_dm_no_name"), text("bipe_person_no_name"),
-        text("bipe_web_timeline_undecryptable"), text("bipe_app_timeline_unsupported"))
+        text("bipe_web_timeline_undecryptable"), text("bipe_app_timeline_unsupported"), text("bipe_app_message_deleted"), text("bipe_app_you"))
 
     companion object {
         internal fun json(name: String): JsonObject = DesktopCatalog::class.java.getResourceAsStream("/$name")!!.use {

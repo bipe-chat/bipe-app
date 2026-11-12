@@ -19,14 +19,14 @@ import org.matrix.rustcomponents.sdk.ComposerDraft
 import org.matrix.rustcomponents.sdk.ComposerDraftType
 
 sealed interface SavedComposerDraft {
-    data class Text(val body: String) : SavedComposerDraft
-    /** Preserve reply/edit/attachment drafts until the corresponding Windows composer exists. */
+    data class Text(val body: String, val replyTo: String? = null) : SavedComposerDraft
+    /** Preserve edit/attachment drafts until the corresponding Windows composer exists. */
     data object Unsupported : SavedComposerDraft
 }
 
 interface ComposerDraftStore {
     suspend fun load(roomId: String): SavedComposerDraft
-    suspend fun save(roomId: String, body: String)
+    suspend fun save(roomId: String, draft: SavedComposerDraft.Text)
 }
 
 /** Uses the pinned Rust SDK's encrypted state store, not a second file format or an assistant-draft parser. */
@@ -36,17 +36,26 @@ class SdkComposerDraftStore(private val client: Client) : ComposerDraftStore {
         try {
             val saved = room.loadComposerDraft(null) ?: return SavedComposerDraft.Text("")
             try {
-                return if (saved.draftType is ComposerDraftType.NewMessage && saved.attachments.isEmpty()) SavedComposerDraft.Text(saved.plainText)
-                    else SavedComposerDraft.Unsupported
+                if (saved.attachments.isNotEmpty() || saved.htmlText != null) return SavedComposerDraft.Unsupported
+                return when (val type = saved.draftType) {
+                    ComposerDraftType.NewMessage -> SavedComposerDraft.Text(saved.plainText)
+                    is ComposerDraftType.Reply -> SavedComposerDraft.Text(saved.plainText, type.eventId)
+                    is ComposerDraftType.Edit -> SavedComposerDraft.Unsupported
+                }
             } finally { saved.destroy() }
         } finally { room.destroy() }
     }
 
-    override suspend fun save(roomId: String, body: String) {
+    override suspend fun save(roomId: String, draft: SavedComposerDraft.Text) {
         val room = client.getRoom(roomId) ?: throw StorageFailure(StorageCode.MISSING_STORE)
         try {
-            if (body.isBlank()) room.clearComposerDraft(null)
-            else room.saveComposerDraft(ComposerDraft(body, null, ComposerDraftType.NewMessage, emptyList()), null)
+            // A reply with no text still carries intent; cancelling the reply is a separate persisted change.
+            if (draft.body.isBlank() && draft.replyTo == null) room.clearComposerDraft(null)
+            else {
+                val value = ComposerDraft(draft.body, null, draft.replyTo?.let { ComposerDraftType.Reply(it) }
+                    ?: ComposerDraftType.NewMessage, emptyList())
+                try { room.saveComposerDraft(value, null) } finally { value.destroy() }
+            }
         } finally { room.destroy() }
     }
 }
@@ -56,9 +65,9 @@ sealed interface ComposerState {
     data object Loading : ComposerState
     data object LoadFailed : ComposerState
     data object Unsupported : ComposerState
-    data class Editing(val text: String, val revision: Long, val persistence: DraftPersistence) : ComposerState
+    data class Editing(val text: String, val revision: Long, val persistence: DraftPersistence, val replyTo: String? = null) : ComposerState
 }
-internal class DraftSubmission(val text: String, val revision: Long, val composer: RoomComposer) {
+internal class DraftSubmission(val text: String, val revision: Long, val composer: RoomComposer, val replyTo: String?) {
     override fun toString(): String = "DraftSubmission(<redacted>)"
 }
 
@@ -68,8 +77,10 @@ class RoomComposer internal constructor(private val owner: AccountDrafts, intern
     val state = mutableState.asStateFlow()
     fun edit(text: String) { owner.edit(this, text) }
     fun retry() { owner.retry(this) }
+    internal fun replyTo(eventId: String) { if (eventId.isNotBlank()) owner.replyTo(this, eventId) }
+    fun cancelReply() { owner.replyTo(this, null) }
     internal fun submission(): DraftSubmission? = (mutableState.value as? ComposerState.Editing)
-        ?.takeIf { it.text.isNotBlank() }?.let { DraftSubmission(it.text, it.revision, this) }
+        ?.takeIf { it.text.isNotBlank() }?.let { DraftSubmission(it.text, it.revision, this, it.replyTo) }
     internal fun accepted(submission: DraftSubmission) { owner.accepted(this, submission) }
 }
 
@@ -112,7 +123,13 @@ class AccountDrafts(private val lifetime: AccountLifetime, private val store: Co
 
     internal fun edit(room: RoomComposer, text: String) = change {
         val current = room.mutableState.value as? ComposerState.Editing ?: return@change
-        update(room, ComposerState.Editing(text, current.revision + 1, DraftPersistence.PENDING))
+        update(room, current.copy(text = text, revision = current.revision + 1, persistence = DraftPersistence.PENDING))
+    }
+
+    internal fun replyTo(room: RoomComposer, eventId: String?) = change {
+        val current = room.mutableState.value as? ComposerState.Editing ?: return@change
+        if (current.replyTo != eventId) update(room, current.copy(replyTo = eventId,
+            revision = current.revision + 1, persistence = DraftPersistence.PENDING))
     }
 
     /** Called only after owned SDK queue acceptance; room/account teardown joins that task before this writer. */
@@ -147,10 +164,13 @@ class AccountDrafts(private val lifetime: AccountLifetime, private val store: Co
         val result = try {
             when (work) {
                 is Work.Load -> when (val saved = store.load(work.room.roomId)) {
-                    is SavedComposerDraft.Text -> ComposerState.Editing(saved.body, 0, DraftPersistence.SAVED)
+                    is SavedComposerDraft.Text -> ComposerState.Editing(saved.body, 0, DraftPersistence.SAVED, saved.replyTo)
                     SavedComposerDraft.Unsupported -> ComposerState.Unsupported
                 }
-                is Work.Save -> { store.save(work.room.roomId, work.value.text); work.value.copy(persistence = DraftPersistence.SAVED) }
+                is Work.Save -> {
+                    store.save(work.room.roomId, SavedComposerDraft.Text(work.value.text, work.value.replyTo))
+                    work.value.copy(persistence = DraftPersistence.SAVED)
+                }
             }
         } catch (cancelled: CancellationException) { throw cancelled }
         catch (_: Exception) {

@@ -21,15 +21,16 @@ import java.awt.event.KeyEvent
 import java.text.NumberFormat
 import kotlinx.coroutines.CancellationException
 
-internal sealed interface ReactionPopup {
-    data class Menu(val rowId: String) : ReactionPopup
-    data class Picker(val rowId: String) : ReactionPopup
-    data class Senders(val rowId: String, val key: String) : ReactionPopup
+internal sealed interface TimelinePopup {
+    data class MessageMenu(val rowId: String) : TimelinePopup
+    data class Menu(val rowId: String) : TimelinePopup
+    data class Picker(val rowId: String) : TimelinePopup
+    data class Senders(val rowId: String, val key: String) : TimelinePopup
 }
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
-@Composable internal fun MessageReactions(model: DesktopTimeline, message: MessageRow, popup: ReactionPopup?,
-                                         show: (ReactionPopup?) -> Unit, s: DesktopCatalog, colors: DesktopColors) {
+@Composable internal fun MessageReactions(model: DesktopTimeline, message: MessageRow, popup: TimelinePopup?,
+                                         show: (TimelinePopup?) -> Unit, s: DesktopCatalog, colors: DesktopColors) {
     if (message.eventId == null) return
     val action by model.reactions.phase.collectAsState()
     val enabled = action !is ReactionActionPhase.Sending
@@ -38,7 +39,7 @@ internal sealed interface ReactionPopup {
         message.reactions.forEach { reaction ->
             val count = NumberFormat.getIntegerInstance().format(reaction.count)
             val label = s.text("bipe_app_reaction_label", reaction.key, count)
-            val openPeople = { show(ReactionPopup.Senders(message.id, reaction.key)) }
+            val openPeople = { show(TimelinePopup.Senders(message.id, reaction.key)) }
             ContextMenuArea(items = { listOf(ContextMenuItem(peopleLabel, onClick = openPeople)) }) {
                 Surface(shape = CircleShape, color = colors[if (reaction.includesOwn) "accent.wash" else "surface.base"],
                     contentColor = colors[if (reaction.includesOwn) "accent.ink" else "ink.primary"],
@@ -53,23 +54,23 @@ internal sealed interface ReactionPopup {
             }
         }
         Box {
-            TextButton(onClick = { show(ReactionPopup.Menu(message.id)) }, enabled = enabled) { Text(peopleLabel) }
-            DropdownMenu(expanded = popup == ReactionPopup.Menu(message.id), onDismissRequest = { show(null) }) {
+            TextButton(onClick = { show(TimelinePopup.Menu(message.id)) }, enabled = enabled) { Text(peopleLabel) }
+            DropdownMenu(expanded = popup == TimelinePopup.Menu(message.id), onDismissRequest = { show(null) }) {
                 Row {
                     BipeReactions.quickKeys.forEach { key -> TextButton(onClick = {
                         show(null); model.reactions.toggle(message.id, key)
                     }, enabled = enabled) { Text(key) } }
                 }
                 DropdownMenuItem(text = { Text(s.text("bipe_app_message_action_more_reactions")) },
-                    onClick = { show(ReactionPopup.Picker(message.id)) })
+                    onClick = { show(TimelinePopup.Picker(message.id)) })
             }
         }
     }
 }
 
-@Composable internal fun ReactionDialog(model: DesktopTimeline, popup: ReactionPopup?, close: () -> Unit, s: DesktopCatalog) {
+@Composable internal fun ReactionDialog(model: DesktopTimeline, popup: TimelinePopup?, close: () -> Unit, s: DesktopCatalog) {
     when (popup) {
-        is ReactionPopup.Picker -> key(model, popup) {
+        is TimelinePopup.Picker -> key(model, popup) {
             val focus = remember { FocusRequester() }
             AlertDialog(onDismissRequest = close, title = { Text(s.text("bipe_app_message_action_more_reactions")) },
                 text = { OutlinedTextField("", { input ->
@@ -92,7 +93,7 @@ internal sealed interface ReactionPopup {
                 }
             }
         }
-        is ReactionPopup.Senders -> key(model, popup) {
+        is TimelinePopup.Senders -> key(model, popup) {
             val people by produceState<LoadPhase<List<ReactionPerson>>>(LoadPhase.Loading) {
                 value = try { LoadPhase.Ready(model.reactionPeople(popup.rowId, popup.key, s.text("bipe_app_you"))) }
                 catch (cancelled: CancellationException) { throw cancelled }

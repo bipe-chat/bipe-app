@@ -8,7 +8,8 @@ import chat.bipe.app.common.VectorDiff
 import chat.bipe.app.common.applyDiff
 import chat.bipe.desktop.safety.MessageSafety
 
-data class ChatLabels(val unnamed: String, val noName: String, val undecryptable: String, val unsupported: String)
+data class ChatLabels(val unnamed: String, val noName: String, val undecryptable: String, val unsupported: String,
+                      val deleted: String = unsupported, val you: String = noName)
 data class ChatAvatar(val name: String, val url: String?, val userId: String? = null)
 data class ChatRow(
     val id: String, val name: String, val avatar: String?, val members: List<ChatAvatar>,
@@ -25,9 +26,25 @@ data class MessageRow(
     val safety: MessageSafety = MessageSafety.NotApplicable,
     val eventId: String? = null,
     val reactions: List<MessageReaction> = emptyList(),
+    val canReply: Boolean = false,
+    val reply: MessageQuote? = null,
+    val isEdited: Boolean = false,
+    val originalEventId: String? = eventId,
 ) {
-    enum class Kind { TEXT, UNDECRYPTABLE, UNSUPPORTED }
+    enum class Kind { TEXT, UNDECRYPTABLE, DELETED, UNSUPPORTED }
     enum class Delivery { SENT, SENDING, FAILED }
+}
+data class MessageQuote(val eventId: String, val details: Details) {
+    sealed interface Details {
+        data object Loading : Details
+        data object Unavailable : Details
+        data class Ready(val sender: String, val preview: String) : Details
+    }
+}
+sealed interface OriginalNavigation {
+    data object Idle : OriginalNavigation
+    data class Searching(val eventId: String) : OriginalNavigation
+    data class Found(val rowId: String) : OriginalNavigation
 }
 data class ReactionSender(val userId: String, val reactedAt: Long)
 data class ReactionPerson(val name: String, val reactedAt: Long)

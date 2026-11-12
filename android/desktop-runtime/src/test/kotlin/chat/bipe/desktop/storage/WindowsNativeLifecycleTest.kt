@@ -35,12 +35,16 @@ class WindowsNativeLifecycleTest {
         val requests = AtomicInteger()
         val commands = Collections.synchronizedList(mutableListOf<String>())
         val markedUnread = AtomicBoolean(false)
+        val replySent = CompletableDeferred<JsonObject>()
         val syncResponses = CountDownLatch(1)
         val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
         server.createContext("/") { exchange ->
             try {
                 val requestBody = exchange.requestBody.use { it.readBytes().toString(Charsets.UTF_8) }
                 val path = exchange.requestURI.path
+                if (path.contains("/send/m.room.message/") && exchange.requestMethod == "PUT") {
+                    replySent.complete(Json.parseToJsonElement(requestBody).jsonObject)
+                }
                 if (path.contains("/tags/") && exchange.requestMethod in listOf("PUT", "DELETE")) commands += "${exchange.requestMethod} tag"
                 if ((path.contains("/receipt/") || path.endsWith("/read_markers")) && exchange.requestMethod == "POST") commands += "receipt"
                 if (path.contains("/account_data/") && exchange.requestMethod == "PUT") {
@@ -70,6 +74,8 @@ class WindowsNativeLifecycleTest {
                     }"""
                     path.endsWith("/sync") -> 400 to """{"errcode":"M_UNKNOWN","error":"Synthetic offline sync"}"""
                     path.endsWith("/messages") -> 200 to """{"chunk":[{"type":"m.room.message","sender":"@peer:example.test","event_id":"${'$'}message","origin_server_ts":5,"content":{"msgtype":"m.text","body":"Synthetic lifecycle message"}}],"state":[],"start":"before"}"""
+                    path.endsWith("/event/${'$'}message") -> 200 to """{"type":"m.room.message","room_id":"$room","sender":"@peer:example.test","event_id":"${'$'}message","origin_server_ts":5,"content":{"msgtype":"m.text","body":"Synthetic lifecycle message"}}"""
+                    path.contains("/send/m.room.message/") && exchange.requestMethod == "PUT" -> 200 to """{"event_id":"${'$'}sent-reply"}"""
                     path.endsWith("/keys/upload") -> 200 to """{"one_time_key_counts":{"signed_curve25519":50}}"""
                     path.endsWith("/keys/query") -> 200 to """{"device_keys":{},"failures":{}}"""
                     path.endsWith("/keys/claim") -> 200 to """{"one_time_keys":{},"failures":{}}"""
@@ -124,7 +130,22 @@ class WindowsNativeLifecycleTest {
                 timeline.loadEarlier().join()
                 timeline.rows.first { it is LoadPhase.Ready && it.value.any { row -> row.body == "Synthetic lifecycle message" } }
                 timeline.composer.state.first { it is ComposerState.Editing }
+                val original = (timeline.rows.value as LoadPhase.Ready).value.single { it.body == "Synthetic lifecycle message" }
+                assertTrue(original.canReply)
+                timeline.composer.edit("Synthetic reply body")
+                assertTrue(timeline.replies.start(original.id))
+                timeline.send()
+                timeline.sendPhase.first { it != SendPhase.Sending }
+                assertEquals(SendPhase.Idle, timeline.sendPhase.value)
+                val sent = withTimeout(15_000) { replySent.await() }
+                assertEquals("\$message", sent.getValue("m.relates_to").jsonObject.getValue("m.in_reply_to").jsonObject.getValue("event_id").jsonPrimitive.content)
+                assertTrue(sent.getValue("body").jsonPrimitive.content.contains("Synthetic reply body"))
+                assertNull((timeline.composer.state.value as ComposerState.Editing).replyTo)
+                assertEquals("", (timeline.composer.state.value as ComposerState.Editing).text)
+                val quote = timeline.replyDetails("\$message")
+                assertEquals("Synthetic lifecycle message", (quote.details as MessageQuote.Details.Ready).preview)
                 timeline.composer.edit("Synthetic offline saved draft")
+                assertTrue(timeline.replies.start(original.id))
                 timeline.composer.state.first { it is ComposerState.Editing && it.persistence == DraftPersistence.SAVED }
                 offline.await()
                 println("BIPE_NATIVE_LIFECYCLE stage=explicit_room_controls")
@@ -163,6 +184,11 @@ class WindowsNativeLifecycleTest {
                 restoredTimeline.rows.first { it is LoadPhase.Ready && it.value.any { row -> row.body == "Synthetic lifecycle message" } }
                 val draft = restoredTimeline.composer.state.first { it is ComposerState.Editing } as ComposerState.Editing
                 assertEquals("Synthetic offline saved draft", draft.text)
+                assertEquals("\$message", draft.replyTo)
+                restoredTimeline.composer.cancelReply()
+                val cancelled = restoredTimeline.composer.state.first { it is ComposerState.Editing && it.persistence == DraftPersistence.SAVED } as ComposerState.Editing
+                assertNull(cancelled.replyTo)
+                assertEquals("Synthetic offline saved draft", cancelled.text)
                 assertEquals(AccountCloseResult.Closed, restored.closeAsync().await())
                 current = null
             }
