@@ -10,6 +10,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -189,6 +190,12 @@ private enum class Destination(val key: String) { CHATS("bipe_tab_chats"), GROUP
     var popup by remember(account, destination) { mutableStateOf<WorkspacePopup?>(null) }
     var editing by remember(account, destination, profile.kind) { mutableStateOf<FavouriteEditing>(FavouriteEditing.Normal) }
     val favouriteBounds = remember(account, destination) { mutableStateMapOf<String, Rect>() }
+    val roomListState = key(account, destination) { rememberLazyListState() }
+    val reordering = editing != FavouriteEditing.Normal
+    LaunchedEffect(reordering) {
+        // Lazy lists preserve the first visible room when an item grows above it. Reveal the mode's controls explicitly.
+        if (reordering) roomListState.scrollToItem(0)
+    }
     val load by account.list.rows.collectAsState()
     val favourites by account.list.favourites.phase.collectAsState()
     val favouriteState = favourites as? FavouritesPhase.Ready
@@ -255,17 +262,15 @@ private enum class Destination(val key: String) { CHATS("bipe_tab_chats"), GROUP
             Column(Modifier.width(320.dp).fillMaxHeight()) {
                 OutlinedTextField(search, { searches[destination] = it }, singleLine = true,
                     placeholder = { Text(s.text("bipe_app_search_placeholder")) }, modifier = Modifier.fillMaxWidth().padding(12.dp))
-                LazyColumn(Modifier.weight(1f)) {
-                    item(key = "favourites-sync") {
-                        if (favourites == FavouritesPhase.Unavailable || favouriteState?.sync is FavouritesSync.Failed) {
-                            Row(Modifier.padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Text(s.text("bipe_error_generic"), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
-                                TextButton(onClick = { account.list.favourites.retry() }) { Text(s.text("bipe_app_retry")) }
-                            }
-                        } else if (favouriteState?.sync == FavouritesSync.Saving) Text(s.text("bipe_web_loading"), Modifier.padding(12.dp))
+                if (favourites == FavouritesPhase.Unavailable || favouriteState?.sync is FavouritesSync.Failed) {
+                    Row(Modifier.padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(s.text("bipe_error_generic"), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                        TextButton(onClick = { account.list.favourites.retry() }) { Text(s.text("bipe_app_retry")) }
                     }
-                    item(key = "favourites-reorder") {
-                        if (editing != FavouriteEditing.Normal) Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                } else if (favouriteState?.sync == FavouritesSync.Saving) Text(s.text("bipe_web_loading"), Modifier.padding(12.dp))
+                LazyColumn(Modifier.weight(1f), state = roomListState) {
+                    if (reordering) item(key = "favourites-reorder") {
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text(s.text("bipe_chat_favourites_reorder_hint"), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
                             TextButton(onClick = { editing = FavouriteEditing.Normal; popup = null }) { Text(s.text("bipe_chat_favourites_reorder_done")) }
                         }
