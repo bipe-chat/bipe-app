@@ -22,6 +22,7 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import chat.bipe.desktop.chat.*
 import chat.bipe.shared.generated.BipeReactions
@@ -41,19 +42,24 @@ private data class MessageCommand(val label: String, val enabled: Boolean, val i
     val focus = remember { FocusRequester() }
     val deletePermission by model.deletion.permission.collectAsState()
     val deletePhase by model.deletion.phase.collectAsState()
+    val editing by model.edits.phase.collectAsState()
     val reactions by model.reactions.phase.collectAsState()
     val canReact = row.eventId != null
     val reactionEnabled = reactions !is ReactionActionPhase.Sending
     val label = s.text("bipe_message_actions")
     val actions = buildList {
         if (row.canReply) add(MessageCommand(s.text("bipe_app_message_action_reply"), replyEnabled, "arrow-bend-up-left") {
-            if (model.replies.start(row.id)) focusComposer()
+            if (model.startReply(row.id)) focusComposer()
         })
+        if (editing !is EditPhase.Saving && model.edits.canEdit(row.id))
+            add(MessageCommand(s.text("bipe_app_message_action_edit"), true, "pencil-simple") {
+                if (model.edits.start(row.id)) focusComposer()
+            })
         if (row.kind == MessageRow.Kind.TEXT) add(MessageCommand(if (seconds > 0)
             s.text("bipe_pause_countdown", NumberFormat.getIntegerInstance().format(seconds)) else s.text("bipe_app_copy"), seconds == 0, "copy") {
             model.copyText(row.id)?.let { clipboard.setText(AnnotatedString(it)); copied() }
         })
-        if (deletePermission is DeletePermission.Ready && deletePhase !is DeletePhase.Deleting) {
+        if (deletePermission is DeletePermission.Ready && deletePhase !is DeletePhase.Deleting && editing !is EditPhase.Saving) {
             model.deletion.candidate(row.id)?.let { intent ->
                 add(MessageCommand(s.text("bipe_app_message_action_delete"), true, "trash", danger = true) { show(TimelinePopup.DeleteConfirm(intent)) })
             }
@@ -142,7 +148,7 @@ private data class MessageCommand(val label: String, val enabled: Boolean, val i
     }
 }
 
-@Composable internal fun ComposerReply(model: DesktopTimeline, eventId: String, rows: List<MessageRow>, s: DesktopCatalog) {
+@Composable internal fun ComposerReply(model: DesktopTimeline, eventId: String, rows: List<MessageRow>, s: DesktopCatalog, colors: DesktopColors) {
     val loaded by produceState(MessageQuote(eventId, MessageQuote.Details.Loading), model, eventId) {
         value = try { model.replyDetails(eventId) }
         catch (cancelled: CancellationException) { throw cancelled }
@@ -151,18 +157,41 @@ private data class MessageCommand(val label: String, val enabled: Boolean, val i
     val current = rows.firstOrNull { it.originalEventId == eventId }
     val quote = if (current == null) loaded else MessageQuote(eventId,
         MessageQuote.Details.Ready(if (current.own) s.text("bipe_app_you") else current.sender, current.body))
-    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-        Column(Modifier.weight(1f)) {
-            val name = (quote.details as? MessageQuote.Details.Ready)?.sender.orEmpty()
-            Text(s.text("bipe_app_message_replying_to", name), style = MaterialTheme.typography.labelMedium)
-            val preview = when (val details = quote.details) {
-                is MessageQuote.Details.Ready -> details.preview
-                MessageQuote.Details.Loading -> s.text("bipe_app_message_reply_loading")
-                MessageQuote.Details.Unavailable -> s.text("bipe_app_message_reply_unavailable")
+    val name = (quote.details as? MessageQuote.Details.Ready)?.sender.orEmpty()
+    val preview = when (val details = quote.details) {
+        is MessageQuote.Details.Ready -> details.preview
+        MessageQuote.Details.Loading -> s.text("bipe_app_message_reply_loading")
+        MessageQuote.Details.Unavailable -> s.text("bipe_app_message_reply_unavailable")
+    }
+    ComposerContextBar("arrow-bend-up-left", s.text("bipe_app_message_replying_to", name), preview,
+        true, model.composer::cancelReply, s, colors) { model.openOriginal(eventId) }
+}
+
+@Composable internal fun ComposerEdit(model: DesktopTimeline, phase: EditPhase, s: DesktopCatalog, colors: DesktopColors) {
+    val draft = phase.draft ?: return
+    ComposerContextBar("pencil-simple", s.text("bipe_app_message_editing"), draft.originalText,
+        phase !is EditPhase.Saving, { model.edits.cancel() }, s, colors)
+}
+
+/** Same context icon, title/preview styles and close control as the phone's composer. */
+@Composable private fun ComposerContextBar(icon: String, title: String, preview: String, enabled: Boolean,
+                                           close: () -> Unit, s: DesktopCatalog, colors: DesktopColors,
+                                           open: (() -> Unit)? = null) {
+    Surface(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), shape = RoundedCornerShape(16.dp),
+        color = colors["surface.raised"], border = BorderStroke(1.dp, colors["line.subtle"]), shadowElevation = 2.dp) {
+        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 6.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Icon(sharedIcon(icon), contentDescription = null, tint = colors["accent.ink"], modifier = Modifier.size(18.dp))
+            var textModifier = Modifier.weight(1f)
+            if (open != null) textModifier = textModifier.heightIn(min = 48.dp).clickable(role = Role.Button, onClick = open)
+            Column(textModifier) {
+                Text(title, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = colors["accent.ink"])
+                Text(preview, style = MaterialTheme.typography.labelMedium, color = colors["ink.secondary"],
+                    maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            Text(preview, Modifier.heightIn(min = 48.dp).clickable(role = Role.Button) { model.openOriginal(eventId) }
-                .padding(vertical = 8.dp), style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            IconButton(onClick = close, enabled = enabled, modifier = Modifier.size(48.dp)) {
+                Icon(sharedIcon("x"), contentDescription = s.text("bipe_app_cancel"), tint = colors["glyph.secondary"], modifier = Modifier.size(16.dp))
+            }
         }
-        TextButton(onClick = model.composer::cancelReply) { Text(s.text("bipe_app_cancel")) }
     }
 }

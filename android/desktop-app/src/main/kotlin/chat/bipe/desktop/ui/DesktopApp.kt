@@ -380,7 +380,10 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
 @Composable private fun TimelineView(model: DesktopTimeline, s: DesktopCatalog, colors: DesktopColors, background: String) {
     val load by model.rows.collectAsState()
     val composer by model.composer.state.collectAsState()
-    val draft = (composer as? ComposerState.Editing)?.text.orEmpty()
+    val editing by model.edits.phase.collectAsState()
+    val editDraft = editing.draft
+    val draft = editDraft?.text ?: (composer as? ComposerState.Editing)?.text.orEmpty()
+    val inputEnabled = composer is ComposerState.Editing && editing !is EditPhase.Saving
     val sending by model.sendPhase.collectAsState()
     val pauses by model.pauseSeconds.collectAsState()
     val reactionAction by model.reactions.phase.collectAsState()
@@ -412,7 +415,7 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp),
                         horizontalAlignment = if (message.own) Alignment.End else Alignment.Start) {
                         MessageSurface(model, message, seconds, (original as? OriginalNavigation.Found)?.rowId == message.id,
-                            popup, { popup = it }, s, colors, composer is ComposerState.Editing, { composerFocus.requestFocus() }, {
+                            popup, { popup = it }, s, colors, inputEnabled, { composerFocus.requestFocus() }, {
                                 scope.launch { notices.showSnackbar(s.text("bipe_app_copied")) }
                             }) {
                             Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
@@ -458,7 +461,9 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
             Text(s.text("bipe_app_reaction_failed"), modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
             TextButton(onClick = { model.reactions.dismissFailure() }) { Text(s.text("bipe_app_close")) }
         }
-        if (sending == SendPhase.Failed) Text(s.text("bipe_app_timeline_failed"), Modifier.padding(horizontal = 16.dp))
+        if (sending == SendPhase.Failed && editDraft == null) Text(s.text("bipe_app_timeline_failed"), Modifier.padding(horizontal = 16.dp))
+        if (editing is EditPhase.Failed) Text(s.text("bipe_app_message_edit_failed"), Modifier.padding(horizontal = 16.dp))
+        if (editing is EditPhase.Saving) Text(s.text("bipe_app_timeline_sending"), Modifier.padding(horizontal = 16.dp))
         when (val state = composer) {
             ComposerState.Loading -> Text(s.text("bipe_web_loading"), Modifier.padding(horizontal = 16.dp))
             ComposerState.LoadFailed -> DraftFailure(s.text("bipe_desktop_draft_load_error"), s, model.composer::retry)
@@ -466,14 +471,23 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
             is ComposerState.Editing -> if (state.persistence == DraftPersistence.FAILED)
                 DraftFailure(s.text("bipe_desktop_draft_save_error"), s, model.composer::retry)
         }
-        (composer as? ComposerState.Editing)?.replyTo?.let { ComposerReply(model, it, rows, s) }
+        if (editDraft != null) ComposerEdit(model, editing, s, colors)
+        else (composer as? ComposerState.Editing)?.replyTo?.let { ComposerReply(model, it, rows, s, colors) }
         Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             OutlinedTextField(draft, model::draftChanged, placeholder = { Text(s.text("bipe_app_timeline_composer_placeholder")) },
-                enabled = composer is ComposerState.Editing,
+                enabled = inputEnabled,
                 shape = RoundedCornerShape(24.dp), maxLines = 8, modifier = Modifier.weight(1f).focusRequester(composerFocus).onPreviewKeyEvent {
-                    if (it.type == KeyEventType.KeyDown && it.key == Key.Enter && !it.isShiftPressed && composer is ComposerState.Editing) { model.send(); true } else false
+                    if (it.type == KeyEventType.KeyDown && it.key == Key.Enter && !it.isShiftPressed && inputEnabled) { model.send(); true } else false
                 })
-            BipeButton(s.text("bipe_app_timeline_send"), model::send, enabled = draft.isNotBlank() && sending != SendPhase.Sending)
+            val canSend = if (editDraft != null) editDraft.canSave && editing !is EditPhase.Saving
+                else draft.isNotBlank() && sending != SendPhase.Sending
+            IconButton(onClick = model::send, enabled = canSend, modifier = Modifier.size(48.dp).clip(CircleShape)
+                .background(colors[if (canSend) "accent.fill" else "surface.raised"])
+                .border(1.dp, colors["line.subtle"], CircleShape)) {
+                Icon(sharedIcon(if (editDraft == null) "paper-plane-right" else "check"),
+                    contentDescription = s.text(if (editDraft == null) "bipe_app_timeline_send" else "bipe_app_message_save_edit"),
+                    tint = colors[if (canSend) "ink.onAccent" else "ink.disabled"], modifier = Modifier.size(22.dp))
+            }
         }
     }
     ReactionDialog(model, popup, { popup = null }, s)

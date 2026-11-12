@@ -30,6 +30,7 @@ data class MessageRow(
     val reply: MessageQuote? = null,
     val isEdited: Boolean = false,
     val originalEventId: String? = eventId,
+    val canEdit: Boolean = false,
 ) {
     enum class Kind { TEXT, UNDECRYPTABLE, DELETED, UNSUPPORTED }
     enum class Delivery { SENT, SENDING, FAILED }

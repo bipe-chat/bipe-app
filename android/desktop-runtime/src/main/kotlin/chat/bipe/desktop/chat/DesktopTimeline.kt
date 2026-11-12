@@ -27,6 +27,7 @@ import kotlinx.coroutines.sync.withLock
 import chat.bipe.shared.generated.BipeRegistries
 import org.matrix.rustcomponents.sdk.*
 import uniffi.matrix_sdk_ui.TimelineReadReceiptTracking
+import uniffi.ruma_events.MessageLikeEventType
 
 sealed interface SendPhase {
     data object Idle : SendPhase
@@ -76,6 +77,20 @@ class DesktopTimeline private constructor(
             } finally { event.destroy() }
         }
     })
+    val edits = EditActions(group, composer, ::currentRow, { mutableSend.value != SendPhase.Sending }) { eventId, text ->
+        check(room.membership() == Membership.JOINED)
+        val event = timeline.getEventTimelineItemByEventId(eventId)
+        try {
+            val kind = (event.content as? TimelineItemContent.MsgLike)?.content?.kind as? MsgLikeKind.Message
+            check(event.isOwn && event.isEditable && event.isRemote && event.localSendState == null && kind != null)
+            check(kind.content.msgType is MessageType.Text || kind.content.msgType is MessageType.Notice || kind.content.msgType is MessageType.Emote)
+            val powers = room.getPowerLevels()
+            try { check(powers.canOwnUserSendMessage(MessageLikeEventType.RoomMessage)) } finally { powers.destroy() }
+            group.requireCurrent()
+            val content = EditedContent.RoomMessage(messageEventContentFromMarkdown(text))
+            try { timeline.edit(EventOrTransactionId.EventId(eventId), content) } finally { content.destroy() }
+        } finally { event.destroy() }
+    }
     private val failedSends = mutableMapOf<String, SendHandle>()
     private val retrying = mutableSetOf<String>()
     private val pause = MoneyPause()
@@ -212,9 +227,17 @@ class DesktopTimeline private constructor(
         }
     }
 
-    fun draftChanged(value: String) { composer.edit(value) }
+    fun draftChanged(value: String) {
+        if (edits.phase.value == EditPhase.Idle) composer.edit(value) else edits.change(value)
+    }
+
+    fun startReply(rowId: String): Boolean {
+        if (currentRow(rowId)?.canReply != true || !edits.cancel()) return false
+        return replies.start(rowId)
+    }
 
     fun send() {
+        if (edits.phase.value != EditPhase.Idle) { edits.save(); return }
         var submission: DraftSubmission? = null
         group.publish {
             if (mutableSend.value != SendPhase.Sending) {
@@ -348,7 +371,8 @@ class DesktopTimeline private constructor(
                 reactions = if (reactionTarget == null) emptyList() else reactionSnapshots(content.reactions, runtime.client.userId()),
                 canReply = reactionTarget != null && event.canBeRepliedTo,
                 reply = content.inReplyTo?.let(::quote), isEdited = (kind as? MsgLikeKind.Message)?.content?.isEdited == true,
-                originalEventId = (event.eventOrTransactionId as? EventOrTransactionId.EventId)?.eventId)
+                originalEventId = (event.eventOrTransactionId as? EventOrTransactionId.EventId)?.eventId,
+                canEdit = event.isOwn && event.isEditable && type == MessageRow.Kind.TEXT && reactionTarget != null)
         } finally { event.destroy() }
     }
 
