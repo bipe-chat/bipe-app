@@ -119,7 +119,9 @@ class AccountArchive private constructor(
             val echo = next.echoes[row.id]
             var serverArchived = row.archived
             if (echo != null) {
-                if (echo.archived != row.archived && monotonic() < (deadlines[row.id] ?: 0)) serverArchived = echo.archived
+                // Matching cached summaries can predate the ACK (and other room-list streams can still
+                // emit the old tag afterwards). Only the bounded shared deadline retires a confirmation.
+                if (monotonic() < (deadlines[row.id] ?: 0)) serverArchived = echo.archived
                 else {
                     deadlines.remove(row.id)
                     next = next.copy(echoes = next.echoes - row.id)

@@ -56,6 +56,30 @@ class AccountArchiveTest {
         }
     }
 
+    @Test fun matchingCachedSummariesDoNotRetireAcknowledgementsBeforeLaterStaleStreamUpdates() = runBlocking {
+        withMediaOwner { owner ->
+            val now = java.util.concurrent.atomic.AtomicLong(1_000)
+            val model = AccountArchive.create(owner, ArchiveBackend { _, _ -> }, Journal(), clock = now::get, monotonic = now::get)
+            val chat = row().copy(favourite = true)
+            model.reconcile(listOf(chat))
+            model.set(chat, true)
+            model.await { it.operations.isEmpty() && it.confirmed[chat.id] == true }
+            model.reconcile(listOf(chat.copy(archived = true))) // Matching SDK snapshot.
+            model.reconcile(listOf(chat)) // A different stream still holds the old tag.
+            assertTrue(model.ready().effective(chat).archived)
+            model.set(chat.copy(archived = true), false)
+            model.await { it.operations.isEmpty() && it.markers.isEmpty() && it.confirmed[chat.id] == false }
+            model.reconcile(listOf(chat)) // Also may be a snapshot from before either write.
+            model.reconcile(listOf(chat.copy(archived = true)))
+            assertFalse(model.ready().effective(chat.copy(archived = true)).archived)
+            assertFalse(model.ready().effective(chat).favourite)
+            now.addAndGet(20_001)
+            model.reconcile(listOf(chat.copy(archived = true)))
+            assertTrue(model.ready().confirmed.isEmpty())
+            assertTrue(model.ready().effective(chat.copy(archived = true)).archived)
+        }
+    }
+
     @Test fun failedTagIntentIsProtectedAndCanReplayAfterAccountRestart() = runBlocking {
         val journal = Journal()
         withMediaOwner { owner ->
