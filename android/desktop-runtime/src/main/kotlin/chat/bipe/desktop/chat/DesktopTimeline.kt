@@ -58,6 +58,24 @@ class DesktopTimeline private constructor(
         timeline.toggleReaction(EventOrTransactionId.EventId(eventId), key)
         Unit
     }
+    val deletion = DeleteActions(group, ::currentRow, object : DeleteBackend {
+        override suspend fun canDeleteOwn(): Boolean {
+            check(room.membership() == Membership.JOINED)
+            val powers = room.getPowerLevels()
+            try { return powers.canOwnUserRedactOwn() } finally { powers.destroy() }
+        }
+        override suspend fun deleteOwn(eventId: String) {
+            val event = timeline.getEventTimelineItemByEventId(eventId)
+            try {
+                val kind = (event.content as? TimelineItemContent.MsgLike)?.content?.kind
+                check(event.isOwn && event.isRemote && event.localSendState == null && kind != null &&
+                    kind != MsgLikeKind.Redacted && kind !is MsgLikeKind.UnableToDecrypt)
+                check(canDeleteOwn())
+                group.requireCurrent()
+                timeline.redactEvent(EventOrTransactionId.EventId(eventId), null)
+            } finally { event.destroy() }
+        }
+    })
     private val failedSends = mutableMapOf<String, SendHandle>()
     private val retrying = mutableSetOf<String>()
     private val pause = MoneyPause()
@@ -256,6 +274,7 @@ class DesktopTimeline private constructor(
         )
         timeline = room.timelineWithConfiguration(configuration)
         group.own(NativeResource { timeline.destroy() })
+        deletion.start()
         group.own(NativeResource {
             synchronized(failedSends) { failedSends.values.forEach { it.destroy() }; failedSends.clear(); retrying.clear() }
         })

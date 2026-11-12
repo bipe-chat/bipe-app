@@ -384,6 +384,7 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
     val sending by model.sendPhase.collectAsState()
     val pauses by model.pauseSeconds.collectAsState()
     val reactionAction by model.reactions.phase.collectAsState()
+    val deletion by model.deletion.phase.collectAsState()
     var popup by remember(model) { mutableStateOf<TimelinePopup?>(null) }
     val listState = rememberLazyListState()
     val composerFocus = remember(model) { FocusRequester() }
@@ -434,7 +435,7 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
                                 }
                             }
                         }
-                        MessageReactions(model, message, popup, { popup = it }, s, colors)
+                        MessageReactions(model, message, { popup = it }, s, colors)
                         when (val safety = message.safety) {
                             is MessageSafety.Warning -> ScamWarningCard(model, message.id, safety.kind, seconds, s, colors)
                             MessageSafety.Unavailable -> Row(verticalAlignment = Alignment.CenterVertically) {
@@ -449,6 +450,10 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
             }
         }
         SnackbarHost(notices, Modifier.padding(horizontal = 16.dp))
+        if (deletion is DeletePhase.Failed) Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(s.text("bipe_app_message_delete_failed"), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+            TextButton(onClick = model.deletion::dismissFailure) { Text(s.text("bipe_app_close")) }
+        }
         if (reactionAction is ReactionActionPhase.Failed) Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(s.text("bipe_app_reaction_failed"), modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
             TextButton(onClick = { model.reactions.dismissFailure() }) { Text(s.text("bipe_app_close")) }
@@ -472,6 +477,7 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
         }
     }
     ReactionDialog(model, popup, { popup = null }, s)
+    DeleteDialog(model, popup, { popup = null }, s)
 }
 
 @Composable private fun DraftFailure(message: String, s: DesktopCatalog, retry: () -> Unit) {

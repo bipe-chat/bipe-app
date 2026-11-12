@@ -23,15 +23,15 @@ import kotlinx.coroutines.CancellationException
 
 internal sealed interface TimelinePopup {
     data class MessageMenu(val rowId: String) : TimelinePopup
-    data class Menu(val rowId: String) : TimelinePopup
+    data class DeleteConfirm(val intent: DeleteIntent) : TimelinePopup
     data class Picker(val rowId: String) : TimelinePopup
     data class Senders(val rowId: String, val key: String) : TimelinePopup
 }
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
-@Composable internal fun MessageReactions(model: DesktopTimeline, message: MessageRow, popup: TimelinePopup?,
+@Composable internal fun MessageReactions(model: DesktopTimeline, message: MessageRow,
                                          show: (TimelinePopup?) -> Unit, s: DesktopCatalog, colors: DesktopColors) {
-    if (message.eventId == null) return
+    if (message.eventId == null || message.reactions.isEmpty()) return
     val action by model.reactions.phase.collectAsState()
     val enabled = action !is ReactionActionPhase.Sending
     val peopleLabel = s.text("bipe_app_reactions_title")
@@ -51,18 +51,6 @@ internal sealed interface TimelinePopup {
                         onLongClickLabel = peopleLabel, onLongClick = openPeople)) {
                     Text(BipeReactions.keyText(reaction.key) + " " + count, Modifier.padding(12.dp), style = MaterialTheme.typography.bodyMedium)
                 }
-            }
-        }
-        Box {
-            TextButton(onClick = { show(TimelinePopup.Menu(message.id)) }, enabled = enabled) { Text(peopleLabel) }
-            DropdownMenu(expanded = popup == TimelinePopup.Menu(message.id), onDismissRequest = { show(null) }) {
-                Row {
-                    BipeReactions.quickKeys.forEach { key -> TextButton(onClick = {
-                        show(null); model.reactions.toggle(message.id, key)
-                    }, enabled = enabled) { Text(key) } }
-                }
-                DropdownMenuItem(text = { Text(s.text("bipe_app_message_action_more_reactions")) },
-                    onClick = { show(TimelinePopup.Picker(message.id)) })
             }
         }
     }

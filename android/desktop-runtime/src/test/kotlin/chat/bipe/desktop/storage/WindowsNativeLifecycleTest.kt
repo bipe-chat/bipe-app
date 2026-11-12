@@ -36,6 +36,8 @@ class WindowsNativeLifecycleTest {
         val commands = Collections.synchronizedList(mutableListOf<String>())
         val markedUnread = AtomicBoolean(false)
         val replySent = CompletableDeferred<JsonObject>()
+        val ownDeleted = CompletableDeferred<JsonObject>()
+        val redactedOwn = AtomicBoolean(false)
         val syncResponses = CountDownLatch(1)
         val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
         server.createContext("/") { exchange ->
@@ -44,6 +46,10 @@ class WindowsNativeLifecycleTest {
                 val path = exchange.requestURI.path
                 if (path.contains("/send/m.room.message/") && exchange.requestMethod == "PUT") {
                     replySent.complete(Json.parseToJsonElement(requestBody).jsonObject)
+                }
+                if (path.contains("/redact/${'$'}own/") && exchange.requestMethod == "PUT") {
+                    redactedOwn.set(true)
+                    ownDeleted.complete(Json.parseToJsonElement(requestBody).jsonObject)
                 }
                 if (path.contains("/tags/") && exchange.requestMethod in listOf("PUT", "DELETE")) commands += "${exchange.requestMethod} tag"
                 if ((path.contains("/receipt/") || path.endsWith("/read_markers")) && exchange.requestMethod == "POST") commands += "receipt"
@@ -67,15 +73,16 @@ class WindowsNativeLifecycleTest {
                             {"type":"m.room.name","state_key":"","sender":"@synthetic:example.test","event_id":"${'$'}name","origin_server_ts":3,"content":{"name":"Lifecycle fixture"}},
                             {"type":"m.room.power_levels","state_key":"","sender":"@synthetic:example.test","event_id":"${'$'}power","origin_server_ts":4,"content":{"users":{"@synthetic:example.test":100}}}
                           ]},
-                          "timeline":{"events":[{"type":"m.room.message","sender":"@peer:example.test","event_id":"${'$'}message","origin_server_ts":5,"content":{"msgtype":"m.text","body":"Synthetic lifecycle message"}}],"limited":false,"prev_batch":"before"},
+                          "timeline":{"events":[{"type":"m.room.message","sender":"@peer:example.test","event_id":"${'$'}message","origin_server_ts":5,"content":{"msgtype":"m.text","body":"Synthetic lifecycle message"}}${if (redactedOwn.get()) "," + """{"type":"m.room.redaction","sender":"@synthetic:example.test","event_id":"${'$'}redaction","origin_server_ts":6,"redacts":"${'$'}own","content":{}}""" else ""}],"limited":false,"prev_batch":"before"},
                           "account_data":{"events":[{"type":"m.marked_unread","content":{"unread":${markedUnread.get()}}}]},
                           "unread_notifications":{"notification_count":0,"highlight_count":0}
                         }}}
                     }"""
                     path.endsWith("/sync") -> 400 to """{"errcode":"M_UNKNOWN","error":"Synthetic offline sync"}"""
-                    path.endsWith("/messages") -> 200 to """{"chunk":[{"type":"m.room.message","sender":"@peer:example.test","event_id":"${'$'}message","origin_server_ts":5,"content":{"msgtype":"m.text","body":"Synthetic lifecycle message"}}],"state":[],"start":"before"}"""
+                    path.endsWith("/messages") -> 200 to """{"chunk":[{"type":"m.room.message","sender":"@peer:example.test","event_id":"${'$'}message","origin_server_ts":5,"content":{"msgtype":"m.text","body":"Synthetic lifecycle message"}},{"type":"m.room.message","sender":"@synthetic:example.test","event_id":"${'$'}own","origin_server_ts":4,"content":{"msgtype":"m.text","body":"Synthetic own deletion fixture"}}],"state":[],"start":"before"}"""
                     path.endsWith("/event/${'$'}message") -> 200 to """{"type":"m.room.message","room_id":"$room","sender":"@peer:example.test","event_id":"${'$'}message","origin_server_ts":5,"content":{"msgtype":"m.text","body":"Synthetic lifecycle message"}}"""
                     path.contains("/send/m.room.message/") && exchange.requestMethod == "PUT" -> 200 to """{"event_id":"${'$'}sent-reply"}"""
+                    path.contains("/redact/${'$'}own/") && exchange.requestMethod == "PUT" -> 200 to """{"event_id":"${'$'}redaction"}"""
                     path.endsWith("/keys/upload") -> 200 to """{"one_time_key_counts":{"signed_curve25519":50}}"""
                     path.endsWith("/keys/query") -> 200 to """{"device_keys":{},"failures":{}}"""
                     path.endsWith("/keys/claim") -> 200 to """{"one_time_keys":{},"failures":{}}"""
@@ -144,6 +151,22 @@ class WindowsNativeLifecycleTest {
                 assertEquals("", (timeline.composer.state.value as ComposerState.Editing).text)
                 val quote = timeline.replyDetails("\$message")
                 assertEquals("Synthetic lifecycle message", (quote.details as MessageQuote.Details.Ready).preview)
+                timeline.deletion.permission.first { it is DeletePermission.Ready }
+                val own = (timeline.rows.value as LoadPhase.Ready).value.single { it.body == "Synthetic own deletion fixture" }
+                assertNull(timeline.deletion.candidate(original.id))
+                val deletion = timeline.deletion.candidate(own.id)!!
+                timeline.deletion.confirm(deletion)
+                timeline.deletion.phase.first { it !is DeletePhase.Deleting }
+                assertEquals(DeletePhase.Idle, timeline.deletion.phase.value)
+                val redaction = withTimeout(15_000) { ownDeleted.await() }
+                assertFalse(redaction.containsKey("reason"))
+                val redactionEchoed = CompletableDeferred<Unit>()
+                val redactionEcho = first.client.syncV2(SyncSettingsV2(timeoutMs = 100uL), object : SyncListenerV2 {
+                    override fun onUpdate(response: SyncResponseV2) { redactionEchoed.complete(Unit) }
+                })
+                try { redactionEchoed.await() } finally { redactionEcho.cancel(); redactionEcho.destroy() }
+                timeline.rows.first { it is LoadPhase.Ready && it.value.any { row -> row.id == own.id && row.kind == MessageRow.Kind.DELETED } }
+                assertNull(timeline.deletion.candidate(own.id))
                 timeline.composer.edit("Synthetic offline saved draft")
                 assertTrue(timeline.replies.start(original.id))
                 timeline.composer.state.first { it is ComposerState.Editing && it.persistence == DraftPersistence.SAVED }
