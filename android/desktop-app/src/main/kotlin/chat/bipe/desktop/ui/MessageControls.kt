@@ -28,7 +28,8 @@ import kotlinx.coroutines.CancellationException
 @OptIn(ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class)
 @Composable internal fun MessageSurface(model: DesktopTimeline, row: MessageRow, seconds: Int, highlighted: Boolean,
                                        popup: TimelinePopup?, show: (TimelinePopup?) -> Unit, s: DesktopCatalog,
-                                       colors: DesktopColors, focusComposer: () -> Unit, content: @Composable () -> Unit) {
+                                       colors: DesktopColors, focusComposer: () -> Unit, copied: () -> Unit,
+                                       content: @Composable () -> Unit) {
     val clipboard = LocalClipboardManager.current
     val focus = remember { FocusRequester() }
     val label = s.text("bipe_message_actions")
@@ -38,7 +39,7 @@ import kotlinx.coroutines.CancellationException
         })
         if (row.kind == MessageRow.Kind.TEXT) add(ChatRowAction(if (seconds > 0)
             s.text("bipe_pause_countdown", NumberFormat.getIntegerInstance().format(seconds)) else s.text("bipe_app_copy"), seconds == 0) {
-            model.copyText(row.id)?.let { clipboard.setText(AnnotatedString(it)) }
+            model.copyText(row.id)?.let { clipboard.setText(AnnotatedString(it)); copied() }
         })
     }
     val open = { if (actions.isNotEmpty()) { focus.requestFocus(); show(TimelinePopup.MessageMenu(row.id)) } }

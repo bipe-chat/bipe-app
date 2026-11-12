@@ -44,6 +44,7 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlin.math.floor
+import kotlinx.coroutines.launch
 
 @Composable
 fun DesktopApp(model: DesktopAppModel, phase: AppPhase, colors: DesktopColors, onClose: () -> Unit) {
@@ -386,6 +387,8 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
     var popup by remember(model) { mutableStateOf<TimelinePopup?>(null) }
     val listState = rememberLazyListState()
     val composerFocus = remember(model) { FocusRequester() }
+    val notices = remember(model) { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
     val original by model.originalNavigation.collectAsState()
     val rows = when (val snapshot = load) { is LoadPhase.Ready -> snapshot.value; else -> emptyList() }
     LaunchedEffect(original) {
@@ -408,7 +411,9 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp),
                         horizontalAlignment = if (message.own) Alignment.End else Alignment.Start) {
                         MessageSurface(model, message, seconds, (original as? OriginalNavigation.Found)?.rowId == message.id,
-                            popup, { popup = it }, s, colors, { composerFocus.requestFocus() }) {
+                            popup, { popup = it }, s, colors, { composerFocus.requestFocus() }, {
+                                scope.launch { notices.showSnackbar(s.text("bipe_app_copied")) }
+                            }) {
                             Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
                                 if (!message.own) Text(message.sender, style = MaterialTheme.typography.labelMedium)
                                 message.reply?.let { quote ->
@@ -442,6 +447,7 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
                 }
             }
         }
+        SnackbarHost(notices, Modifier.padding(horizontal = 16.dp))
         if (reactionAction is ReactionActionPhase.Failed) Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(s.text("bipe_app_reaction_failed"), modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
             TextButton(onClick = { model.reactions.dismissFailure() }) { Text(s.text("bipe_app_close")) }
