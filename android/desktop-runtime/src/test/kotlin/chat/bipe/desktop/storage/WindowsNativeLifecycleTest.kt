@@ -34,6 +34,7 @@ class WindowsNativeLifecycleTest {
         val seeded = CompletableDeferred<Unit>()
         val requests = AtomicInteger()
         val commands = Collections.synchronizedList(mutableListOf<String>())
+        val markedUnread = AtomicBoolean(false)
         val syncResponses = CountDownLatch(1)
         val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
         server.createContext("/") { exchange ->
@@ -44,7 +45,7 @@ class WindowsNativeLifecycleTest {
                 if ((path.contains("/receipt/") || path.endsWith("/read_markers")) && exchange.requestMethod == "POST") commands += "receipt"
                 if (path.contains("/account_data/") && exchange.requestMethod == "PUT") {
                     runCatching { Json.parseToJsonElement(requestBody).jsonObject["unread"]?.jsonPrimitive?.booleanOrNull }
-                        .getOrNull()?.let { commands += "unread:$it" }
+                        .getOrNull()?.let { markedUnread.set(it); commands += "unread:$it" }
                 }
                 // Subscribe before releasing the first sync failure: the SDK observer emits changes, not an initial value.
                 if (path.endsWith("/sync") && exchange.requestMethod == "POST") check(syncResponses.await(20, TimeUnit.SECONDS))
@@ -52,8 +53,9 @@ class WindowsNativeLifecycleTest {
                     path.endsWith("/versions") && online.get() -> 200 to
                         """{"versions":["v1.12"],"unstable_features":{"org.matrix.simplified_msc3575":true}}"""
                     path.endsWith("/versions") -> 503 to """{"errcode":"M_UNKNOWN","error":"Synthetic offline"}"""
-                    path.endsWith("/sync") && exchange.requestMethod == "GET" && online.get() -> 200 to """{
-                        "next_batch":"seeded", "rooms":{"join":{"$room":{
+                    // Explicit V2 calls seed/echo the synthetic local store; the app's sliding supervisor stays offline.
+                    path.endsWith("/sync") && exchange.requestMethod == "GET" -> 200 to """{
+                        "next_batch":"seeded-${requests.get()}", "rooms":{"join":{"$room":{
                           "state":{"events":[
                             {"type":"m.room.create","state_key":"","sender":"@synthetic:example.test","event_id":"${'$'}create","origin_server_ts":1,"content":{"creator":"@synthetic:example.test","room_version":"10"}},
                             {"type":"m.room.member","state_key":"@synthetic:example.test","sender":"@synthetic:example.test","event_id":"${'$'}member","origin_server_ts":2,"content":{"membership":"join","displayname":"Synthetic"}},
@@ -62,11 +64,12 @@ class WindowsNativeLifecycleTest {
                             {"type":"m.room.power_levels","state_key":"","sender":"@synthetic:example.test","event_id":"${'$'}power","origin_server_ts":4,"content":{"users":{"@synthetic:example.test":100}}}
                           ]},
                           "timeline":{"events":[{"type":"m.room.message","sender":"@peer:example.test","event_id":"${'$'}message","origin_server_ts":5,"content":{"msgtype":"m.text","body":"Synthetic lifecycle message"}}],"limited":false,"prev_batch":"before"},
+                          "account_data":{"events":[{"type":"m.marked_unread","content":{"unread":${markedUnread.get()}}}]},
                           "unread_notifications":{"notification_count":0,"highlight_count":0}
                         }}}
                     }"""
                     path.endsWith("/sync") -> 400 to """{"errcode":"M_UNKNOWN","error":"Synthetic offline sync"}"""
-                    path.endsWith("/messages") -> 200 to """{"chunk":[],"state":[],"start":"before"}"""
+                    path.endsWith("/messages") -> 200 to """{"chunk":[{"type":"m.room.message","sender":"@peer:example.test","event_id":"${'$'}message","origin_server_ts":5,"content":{"msgtype":"m.text","body":"Synthetic lifecycle message"}}],"state":[],"start":"before"}"""
                     path.endsWith("/keys/upload") -> 200 to """{"one_time_key_counts":{"signed_curve25519":50}}"""
                     path.endsWith("/keys/query") -> 200 to """{"device_keys":{},"failures":{}}"""
                     path.endsWith("/keys/claim") -> 200 to """{"one_time_keys":{},"failures":{}}"""
@@ -117,6 +120,9 @@ class WindowsNativeLifecycleTest {
                 syncResponses.countDown()
                 println("BIPE_NATIVE_LIFECYCLE stage=draft")
                 val timeline = DesktopTimeline.open(first, room, labels)
+                // V2 seeds room summaries before the live event cache exists. Populate that cache via the real pagination API.
+                timeline.loadEarlier().join()
+                timeline.rows.first { it is LoadPhase.Ready && it.value.any { row -> row.body == "Synthetic lifecycle message" } }
                 timeline.composer.state.first { it is ComposerState.Editing }
                 timeline.composer.edit("Synthetic offline saved draft")
                 timeline.composer.state.first { it is ComposerState.Editing && it.persistence == DraftPersistence.SAVED }
@@ -131,6 +137,12 @@ class WindowsNativeLifecycleTest {
                 list.readActions.set(room, true)
                 list.readActions.phase.first { it is ReadActionPhase.Idle }
                 assertTrue(list.readActions.phase.value.failures.isEmpty())
+                // The SDK does not optimistically update m.marked_unread after PUT. Echo it before clearing it again.
+                val echoed = CompletableDeferred<Unit>()
+                val echo = first.client.syncV2(SyncSettingsV2(timeoutMs = 100uL), object : SyncListenerV2 {
+                    override fun onUpdate(response: SyncResponseV2) { echoed.complete(Unit) }
+                })
+                try { echoed.await() } finally { echo.cancel(); echo.destroy() }
                 list.readActions.set(room, false)
                 list.readActions.phase.first { it is ReadActionPhase.Idle }
                 assertTrue(list.readActions.phase.value.failures.isEmpty())
@@ -148,6 +160,7 @@ class WindowsNativeLifecycleTest {
                 val cached = restoredList.rows.first { it is LoadPhase.Ready && it.value.any { row -> row.id == room } } as LoadPhase.Ready<List<ChatRow>>
                 assertEquals("Lifecycle fixture", cached.value.single { it.id == room }.name)
                 val restoredTimeline = DesktopTimeline.open(restored, room, labels)
+                restoredTimeline.rows.first { it is LoadPhase.Ready && it.value.any { row -> row.body == "Synthetic lifecycle message" } }
                 val draft = restoredTimeline.composer.state.first { it is ComposerState.Editing } as ComposerState.Editing
                 assertEquals("Synthetic offline saved draft", draft.text)
                 assertEquals(AccountCloseResult.Closed, restored.closeAsync().await())

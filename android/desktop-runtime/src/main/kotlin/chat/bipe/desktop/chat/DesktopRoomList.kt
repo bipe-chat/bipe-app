@@ -57,17 +57,17 @@ class DesktopRoomList private constructor(
     private suspend fun start() {
         group.launch {
             try {
-            val savedRooms = mutableSetOf<String>()
-            combine(mutableRows, archive.phase) { rooms, archived -> rooms to archived }.collect { (rooms, archived) ->
-                if (rooms !is LoadPhase.Ready) { group.publish { mutableVisibleRows.value = rooms }; return@collect }
-                val state = archived as? ArchivePhase.Ready
-                savedRooms += state?.markers.orEmpty().keys + state?.operations.orEmpty().keys + state?.confirmed.orEmpty().keys
-                val extras = savedRooms.filter { id -> rooms.value.none { it.id == id } }
-                    .mapNotNull { id -> runtime.client.getRoom(id)?.let { room -> try { summary(room) } finally { room.destroy() } } }
-                val raw = (rooms.value + extras).distinctBy { it.id }
-                group.publish { mutableVisibleRows.value = LoadPhase.Ready(raw.map { state?.effective(it) ?: it }) }
-                archive.reconcile(raw)
-            }
+                val savedRooms = mutableSetOf<String>()
+                combine(mutableRows, archive.phase) { rooms, archived -> rooms to archived }.collect { (rooms, archived) ->
+                    if (rooms !is LoadPhase.Ready) { group.publish { mutableVisibleRows.value = rooms }; return@collect }
+                    val state = archived as? ArchivePhase.Ready
+                    savedRooms += state?.markers.orEmpty().keys + state?.operations.orEmpty().keys + state?.confirmed.orEmpty().keys
+                    val extras = savedRooms.filter { id -> rooms.value.none { it.id == id } }
+                        .mapNotNull { id -> runtime.client.getRoom(id)?.let { room -> try { summary(room) } finally { room.destroy() } } }
+                    val raw = (rooms.value + extras).distinctBy { it.id }
+                    group.publish { mutableVisibleRows.value = LoadPhase.Ready(raw.map { state?.effective(it) ?: it }) }
+                    archive.reconcile(raw)
+                }
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (_: Exception) { group.publish { mutableVisibleRows.value = LoadPhase.Failed } }
         }
