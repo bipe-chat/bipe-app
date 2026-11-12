@@ -172,6 +172,7 @@ fun DesktopApp(model: DesktopAppModel, phase: AppPhase, colors: DesktopColors, o
 }
 
 private enum class Destination(val key: String) { CHATS("bipe_tab_chats"), GROUPS("bipe_tab_groups"), YOU("bipe_tab_you") }
+private enum class ChatListMode { ACTIVE, ARCHIVED }
 
 @Composable private fun Workspace(model: DesktopAppModel, account: AppPhase.Ready, colors: DesktopColors) {
     val s = model.catalog
@@ -188,6 +189,8 @@ private enum class Destination(val key: String) { CHATS("bipe_tab_chats"), GROUP
         else if (selected == null) model.clearRoom() else model.selectRoom(selected)
     }
     var popup by remember(account, destination) { mutableStateOf<WorkspacePopup?>(null) }
+    var listMode by remember(account, destination) { mutableStateOf(ChatListMode.ACTIVE) }
+    val archivedView = listMode == ChatListMode.ARCHIVED
     var editing by remember(account, destination, profile.kind) { mutableStateOf<FavouriteEditing>(FavouriteEditing.Normal) }
     val favouriteBounds = remember(account, destination) { mutableStateMapOf<String, Rect>() }
     val roomListState = key(account, destination) { rememberLazyListState() }
@@ -196,8 +199,12 @@ private enum class Destination(val key: String) { CHATS("bipe_tab_chats"), GROUP
         // Lazy lists preserve the first visible room when an item grows above it. Reveal the mode's controls explicitly.
         if (reordering) roomListState.scrollToItem(0)
     }
+    LaunchedEffect(listMode) { roomListState.scrollToItem(0) }
     val load by account.list.rows.collectAsState()
     val favourites by account.list.favourites.phase.collectAsState()
+    val archive by account.list.archive.phase.collectAsState()
+    val archiveState = archive as? ArchivePhase.Ready
+    val readAction by account.list.readActions.phase.collectAsState()
     val favouriteState = favourites as? FavouritesPhase.Ready
     val order = favouriteState?.order.orEmpty()
     val favouritesEnabled = favouriteState != null && favouriteState.sync != FavouritesSync.Saving
@@ -205,7 +212,7 @@ private enum class Destination(val key: String) { CHATS("bipe_tab_chats"), GROUP
     val allRows = when (val snapshot = load) { is LoadPhase.Ready -> snapshot.value; else -> emptyList() }
     val scope = if (profile.kind == AccountKind.COMPANY) ChatScope.ALL
         else if (destination == Destination.CHATS) ChatScope.DIRECT else ChatScope.GROUPS
-    val sections = ChatListSections.from(allRows, order, scope, search)
+    val sections = ChatListSections.from(allRows, order, scope, search, archivedView)
     val shownFavourites = sections.favourites.map { it.id }
     LaunchedEffect(shownFavourites, allRows.map { it.id }) {
         if (shownFavourites.size < 2 || (editing is FavouriteEditing.Dragging && (editing as FavouriteEditing.Dragging).shown != shownFavourites))
@@ -227,6 +234,15 @@ private enum class Destination(val key: String) { CHATS("bipe_tab_chats"), GROUP
             })
             if (index >= 0 && index < shownFavourites.lastIndex) add(ChatRowAction(s.text("bipe_chat_favourite_move_later"), favouritesEnabled) {
                 account.list.favourites.move(row.id, index + 1, shownFavourites)
+            })
+        }
+        if (editing == FavouriteEditing.Normal) {
+            add(ChatRowAction(s.text(if (row.hasUnread) "bipe_app_notification_mark_read" else "bipe_chat_mark_unread"), readAction !is ReadActionPhase.Sending) {
+                account.list.readActions.set(row.id, !row.hasUnread)
+            })
+            add(ChatRowAction(s.text("bipe_settings_notifications"), true) { popup = WorkspacePopup.Notifications(row.id) })
+            add(ChatRowAction(s.text(if (row.archived) "bipe_unarchive_action" else "bipe_archive_action"), archiveState != null) {
+                account.list.archive.set(row, !row.archived)
             })
         }
     }
@@ -268,7 +284,24 @@ private enum class Destination(val key: String) { CHATS("bipe_tab_chats"), GROUP
                         TextButton(onClick = { account.list.favourites.retry() }) { Text(s.text("bipe_app_retry")) }
                     }
                 } else if (favouriteState?.sync == FavouritesSync.Saving) Text(s.text("bipe_web_loading"), Modifier.padding(12.dp))
+                if (archive == ArchivePhase.Unavailable || archiveState?.failed == true) {
+                    Row(Modifier.padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(s.text("bipe_archive_error"), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                        TextButton(onClick = { account.list.archive.retry() }) { Text(s.text("bipe_app_retry")) }
+                    }
+                } else if (archiveState?.operations?.isNotEmpty() == true) Text(s.text("bipe_web_loading"), Modifier.padding(12.dp))
+                if (readAction.failures.isNotEmpty()) {
+                    Row(Modifier.padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(s.text("bipe_chat_read_error"), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                        TextButton(onClick = { account.list.readActions.retry() }, enabled = readAction !is ReadActionPhase.Sending) { Text(s.text("bipe_app_retry")) }
+                    }
+                } else if (readAction is ReadActionPhase.Sending) Text(s.text("bipe_web_loading"), Modifier.padding(12.dp))
                 LazyColumn(Modifier.weight(1f), state = roomListState) {
+                    if (archivedView) item(key = "archives-back") {
+                        ArchiveScopeRow(s.text(if (scope == ChatScope.GROUPS) "bipe_tab_groups" else "bipe_app_chat_list_title"), true, colors) {
+                            listMode = ChatListMode.ACTIVE; popup = null
+                        }
+                    }
                     if (reordering) item(key = "favourites-reorder") {
                         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text(s.text("bipe_chat_favourites_reorder_hint"), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
@@ -284,7 +317,7 @@ private enum class Destination(val key: String) { CHATS("bipe_tab_chats"), GROUP
                         when (load) {
                             LoadPhase.Loading -> Text(s.text("bipe_web_loading"), Modifier.padding(16.dp))
                             LoadPhase.Failed -> BipeButton(s.text("bipe_app_retry"), { model.open(account.slots.first { it.slot == account.runtime.slot }) }, Modifier.padding(16.dp))
-                            is LoadPhase.Ready -> if (sections.isEmpty) Text(s.text(if (destination == Destination.CHATS) "bipe_app_chat_list_empty" else "bipe_app_groups_empty"), Modifier.padding(16.dp))
+                            is LoadPhase.Ready -> if (sections.isEmpty) Text(s.text(if (archivedView) "bipe_archived_empty" else if (destination == Destination.CHATS) "bipe_app_chat_list_empty" else "bipe_app_groups_empty"), Modifier.padding(16.dp))
                         }
                     }
                     items(sections.history, key = { it.id }) { row ->
@@ -299,10 +332,17 @@ private enum class Destination(val key: String) { CHATS("bipe_tab_chats"), GROUP
                                     preview?.let { Text(it, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall) }
                                 }
                                 if (row.unread > 0) Text(row.unread.toString(), style = MaterialTheme.typography.labelSmall)
+                                else if (row.markedUnread) Box(Modifier.size(10.dp).background(colors["accent.fill"], CircleShape)
+                                    .semantics { contentDescription = s.text("bipe_chat_unread_state") })
                             }
                         }
                     }
                     item { TextButton(onClick = { account.list.loadMore() }, modifier = Modifier.fillMaxWidth()) { Text(s.text("bipe_action_show_more")) } }
+                    if (!archivedView) item(key = "archives-open") {
+                        ArchiveScopeRow(s.text("bipe_archived_title"), false, colors) {
+                            editing = FavouriteEditing.Normal; listMode = ChatListMode.ARCHIVED; popup = null
+                        }
+                    }
                 }
             }
             VerticalDivider(color = colors["line.subtle"])
@@ -328,6 +368,9 @@ private enum class Destination(val key: String) { CHATS("bipe_tab_chats"), GROUP
                 }
             }
         }
+    }
+    (popup as? WorkspacePopup.Notifications)?.let { target ->
+        RoomNotificationDialog(account.runtime, target.id, s) { popup = null }
     }
 }
 

@@ -12,6 +12,7 @@ import com.sun.net.httpserver.HttpServer
 import java.net.InetSocketAddress
 import java.nio.file.Files
 import java.util.UUID
+import java.util.Collections
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
@@ -22,6 +23,7 @@ import org.junit.Assert.*
 import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.matrix.rustcomponents.sdk.*
+import kotlinx.serialization.json.*
 
 /** A cached joined room, real list/timeline listeners and an offline native sync supervisor must all drain. */
 class WindowsNativeLifecycleTest {
@@ -31,12 +33,19 @@ class WindowsNativeLifecycleTest {
         val online = AtomicBoolean(true)
         val seeded = CompletableDeferred<Unit>()
         val requests = AtomicInteger()
+        val commands = Collections.synchronizedList(mutableListOf<String>())
         val syncResponses = CountDownLatch(1)
         val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
         server.createContext("/") { exchange ->
             try {
-                exchange.requestBody.use { it.readBytes() }
+                val requestBody = exchange.requestBody.use { it.readBytes().toString(Charsets.UTF_8) }
                 val path = exchange.requestURI.path
+                if (path.contains("/tags/") && exchange.requestMethod in listOf("PUT", "DELETE")) commands += "${exchange.requestMethod} tag"
+                if ((path.contains("/receipt/") || path.endsWith("/read_markers")) && exchange.requestMethod == "POST") commands += "receipt"
+                if (path.contains("/account_data/") && exchange.requestMethod == "PUT") {
+                    runCatching { Json.parseToJsonElement(requestBody).jsonObject["unread"]?.jsonPrimitive?.booleanOrNull }
+                        .getOrNull()?.let { commands += "unread:$it" }
+                }
                 // Subscribe before releasing the first sync failure: the SDK observer emits changes, not an initial value.
                 if (path.endsWith("/sync") && exchange.requestMethod == "POST") check(syncResponses.await(20, TimeUnit.SECONDS))
                 val (status, body) = when {
@@ -48,10 +57,11 @@ class WindowsNativeLifecycleTest {
                           "state":{"events":[
                             {"type":"m.room.create","state_key":"","sender":"@synthetic:example.test","event_id":"${'$'}create","origin_server_ts":1,"content":{"creator":"@synthetic:example.test","room_version":"10"}},
                             {"type":"m.room.member","state_key":"@synthetic:example.test","sender":"@synthetic:example.test","event_id":"${'$'}member","origin_server_ts":2,"content":{"membership":"join","displayname":"Synthetic"}},
+                            {"type":"m.room.member","state_key":"@peer:example.test","sender":"@peer:example.test","event_id":"${'$'}peer","origin_server_ts":2,"content":{"membership":"join","displayname":"Peer"}},
                             {"type":"m.room.name","state_key":"","sender":"@synthetic:example.test","event_id":"${'$'}name","origin_server_ts":3,"content":{"name":"Lifecycle fixture"}},
                             {"type":"m.room.power_levels","state_key":"","sender":"@synthetic:example.test","event_id":"${'$'}power","origin_server_ts":4,"content":{"users":{"@synthetic:example.test":100}}}
                           ]},
-                          "timeline":{"events":[{"type":"m.room.message","sender":"@synthetic:example.test","event_id":"${'$'}message","origin_server_ts":5,"content":{"msgtype":"m.text","body":"Synthetic lifecycle message"}}],"limited":false,"prev_batch":"before"},
+                          "timeline":{"events":[{"type":"m.room.message","sender":"@peer:example.test","event_id":"${'$'}message","origin_server_ts":5,"content":{"msgtype":"m.text","body":"Synthetic lifecycle message"}}],"limited":false,"prev_batch":"before"},
                           "unread_notifications":{"notification_count":0,"highlight_count":0}
                         }}}
                     }"""
@@ -60,6 +70,9 @@ class WindowsNativeLifecycleTest {
                     path.endsWith("/keys/upload") -> 200 to """{"one_time_key_counts":{"signed_curve25519":50}}"""
                     path.endsWith("/keys/query") -> 200 to """{"device_keys":{},"failures":{}}"""
                     path.endsWith("/keys/claim") -> 200 to """{"one_time_keys":{},"failures":{}}"""
+                    path.contains("/tags/") && exchange.requestMethod in listOf("PUT", "DELETE") -> 200 to "{}"
+                    (path.contains("/receipt/") || path.endsWith("/read_markers")) && exchange.requestMethod == "POST" -> 200 to "{}"
+                    path.contains("/account_data/") && exchange.requestMethod == "PUT" -> 200 to "{}"
                     else -> 404 to """{"errcode":"M_NOT_FOUND","error":"Synthetic fixture"}"""
                 }
                 if (requests.incrementAndGet() <= 60) println("BIPE_NATIVE_LIFECYCLE http=${exchange.requestMethod} $path status=$status")
@@ -108,6 +121,22 @@ class WindowsNativeLifecycleTest {
                 timeline.composer.edit("Synthetic offline saved draft")
                 timeline.composer.state.first { it is ComposerState.Editing && it.persistence == DraftPersistence.SAVED }
                 offline.await()
+                println("BIPE_NATIVE_LIFECYCLE stage=explicit_room_controls")
+                val chat = rows.value.single { it.id == room }
+                list.archive.set(chat, true)
+                list.archive.phase.first { it is ArchivePhase.Ready && room in it.markers && it.operations.isEmpty() }
+                list.archive.set(chat.copy(archived = true), false)
+                list.archive.phase.first { it is ArchivePhase.Ready && room !in it.markers && it.operations.isEmpty() }
+                assertTrue(commands.contains("PUT tag")); assertTrue(commands.contains("DELETE tag"))
+                list.readActions.set(room, true)
+                list.readActions.phase.first { it is ReadActionPhase.Idle }
+                assertTrue(list.readActions.phase.value.failures.isEmpty())
+                list.readActions.set(room, false)
+                list.readActions.phase.first { it is ReadActionPhase.Idle }
+                assertTrue(list.readActions.phase.value.failures.isEmpty())
+                val ordered = synchronized(commands) { commands.toList() }
+                assertTrue(ordered.indexOf("unread:true") >= 0)
+                assertTrue(ordered.indexOf("receipt") in (ordered.indexOf("unread:true") + 1) until ordered.indexOf("unread:false"))
                 println("BIPE_NATIVE_LIFECYCLE stage=close_offline")
                 // The account owns and closes the list/timeline. No GC, file deletion or manual SDK pause is used by the test.
                 assertEquals(AccountCloseResult.Closed, first.closeAsync().await())

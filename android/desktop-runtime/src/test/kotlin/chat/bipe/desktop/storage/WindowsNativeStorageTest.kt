@@ -100,6 +100,12 @@ class WindowsNativeStorageTest {
             assertFalse(favourites.toString(Charsets.ISO_8859_1).contains("synthetic-private-preference"))
             Files.write(second.paths.root.resolve("favourites.bin"), favourites)
             expect(StorageCode.NATIVE_FAILURE) { second.readFavourites() }
+            first.writeArchive(clear)
+            assertEquals(clear, first.readArchive())
+            val archive = Files.readAllBytes(first.paths.root.resolve("archive.bin"))
+            assertFalse(archive.toString(Charsets.ISO_8859_1).contains("synthetic-private-preference"))
+            Files.write(second.paths.root.resolve("archive.bin"), archive)
+            expect(StorageCode.NATIVE_FAILURE) { second.readArchive() }
         } finally {
             first.close(); second.close(); vault.remove(first.slot); vault.remove(second.slot)
             root.toFile().deleteRecursively()

@@ -278,7 +278,7 @@ private enum class LinkPhase { IDLE, FAILED }
 
 @Composable private fun SectionTitle(text: String) = Text(text, Modifier.padding(horizontal = 16.dp, vertical = 12.dp), style = MaterialTheme.typography.titleSmall)
 @Composable private fun Footer(text: String) = Text(text, Modifier.padding(horizontal = 16.dp, vertical = 10.dp), style = MaterialTheme.typography.bodySmall)
-@Composable private fun sharedIcon(id: String): Painter {
+@Composable internal fun sharedIcon(id: String): Painter {
     val density = LocalDensity.current
     return remember(id, density) { useResource("phosphor-$id.svg") { loadSvgPainter(it, density) } }
 }

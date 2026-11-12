@@ -32,6 +32,7 @@ import chat.bipe.desktop.chat.ChatRow
 internal sealed interface WorkspacePopup {
     data object Accounts : WorkspacePopup
     data class Room(val id: String) : WorkspacePopup
+    data class Notifications(val id: String) : WorkspacePopup
 }
 internal sealed interface FavouriteEditing {
     data object Normal : FavouriteEditing
@@ -116,14 +117,14 @@ internal data class ChatRowAction(val label: String, val enabled: Boolean, val r
             }
             val unread = s.text("bipe_chat_unread_state")
             ChatRowSurface(row.id == selected && !reordering, colors, { if (!reordering) open(row.id) },
-                cell.semantics(mergeDescendants = true) { contentDescription = if (row.unread > 0) "${row.name}, $unread" else row.name },
+                cell.semantics(mergeDescendants = true) { contentDescription = if (row.hasUnread) "${row.name}, $unread" else row.name },
                 popup == WorkspacePopup.Room(row.id), { show(if (it) WorkspacePopup.Room(row.id) else null) }, actions(row), s) {
                 Column(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                         val size = minOf(maxWidth * 0.8f, 92.dp)
                         Box(Modifier.size(size)) {
                             Avatar(row, runtime.media, runtime.identity, colors, size)
-                            if (row.unread > 0) Box(Modifier.align(Alignment.TopEnd).size(20.dp)
+                            if (row.hasUnread) Box(Modifier.align(Alignment.TopEnd).size(20.dp)
                                 .border(2.dp, colors["surface.base"], CircleShape).padding(2.dp).background(colors["accent.fill"], CircleShape))
                         }
                     }
@@ -133,5 +134,17 @@ internal data class ChatRowAction(val label: String, val enabled: Boolean, val r
             }
         } }
         repeat(3 - line.size) { Spacer(Modifier.weight(1f)) }
+    }
+}
+
+@Composable internal fun ArchiveScopeRow(title: String, back: Boolean, colors: DesktopColors, open: () -> Unit) {
+    Row(Modifier.fillMaxWidth().heightIn(min = 64.dp).clickable(role = Role.Button, onClick = open)
+        .semantics(mergeDescendants = true) {}.padding(12.dp), verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+            Icon(sharedIcon(if (back) "caret-left" else "archive"), contentDescription = null,
+                tint = colors["ink.primary"], modifier = Modifier.size(24.dp))
+        }
+        Text(title, style = MaterialTheme.typography.titleMedium)
     }
 }

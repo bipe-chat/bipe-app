@@ -54,6 +54,13 @@ class MatrixAccountRuntime private constructor(
     val slot get() = lifetime.lease.slot
     val signal = mutableSignal.asStateFlow()
     private val syncLock = Mutex()
+    private val roomTagLock = Mutex()
+    internal val notificationLock = Mutex()
+
+    /** Favourite and archive writes share the SDK's mutually exclusive priority tags. */
+    suspend fun <T> withRoomTagWrite(operation: suspend () -> T): T = roomTagLock.withLock {
+        lifetime.requireCurrent(); operation().also { lifetime.requireCurrent() }
+    }
     private sealed interface SyncPhase {
         data object Idle : SyncPhase
         class Running(val service: SyncService) : SyncPhase

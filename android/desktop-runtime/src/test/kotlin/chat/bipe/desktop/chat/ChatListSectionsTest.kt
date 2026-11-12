@@ -46,6 +46,16 @@ class ChatListSectionsTest {
         assertEquals(original, unstarred.history.single())
     }
 
+    @Test fun archivedScopeHasNoFavouriteGridAndManualUnreadNeverInventsAMessageCount() {
+        val archived = room("saved", favourite = true, archived = true).copy(markedUnread = true, draft = "Retained")
+        val result = ChatListSections.from(listOf(archived, room("active")), emptyList(), ChatScope.DIRECT, "", archived = true)
+        assertTrue(result.favourites.isEmpty())
+        assertEquals(listOf("saved"), result.history.map { it.id })
+        assertTrue(result.history.single().hasUnread)
+        assertEquals(0L, result.history.single().unread)
+        assertEquals("Retained", result.history.single().draft)
+    }
+
     private fun room(id: String, favourite: Boolean = false, dm: Boolean = true, archived: Boolean = false, time: Long? = null) =
         ChatRow(id, id, null, emptyList(), dm, favourite, archived, 0, null, time)
 }

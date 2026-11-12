@@ -13,15 +13,15 @@ data class ChatListSections(val favourites: List<ChatRow>, val history: List<Cha
     val isEmpty get() = favourites.isEmpty() && history.isEmpty()
 
     companion object {
-        fun from(rows: List<ChatRow>, order: List<String>, scope: ChatScope, search: String): ChatListSections {
+        fun from(rows: List<ChatRow>, order: List<String>, scope: ChatScope, search: String, archived: Boolean = false): ChatListSections {
             val visible = rows.filter {
-                !it.archived && when (scope) {
+                it.archived == archived && when (scope) {
                     ChatScope.DIRECT -> it.isDm
                     ChatScope.GROUPS -> !it.isDm
                     ChatScope.ALL -> true
                 } && (search.isEmpty() || it.name.contains(search, ignoreCase = true) || it.preview.orEmpty().contains(search, ignoreCase = true))
             }
-            val (favourites, history) = visible.partition { it.favourite }
+            val (favourites, history) = visible.partition { it.favourite && !archived }
             return ChatListSections(BipeFavouritesOrder.sorted(favourites, order, { it.id }, { it.name }), history)
         }
     }

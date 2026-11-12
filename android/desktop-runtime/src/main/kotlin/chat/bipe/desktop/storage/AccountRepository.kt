@@ -295,6 +295,8 @@ class AccountLease internal constructor(
     internal fun writeAppearance(value: String) = writeProtectedLocal("appearance.bin", value)
     internal fun readFavourites(): String? = readProtectedLocal("favourites.bin")
     internal fun writeFavourites(value: String) = writeProtectedLocal("favourites.bin", value)
+    internal fun readArchive(): String? = readProtectedLocal("archive.bin")
+    internal fun writeArchive(value: String) = writeProtectedLocal("archive.bin", value)
 
     private fun readProtectedLocal(name: String): String? = useStoreKey { key ->
         val file = paths.root.resolve(name)

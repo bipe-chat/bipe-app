@@ -16,7 +16,9 @@ data class ChatRow(
     val preview: String?, val timestamp: Long?,
     val draft: String? = null,
     val peerUserId: String? = null,
-)
+    val markedUnread: Boolean = false,
+    val latestIncoming: Long? = null,
+) { val hasUnread get() = unread > 0 || markedUnread }
 data class MessageRow(
     val id: String, val sender: String, val own: Boolean, val body: String, val kind: Kind,
     val timestamp: Long, val delivery: Delivery, val canRetry: Boolean = false,

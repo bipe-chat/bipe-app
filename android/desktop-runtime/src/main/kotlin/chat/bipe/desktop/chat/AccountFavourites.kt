@@ -213,7 +213,9 @@ class AccountFavourites private constructor(
             return create(runtime.lifetime, object : FavouritesBackend {
                 override suspend fun cached() = runtime.client.accountData(BipeFavouritesOrder.EVENT_TYPE)
                 override suspend fun fresh() = reader.accountData(BipeFavouritesOrder.EVENT_TYPE)
-                override suspend fun setFavourite(room: String, value: Boolean) = withJoinedRoom(room, null) { it.setIsFavourite(value, null) }
+                override suspend fun setFavourite(room: String, value: Boolean) = runtime.withRoomTagWrite {
+                    withJoinedRoom(room, null) { it.setIsFavourite(value, null) }
+                }
                 override suspend fun checkFavourite(room: String) = withJoinedRoom(room, true) { }
                 override suspend fun write(value: String) = runtime.client.setAccountData(BipeFavouritesOrder.EVENT_TYPE, value)
             }, object : FavouritesJournal {
