@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 data class MessageEditDraft internal constructor(val rowId: String, val eventId: String, val originalText: String,
-                                                 val text: String, val revision: Long = 0) {
+                                                 val text: String, val revision: Long = 0, internal val session: Any = Any()) {
     val canSave get() = text.trim().isNotEmpty() && text.trim() != originalText.trim()
     override fun toString() = "MessageEditDraft(<redacted>)"
 }
@@ -53,9 +53,10 @@ class EditActions internal constructor(private val group: AccountTaskGroup, priv
         return accepted
     }
 
-    fun change(text: String) = group.publish {
+    fun change(text: String, expected: MessageEditDraft? = null) = group.publish {
         val current = mutablePhase.value
         if (current is EditPhase.Saving) return@publish
+        if (expected != null && current.draft?.session !== expected.session) return@publish
         current.draft?.let { mutablePhase.value = EditPhase.Composing(it.copy(text = text, revision = it.revision + 1)) }
     }
 
@@ -67,11 +68,12 @@ class EditActions internal constructor(private val group: AccountTaskGroup, priv
         return accepted
     }
 
-    fun save() {
+    fun save(expected: MessageEditDraft? = null) {
         var submitted: MessageEditDraft? = null
         group.publish {
             val current = mutablePhase.value
             if (current is EditPhase.Saving) return@publish
+            if (expected != null && current.draft?.session !== expected.session) return@publish
             current.draft?.takeIf { it.canSave }?.let {
                 submitted = it; mutablePhase.value = EditPhase.Saving(it)
             }

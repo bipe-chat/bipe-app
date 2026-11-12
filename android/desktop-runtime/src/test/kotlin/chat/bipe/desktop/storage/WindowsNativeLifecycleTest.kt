@@ -166,13 +166,18 @@ class WindowsNativeLifecycleTest {
                 timeline.composer.edit("Synthetic kept before edit")
                 timeline.composer.state.first { it is ComposerState.Editing && it.persistence == DraftPersistence.SAVED }
                 assertTrue(timeline.edits.start(editable.id))
-                timeline.draftChanged("Updated editable message"); timeline.send()
+                timeline.draftChanged("Updated editable message")
+                val editFrame = timeline.edits.phase.value.draft!!
+                timeline.submit(editFrame)
                 timeline.edits.phase.first { it !is EditPhase.Saving }
                 assertEquals(EditPhase.Idle, timeline.edits.phase.value)
                 val edit = withTimeout(15_000) { editSent.await() }
                 assertEquals("m.replace", edit.getValue("m.relates_to").jsonObject.getValue("rel_type").jsonPrimitive.content)
                 assertEquals("\$edit-own", edit.getValue("m.relates_to").jsonObject.getValue("event_id").jsonPrimitive.content)
                 assertEquals("Updated editable message", edit.getValue("m.new_content").jsonObject.getValue("body").jsonPrimitive.content)
+                assertEquals("Synthetic kept before edit", (timeline.composer.state.value as ComposerState.Editing).text)
+                timeline.submit(editFrame) // A late click from the old Save control must never send the kept draft.
+                assertEquals(SendPhase.Idle, timeline.sendPhase.value)
                 assertEquals("Synthetic kept before edit", (timeline.composer.state.value as ComposerState.Editing).text)
                 val editEchoed = CompletableDeferred<Unit>()
                 val editEcho = first.client.syncV2(SyncSettingsV2(timeoutMs = 100uL), object : SyncListenerV2 {

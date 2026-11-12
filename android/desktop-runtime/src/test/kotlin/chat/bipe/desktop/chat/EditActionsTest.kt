@@ -131,6 +131,25 @@ class EditActionsTest {
         }
     }
 
+    @Test fun oldFieldAndSaveCallbacksCannotEditANewSessionWithTheSameRowIdentity() = runBlocking {
+        withMediaOwner { owner ->
+            val calls = AtomicInteger()
+            val fixture = fixture(owner) { _, _ -> calls.incrementAndGet(); Unit }
+            fixture.actions.start("row")
+            val oldFrame = fixture.actions.phase.value.draft!!
+            fixture.actions.change("Updated", oldFrame); fixture.actions.save(oldFrame)
+            fixture.actions.phase.first { it == EditPhase.Idle }
+            fixture.actions.save(oldFrame)
+            assertEquals(EditPhase.Idle, fixture.actions.phase.value)
+            assertTrue(fixture.actions.start("row"))
+            fixture.actions.change("Current edit")
+            fixture.actions.change("Late old text", oldFrame); fixture.actions.save(oldFrame)
+            assertTrue(fixture.actions.phase.value is EditPhase.Composing)
+            assertEquals("Current edit", fixture.actions.phase.value.draft!!.text)
+            assertEquals(1, calls.get())
+        }
+    }
+
     private class Store(initial: SavedComposerDraft = SavedComposerDraft.Text("")) : ComposerDraftStore {
         @Volatile var value = initial
         override suspend fun load(roomId: String) = value

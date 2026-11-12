@@ -474,14 +474,14 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
         if (editDraft != null) ComposerEdit(model, editing, s, colors)
         else (composer as? ComposerState.Editing)?.replyTo?.let { ComposerReply(model, it, rows, s, colors) }
         Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            OutlinedTextField(draft, model::draftChanged, placeholder = { Text(s.text("bipe_app_timeline_composer_placeholder")) },
+            OutlinedTextField(draft, { model.draftChanged(it, editDraft) }, placeholder = { Text(s.text("bipe_app_timeline_composer_placeholder")) },
                 enabled = inputEnabled,
                 shape = RoundedCornerShape(24.dp), maxLines = 8, modifier = Modifier.weight(1f).focusRequester(composerFocus).onPreviewKeyEvent {
-                    if (it.type == KeyEventType.KeyDown && it.key == Key.Enter && !it.isShiftPressed && inputEnabled) { model.send(); true } else false
+                    if (it.type == KeyEventType.KeyDown && it.key == Key.Enter && !it.isShiftPressed && inputEnabled) { model.submit(editDraft); true } else false
                 })
             val canSend = if (editDraft != null) editDraft.canSave && editing !is EditPhase.Saving
                 else draft.isNotBlank() && sending != SendPhase.Sending
-            IconButton(onClick = model::send, enabled = canSend, modifier = Modifier.size(48.dp).clip(CircleShape)
+            IconButton(onClick = { model.submit(editDraft) }, enabled = canSend, modifier = Modifier.size(48.dp).clip(CircleShape)
                 .background(colors[if (canSend) "accent.fill" else "surface.raised"])
                 .border(1.dp, colors["line.subtle"], CircleShape)) {
                 Icon(sharedIcon(if (editDraft == null) "paper-plane-right" else "check"),

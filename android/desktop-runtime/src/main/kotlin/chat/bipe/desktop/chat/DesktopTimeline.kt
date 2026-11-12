@@ -227,8 +227,18 @@ class DesktopTimeline private constructor(
         }
     }
 
-    fun draftChanged(value: String) {
+    fun draftChanged(value: String) = group.publish {
         if (edits.phase.value == EditPhase.Idle) composer.edit(value) else edits.change(value)
+    }
+
+    /** A callback belongs to the mode/session shown in its frame, even if a save has since completed. */
+    fun draftChanged(value: String, expected: MessageEditDraft?) = group.publish {
+        if (expected == null) composer.edit(value) else edits.change(value, expected)
+    }
+
+    fun submit(expected: MessageEditDraft?) = group.publish {
+        if (expected != null) edits.save(expected)
+        else if (edits.phase.value == EditPhase.Idle) send()
     }
 
     fun startReply(rowId: String): Boolean {
