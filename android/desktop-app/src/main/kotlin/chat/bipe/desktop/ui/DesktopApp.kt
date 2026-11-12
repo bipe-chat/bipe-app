@@ -411,7 +411,7 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp),
                         horizontalAlignment = if (message.own) Alignment.End else Alignment.Start) {
                         MessageSurface(model, message, seconds, (original as? OriginalNavigation.Found)?.rowId == message.id,
-                            popup, { popup = it }, s, colors, { composerFocus.requestFocus() }, {
+                            popup, { popup = it }, s, colors, composer is ComposerState.Editing, { composerFocus.requestFocus() }, {
                                 scope.launch { notices.showSnackbar(s.text("bipe_app_copied")) }
                             }) {
                             Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
@@ -423,7 +423,8 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
                                         else model.loadReply(message.id, retry = true)
                                     })
                                 }
-                                if (seconds > 0) Text(message.body) else SelectionContainer { Text(message.body) }
+                                if (seconds > 0 || message.kind != MessageRow.Kind.TEXT) Text(message.body)
+                                else SelectionContainer { Text(message.body) }
                                 Text(timeLabel(message.timestamp), style = MaterialTheme.typography.labelSmall)
                                 if (message.isEdited) Text(s.text("bipe_app_message_edited"), style = MaterialTheme.typography.labelSmall)
                                 if (message.delivery == MessageRow.Delivery.SENDING) Text(s.text("bipe_app_timeline_sending"), style = MaterialTheme.typography.bodySmall)

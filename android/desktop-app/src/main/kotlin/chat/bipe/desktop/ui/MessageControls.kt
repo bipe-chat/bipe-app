@@ -28,13 +28,13 @@ import kotlinx.coroutines.CancellationException
 @OptIn(ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class)
 @Composable internal fun MessageSurface(model: DesktopTimeline, row: MessageRow, seconds: Int, highlighted: Boolean,
                                        popup: TimelinePopup?, show: (TimelinePopup?) -> Unit, s: DesktopCatalog,
-                                       colors: DesktopColors, focusComposer: () -> Unit, copied: () -> Unit,
+                                       colors: DesktopColors, replyEnabled: Boolean, focusComposer: () -> Unit, copied: () -> Unit,
                                        content: @Composable () -> Unit) {
     val clipboard = LocalClipboardManager.current
     val focus = remember { FocusRequester() }
     val label = s.text("bipe_message_actions")
     val actions = buildList {
-        if (row.canReply) add(ChatRowAction(s.text("bipe_app_message_action_reply"), true) {
+        if (row.canReply) add(ChatRowAction(s.text("bipe_app_message_action_reply"), replyEnabled) {
             if (model.replies.start(row.id)) focusComposer()
         })
         if (row.kind == MessageRow.Kind.TEXT) add(ChatRowAction(if (seconds > 0)
