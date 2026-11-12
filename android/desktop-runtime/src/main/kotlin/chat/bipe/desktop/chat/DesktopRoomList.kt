@@ -10,7 +10,6 @@ import chat.bipe.desktop.account.AccountTaskGroup
 import chat.bipe.desktop.account.MatrixAccountRuntime
 import chat.bipe.desktop.account.NativeResource
 import chat.bipe.desktop.account.TaskResource
-import chat.bipe.shared.BipeFavouritesOrder
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,11 +31,10 @@ class DesktopRoomList private constructor(
     private val runtime: MatrixAccountRuntime,
     private val group: AccountTaskGroup,
     private val labels: ChatLabels,
+    val favourites: AccountFavourites,
 ) : AccountResource {
     private val mutableRows = MutableStateFlow<LoadPhase<List<ChatRow>>>(LoadPhase.Loading)
     val rows = mutableRows.asStateFlow()
-    private val mutableOrder = MutableStateFlow<List<String>>(emptyList())
-    val favouriteOrder = mutableOrder.asStateFlow()
     private val entries = mutableListOf<RoomListEntriesWithDynamicAdaptersResult>()
 
     fun loadMore() = group.launch {
@@ -87,8 +85,6 @@ class DesktopRoomList private constructor(
                             val current = snapshots.flatMap { it.visible() }.distinctBy { it.id }
                             group.publish { mutableRows.value = LoadPhase.Ready(current) }
                         }
-                        val order = BipeFavouritesOrder.parse(runtime.client.accountData(BipeFavouritesOrder.EVENT_TYPE))
-                        group.publish { mutableOrder.value = order }
                     }
                 } catch (cancelled: CancellationException) { throw cancelled }
                 catch (_: Exception) { group.publish { mutableRows.value = LoadPhase.Failed } }
@@ -123,8 +119,8 @@ class DesktopRoomList private constructor(
             catch (cancelled: CancellationException) { throw cancelled }
             catch (_: Exception) { null } // The composer presents a retryable load failure; rows keep their last message.
             return ChatRow(info.id, name, if (info.isDm) peer?.avatarUrl else info.avatarUrl,
-                heroes.take(3).map { ChatAvatar(realName(it.displayName, it.userId, labels.noName), it.avatarUrl) },
-                info.isDm, info.isFavourite, info.isLowPriority, info.numUnreadMessages.toLong(), preview, timestamp, draft)
+                heroes.take(3).map { ChatAvatar(realName(it.displayName, it.userId, labels.noName), it.avatarUrl, it.userId) },
+                info.isDm, info.isFavourite, info.isLowPriority, info.numUnreadMessages.toLong(), preview, timestamp, draft, peer?.userId)
         } finally { info.destroy() }
     }
 
@@ -138,7 +134,7 @@ class DesktopRoomList private constructor(
     companion object {
         suspend fun open(runtime: MatrixAccountRuntime, labels: ChatLabels): DesktopRoomList {
             val group = AccountTaskGroup.create(runtime.lifetime)
-            val model = DesktopRoomList(runtime, group, labels)
+            val model = DesktopRoomList(runtime, group, labels, AccountFavourites.open(runtime))
             try { group.async { model.start() }.await(); return model }
             catch (error: Exception) { group.close(); throw error }
         }

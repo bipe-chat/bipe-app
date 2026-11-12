@@ -9,21 +9,14 @@ import chat.bipe.desktop.chat.*
 import chat.bipe.desktop.link.*
 import chat.bipe.desktop.storage.*
 import chat.bipe.desktop.settings.*
-import java.net.URI
-import java.net.URLEncoder
-import java.net.http.HttpClient
-import java.net.http.HttpRequest
-import java.net.http.HttpResponse
-import java.nio.charset.StandardCharsets
-import java.time.Duration
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.*
 
-enum class AccountKind { PERSONAL, COMPANY, UNKNOWN }
-data class AccountProfile(val name: String, val kind: AccountKind, val avatar: String?)
+typealias AccountKind = AccountType
+data class AccountProfile(val name: String, val kind: AccountKind, val avatar: String?, val userId: String)
 
 sealed interface AppPhase {
     data object Loading : AppPhase
@@ -229,7 +222,7 @@ class DesktopAppModel(val catalog: DesktopCatalog) {
             val profile = runtime.lifetime.async {
                 val userId = runtime.client.userId()
                 val name = realName(runCatching { runtime.client.displayName() }.getOrNull(), userId, catalog.text("bipe_tab_you"))
-                AccountProfile(name, accountKind(userId), runCatching { runtime.client.avatarUrl() }.getOrNull())
+                AccountProfile(name, runtime.identity.type(userId), runCatching { runtime.client.avatarUrl() }.getOrNull(), userId)
             }.await()
             val liveProfile = MutableStateFlow(profile)
             val appearance = AccountAppearance.open(runtime, catalog.appearancePolicy)
@@ -246,23 +239,6 @@ class DesktopAppModel(val catalog: DesktopCatalog) {
             }
         } catch (error: Exception) { runtime.closeAsync().await(); throw error }
     }
-
-    private suspend fun accountKind(userId: String): AccountKind = try {
-        runInterruptible {
-            val path = URLEncoder.encode(userId, StandardCharsets.UTF_8).replace("+", "%20")
-            val request = HttpRequest.newBuilder(URI("https://api.bipe.net.br/v1/accounts/$path/type"))
-                .timeout(Duration.ofSeconds(5)).GET().build()
-            val response = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).followRedirects(HttpClient.Redirect.NEVER)
-                .build().send(request, HttpResponse.BodyHandlers.ofString())
-            if (response.statusCode() != 200) AccountKind.UNKNOWN
-            else when (Json.parseToJsonElement(response.body()).jsonObject["account_type"]?.jsonPrimitive?.content) {
-                "company" -> AccountKind.COMPANY
-                "personal" -> AccountKind.PERSONAL
-                else -> AccountKind.UNKNOWN
-            }
-        }
-    } catch (cancelled: CancellationException) { throw cancelled }
-      catch (_: Exception) { AccountKind.UNKNOWN }
 
     private fun userAgent() = "Bipe Windows/${catalog.build.getValue("version").jsonPrimitive.content} (${catalog.build.getValue("build").jsonPrimitive.content})"
 }

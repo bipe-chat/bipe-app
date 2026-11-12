@@ -291,18 +291,23 @@ class AccountLease internal constructor(
     }
 
     /** The appearance cache and pending account writes are protected by this slot's key and Windows user. */
-    internal fun readAppearance(): String? = useStoreKey { key ->
-        val file = paths.root.resolve("appearance.bin")
+    internal fun readAppearance(): String? = readProtectedLocal("appearance.bin")
+    internal fun writeAppearance(value: String) = writeProtectedLocal("appearance.bin", value)
+    internal fun readFavourites(): String? = readProtectedLocal("favourites.bin")
+    internal fun writeFavourites(value: String) = writeProtectedLocal("favourites.bin", value)
+
+    private fun readProtectedLocal(name: String): String? = useStoreKey { key ->
+        val file = paths.root.resolve(name)
         if (!Files.exists(file, NOFOLLOW_LINKS)) return@useStoreKey null
         if (!Files.isRegularFile(file, NOFOLLOW_LINKS) || Files.size(file) > 4 * 1024 * 1024) throw StorageFailure(StorageCode.CORRUPT_RECORD)
         val clear = protection.unprotect(Files.readAllBytes(file), key)
         try { clear.toString(Charsets.UTF_8) } finally { clear.fill(0) }
     }
 
-    internal fun writeAppearance(value: String) = useStoreKey { key ->
+    private fun writeProtectedLocal(name: String, value: String) = useStoreKey { key ->
         val clear = value.toByteArray(Charsets.UTF_8)
         if (clear.size > 4 * 1024 * 1024) { clear.fill(0); throw StorageFailure(StorageCode.IO_FAILURE) }
-        try { AccountRepository.atomicWrite(paths.root.resolve("appearance.bin"), protection.protect(clear, key)) }
+        try { AccountRepository.atomicWrite(paths.root.resolve(name), protection.protect(clear, key)) }
         finally { clear.fill(0) }
     }
 

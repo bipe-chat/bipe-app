@@ -90,7 +90,8 @@ private enum class LinkPhase { IDLE, FAILED }
                     item {
                         Row(Modifier.fillMaxWidth().padding(vertical = 20.dp), verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-                            AvatarPhoto(profile.name, profile.avatar, account.runtime.media, colors, 72.dp)
+                            AvatarPhoto(profile.name, profile.avatar, account.runtime.media, account.runtime.identity, colors, 72.dp,
+                                userId = profile.userId, isCompany = profile.kind == AccountKind.COMPANY)
                             Text(profile.name, style = MaterialTheme.typography.headlineMedium)
                         }
                     }

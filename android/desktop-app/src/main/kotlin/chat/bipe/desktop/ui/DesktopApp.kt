@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -23,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.semantics.*
@@ -186,24 +186,53 @@ private enum class Destination(val key: String) { CHATS("bipe_tab_chats"), GROUP
         if (destination == Destination.YOU || (destination == Destination.GROUPS && profile.kind == AccountKind.COMPANY)) model.clearRoom()
         else if (selected == null) model.clearRoom() else model.selectRoom(selected)
     }
-    var accountsOpen by remember(account) { mutableStateOf(false) }
+    var popup by remember(account, destination) { mutableStateOf<WorkspacePopup?>(null) }
+    var editing by remember(account, destination, profile.kind) { mutableStateOf<FavouriteEditing>(FavouriteEditing.Normal) }
+    val favouriteBounds = remember(account, destination) { mutableStateMapOf<String, Rect>() }
     val load by account.list.rows.collectAsState()
-    val order by account.list.favouriteOrder.collectAsState()
+    val favourites by account.list.favourites.phase.collectAsState()
+    val favouriteState = favourites as? FavouritesPhase.Ready
+    val order = favouriteState?.order.orEmpty()
+    val favouritesEnabled = favouriteState != null && favouriteState.sync != FavouritesSync.Saving
     val draftPreviews by account.runtime.drafts.previews.collectAsState()
     val allRows = when (val snapshot = load) { is LoadPhase.Ready -> snapshot.value; else -> emptyList() }
     val scope = if (profile.kind == AccountKind.COMPANY) ChatScope.ALL
         else if (destination == Destination.CHATS) ChatScope.DIRECT else ChatScope.GROUPS
     val sections = ChatListSections.from(allRows, order, scope, search)
+    val shownFavourites = sections.favourites.map { it.id }
+    LaunchedEffect(shownFavourites, allRows.map { it.id }) {
+        if (shownFavourites.size < 2 || (editing is FavouriteEditing.Dragging && (editing as FavouriteEditing.Dragging).shown != shownFavourites))
+            editing = if (shownFavourites.size < 2) FavouriteEditing.Normal else FavouriteEditing.Reordering
+        if (popup is WorkspacePopup.Room && allRows.none { it.id == (popup as WorkspacePopup.Room).id }) popup = null
+    }
+    fun rowActions(row: ChatRow): List<ChatRowAction> = buildList {
+        if (!row.archived && (editing == FavouriteEditing.Normal || !row.favourite)) {
+            add(ChatRowAction(s.text(if (row.favourite) "bipe_chat_unfavourite_action" else "bipe_chat_favourite_action"), favouritesEnabled) {
+                account.list.favourites.set(row.id, !row.favourite)
+            })
+            if (row.favourite && shownFavourites.size >= 2) add(ChatRowAction(s.text("bipe_chat_favourites_reorder_action"), favouritesEnabled) {
+                editing = FavouriteEditing.Reordering
+            })
+        } else if (row.favourite && editing != FavouriteEditing.Normal) {
+            val index = shownFavourites.indexOf(row.id)
+            if (index > 0) add(ChatRowAction(s.text("bipe_chat_favourite_move_earlier"), favouritesEnabled) {
+                account.list.favourites.move(row.id, index - 1, shownFavourites)
+            })
+            if (index >= 0 && index < shownFavourites.lastIndex) add(ChatRowAction(s.text("bipe_chat_favourite_move_later"), favouritesEnabled) {
+                account.list.favourites.move(row.id, index + 1, shownFavourites)
+            })
+        }
+    }
     Column {
         Row(Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.width(304.dp)) {
-                TextButton(onClick = { accountsOpen = true }) { Text(profile.name, maxLines = 1, overflow = TextOverflow.Ellipsis) }
-                DropdownMenu(expanded = accountsOpen, onDismissRequest = { accountsOpen = false }) {
+                TextButton(onClick = { popup = WorkspacePopup.Accounts }) { Text(profile.name, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                DropdownMenu(expanded = popup == WorkspacePopup.Accounts, onDismissRequest = { popup = null }) {
                     account.slots.forEachIndexed { index, slot ->
                         DropdownMenuItem(text = { Text(if (slot.slot == account.runtime.slot) profile.name else s.text("bipe_tab_you") + " ${index + 1}") },
-                            onClick = { accountsOpen = false; if (slot.slot != account.runtime.slot) model.open(slot) })
+                            onClick = { popup = null; if (slot.slot != account.runtime.slot) model.open(slot) })
                     }
-                    DropdownMenuItem(text = { Text(s.text("bipe_linked_devices_link_computer")) }, onClick = { accountsOpen = false; model.link() })
+                    DropdownMenuItem(text = { Text(s.text("bipe_linked_devices_link_computer")) }, onClick = { popup = null; model.link() })
                 }
             }
             Destination.entries.forEach { mode ->
@@ -227,32 +256,24 @@ private enum class Destination(val key: String) { CHATS("bipe_tab_chats"), GROUP
                 OutlinedTextField(search, { searches[destination] = it }, singleLine = true,
                     placeholder = { Text(s.text("bipe_app_search_placeholder")) }, modifier = Modifier.fillMaxWidth().padding(12.dp))
                 LazyColumn(Modifier.weight(1f)) {
-                    items(sections.favourites.chunked(3), key = { "favourites:${it.first().id}" }) { line ->
-                        Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp)
-                            .semantics { contentDescription = s.text("bipe_chat_favourites") },
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            line.forEach { row ->
-                                val unreadLabel = s.text("bipe_chat_unread_state")
-                                val label = if (row.unread > 0) "${row.name}, $unreadLabel" else row.name
-                                SelectionSurface(row.id == selected, colors, { selections[destination] = row.id },
-                                    Modifier.weight(1f).semantics(mergeDescendants = true) { contentDescription = label }) {
-                                    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                                        BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                                            val size = minOf(maxWidth * 0.8f, 92.dp)
-                                            Box(Modifier.size(size)) {
-                                                Avatar(row, account.runtime.media, colors, size)
-                                                if (row.unread > 0) Box(Modifier.align(Alignment.TopEnd).size(20.dp)
-                                                    .border(2.dp, colors["surface.base"], CircleShape).padding(2.dp)
-                                                    .background(colors["accent.fill"], CircleShape))
-                                            }
-                                        }
-                                        Text(row.name, Modifier.padding(horizontal = 4.dp, vertical = 6.dp), maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
-                                    }
-                                }
+                    item(key = "favourites-sync") {
+                        if (favourites == FavouritesPhase.Unavailable || favouriteState?.sync is FavouritesSync.Failed) {
+                            Row(Modifier.padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(s.text("bipe_error_generic"), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                                TextButton(onClick = { account.list.favourites.retry() }) { Text(s.text("bipe_app_retry")) }
                             }
-                            repeat(3 - line.size) { Spacer(Modifier.weight(1f)) }
+                        } else if (favouriteState?.sync == FavouritesSync.Saving) Text(s.text("bipe_web_loading"), Modifier.padding(12.dp))
+                    }
+                    item(key = "favourites-reorder") {
+                        if (editing != FavouriteEditing.Normal) Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(s.text("bipe_chat_favourites_reorder_hint"), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                            TextButton(onClick = { editing = FavouriteEditing.Normal; popup = null }) { Text(s.text("bipe_chat_favourites_reorder_done")) }
                         }
+                    }
+                    items(sections.favourites.chunked(3), key = { "favourites:${it.first().id}" }) { line ->
+                        FavouriteGridLine(line, shownFavourites, selected, account.runtime, colors, s,
+                            editing, { editing = it }, favouriteBounds, favouritesEnabled, popup, { popup = it }, ::rowActions,
+                            { selections[destination] = it }, account.list.favourites::move)
                     }
                     item(key = "load-state") {
                         when (load) {
@@ -262,9 +283,10 @@ private enum class Destination(val key: String) { CHATS("bipe_tab_chats"), GROUP
                         }
                     }
                     items(sections.history, key = { it.id }) { row ->
-                        SelectionSurface(row.id == selected, colors, { selections[destination] = row.id }, Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp)) {
+                        ChatRowSurface(row.id == selected, colors, { selections[destination] = row.id }, Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp),
+                            popup == WorkspacePopup.Room(row.id), { popup = if (it) WorkspacePopup.Room(row.id) else null }, rowActions(row), s) {
                             Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                Avatar(row, account.runtime.media, colors)
+                                Avatar(row, account.runtime.media, account.runtime.identity, colors)
                                 Column(Modifier.weight(1f)) {
                                     Text(row.name, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
                                     val draftPreview = if (draftPreviews.containsKey(row.id)) draftPreviews[row.id] else row.draft
@@ -290,7 +312,7 @@ private enum class Destination(val key: String) { CHATS("bipe_tab_chats"), GROUP
                             allRows.firstOrNull { it.id == state.model.roomId }?.let { row ->
                                 Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                    Avatar(row, account.runtime.media, colors)
+                                    Avatar(row, account.runtime.media, account.runtime.identity, colors)
                                     Text(row.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 }
                                 HorizontalDivider(color = colors["line.subtle"])
@@ -302,13 +324,6 @@ private enum class Destination(val key: String) { CHATS("bipe_tab_chats"), GROUP
             }
         }
     }
-}
-
-@Composable private fun SelectionSurface(selected: Boolean, colors: DesktopColors, onSelect: () -> Unit,
-                                         modifier: Modifier, content: @Composable () -> Unit) {
-    Surface(modifier.clip(RoundedCornerShape(12.dp)).selectable(selected, onClick = onSelect),
-        color = if (selected) colors["accent.fill"] else colors["surface.base"],
-        contentColor = if (selected) colors["ink.onAccent"] else colors["ink.primary"], content = content)
 }
 
 @Composable private fun TimelineView(model: DesktopTimeline, s: DesktopCatalog, colors: DesktopColors, background: String) {

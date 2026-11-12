@@ -6,6 +6,7 @@ package chat.bipe.desktop.account
 
 import chat.bipe.desktop.storage.AccountLease
 import chat.bipe.desktop.chat.AccountMedia
+import chat.bipe.desktop.chat.AccountIdentity
 import chat.bipe.desktop.storage.StorageCode
 import chat.bipe.desktop.storage.StorageFailure
 import kotlinx.coroutines.NonCancellable
@@ -48,6 +49,7 @@ class MatrixAccountRuntime private constructor(
     val drafts: AccountDrafts,
     private val mutableSignal: MutableStateFlow<AccountSignal>,
     val media: AccountMedia,
+    val identity: AccountIdentity,
 ) {
     val slot get() = lifetime.lease.slot
     val signal = mutableSignal.asStateFlow()
@@ -135,7 +137,8 @@ class MatrixAccountRuntime private constructor(
                     // The SDK accepts a null delegate; this client always requires an owned auth listener.
                     lifetime.own(TaskResource(checkNotNull(auth) { "Missing SDK authentication listener" }))
                     val media = AccountMedia.create(lifetime, client)
-                    MatrixAccountRuntime(lifetime, client, drafts, signal, media)
+                    val identity = AccountIdentity.create(lifetime)
+                    MatrixAccountRuntime(lifetime, client, drafts, signal, media, identity)
                 }.await()
             } catch (error: Exception) {
                 withContext(NonCancellable) { lifetime.closeAsync().await() }

@@ -45,7 +45,7 @@ fun main() = application {
     }
 }
 
-class DesktopColors(private val catalog: DesktopCatalog, val palette: String, val dark: Boolean, val highContrast: Boolean) {
+class DesktopColors(internal val catalog: DesktopCatalog, val palette: String, val dark: Boolean, val highContrast: Boolean) {
     operator fun get(role: String) = catalog.color(role, palette, dark, highContrast)
     fun qr(role: String) = catalog.color(role, catalog.defaultPalette, dark = false, highContrast = true)
 }
