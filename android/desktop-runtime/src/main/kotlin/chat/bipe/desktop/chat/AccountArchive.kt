@@ -132,8 +132,8 @@ class AccountArchive private constructor(
                 next = next.copy(pending = next.pending + (row.id to intent))
                 operations[row.id] = ArchiveOperation.Queued(intent)
             } else {
-                next = next.copy(markers = if (decision.marker == null) next.markers - row.id
-                    else next.markers + (row.id to Marker(decision.marker, decision.synced)))
+                val desired = decision.marker?.let { Marker(it, decision.synced) }
+                if (marker != desired) next = next.copy(markers = if (desired == null) next.markers - row.id else next.markers + (row.id to desired))
             }
         }
         if (next == record) return

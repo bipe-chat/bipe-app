@@ -62,7 +62,8 @@ class DesktopRoomList private constructor(
                     if (rooms !is LoadPhase.Ready) { group.publish { mutableVisibleRows.value = rooms }; return@collect }
                     val state = archived as? ArchivePhase.Ready
                     savedRooms += state?.markers.orEmpty().keys + state?.operations.orEmpty().keys + state?.confirmed.orEmpty().keys
-                    val extras = savedRooms.filter { id -> rooms.value.none { it.id == id } }
+                    val loaded = rooms.value.mapTo(mutableSetOf()) { it.id }
+                    val extras = savedRooms.filter { it !in loaded }
                         .mapNotNull { id -> runtime.client.getRoom(id)?.let { room -> try { summary(room) } finally { room.destroy() } } }
                     val raw = (rooms.value + extras).distinctBy { it.id }
                     group.publish { mutableVisibleRows.value = LoadPhase.Ready(raw.map { state?.effective(it) ?: it }) }
