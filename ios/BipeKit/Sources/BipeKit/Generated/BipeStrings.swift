@@ -5630,6 +5630,8 @@ public enum BipeStrings {
 
     public static var feedReportDone: String { NSLocalizedString("bipe_feed_report_done", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var feedRules: String { NSLocalizedString("bipe_feed_rules", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var handleMoveAction: String { NSLocalizedString("bipe_handle_move_action", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static func handleMoveConfirmTitle(_ p1: String, _ p2: String) -> String {
