@@ -86,8 +86,17 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
      *  (action openInviteLink) reads it, or [routeHeldLink] once the phone is signed in. */
     var pendingInviteLink: android.net.Uri? = null
 
-    /** Spec group-link-open notes: a group link code from a paste or a scan in sign-up, held like [pendingInviteLink]. */
-    private var heldGroupCode: String? = null
+    /**
+     * Spec group-link-open notes: a group link code that came with no account on the phone (a link, a paste or a scan)
+     * waits on disk until it is used, with no time limit of its own: the server decides whether the link still works.
+     * A closed app keeps it. Never logged.
+     */
+    private val groupHold = context.getSharedPreferences("bipe_group_link_hold", Context.MODE_PRIVATE)
+    private var heldGroupCode: String?
+        get() = groupHold.getString("code", null)
+        set(value) {
+            groupHold.edit().apply { if (value == null) remove("code") else putString("code", value) }.apply()
+        }
 
     fun holdGroupCode(code: String) {
         heldGroupCode = code
@@ -160,6 +169,7 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
             _inviteTap.value = inviteCode
         } else {
             pendingInviteLink = uri
+            chat.bipe.shared.BipeInviteLink.groupCode(uri)?.let { heldGroupCode = it }
         }
     }
 
