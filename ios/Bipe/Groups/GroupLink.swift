@@ -53,7 +53,9 @@ final class GroupLinkModel: ObservableObject {
             let links = try await withToken { (token: String) async throws(BipeAPIError) -> [BipeGroupLink] in
                 try await self.api.groupLinks(roomId: self.roomId, accessToken: token)
             }
-            link = links.first
+            // The list holds the links of every admin, newest first. This admin's own link comes first, so a newer link
+            // from another admin does not drop the URL this phone kept, and revoke ends this admin's link.
+            link = links.first { $0.createdBy == session.userId } ?? links.first
             if let kept = store.groupLink(forRoomID: roomId), kept.id == link?.id {
                 url = kept.url
             } else {
