@@ -474,7 +474,8 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
             is LoadPhase.Ready -> Unit
         }
         Box(Modifier.weight(1f).fillMaxWidth()) {
-            LazyColumn(Modifier.fillMaxSize().nestedScroll(userScroll), state = listState, reverseLayout = true,
+            // An empty loading frame must not remeasure a retained room viewport and clamp its anchor to zero.
+            if (rows.isNotEmpty()) LazyColumn(Modifier.fillMaxSize().nestedScroll(userScroll), state = listState, reverseLayout = true,
                 contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 items(rows.asReversed(), key = { it.id }) { message ->
                     Column {
@@ -529,10 +530,10 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
                     }
                 }
             }
-        if (jumpVisible) JumpToNewest(s, colors, Modifier.align(Alignment.BottomEnd).padding(12.dp)) {
-            viewport.policy.jumpToNewest()
-            scope.launch { listState.scrollToItem(0) }
-        }
+            if (rows.isNotEmpty() && jumpVisible) JumpToNewest(s, colors, Modifier.align(Alignment.BottomEnd).padding(12.dp)) {
+                viewport.policy.jumpToNewest()
+                scope.launch { listState.scrollToItem(0) }
+            }
         }
         SnackbarHost(notices, Modifier.padding(horizontal = 16.dp))
         if (deletion is DeletePhase.Failed) Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {

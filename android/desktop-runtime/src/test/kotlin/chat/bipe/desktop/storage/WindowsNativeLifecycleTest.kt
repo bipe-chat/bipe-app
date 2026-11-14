@@ -192,7 +192,9 @@ class WindowsNativeLifecycleTest {
                 })
                 try { editEchoed.await() } finally { editEcho.cancel(); editEcho.destroy() }
                 timeline.rows.first { it is LoadPhase.Ready && it.value.any { row -> row.id == editable.id && row.body == "Updated editable message" && row.isEdited } }
-                assertTrue(timeline.edits.start(editable.id)); timeline.draftChanged("Discard this edit"); assertTrue(timeline.edits.cancel())
+                assertTrue(timeline.edits.start(editable.id)); timeline.draftChanged("Discard this edit")
+                assertFalse(timeline.cancelContext(editFrame, null)) // A stale Escape cannot cancel a later edit session.
+                assertTrue(timeline.cancelContext(timeline.edits.phase.value.draft, null))
                 assertEquals("Synthetic kept before edit", (timeline.composer.state.value as ComposerState.Editing).text)
                 timeline.deletion.permission.first { it is DeletePermission.Ready }
                 val own = (timeline.rows.value as LoadPhase.Ready).value.single { it.body == "Synthetic own deletion fixture" }
