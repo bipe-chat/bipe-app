@@ -249,8 +249,12 @@ struct OnboardingWelcomeView: View {
 
     /// Action pasteLink: shown while the clipboard holds a URL.
     private func checkClipboard() async {
-        let found = (try? await UIPasteboard.general.detectPatterns(for: [.probableWebURL])) ?? []
-        clipboardHasLink = found.contains(.probableWebURL)
+        let found: Bool = await withCheckedContinuation { done in
+            UIPasteboard.general.detectPatterns(for: [.probableWebURL]) { result in
+                done.resume(returning: (try? result.get())?.contains(.probableWebURL) ?? false)
+            }
+        }
+        clipboardHasLink = found
     }
 
     /// The title of the start variant; invited names the inviter.
