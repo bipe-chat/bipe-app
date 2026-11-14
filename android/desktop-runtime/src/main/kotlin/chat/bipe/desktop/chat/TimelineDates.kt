@@ -17,7 +17,7 @@ object TimelineDates {
         return when (day) {
             today -> todayLabel
             today.minusDays(1) -> yesterdayLabel
-            else -> if (day.year != today.year) DateTimeFormatter.ofLocalizedDate(FormatStyle.FULL).withLocale(locale).format(day)
+            else -> if (day.year != today.year) DateTimeFormatter.ofLocalizedDate(FormatStyle.LONG).withLocale(locale).format(day)
                 else DateTimeFormatter.ofPattern(if (locale.language == "pt") "EEEE, d 'de' MMMM" else "EEEE, MMMM d", locale).format(day)
         }
     }
