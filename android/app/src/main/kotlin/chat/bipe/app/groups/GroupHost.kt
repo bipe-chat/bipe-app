@@ -83,6 +83,8 @@ fun GroupHost(
     LaunchedEffect(session, foregroundCount) { ClearedChatsStore.refresh(session.client) }
     // Spec drafts appear: the drafts room of the account, at start and on each return to the foreground.
     LaunchedEffect(session, foregroundCount) { chat.bipe.app.timeline.AssistantDraftsStore.refresh(context, session) }
+    // ADR 0291: this phone's device entry, when a field changed.
+    LaunchedEffect(session, foregroundCount) { chat.bipe.app.settings.DeviceEntries.writeSelf(context, session) }
     LaunchedEffect(session, foregroundCount) { NewsRoomCleanup.applyOnce(context, session, api) }
 
     deletingDm?.let { dm ->

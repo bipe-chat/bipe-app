@@ -45,10 +45,13 @@ private struct GroupHostModifier: ViewModifier {
             .task { await cleared.refresh(client: session.client) }
             // Spec drafts appear: the drafts room of the account, at start and on each return to the foreground.
             .task { await assistantDrafts.refresh(session: session) }
+            // ADR 0291: this phone's device entry, when a field changed.
+            .task { await DeviceEntries.writeSelf(session: session) }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active {
                     Task { await cleared.refresh(client: session.client) }
                     Task { await assistantDrafts.refresh(session: session) }
+                    Task { await DeviceEntries.writeSelf(session: session) }
                     Task { await NewsRoomCleanup.applyOnce(session: session, api: api) }
                 }
             }

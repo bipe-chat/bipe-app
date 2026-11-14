@@ -30,6 +30,8 @@ final class SettingsModel: ObservableObject {
     @Published private(set) var biometricUnlockOn = AppLockModel.shared.store.biometricUnlock
     /// The assistant send switch (ADR 0210): global account data chat.bipe.assistant_send. `nil` until it is read.
     @Published private(set) var assistantSend: Bool? { didSet { remember() } }
+    /// The counts of Aparelhos e assistentes (device_rows), for the group row subtitle. `nil` until the list loads.
+    @Published private(set) var deviceCounts: BipeDevices.Counts? { didSet { remember() } }
 
     /// The last values read, per account, for this app run. A new model starts from them, so settings opens with its
     /// subtitles and switches filled and `load()` only refreshes them. Memory only: nothing goes to disk.
@@ -42,6 +44,7 @@ final class SettingsModel: ObservableObject {
         var hasRecoveryKey = false
         var notificationsOn: Bool?
         var assistantSend: Bool?
+        var deviceCounts: BipeDevices.Counts?
     }
     private static var snapshots: [String: Snapshot] = [:]
     private var seeding = false
@@ -59,6 +62,7 @@ final class SettingsModel: ObservableObject {
         hasRecoveryKey = last.hasRecoveryKey
         notificationsOn = last.notificationsOn
         assistantSend = last.assistantSend
+        deviceCounts = last.deviceCounts
         seeding = false
     }
 
@@ -72,7 +76,7 @@ final class SettingsModel: ObservableObject {
         Self.snapshots[session.userId] = Snapshot(
             whoCanMessage: whoCanMessage, account: account, phone: phone, phoneNumber: phoneNumber,
             discoverableByPhone: discoverableByPhone, hasRecoveryKey: hasRecoveryKey,
-            notificationsOn: notificationsOn, assistantSend: assistantSend)
+            notificationsOn: notificationsOn, assistantSend: assistantSend, deviceCounts: deviceCounts)
     }
 
     /// `nil` until GET /v1/me/account answers.
@@ -93,7 +97,17 @@ final class SettingsModel: ObservableObject {
         async let notifications: Void = loadNotifications()
         async let phone: Void = loadPhone()
         async let assistant: Void = loadAssistantSend()
-        _ = await (messaging, account, notifications, phone, assistant)
+        async let devices: Void = loadDeviceCounts()
+        _ = await (messaging, account, notifications, phone, assistant, devices)
+    }
+
+    private func loadDeviceCounts() async {
+        if let list = await DeviceEntries.list(session: session) { deviceCounts = list.counts }
+    }
+
+    /// The device list loaded again (spec linked-devices): the group row subtitle follows it.
+    func setDeviceCounts(_ counts: BipeDevices.Counts) {
+        deviceCounts = counts
     }
 
     /// assistantSendAllowed: off when the account data is absent. A read error keeps the switch off and disabled.
@@ -233,8 +247,8 @@ final class SettingsModel: ObservableObject {
         case .account: waysBack?.summary
         case .notifications: notificationsOn.map { $0 ? BipeStrings.settingsNotificationsOn : BipeStrings.settingsNotificationsOff }
         case .help: BipeStrings.helpVersion(AppVersion.nameAndBuild)
-        // The device counts come with bipe-chat/bipe#1481 part 2 (deviceRows in bipe-core).
-        case .devices: nil
+        // bipe_devices_summary from the counts of device_rows (spec linked-devices notes).
+        case .devices: deviceCounts?.summary
         // chats: SettingsRootSection reads the theme and palette itself.
         case .profile, .chats: nil
         }

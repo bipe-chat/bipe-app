@@ -29,6 +29,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import chat.bipe.app.common.appVersionWithBuild
+import chat.bipe.shared.devices.BipeDevices
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.matrix.rustcomponents.sdk.RecoveryState
@@ -62,6 +63,8 @@ class SettingsModel(
         val isCompany: Boolean = false,
         /** The assistant send switch (ADR 0210): global account data chat.bipe.assistant_send. Null until it is read. */
         val assistantSend: Boolean? = null,
+        /** The counts of Aparelhos e assistentes (device_rows), for the group row subtitle. Null until the list loads. */
+        val deviceCounts: BipeDevices.Counts? = null,
     ) {
         /** Null until GET /v1/me/account answers. */
         val waysBack: BipeWaysBack?
@@ -99,6 +102,9 @@ class SettingsModel(
                     .getOrDefault(false),
                 notificationsOn = NotificationManagerCompat.from(context).areNotificationsEnabled(),
             )
+        }
+        scope.launch {
+            DeviceEntries.list(session)?.let { list -> setDeviceCounts(list.counts) }
         }
         scope.launch {
             // assistantSendAllowed: off when the account data is absent. A read error keeps the switch off and disabled.
@@ -175,6 +181,9 @@ class SettingsModel(
         return saved
     }
 
+    /** The device list loaded again (spec linked-devices): the group row subtitle follows it. */
+    fun setDeviceCounts(counts: BipeDevices.Counts) = _state.update { it.copy(deviceCounts = counts) }
+
     /** Runs a bipe-api request with the account's access token, retrying once after a token refresh. */
     suspend fun <T> authorized(request: suspend (String) -> T): T = BipeApiClient.withTokenRetry({ session.accessToken() }, request)
 
@@ -187,8 +196,9 @@ class SettingsModel(
         }
         BipeSettingsGroup.HELP -> context.getString(R.string.bipe_help_version, appVersionWithBuild(context))
         // chats: SettingsRootSection reads the theme and palette from AppTheme state.
-        // The device counts come with bipe-chat/bipe#1481 part 2 (deviceRows in bipe-core).
-        BipeSettingsGroup.PROFILE, BipeSettingsGroup.CHATS, BipeSettingsGroup.DEVICES -> null
+        // bipe_devices_summary from the counts of device_rows (spec linked-devices notes).
+        BipeSettingsGroup.DEVICES -> state.deviceCounts?.summary(context)
+        BipeSettingsGroup.PROFILE, BipeSettingsGroup.CHATS -> null
     }
 
     fun needsAttention(state: State, group: BipeSettingsGroup): Boolean =
