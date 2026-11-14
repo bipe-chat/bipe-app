@@ -168,7 +168,11 @@ struct MacMessageView: View {
             }.frame(maxWidth: 560, alignment: message.isOwn ? .trailing : .leading)
             if !message.isOwn { Spacer(minLength: 48) }
         }
-        .environment(\.openURL, OpenURLAction { url in pauseSecondsLeft(.now) > 0 ? .handled : .systemAction })
+        .environment(\.openURL, OpenURLAction { url in
+            if pauseSecondsLeft(.now) > 0 { return .handled }
+            // Spec group-link-open: a bipe.chat/g/ link opens in the app, not in the browser.
+            return MainActor.assumeIsolated { MacGroupLinks.shared.offer(url) } ? .handled : .systemAction
+        })
         .contextMenu {
             if !message.isDeleted, message.canReact {
                 ControlGroup {

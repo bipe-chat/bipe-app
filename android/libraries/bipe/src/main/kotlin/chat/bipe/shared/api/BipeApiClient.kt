@@ -511,6 +511,7 @@ enum class BipeApiErrorCode(val id: String) {
 
     /** 409. The groups service account is not in the group or may not invite (ADR 0184). */
     GROUP_LINK_NO_ACCESS("group_link_no_access"),
+    GROUP_FULL("group_full"),
 
     /** 403. A device of a work account that is not the owner's (ADR 0251). */
     OWNER_ONLY("owner_only"),
@@ -618,6 +619,7 @@ sealed class BipeApiException(cause: Throwable? = null) : Exception(cause) {
             BipeApiErrorCode.KEEP_LIMIT ->
                 context.getString(R.string.bipe_voice_keep_limit, BipeRegistries.VOICE_MEDIA_MAX_KEPT_PER_ACCOUNT.toString())
             BipeApiErrorCode.GROUP_LINK_NO_ACCESS -> context.getString(R.string.bipe_group_link_error_access)
+            BipeApiErrorCode.GROUP_FULL -> context.getString(R.string.bipe_group_link_full, BipeRegistries.GROUP_MAX_MEMBERS.toString())
             BipeApiErrorCode.OWNER_ONLY -> context.getString(R.string.bipe_team_owner_only)
             BipeApiErrorCode.SEAT_LIMIT, BipeApiErrorCode.SEAT_WINDOW_OPEN -> context.getString(R.string.bipe_team_error)
             BipeApiErrorCode.SEAT_WINDOW_CLOSED -> context.getString(R.string.bipe_team_add_expired)

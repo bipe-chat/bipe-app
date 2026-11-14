@@ -94,6 +94,8 @@ data class BipeGroupLinkPreview(
     val members: Int? = null,
     @SerialName("inviter_name") val inviterName: String? = null,
     @SerialName("signs_up") val signsUp: Boolean? = null,
+    /** The group has registries/group-limits.json maxMembers members (ADR 0253): nobody new can join. */
+    val full: Boolean? = null,
 )
 
 @Serializable
