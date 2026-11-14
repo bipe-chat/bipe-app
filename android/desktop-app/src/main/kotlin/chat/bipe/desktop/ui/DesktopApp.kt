@@ -33,6 +33,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextRange
@@ -189,6 +190,7 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
 @Composable private fun Workspace(model: DesktopAppModel, account: AppPhase.Ready, colors: DesktopColors) {
     val s = model.catalog
     val profile by account.profile.collectAsState()
+    val presence by model.devicePresence.phase.collectAsState()
     val appearance by account.appearance.phase.collectAsState()
     val background = (appearance as? AppearancePhase.Ready)?.values?.background(s.appearancePolicy) ?: s.appearancePolicy.defaultBackground
     var destination by remember(account) { mutableStateOf(Destination.CHATS) }
@@ -404,7 +406,7 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
                                 HorizontalDivider(color = colors["line.subtle"])
                             }
                             Box(Modifier.weight(1f)) { TimelineView(state.model, s, colors, background,
-                                viewports.getOrPut(state.model.roomId) { RoomViewport() }, allRows.firstOrNull { it.id == state.model.roomId }) }
+                                viewports.getOrPut(state.model.roomId) { RoomViewport() }, allRows.firstOrNull { it.id == state.model.roomId }, presence.enabled) }
                         }
                     }
                 }
@@ -417,8 +419,14 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
 }
 
 @Composable private fun TimelineView(model: DesktopTimeline, s: DesktopCatalog, colors: DesktopColors, background: String,
-                                     viewport: RoomViewport, room: ChatRow?) {
+                                     viewport: RoomViewport, room: ChatRow?, sharesTyping: Boolean) {
     val load by model.rows.collectAsState()
+    val typing by model.typing.phase.collectAsState()
+    val foreground = LocalWindowInfo.current.isWindowFocused
+    DisposableEffect(model, foreground) {
+        model.typing.visible(foreground)
+        onDispose { model.typing.visible(false) }
+    }
     val composer by model.composer.state.collectAsState()
     val editing by model.edits.phase.collectAsState()
     val editDraft = editing.draft
@@ -508,8 +516,9 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
                                                     contentDescription = TimelineDates.fullTimestamp(message.timestamp, zone, Locale.forLanguageTag(s.locale))
                                                 })
                                             if (message.isEdited) Text(s.text("bipe_app_message_edited"), style = MaterialTheme.typography.labelSmall, color = colors["ink.secondary"])
+                                            if (room?.isDm == true) message.dmReceipt?.let { DmReceiptFooter(it, s, colors) }
                                         }
-                                        if (message.delivery == MessageRow.Delivery.SENDING) Text(s.text("bipe_app_timeline_sending"), style = MaterialTheme.typography.bodySmall)
+                                        if (message.delivery == MessageRow.Delivery.SENDING && (room?.isDm != true || message.dmReceipt == null)) Text(s.text("bipe_app_timeline_sending"), style = MaterialTheme.typography.bodySmall)
                                         if (message.delivery == MessageRow.Delivery.FAILED) {
                                             if (message.canRetry) TextButton(onClick = { model.retry(message.id) }) { Text(s.text("bipe_app_timeline_failed")) }
                                             else Text(s.text("bipe_error_generic"), style = MaterialTheme.typography.bodySmall)
@@ -555,6 +564,7 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
             is ComposerState.Editing -> if (state.persistence == DraftPersistence.FAILED)
                 DraftFailure(s.text("bipe_desktop_draft_save_error"), s, model.composer::retry)
         }
+        if (foreground && sharesTyping) (typing as? TypingPhase.Showing)?.let { TypingIndicator(it.people, s, colors) }
         if (editDraft != null) ComposerEdit(model, editing, s, colors)
         else (composer as? ComposerState.Editing)?.replyTo?.let { ComposerReply(model, it, rows, s, colors) }
         Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(12.dp)) {

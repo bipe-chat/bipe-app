@@ -20,6 +20,8 @@ import androidx.compose.ui.res.loadSvgPainter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.useResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import chat.bipe.desktop.chat.LoadPhase
@@ -51,6 +53,7 @@ private enum class LinkPhase { IDLE, FAILED }
     val profile by account.profile.collectAsState()
     val appearance by account.appearance.phase.collectAsState()
     val local by model.deviceAppearance.phase.collectAsState()
+    val presence by model.devicePresence.phase.collectAsState()
     val values = (appearance as? AppearancePhase.Ready)?.values ?: AppearanceValues(emptyMap())
     var page by remember(account) { mutableStateOf<SettingsPage>(SettingsPage.Root) }
     var linkPhase by remember(account) { mutableStateOf(LinkPhase.IDLE) }
@@ -124,6 +127,7 @@ private enum class LinkPhase { IDLE, FAILED }
                             val key = row.getValue("key").jsonPrimitive.content
                             row["gate"] == null && (row.getValue("kind").jsonPrimitive.content == "url" ||
                                 (current.key == "chats" && key in setOf("appearance", "colors", "accessibility")) ||
+                                (current.key == "privacy" && key == "presence") ||
                                 (current.key == "account" && key == "linkedDevices") || (current.key == "help" && key in setOf("licenses", "versions")))
                         }
                         if (rows.isEmpty()) continue
@@ -135,7 +139,23 @@ private enum class LinkPhase { IDLE, FAILED }
                                 "colors" -> s.text("bipe_colors_${values.palette(s.appearancePolicy)}")
                                 else -> null
                             }
-                            PreferenceRow(s.text(row.getValue("title").jsonPrimitive.content), subtitle, onClick = {
+                            if (current.key == "privacy" && key == "presence") {
+                                Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text(s.text("bipe_privacy_presence"), style = MaterialTheme.typography.bodyLarge)
+                                        Text(s.text("bipe_privacy_presence_footer"), style = MaterialTheme.typography.bodySmall)
+                                    }
+                                    Switch(checked = presence.enabled, onCheckedChange = model.devicePresence::pick,
+                                        enabled = presence !is DevicePresencePhase.Saving,
+                                        modifier = Modifier.semantics { contentDescription = s.text("bipe_privacy_presence") })
+                                }
+                                (presence as? DevicePresencePhase.Failed)?.let { failed ->
+                                    Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Text(s.text("bipe_error_generic"), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                                        TextButton(onClick = { model.devicePresence.pick(failed.requested) }) { Text(s.text("bipe_app_retry")) }
+                                    }
+                                }
+                            } else PreferenceRow(s.text(row.getValue("title").jsonPrimitive.content), subtitle, onClick = {
                                 when {
                                     row["url"] != null -> openUrl(s.settingsUrl(row.getValue("url").jsonPrimitive.content))
                                     key == "appearance" -> page = SettingsPage.Appearance

@@ -19,6 +19,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.collect
+import chat.bipe.shared.BipeSyncedSettings
+import chat.bipe.desktop.settings.MatrixSettingsReader
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
@@ -40,11 +43,17 @@ class DesktopTimeline private constructor(
     private val group: AccountTaskGroup,
     val roomId: String,
     private val labels: ChatLabels,
+    private val typingPreference: TypingPreference,
     private val safetyEngine: SafetyEngine = CoreSafety,
 ) : AccountResource {
     private val mutableRows = MutableStateFlow<LoadPhase<List<MessageRow>>>(LoadPhase.Loading)
     val rows = mutableRows.asStateFlow()
     val composer = runtime.drafts.room(roomId)
+    lateinit var typing: RoomTyping
+        private set
+    private val presentation = Mutex()
+    private var latestSnapshots: List<TimelineSnapshot> = emptyList()
+    private var receiptPolicy = DmReceiptPolicy("", false, false)
     private val mutableSend = MutableStateFlow<SendPhase>(SendPhase.Idle)
     val sendPhase = mutableSend.asStateFlow()
     val replies = ReplyActions(group, composer, ::currentRow)
@@ -228,12 +237,15 @@ class DesktopTimeline private constructor(
     }
 
     fun draftChanged(value: String) = group.publish {
-        if (edits.phase.value == EditPhase.Idle) composer.edit(value) else edits.change(value)
+        if (edits.phase.value == EditPhase.Idle) { composer.edit(value); typing.draftChanged(value.isNotBlank()) }
+        else edits.change(value)
     }
 
     /** A callback belongs to the mode/session shown in its frame, even if a save has since completed. */
     fun draftChanged(value: String, expected: MessageEditDraft?) = group.publish {
-        if (expected == null) composer.edit(value) else edits.change(value, expected)
+        if (expected == null && edits.phase.value == EditPhase.Idle) {
+            composer.edit(value); typing.draftChanged(value.isNotBlank())
+        } else if (expected != null) edits.change(value, expected)
     }
 
     fun submit(expected: MessageEditDraft?) = group.publish {
@@ -270,6 +282,7 @@ class DesktopTimeline private constructor(
             }
         }
         val submitted = submission ?: return
+        typing.draftChanged(false)
         group.launch {
             try {
                 // A send tap authorizes queueing. View cancellation retains this operation's native owner;
@@ -316,7 +329,7 @@ class DesktopTimeline private constructor(
             focus = TimelineFocus.Live(hideThreadedEvents = false), filter = TimelineFilter.All,
             internalIdPrefix = null, dateDividerMode = DateDividerMode.DAILY,
             // Windows has no UTD diagnostic collector. The SDK still decrypts and emits locked-message items.
-            trackReadReceipts = TimelineReadReceiptTracking.MESSAGE_LIKE_EVENTS, reportUtds = false,
+            trackReadReceipts = TimelineReadReceiptTracking.ALL_EVENTS, reportUtds = false,
         )
         timeline = room.timelineWithConfiguration(configuration)
         group.own(NativeResource { timeline.destroy() })
@@ -338,8 +351,12 @@ class DesktopTimeline private constructor(
                     try {
                         batch.forEach { snapshots.apply(it.toVectorDiff().snapshot(::snapshot)) }
                     } finally { dispose(batch) }
-                    group.publish {
-                        mutableRows.value = LoadPhase.Ready(snapshots.visible().messageRows())
+                    presentation.withLock {
+                        latestSnapshots = snapshots.visible()
+                        val receipts = latestSnapshots.dmReceipts(receiptPolicy)
+                        group.publish {
+                            mutableRows.value = LoadPhase.Ready(latestSnapshots.messageRows().map { it.copy(dmReceipt = receipts[it.id]) })
+                        }
                     }
                 }
             } catch (cancelled: CancellationException) { throw cancelled }
@@ -351,6 +368,39 @@ class DesktopTimeline private constructor(
                 group.publish { mutablePause.value = pause.remaining(MoneyPause.nowMs()) }
             }
         }
+        typing = group.own(RoomTyping(group, runtime.client.userId(), labels.noName, object : TypingBackend {
+            override suspend fun notice(typing: Boolean) { room.typingNotice(typing) }
+            override suspend fun name(userId: String) = room.memberDisplayName(userId)
+        }, { typingPreference.enabled }))
+        group.own(TaskResource(room.subscribeToTypingNotifications(object : TypingNotificationsListener {
+            override fun call(typingUserIds: List<String>) { typing.incoming(typingUserIds) }
+        })))
+        group.launch { typingPreference.changes.collect { typing.available(it) } }
+        group.launch { edits.phase.collect { if (it != EditPhase.Idle) typing.draftChanged(false) } }
+        group.launch {
+            val reader = MatrixSettingsReader(runtime.client)
+            val preference = ReceiptPreference({ reader.accountData(BipeSyncedSettings.EVENT_TYPE) },
+                { runtime.client.accountData(BipeSyncedSettings.EVENT_TYPE) })
+            while (currentCoroutineContext().isActive) {
+                try {
+                    val info = room.roomInfo()
+                    val dm = try { info.isDm } finally { info.destroy() }
+                    val show = try {
+                        if (dm) preference.refresh() else false
+                    } catch (cancelled: CancellationException) { throw cancelled } catch (_: Exception) { false }
+                    presentation.withLock {
+                        receiptPolicy = DmReceiptPolicy(runtime.client.userId(), dm, show)
+                        val receipts = latestSnapshots.dmReceipts(receiptPolicy)
+                        group.publish {
+                            val current = mutableRows.value as? LoadPhase.Ready ?: return@publish
+                            mutableRows.value = LoadPhase.Ready(current.value.map { it.copy(dmReceipt = receipts[it.id]) })
+                        }
+                    }
+                } catch (cancelled: CancellationException) { throw cancelled }
+                  catch (_: Exception) { /* No stale room can publish; the next SDK cache refresh retries. */ }
+                delay(5_000)
+            }
+        }
         // Back-pagination failure is retryable; the live listener remains attached for offline/local events.
         loadEarlier()
     }
@@ -358,7 +408,10 @@ class DesktopTimeline private constructor(
     private fun snapshot(item: TimelineItem): TimelineSnapshot? {
         val day = item.asVirtual() as? VirtualTimelineItem.DateDivider
         if (day != null) return TimelineSnapshot.Day(day.ts.toLong())
-        return message(item)?.let { TimelineSnapshot.Message(it) }
+        message(item)?.let { return TimelineSnapshot.Message(it) }
+        val event = item.asEvent() ?: return null
+        try { return event.readReceipts.keys.takeIf { it.isNotEmpty() }?.let { TimelineSnapshot.ReadPoint(it.toSet()) } }
+        finally { event.destroy() }
     }
 
     private fun message(item: TimelineItem): MessageRow? {
@@ -402,7 +455,7 @@ class DesktopTimeline private constructor(
                 reply = content.inReplyTo?.let(::quote), isEdited = (kind as? MsgLikeKind.Message)?.content?.isEdited == true,
                 originalEventId = (event.eventOrTransactionId as? EventOrTransactionId.EventId)?.eventId,
                 canEdit = event.isOwn && event.isEditable && type == MessageRow.Kind.TEXT && reactionTarget != null,
-                senderId = event.sender)
+                senderId = event.sender, readersAtEvent = event.readReceipts.keys.toSet())
         } finally { event.destroy() }
     }
 
@@ -430,9 +483,10 @@ class DesktopTimeline private constructor(
     }
 
     companion object {
-        suspend fun open(runtime: MatrixAccountRuntime, roomId: String, labels: ChatLabels): DesktopTimeline {
+        suspend fun open(runtime: MatrixAccountRuntime, roomId: String, labels: ChatLabels,
+                         typingPreference: TypingPreference = TypingPreference.Hidden): DesktopTimeline {
             val group = AccountTaskGroup.create(runtime.lifetime)
-            val model = DesktopTimeline(runtime, group, roomId, labels)
+            val model = DesktopTimeline(runtime, group, roomId, labels, typingPreference)
             try { group.async { model.start() }.await(); return model }
             catch (error: Exception) { group.close(); throw error }
         }

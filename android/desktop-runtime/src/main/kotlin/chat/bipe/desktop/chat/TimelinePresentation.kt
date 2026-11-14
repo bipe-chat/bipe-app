@@ -8,6 +8,7 @@ package chat.bipe.desktop.chat
 internal sealed interface TimelineSnapshot {
     data class Message(val row: MessageRow) : TimelineSnapshot
     data class Day(val timestamp: Long) : TimelineSnapshot
+    data class ReadPoint(val readers: Set<String>) : TimelineSnapshot
 }
 
 internal fun List<TimelineSnapshot>.messageRows(): List<MessageRow> {
@@ -15,6 +16,7 @@ internal fun List<TimelineSnapshot>.messageRows(): List<MessageRow> {
     return buildList {
         for (item in this@messageRows) when (item) {
             is TimelineSnapshot.Day -> day = item.timestamp
+            is TimelineSnapshot.ReadPoint -> Unit
             is TimelineSnapshot.Message -> {
                 add(item.row.copy(dayBefore = day))
                 day = null

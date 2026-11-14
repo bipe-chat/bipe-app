@@ -33,6 +33,8 @@ data class MessageRow(
     val canEdit: Boolean = false,
     val senderId: String? = null,
     val dayBefore: Long? = null,
+    val readersAtEvent: Set<String> = emptySet(),
+    val dmReceipt: DmReceipt? = null,
 ) {
     enum class Kind { TEXT, UNDECRYPTABLE, DELETED, UNSUPPORTED }
     enum class Delivery { SENT, SENDING, FAILED }

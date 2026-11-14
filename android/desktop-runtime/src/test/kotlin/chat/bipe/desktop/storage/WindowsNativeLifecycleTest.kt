@@ -41,6 +41,8 @@ class WindowsNativeLifecycleTest {
         val editedOwn = AtomicReference<JsonObject?>(null)
         val ownDeleted = CompletableDeferred<JsonObject>()
         val redactedOwn = AtomicBoolean(false)
+        val typedOn = CompletableDeferred<Unit>()
+        val typedOff = CompletableDeferred<Unit>()
         val syncResponses = CountDownLatch(1)
         val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
         server.createContext("/") { exchange ->
@@ -48,6 +50,10 @@ class WindowsNativeLifecycleTest {
                 val requestBody = exchange.requestBody.use { it.readBytes().toString(Charsets.UTF_8) }
                 val path = exchange.requestURI.path
                 var sentEventId = "\$sent-reply"
+                if (path.contains("/typing/") && exchange.requestMethod == "PUT") {
+                    if (Json.parseToJsonElement(requestBody).jsonObject.getValue("typing").jsonPrimitive.boolean) typedOn.complete(Unit)
+                    else typedOff.complete(Unit)
+                }
                 if (path.contains("/send/m.room.message/") && exchange.requestMethod == "PUT") {
                     val content = Json.parseToJsonElement(requestBody).jsonObject
                     if (content["m.relates_to"]?.jsonObject?.get("rel_type")?.jsonPrimitive?.content == "m.replace") {
@@ -85,6 +91,10 @@ class WindowsNativeLifecycleTest {
                             put("origin_server_ts", 7); put("content", content)
                           }.toString() }.orEmpty()}],"limited":false,"prev_batch":"before"},
                           "account_data":{"events":[{"type":"m.marked_unread","content":{"unread":${markedUnread.get()}}}]},
+                          "ephemeral":{"events":[
+                            {"type":"m.typing","content":{"user_ids":["@peer:example.test"]}},
+                            {"type":"m.receipt","content":{"${'$'}message":{"m.read":{"@peer:example.test":{"ts":9}}}}}
+                          ]},
                           "unread_notifications":{"notification_count":0,"highlight_count":0}
                         }}}
                     }"""
@@ -93,6 +103,7 @@ class WindowsNativeLifecycleTest {
                     path.endsWith("/event/${'$'}message") -> 200 to """{"type":"m.room.message","room_id":"$room","sender":"@peer:example.test","event_id":"${'$'}message","origin_server_ts":5,"content":{"msgtype":"m.text","body":"Synthetic lifecycle message"}}"""
                     path.contains("/send/m.room.message/") && exchange.requestMethod == "PUT" -> 200 to """{"event_id":"$sentEventId"}"""
                     path.contains("/redact/${'$'}own/") && exchange.requestMethod == "PUT" -> 200 to """{"event_id":"${'$'}redaction"}"""
+                    path.contains("/typing/") && exchange.requestMethod == "PUT" -> 200 to "{}"
                     path.endsWith("/keys/upload") -> 200 to """{"one_time_key_counts":{"signed_curve25519":50}}"""
                     path.endsWith("/keys/query") -> 200 to """{"device_keys":{},"failures":{}}"""
                     path.endsWith("/keys/claim") -> 200 to """{"one_time_keys":{},"failures":{}}"""
@@ -142,7 +153,11 @@ class WindowsNativeLifecycleTest {
                 first.lifetime.own(chat.bipe.desktop.account.TaskResource(state))
                 syncResponses.countDown()
                 println("BIPE_NATIVE_LIFECYCLE stage=draft")
-                val timeline = DesktopTimeline.open(first, room, labels)
+                val timeline = DesktopTimeline.open(first, room, labels, object : TypingPreference {
+                    override val enabled = true
+                    override val changes = kotlinx.coroutines.flow.flowOf(true)
+                })
+                timeline.typing.available(true); timeline.typing.visible(true)
                 // V2 seeds room summaries before the live event cache exists. Populate that cache via the real pagination API.
                 timeline.loadEarlier().join()
                 timeline.rows.first { it is LoadPhase.Ready && it.value.any { row -> row.body == "Synthetic lifecycle message" } }
@@ -156,11 +171,13 @@ class WindowsNativeLifecycleTest {
                 assertTrue(timeline.cancelContext(null, original.eventId))
                 assertEquals("Kept when Escape cancels a reply", (timeline.composer.state.value as ComposerState.Editing).text)
                 assertNull((timeline.composer.state.value as ComposerState.Editing).replyTo)
-                timeline.composer.edit("Synthetic reply body")
+                timeline.draftChanged("Synthetic reply body")
+                withTimeout(15_000) { typedOn.await() }
                 assertTrue(timeline.replies.start(original.id))
                 timeline.send()
                 timeline.sendPhase.first { it != SendPhase.Sending }
                 assertEquals(SendPhase.Idle, timeline.sendPhase.value)
+                withTimeout(15_000) { typedOff.await() }
                 val sent = withTimeout(15_000) { replySent.await() }
                 assertEquals("\$message", sent.getValue("m.relates_to").jsonObject.getValue("m.in_reply_to").jsonObject.getValue("event_id").jsonPrimitive.content)
                 assertTrue(sent.getValue("body").jsonPrimitive.content.contains("Synthetic reply body"))
@@ -191,6 +208,9 @@ class WindowsNativeLifecycleTest {
                     override fun onUpdate(response: SyncResponseV2) { editEchoed.complete(Unit) }
                 })
                 try { editEchoed.await() } finally { editEcho.cancel(); editEcho.destroy() }
+                val typing = withTimeout(15_000) { timeline.typing.phase.first { it is TypingPhase.Showing } } as TypingPhase.Showing
+                assertEquals("Peer", typing.people.first)
+                timeline.rows.first { it is LoadPhase.Ready && it.value.any { row -> "@peer:example.test" in row.readersAtEvent } }
                 timeline.rows.first { it is LoadPhase.Ready && it.value.any { row -> row.id == editable.id && row.body == "Updated editable message" && row.isEdited } }
                 assertTrue(timeline.edits.start(editable.id)); timeline.draftChanged("Discard this edit")
                 assertFalse(timeline.cancelContext(editFrame, null)) // A stale Escape cannot cancel a later edit session.

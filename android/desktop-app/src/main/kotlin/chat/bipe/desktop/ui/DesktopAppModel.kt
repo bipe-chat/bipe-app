@@ -47,6 +47,7 @@ private fun SelectedTimeline.owned(): DesktopTimeline? = when (this) {
 /** Serial account transitions; rendering never selects a global SDK client or receives a native Room. */
 class DesktopAppModel(val catalog: DesktopCatalog) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    val devicePresence = DevicePresence(scope)
     val deviceAppearance = DeviceAppearance(catalog.appearanceOptions.map { it.first }, scope)
     private val transitions = Mutex()
     private val repository by lazy { AccountRepository.windowsDefault() }
@@ -146,7 +147,7 @@ class DesktopAppModel(val catalog: DesktopCatalog) {
             val previous = mutableTimeline.value.owned()
             try {
                 previous?.close()
-                val model = DesktopTimeline.open(current.runtime, roomId, catalog.chatLabels())
+                val model = DesktopTimeline.open(current.runtime, roomId, catalog.chatLabels(), devicePresence)
                 if (request != roomRequest || mutablePhase.value !== current) model.close()
                 else mutableTimeline.value = SelectedTimeline.Showing(model)
             } catch (_: Exception) {
@@ -218,6 +219,26 @@ class DesktopAppModel(val catalog: DesktopCatalog) {
 
     private suspend fun connect(runtime: MatrixAccountRuntime) {
         try {
+            runtime.lifetime.async {
+                runtime.client.setPresence(if (devicePresence.phase.value.enabled) org.matrix.rustcomponents.sdk.PresenceState.ONLINE
+                    else org.matrix.rustcomponents.sdk.PresenceState.OFFLINE, false)
+            }.await()
+            runtime.lifetime.launch {
+                devicePresence.phase.map { it.enabled }.distinctUntilChanged().collect { enabled ->
+                    try {
+                        runtime.client.setPresence(if (enabled) org.matrix.rustcomponents.sdk.PresenceState.ONLINE
+                            else org.matrix.rustcomponents.sdk.PresenceState.OFFLINE, false)
+                    } catch (cancelled: CancellationException) { throw cancelled }
+                      catch (_: Exception) {
+                        runtime.closeAsync()
+                        scope.launch { transitions.withLock {
+                            val active = mutablePhase.value as? AppPhase.Ready
+                            if (active?.runtime === runtime) { close(active); show(AppPhase.Failed()) }
+                        } }
+                        throw CancellationException("Desktop presence unavailable")
+                    }
+                }
+            }
             val list = DesktopRoomList.open(runtime, catalog.chatLabels())
             val profile = runtime.lifetime.async {
                 val userId = runtime.client.userId()
