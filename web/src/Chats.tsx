@@ -66,6 +66,7 @@ import { Settings } from './Settings';
 import { businessClientFor } from './work/business-client';
 import { assigneeLine, inFilter, useChatQueue, type QueueFilter } from './work/chat-queue';
 import { useWorkNotesRoomId } from './work/work-notes';
+import { useDraftsRoomId, writeSelfEntry } from './devices';
 import { workHostFor } from './work/host';
 import { WorkView } from './work/WorkView';
 import { InternoView } from './work/Interno';
@@ -204,6 +205,12 @@ export function Chats({ client }: { client: Client }) {
   const queue = useChatQueue(client, isCompany);
   const [queueFilter, setQueueFilter] = useState<QueueFilter>('all');
   const workNotesId = useWorkNotesRoomId(client, isCompany);
+  // ADR 0210 and ADR 0291: the drafts room holds drafts and device entries; it shows in no list. Once sync runs, this
+  // browser writes its device entry there.
+  const draftsId = useDraftsRoomId(client, sync.kind === 'ready');
+  useEffect(() => {
+    if (sync.kind === 'ready') void writeSelfEntry(client);
+  }, [client, sync.kind]);
   const { remember, current: account } = useAccounts();
   // Spec interno (bipe ADR 0284 phase B): the member identity session of this work account, under this slot. The row
   // shows only with the phase A check (two or more people and a seat here); with one person nothing changes.
@@ -219,8 +226,8 @@ export function Chats({ client }: { client: Client }) {
     (c) => (c.kind === 'dm' || c.kind === 'group') && Number(c.info?.numUnreadMessages ?? 0) > 0,
   ).length;
   const listedRooms = useMemo(
-    () => allRooms.filter((r) => r.id() !== notesId && r.id() !== workNotesId),
-    [allRooms, notesId, workNotesId],
+    () => allRooms.filter((r) => r.id() !== notesId && r.id() !== workNotesId && r.id() !== draftsId),
+    [allRooms, notesId, workNotesId, draftsId],
   );
   const summaries = useChatSummaries(listedRooms, client.userId());
   const archive = useMemo(() => new ChatArchive(client.userId()), [client]);
