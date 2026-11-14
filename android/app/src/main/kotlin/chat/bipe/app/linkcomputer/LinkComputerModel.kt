@@ -4,6 +4,7 @@
 
 package chat.bipe.app.linkcomputer
 
+import chat.bipe.app.settings.DeviceEntries
 import android.content.Context
 import android.util.Base64
 import android.util.Log
@@ -153,6 +154,8 @@ class LinkComputerModel(
     private var consent: MasDeviceApproval.Consent? = null
     /** Approve posted the MAS consent form: close then confirms. */
     private var approved = false
+    /** The device IDs of the account when the consent page opened, for the approval entry (ADR 0291). */
+    private var devicesBefore: Set<String>? = null
     /** Reject: a cancel from the SDK is the decline and closes with no message. */
     private var rejected = false
     private var finished = false
@@ -465,6 +468,7 @@ class LinkComputerModel(
             if (_state.value.approvePhase != ApprovePhase.LOADING) return
             this.consent = consent
             _state.update { it.copy(device = consent.device, ip = consent.ip, approvePhase = ApprovePhase.CONSENT) }
+            devicesBefore = DeviceEntries.deviceIds(session)
             val ip = consent.ip
             if (ip == null) _state.update { it.copy(placeKnown = true) } else lookUpPlace(ip)
         } catch (error: MasDeviceApproval.Failure) {
@@ -482,6 +486,7 @@ class LinkComputerModel(
             try {
                 approval.approve(consent)
                 approved = true
+                devicesBefore?.let { DeviceEntries.startApproval(context, session, consent.userAgent, it) }
                 runCatching { continuationSender?.confirm() }
             } catch (error: MasDeviceApproval.Failure) {
                 approvalFailed(error)

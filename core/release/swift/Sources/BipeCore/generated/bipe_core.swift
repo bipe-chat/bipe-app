@@ -581,6 +581,429 @@ fileprivate struct FfiConverterData: FfiConverterRustBuffer {
 
 
 /**
+ * One device from GET /_matrix/client/v3/devices.
+ */
+public struct AccountDevice: Equatable, Hashable {
+    public var deviceId: String
+    public var displayName: String?
+    public var lastSeenTs: Int64?
+    public var lastSeenIp: String?
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(deviceId: String, displayName: String?, lastSeenTs: Int64?, lastSeenIp: String?) {
+        self.deviceId = deviceId
+        self.displayName = displayName
+        self.lastSeenTs = lastSeenTs
+        self.lastSeenIp = lastSeenIp
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension AccountDevice: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeAccountDevice: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AccountDevice {
+        return
+            try AccountDevice(
+                deviceId: FfiConverterString.read(from: &buf), 
+                displayName: FfiConverterOptionString.read(from: &buf), 
+                lastSeenTs: FfiConverterOptionInt64.read(from: &buf), 
+                lastSeenIp: FfiConverterOptionString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: AccountDevice, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.deviceId, into: &buf)
+        FfiConverterOptionString.write(value.displayName, into: &buf)
+        FfiConverterOptionInt64.write(value.lastSeenTs, into: &buf)
+        FfiConverterOptionString.write(value.lastSeenIp, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAccountDevice_lift(_ buf: RustBuffer) throws -> AccountDevice {
+    return try FfiConverterTypeAccountDevice.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAccountDevice_lower(_ value: AccountDevice) -> RustBuffer {
+    return FfiConverterTypeAccountDevice.lower(value)
+}
+
+
+public struct AccountDeviceCounts: Equatable, Hashable {
+    public var devices: UInt32
+    public var programs: UInt32
+    public var unknown: UInt32
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(devices: UInt32, programs: UInt32, unknown: UInt32) {
+        self.devices = devices
+        self.programs = programs
+        self.unknown = unknown
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension AccountDeviceCounts: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeAccountDeviceCounts: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AccountDeviceCounts {
+        return
+            try AccountDeviceCounts(
+                devices: FfiConverterUInt32.read(from: &buf), 
+                programs: FfiConverterUInt32.read(from: &buf), 
+                unknown: FfiConverterUInt32.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: AccountDeviceCounts, into buf: inout [UInt8]) {
+        FfiConverterUInt32.write(value.devices, into: &buf)
+        FfiConverterUInt32.write(value.programs, into: &buf)
+        FfiConverterUInt32.write(value.unknown, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAccountDeviceCounts_lift(_ buf: RustBuffer) throws -> AccountDeviceCounts {
+    return try FfiConverterTypeAccountDeviceCounts.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAccountDeviceCounts_lower(_ value: AccountDeviceCounts) -> RustBuffer {
+    return FfiConverterTypeAccountDeviceCounts.lower(value)
+}
+
+
+/**
+ * A valid device entry.
+ */
+public struct AccountDeviceEntry: Equatable, Hashable {
+    public var deviceId: String
+    /**
+     * "self" or "approval".
+     */
+    public var source: String
+    /**
+     * A registry kind key other than "unknown".
+     */
+    public var kind: String
+    public var model: String?
+    public var os: String?
+    public var app: String?
+    public var linkedAt: Int64?
+    public var linkedBy: String?
+    public var attested: Bool
+    /**
+     * origin_server_ts of the event, 0 when absent.
+     */
+    public var ts: Int64
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(deviceId: String, 
+        /**
+         * "self" or "approval".
+         */source: String, 
+        /**
+         * A registry kind key other than "unknown".
+         */kind: String, model: String?, os: String?, app: String?, linkedAt: Int64?, linkedBy: String?, attested: Bool, 
+        /**
+         * origin_server_ts of the event, 0 when absent.
+         */ts: Int64) {
+        self.deviceId = deviceId
+        self.source = source
+        self.kind = kind
+        self.model = model
+        self.os = os
+        self.app = app
+        self.linkedAt = linkedAt
+        self.linkedBy = linkedBy
+        self.attested = attested
+        self.ts = ts
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension AccountDeviceEntry: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeAccountDeviceEntry: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AccountDeviceEntry {
+        return
+            try AccountDeviceEntry(
+                deviceId: FfiConverterString.read(from: &buf), 
+                source: FfiConverterString.read(from: &buf), 
+                kind: FfiConverterString.read(from: &buf), 
+                model: FfiConverterOptionString.read(from: &buf), 
+                os: FfiConverterOptionString.read(from: &buf), 
+                app: FfiConverterOptionString.read(from: &buf), 
+                linkedAt: FfiConverterOptionInt64.read(from: &buf), 
+                linkedBy: FfiConverterOptionString.read(from: &buf), 
+                attested: FfiConverterBool.read(from: &buf), 
+                ts: FfiConverterInt64.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: AccountDeviceEntry, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.deviceId, into: &buf)
+        FfiConverterString.write(value.source, into: &buf)
+        FfiConverterString.write(value.kind, into: &buf)
+        FfiConverterOptionString.write(value.model, into: &buf)
+        FfiConverterOptionString.write(value.os, into: &buf)
+        FfiConverterOptionString.write(value.app, into: &buf)
+        FfiConverterOptionInt64.write(value.linkedAt, into: &buf)
+        FfiConverterOptionString.write(value.linkedBy, into: &buf)
+        FfiConverterBool.write(value.attested, into: &buf)
+        FfiConverterInt64.write(value.ts, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAccountDeviceEntry_lift(_ buf: RustBuffer) throws -> AccountDeviceEntry {
+    return try FfiConverterTypeAccountDeviceEntry.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAccountDeviceEntry_lower(_ value: AccountDeviceEntry) -> RustBuffer {
+    return FfiConverterTypeAccountDeviceEntry.lower(value)
+}
+
+
+public struct AccountDeviceList: Equatable, Hashable {
+    public var rows: [AccountDeviceRow]
+    public var counts: AccountDeviceCounts
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(rows: [AccountDeviceRow], counts: AccountDeviceCounts) {
+        self.rows = rows
+        self.counts = counts
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension AccountDeviceList: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeAccountDeviceList: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AccountDeviceList {
+        return
+            try AccountDeviceList(
+                rows: FfiConverterSequenceTypeAccountDeviceRow.read(from: &buf), 
+                counts: FfiConverterTypeAccountDeviceCounts.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: AccountDeviceList, into buf: inout [UInt8]) {
+        FfiConverterSequenceTypeAccountDeviceRow.write(value.rows, into: &buf)
+        FfiConverterTypeAccountDeviceCounts.write(value.counts, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAccountDeviceList_lift(_ buf: RustBuffer) throws -> AccountDeviceList {
+    return try FfiConverterTypeAccountDeviceList.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAccountDeviceList_lower(_ value: AccountDeviceList) -> RustBuffer {
+    return FfiConverterTypeAccountDeviceList.lower(value)
+}
+
+
+/**
+ * One row of the list.
+ */
+public struct AccountDeviceRow: Equatable, Hashable {
+    public var deviceId: String
+    public var isThis: Bool
+    public var kind: String
+    /**
+     * Phosphor icon name.
+     */
+    public var icon: String
+    /**
+     * bipe-shared string key.
+     */
+    public var label: String
+    /**
+     * "devices" or "programs".
+     */
+    public var section: String
+    public var leavesBrazil: Bool
+    public var name: String?
+    public var model: String?
+    public var os: String?
+    public var app: String?
+    public var lastSeen: Int64?
+    public var ip: String?
+    public var linkedAt: Int64?
+    public var linkedBy: String?
+    public var attested: Bool
+    public var warning: Bool
+    public var canSignOut: Bool
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(deviceId: String, isThis: Bool, kind: String, 
+        /**
+         * Phosphor icon name.
+         */icon: String, 
+        /**
+         * bipe-shared string key.
+         */label: String, 
+        /**
+         * "devices" or "programs".
+         */section: String, leavesBrazil: Bool, name: String?, model: String?, os: String?, app: String?, lastSeen: Int64?, ip: String?, linkedAt: Int64?, linkedBy: String?, attested: Bool, warning: Bool, canSignOut: Bool) {
+        self.deviceId = deviceId
+        self.isThis = isThis
+        self.kind = kind
+        self.icon = icon
+        self.label = label
+        self.section = section
+        self.leavesBrazil = leavesBrazil
+        self.name = name
+        self.model = model
+        self.os = os
+        self.app = app
+        self.lastSeen = lastSeen
+        self.ip = ip
+        self.linkedAt = linkedAt
+        self.linkedBy = linkedBy
+        self.attested = attested
+        self.warning = warning
+        self.canSignOut = canSignOut
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension AccountDeviceRow: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeAccountDeviceRow: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AccountDeviceRow {
+        return
+            try AccountDeviceRow(
+                deviceId: FfiConverterString.read(from: &buf), 
+                isThis: FfiConverterBool.read(from: &buf), 
+                kind: FfiConverterString.read(from: &buf), 
+                icon: FfiConverterString.read(from: &buf), 
+                label: FfiConverterString.read(from: &buf), 
+                section: FfiConverterString.read(from: &buf), 
+                leavesBrazil: FfiConverterBool.read(from: &buf), 
+                name: FfiConverterOptionString.read(from: &buf), 
+                model: FfiConverterOptionString.read(from: &buf), 
+                os: FfiConverterOptionString.read(from: &buf), 
+                app: FfiConverterOptionString.read(from: &buf), 
+                lastSeen: FfiConverterOptionInt64.read(from: &buf), 
+                ip: FfiConverterOptionString.read(from: &buf), 
+                linkedAt: FfiConverterOptionInt64.read(from: &buf), 
+                linkedBy: FfiConverterOptionString.read(from: &buf), 
+                attested: FfiConverterBool.read(from: &buf), 
+                warning: FfiConverterBool.read(from: &buf), 
+                canSignOut: FfiConverterBool.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: AccountDeviceRow, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.deviceId, into: &buf)
+        FfiConverterBool.write(value.isThis, into: &buf)
+        FfiConverterString.write(value.kind, into: &buf)
+        FfiConverterString.write(value.icon, into: &buf)
+        FfiConverterString.write(value.label, into: &buf)
+        FfiConverterString.write(value.section, into: &buf)
+        FfiConverterBool.write(value.leavesBrazil, into: &buf)
+        FfiConverterOptionString.write(value.name, into: &buf)
+        FfiConverterOptionString.write(value.model, into: &buf)
+        FfiConverterOptionString.write(value.os, into: &buf)
+        FfiConverterOptionString.write(value.app, into: &buf)
+        FfiConverterOptionInt64.write(value.lastSeen, into: &buf)
+        FfiConverterOptionString.write(value.ip, into: &buf)
+        FfiConverterOptionInt64.write(value.linkedAt, into: &buf)
+        FfiConverterOptionString.write(value.linkedBy, into: &buf)
+        FfiConverterBool.write(value.attested, into: &buf)
+        FfiConverterBool.write(value.warning, into: &buf)
+        FfiConverterBool.write(value.canSignOut, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAccountDeviceRow_lift(_ buf: RustBuffer) throws -> AccountDeviceRow {
+    return try FfiConverterTypeAccountDeviceRow.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeAccountDeviceRow_lower(_ value: AccountDeviceRow) -> RustBuffer {
+    return FfiConverterTypeAccountDeviceRow.lower(value)
+}
+
+
+/**
  * The result of reconciling the Matrix archive tag with the local state.
  */
 public struct ArchiveSync: Equatable, Hashable {
@@ -3627,6 +4050,71 @@ public func FfiConverterTypeTrustedKey_lower(_ value: TrustedKey) -> RustBuffer 
 
 
 /**
+ * What a user agent says about a device.
+ */
+public struct UserAgentInfo: Equatable, Hashable {
+    public var kind: String
+    public var app: String?
+    public var model: String?
+    public var os: String?
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(kind: String, app: String?, model: String?, os: String?) {
+        self.kind = kind
+        self.app = app
+        self.model = model
+        self.os = os
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension UserAgentInfo: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeUserAgentInfo: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> UserAgentInfo {
+        return
+            try UserAgentInfo(
+                kind: FfiConverterString.read(from: &buf), 
+                app: FfiConverterOptionString.read(from: &buf), 
+                model: FfiConverterOptionString.read(from: &buf), 
+                os: FfiConverterOptionString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: UserAgentInfo, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.kind, into: &buf)
+        FfiConverterOptionString.write(value.app, into: &buf)
+        FfiConverterOptionString.write(value.model, into: &buf)
+        FfiConverterOptionString.write(value.os, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeUserAgentInfo_lift(_ buf: RustBuffer) throws -> UserAgentInfo {
+    return try FfiConverterTypeUserAgentInfo.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeUserAgentInfo_lower(_ value: UserAgentInfo) -> RustBuffer {
+    return FfiConverterTypeUserAgentInfo.lower(value)
+}
+
+
+/**
  * A list that passed every step. Store `stored`; give it back as `stored` on the next fetch.
  */
 public struct VerifiedList: Equatable, Hashable {
@@ -4381,6 +4869,79 @@ public func FfiConverterTypeCvmLineKey_lift(_ buf: RustBuffer) throws -> CvmLine
 #endif
 public func FfiConverterTypeCvmLineKey_lower(_ value: CvmLineKey) -> RustBuffer {
     return FfiConverterTypeCvmLineKey.lower(value)
+}
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+
+public enum DeviceInfoResult: Equatable, Hashable {
+    
+    case entry(entry: AccountDeviceEntry
+    )
+    case hide(reason: String
+    )
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension DeviceInfoResult: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeDeviceInfoResult: FfiConverterRustBuffer {
+    typealias SwiftType = DeviceInfoResult
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> DeviceInfoResult {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .entry(entry: try FfiConverterTypeAccountDeviceEntry.read(from: &buf)
+        )
+        
+        case 2: return .hide(reason: try FfiConverterString.read(from: &buf)
+        )
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: DeviceInfoResult, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case let .entry(entry):
+            writeInt(&buf, Int32(1))
+            FfiConverterTypeAccountDeviceEntry.write(entry, into: &buf)
+            
+        
+        case let .hide(reason):
+            writeInt(&buf, Int32(2))
+            FfiConverterString.write(reason, into: &buf)
+            
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeDeviceInfoResult_lift(_ buf: RustBuffer) throws -> DeviceInfoResult {
+    return try FfiConverterTypeDeviceInfoResult.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeDeviceInfoResult_lower(_ value: DeviceInfoResult) -> RustBuffer {
+    return FfiConverterTypeDeviceInfoResult.lower(value)
 }
 
 
@@ -7589,6 +8150,30 @@ fileprivate struct FfiConverterOptionTypeStoredList: FfiConverterRustBuffer {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterOptionTypeUserAgentInfo: FfiConverterRustBuffer {
+    typealias SwiftType = UserAgentInfo?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeUserAgentInfo.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeUserAgentInfo.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterOptionTypeVerifiedList: FfiConverterRustBuffer {
     typealias SwiftType = VerifiedList?
 
@@ -7967,6 +8552,81 @@ fileprivate struct FfiConverterSequenceString: FfiConverterRustBuffer {
         seq.reserveCapacity(Int(len))
         for _ in 0 ..< len {
             seq.append(try FfiConverterString.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterSequenceTypeAccountDevice: FfiConverterRustBuffer {
+    typealias SwiftType = [AccountDevice]
+
+    public static func write(_ value: [AccountDevice], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeAccountDevice.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [AccountDevice] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [AccountDevice]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypeAccountDevice.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterSequenceTypeAccountDeviceEntry: FfiConverterRustBuffer {
+    typealias SwiftType = [AccountDeviceEntry]
+
+    public static func write(_ value: [AccountDeviceEntry], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeAccountDeviceEntry.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [AccountDeviceEntry] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [AccountDeviceEntry]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypeAccountDeviceEntry.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterSequenceTypeAccountDeviceRow: FfiConverterRustBuffer {
+    typealias SwiftType = [AccountDeviceRow]
+
+    public static func write(_ value: [AccountDeviceRow], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeAccountDeviceRow.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [AccountDeviceRow] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [AccountDeviceRow]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypeAccountDeviceRow.read(from: &buf))
         }
         return seq
     }
@@ -8581,6 +9241,43 @@ public func cvmLines(fieldJson: String?) -> CvmLines  {
     return try!  FfiConverterTypeCvmLines_lift(try! rustCall() {
     uniffi_bipe_core_fn_func_cvm_lines(
         FfiConverterOptionString.lower(fieldJson),$0
+    )
+})
+}
+/**
+ * Whether a drafts room event is a valid device entry. `sender_verified` is false when the SDK shows a shield on the
+ * event. The reasons are the reference reason ids.
+ */
+public func deviceInfoFromEvent(eventJson: String, ownUserId: String, senderVerified: Bool) -> DeviceInfoResult  {
+    return try!  FfiConverterTypeDeviceInfoResult_lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_device_info_from_event(
+        FfiConverterString.lower(eventJson),
+        FfiConverterString.lower(ownUserId),
+        FfiConverterBool.lower(senderVerified),$0
+    )
+})
+}
+/**
+ * The rows of Aparelhos e assistentes: this device first, then newest use first. `entries`: valid entries from
+ * device_info_from_event; entries of devices that are not in `devices` are ignored.
+ */
+public func deviceRows(thisDeviceId: String, devices: [AccountDevice], entries: [AccountDeviceEntry]) -> AccountDeviceList  {
+    return try!  FfiConverterTypeAccountDeviceList_lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_device_rows(
+        FfiConverterString.lower(thisDeviceId),
+        FfiConverterSequenceTypeAccountDevice.lower(devices),
+        FfiConverterSequenceTypeAccountDeviceEntry.lower(entries),$0
+    )
+})
+}
+/**
+ * What a user agent says about a device, or `None` when no rule matches. The phone that approves a new device writes
+ * an approval entry from it.
+ */
+public func userAgentInfo(userAgent: String) -> UserAgentInfo?  {
+    return try!  FfiConverterOptionTypeUserAgentInfo.lift(try! rustCall() {
+    uniffi_bipe_core_fn_func_user_agent_info(
+        FfiConverterString.lower(userAgent),$0
     )
 })
 }
@@ -9488,6 +10185,15 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_bipe_core_checksum_func_cvm_lines() != 47403) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_bipe_core_checksum_func_device_info_from_event() != 9916) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_bipe_core_checksum_func_device_rows() != 29091) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_bipe_core_checksum_func_user_agent_info() != 61786) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_bipe_core_checksum_func_govbr_incoming() != 42371) {

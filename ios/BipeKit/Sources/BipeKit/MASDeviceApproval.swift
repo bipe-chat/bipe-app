@@ -18,6 +18,9 @@ public final class MASDeviceApproval: NSObject, URLSessionTaskDelegate, @uncheck
         public let device: String?
         public let ip: String?
         let csrf: String
+        /// The raw user agent of the device that asks (the title of the MAS device card), for the approval entry of
+        /// ADR 0291 (BipeDevices.userAgentInfo). nil when MAS shows none.
+        public var userAgent: String? = nil
     }
 
     /// Spec error codes. The log names the code, the status and the page path; never the query or a secret.
@@ -72,7 +75,8 @@ public final class MASDeviceApproval: NSObject, URLSessionTaskDelegate, @uncheck
             throw .notConsentPage(path: page.url.path())
         }
         return Consent(pageURL: form.target(on: page.url), device: page.deviceText,
-                       ip: page.metadataText.flatMap(BipeWebLink.firstIPAddress(in:)), csrf: csrf)
+                       ip: page.metadataText.flatMap(BipeWebLink.firstIPAddress(in:)), csrf: csrf,
+                       userAgent: page.userAgent)
     }
 
     /// Action approve: posts the consent form. MAS answers with its granted page, which has no consent form.
@@ -173,6 +177,8 @@ struct MASPage {
     let deviceText: String?
     /// The text of the device card metadata (IP, time, code).
     let metadataText: String?
+    /// The title attribute of the device card header: MAS puts the raw user agent there.
+    let userAgent: String?
 
     init(url: URL, html: String) {
         self.url = url
@@ -185,6 +191,10 @@ struct MASPage {
         let parts = header.map { Self.matches(#"<div>\s*([^<]+?)\s*</div>"#, in: $0).map { Self.text($0[0]) } } ?? []
         deviceText = parts.isEmpty ? nil : parts.joined(separator: " · ")
         metadataText = Self.slice(html, from: "class=\"metadata\"", to: "</header>").map(Self.text)
+        userAgent = Self.matches(#"<div\b([^>]*class="card-header"[^>]*)>"#, in: html).first
+            .flatMap { Self.attributes($0[0])["title"] }
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .flatMap { $0.isEmpty ? nil : $0 }
     }
 
     private static func slice(_ html: String, from start: String, to end: String) -> String? {

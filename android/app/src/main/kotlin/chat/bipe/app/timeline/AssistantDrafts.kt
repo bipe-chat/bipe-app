@@ -4,6 +4,8 @@
 
 package chat.bipe.app.timeline
 
+import chat.bipe.shared.devices.BipeDevices
+import org.matrix.rustcomponents.sdk.ShieldState
 import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -81,8 +83,9 @@ import uniffi.matrix_sdk_ui.TimelineReadReceiptTracking
 
 /**
  * Spec drafts (bipe-chat/bipe#866, ADR 0210): the drafts that the user's own assistant wrote in the account's private
- * drafts room. The app reads the room named by the global account data chat.bipe.drafts_room and never creates it.
- * Read at start and when the app comes to the front; the drafts then follow the room timeline live.
+ * drafts room. The app reads the room named by the global account data chat.bipe.drafts_room; only DeviceEntries
+ * creates it. Read at start and when the app comes to the front; the drafts then follow the room timeline live. The
+ * same timeline gives the device entries of Aparelhos e assistentes (ADR 0291).
  */
 object AssistantDraftsStore {
     /** Type AssistantDraft of spec drafts. */
@@ -107,6 +110,8 @@ object AssistantDraftsStore {
         val showsNothingSent: Boolean = true,
         /** Spec drafts openDraft: the draft the banner shows per target chat, instead of the newest. */
         val focused: Map<String, String> = emptyMap(),
+        /** The valid device entries of the drafts room (BipeDevices.entry), for spec linked-devices. */
+        val deviceEntries: List<BipeDevices.Entry> = emptyList(),
     ) {
         /** State currentRoomDrafts. */
         fun drafts(roomId: String, userId: String): List<Draft> =
@@ -218,7 +223,7 @@ object AssistantDraftsStore {
         timeline = null
         watchedRoomId = null
         items.clear()
-        _state.update { it.copy(drafts = emptyList(), focused = emptyMap(), failedEventId = null) }
+        _state.update { it.copy(drafts = emptyList(), focused = emptyMap(), failedEventId = null, deviceEntries = emptyList()) }
         session?.releaseRoomSubscriptions(subscriptionOwner)
     }
 
@@ -227,12 +232,20 @@ object AssistantDraftsStore {
             .filter { runCatching { it.membership() == Membership.JOINED }.getOrDefault(false) }
             .map { it.id() }
             .toSet()
+        val entries = mutableListOf<BipeDevices.Entry>()
         val result = items.mapNotNull { item ->
             val event = item.asEvent() ?: return@mapNotNull null
             val eventId = (event.eventOrTransactionId as? EventOrTransactionId.EventId)?.eventId ?: return@mapNotNull null
             val redacted = (event.content as? TimelineItemContent.MsgLike)?.content?.kind is MsgLikeKind.Redacted
+            val json = event.lazyProvider.debugInfo().originalJson
+            // A device entry counts only when the SDK shows no shield on it: the sending device is verified.
+            val verified = runCatching { event.lazyProvider.getShields(false) is ShieldState.None }.getOrDefault(false)
+            BipeDevices.entry(json, event.sender, redacted, verified, session.userId)?.let {
+                entries += it
+                return@mapNotNull null
+            }
             val shown = BipeAssistantDrafts.fromEventJson(
-                event.lazyProvider.debugInfo().originalJson, event.sender, redacted, session.userId, joined,
+                json, event.sender, redacted, session.userId, joined,
             ) as? BipeAssistantDrafts.Result.Show ?: return@mapNotNull null
             val draft = shown.draft
             val name = runCatching { session.client.getRoom(draft.roomId)?.displayName() }.getOrNull()?.takeIf { it.isNotBlank() } ?: noName
@@ -244,6 +257,7 @@ object AssistantDraftsStore {
                 drafts = result,
                 focused = state.focused.filterValues { it in ids },
                 failedEventId = state.failedEventId?.takeIf { it in ids },
+                deviceEntries = entries,
             )
         }
     }

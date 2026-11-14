@@ -9,8 +9,9 @@ import Phosphor
 import SwiftUI
 
 /// Spec drafts (bipe-chat/bipe#866, ADR 0210): the drafts that the user's own assistant wrote in the account's private
-/// drafts room. The app reads the room named by the global account data chat.bipe.drafts_room and never creates it.
-/// Read at start and when the app comes to the front; the drafts then follow the room timeline live.
+/// drafts room. The app reads the room named by the global account data chat.bipe.drafts_room; only DeviceEntries
+/// creates it. Read at start and when the app comes to the front; the drafts then follow the room timeline live.
+/// The same timeline gives the device entries of Aparelhos e assistentes (ADR 0291).
 @MainActor
 final class AssistantDraftsStore: ObservableObject {
     static let shared = AssistantDraftsStore()
@@ -31,6 +32,8 @@ final class AssistantDraftsStore: ObservableObject {
 
     /// State drafts: newest first.
     @Published private(set) var drafts: [Draft] = []
+    /// The valid device entries of the drafts room (BipeDevices.entry), for spec linked-devices.
+    @Published private(set) var deviceEntries: [BipeDevices.Entry] = []
     /// State sending: the draft whose send runs.
     @Published private(set) var sendingEventId: String?
     /// State failed: the draft whose last send failed.
@@ -122,6 +125,7 @@ final class AssistantDraftsStore: ObservableObject {
         watchedRoomId = nil
         items = []
         drafts = []
+        deviceEntries = []
         focused = [:]
         failedEventId = nil
         if let session {
@@ -135,10 +139,19 @@ final class AssistantDraftsStore: ObservableObject {
         guard let session else { return }
         let joined = Set(session.client.rooms().filter { $0.membership() == .joined }.map { $0.id() })
         var result: [Draft] = []
+        var entries: [BipeDevices.Entry] = []
         for item in items {
             guard let event = item.asEvent(), case .eventId(let eventId) = event.eventOrTransactionId else { continue }
             var redacted = false
             if case .msgLike(let content) = event.content, case .redacted = content.kind { redacted = true }
+            // A device entry counts only when the SDK shows no shield on it: the sending device is verified.
+            var verified = false
+            if case .none = event.lazyProvider.getShields(strict: false) { verified = true }
+            if let entry = BipeDevices.entry(eventJson: event.lazyProvider.debugInfo().originalJson, sender: event.sender,
+                                             redacted: redacted, senderVerified: verified, ownUserId: session.userId) {
+                entries.append(entry)
+                continue
+            }
             guard let draft = BipeAssistantDrafts.fromEventJson(event.lazyProvider.debugInfo().originalJson,
                                                                 sender: event.sender, redacted: redacted,
                                                                 ownUserId: session.userId, joinedRoomIds: joined).draft else { continue }
@@ -150,6 +163,7 @@ final class AssistantDraftsStore: ObservableObject {
         // The timeline is oldest first.
         let newest = Array(result.reversed())
         if newest != drafts { drafts = newest }
+        if entries != deviceEntries { deviceEntries = entries }
         let ids = Set(newest.map(\.eventId))
         focused = focused.filter { ids.contains($0.value) }
         if let failedEventId, !ids.contains(failedEventId) { self.failedEventId = nil }

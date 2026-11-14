@@ -3,59 +3,81 @@
 // Copyright 2026 Bipe contributors
 
 import BipeKit
-import MatrixRustSDK
+import Phosphor
 import SwiftUI
-import WebKit
+import UIKit
 
-/// Spec linked-devices: the other devices of the account, and signing one out on the MAS page (ADR 0116).
+/// Spec linked-devices (ADR 0291): every device of the account with its kind and details, this phone first, and
+/// signing out one device or all others natively through bipe-api after the biometric check.
 @MainActor
 final class LinkedDevicesModel: ObservableObject {
     enum Phase: Equatable {
         case loading
-        case loaded
+        case loaded([BipeDevices.Row])
         case failed
+    }
+
+    /// What the sign-out sheet asks about.
+    enum SignOutTarget: Equatable, Identifiable {
+        case one(BipeDevices.Row)
+        case others
+
+        var id: String {
+            switch self {
+            case .one(let row): row.deviceId
+            case .others: "others"
+            }
+        }
     }
 
     enum SignOutPhase: Equatable {
         case idle
         case confirmIdentity
         case loading
-        case page(URL, host: String)
         case failed
     }
 
     @Published private(set) var phase: Phase = .loading
-    @Published private(set) var devices: [BipeMatrixDevice] = []
-    @Published var signOutCandidate: BipeMatrixDevice?
+    /// Place per IP (GET /v1/web-link/place). The IP goes to no outside service.
+    @Published private(set) var places: [String: String] = [:]
+    @Published var signOutTarget: SignOutTarget?
     @Published private(set) var signOutPhase: SignOutPhase = .idle
     @Published var notice: String?
-    private let model: SettingsModel
-    private var startedAt: Date?
-    private var password: String?
+    let model: SettingsModel
 
     init(model: SettingsModel) {
         self.model = model
     }
 
-    private var matrix: BipeMatrixAccountAPI? {
-        URL(string: model.session.client.homeserver()).map { BipeMatrixAccountAPI(homeserver: $0) }
+    var rows: [BipeDevices.Row] {
+        if case .loaded(let rows) = phase { return rows }
+        return []
     }
 
-    /// Action appear: the devices of the account without this phone, newest use first.
+    var devices: [BipeDevices.Row] { rows.filter { $0.section != "programs" } }
+    var programs: [BipeDevices.Row] { rows.filter { $0.section == "programs" } }
+    /// Action askSignOutOthers is shown when two or more other devices exist.
+    var showsSignOutOthers: Bool { rows.filter(\.canSignOut).count >= 2 }
+
+    /// The place of a row, when known.
+    func place(of row: BipeDevices.Row) -> String? {
+        row.ip.flatMap { places[$0] }
+    }
+
+    /// The title of the approving device for device-detail linkedBy.
+    func name(of deviceId: String) -> String {
+        rows.first { $0.deviceId == deviceId }?.title ?? deviceId
+    }
+
+    /// Action appear: the devices, the entries of the drafts room, deviceRows, then the place of each row.
     func load() async {
-        guard let matrix, let token = model.session.accessToken() else {
-            phase = .failed
+        guard let list = await DeviceEntries.list(session: model.session) else {
+            if rows.isEmpty { phase = .failed }
             return
         }
-        do {
-            let ownID = try? model.session.client.deviceId()
-            devices = try await matrix.devices(accessToken: token)
-                .filter { $0.deviceId != ownID }
-                .sorted { ($0.lastSeenTs ?? 0) > ($1.lastSeenTs ?? 0) }
-            phase = .loaded
-        } catch {
-            phase = .failed
-        }
+        phase = .loaded(list.rows)
+        model.setDeviceCounts(list.counts)
+        await loadPlaces(list.rows)
     }
 
     /// Action retry.
@@ -64,76 +86,60 @@ final class LinkedDevicesModel: ObservableObject {
         await load()
     }
 
-    /// Action confirmSignOut: the biometric check, then the MAS page that ends the device's session.
+    private func loadPlaces(_ rows: [BipeDevices.Row]) async {
+        let api = model.api
+        for ip in Set(rows.compactMap(\.ip)) where places[ip] == nil {
+            let found = try? await model.authorized { (token: String) async throws(BipeAPIError) -> BipeWebLinkPlace in
+                try await api.webLinkPlace(ip: ip, accessToken: token)
+            }
+            if let label = found?.label() { places[ip] = label }
+        }
+    }
+
+    /// Action confirmSignOut and confirmSignOutOthers: the biometric check, then the bipe-api route, then a reload.
     func confirmSignOut() async {
-        guard let device = signOutCandidate else { return }
+        guard let target = signOutTarget, signOutPhase == .idle else { return }
         signOutPhase = .confirmIdentity
         guard await OwnerCheck.owner(reason: BipeStrings.linkedDevicesSignOutBiometric) else {
             signOutPhase = .idle
             return
         }
         signOutPhase = .loading
-        // The hidden password is read only after the check passes.
-        guard let matrix,
-              let password = BipeCredentialStore().password(for: model.session.userId)?.secret,
-              let metadata = try? await matrix.authMetadata(),
-              let host = metadata.host,
-              let accountURI = metadata.accountManagementUri.flatMap(URL.init(string:)),
-              let url = BipeWebLink.sessionEndURL(accountManagementURI: accountURI, deviceID: device.deviceId),
-              BipeWebLink.isAllowed(url, host: host) else {
+        let api = model.api
+        do throws(BipeAPIError) {
+            switch target {
+            case .one(let row):
+                try await model.authorized { (token: String) async throws(BipeAPIError) in
+                    try await api.signOutDevice(row.deviceId, accessToken: token)
+                }
+            case .others:
+                _ = try await model.authorized { (token: String) async throws(BipeAPIError) -> Int in
+                    try await api.signOutOtherDevices(accessToken: token)
+                }
+            }
+        } catch {
             signOutPhase = .failed
             return
         }
-        self.password = password
-        startedAt = .now
-        signOutPhase = .page(url, host: host)
-    }
-
-    /// The MAS login name: the localpart of the Matrix ID.
-    var username: String { BipeWebLink.localpart(of: model.session.userId) }
-
-    /// The login form: the hidden password, once. The second time the sign-in failed.
-    func takePassword() -> String? {
-        defer { password = nil }
-        return password
-    }
-
-    func pageFailed() {
-        password = nil
-        signOutPhase = .failed
-    }
-
-    /// Action pageClosed: clears the web view, ends the MAS browser session, reloads the list.
-    func pageClosed() async {
-        password = nil
-        let device = signOutCandidate
-        signOutCandidate = nil
+        BipeHaptics.play(.success)
+        signOutTarget = nil
         signOutPhase = .idle
-        // The web view's data store is non-persistent: its cookies and storage go with the web view.
-        if let since = startedAt {
-            startedAt = nil
-            let api = model.api
-            // A failure is not shown.
-            try? await model.authorized { (token: String) async throws(BipeAPIError) in
-                try await api.finishWebLink(since: since, accessToken: token)
-            }
-        }
+        notice = BipeStrings.appLinkedDevicesSignedOut
         await load()
-        if let device, !devices.contains(where: { $0.deviceId == device.deviceId }) {
-            notice = BipeStrings.appLinkedDevicesSignedOut
-        }
     }
 
     func cancelSignOut() {
-        signOutCandidate = nil
+        guard signOutPhase == .idle || signOutPhase == .failed else { return }
+        signOutTarget = nil
         signOutPhase = .idle
     }
 }
 
-/// Spec linked-devices inside the group Aparelhos e assistentes (ADR 0291): the device rows as the first section of
-/// SettingsGroupView. Link a computer is the group's registry row linkComputer.
+/// Spec linked-devices inside the group Aparelhos e assistentes (ADR 0291): the sections Aparelhos and Assistentes e
+/// programas of SettingsGroupView. Link a computer is the group's registry row linkComputer.
 struct LinkedDevicesSection: View {
     @StateObject private var devices: LinkedDevicesModel
+    @ObservedObject private var drafts = AssistantDraftsStore.shared
 
     init(model: SettingsModel) {
         _devices = StateObject(wrappedValue: LinkedDevicesModel(model: model))
@@ -149,48 +155,19 @@ struct LinkedDevicesSection: View {
         }
         .accessibilityIdentifier(BipeScreen.linkedDevices.rawValue)
         .task { await devices.load() }
-        .confirmationDialog(signOutTitle,
-                            isPresented: Binding(get: { devices.signOutCandidate != nil && devices.signOutPhase == .idle },
-                                                 set: { if !$0 && devices.signOutPhase == .idle { devices.cancelSignOut() } }),
-                            titleVisibility: .visible) {
-            Button(role: .destructive) {
-                Task { await devices.confirmSignOut() }
-            } label: {
-                Text(BipeStrings.linkedDevicesSignOut)
-            }
-            Button(role: .cancel) {
-                devices.cancelSignOut()
-            } label: {
-                Text(BipeStrings.appCancel)
-            }
-        } message: {
-            Text(BipeStrings.linkedDevicesSignOutBody)
-        }
-        .fullScreenCover(isPresented: Binding(get: { isOnPage }, set: { _ in })) {
-            MasPageView(devices: devices)
-        }
-        // Closing the error also ends the MAS browser session that the web view may have made.
-        .alert(BipeStrings.linkedDevicesTitle, isPresented: Binding(get: { devices.signOutPhase == .failed }, set: { _ in })) {
-            Button(role: .cancel) {
-                Task { await devices.pageClosed() }
-            } label: {
-                Text(BipeStrings.appClose)
-            }
-        } message: {
-            Text(BipeStrings.appLinkedDevicesSignOutError)
-        }
+        // A device entry that arrives later in the drafts room fills its row.
+        .onChange(of: drafts.deviceEntries) { _, _ in Task { await devices.load() } }
+        .linkedDevicesSignOut(devices)
         .toast($devices.notice)
-    }
-
-    private var isOnPage: Bool {
-        switch devices.signOutPhase {
-        case .loading, .page: true
-        default: false
+        if !devices.programs.isEmpty {
+            Section {
+                ForEach(devices.programs) { row in
+                    DeviceRowLink(row: row, devices: devices)
+                }
+            } header: {
+                Text(BipeStrings.devicesSectionPrograms)
+            }
         }
-    }
-
-    private var signOutTitle: String {
-        BipeStrings.linkedDevicesSignOutTitle(devices.signOutCandidate.map(Self.name) ?? "")
     }
 
     @ViewBuilder
@@ -215,142 +192,270 @@ struct LinkedDevicesSection: View {
                 Text(BipeStrings.linkedDevicesEmpty)
                     .foregroundStyle(BipeColor.inkSecondary)
             } else {
-                ForEach(devices.devices) { device in
-                    Button {
-                        // Action askSignOut.
-                        devices.signOutCandidate = device
+                ForEach(devices.devices) { row in
+                    DeviceRowLink(row: row, devices: devices)
+                }
+                if devices.showsSignOutOthers {
+                    Button(role: .destructive) {
+                        // Action askSignOutOthers.
+                        devices.signOutTarget = .others
                     } label: {
-                        HStack(spacing: 12) {
-                            PhosphorIconView(icon: .desktop, size: 22)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(Self.name(device))
-                                    .foregroundStyle(BipeColor.inkPrimary)
-                                if let lastUsed = device.lastUsed {
-                                    Text(BipeStrings.linkedDevicesLastUsed(lastUsed.formatted(.relative(presentation: .named))))
-                                        .font(.subheadline)
-                                        .foregroundStyle(BipeColor.inkSecondary)
-                                }
-                            }
-                        }
-                        .contentShape(Rectangle())
+                        Text(BipeStrings.devicesSignOutOthers)
                     }
-                    .buttonStyle(.plain)
                 }
             }
         }
     }
-
-    private static func name(_ device: BipeMatrixDevice) -> String {
-        guard let name = device.displayName, !name.isEmpty else { return BipeStrings.linkedDevicesUnknownName }
-        return name
-    }
 }
 
-/// The MAS page in a private web view (link-computer-approve notes): a non-persistent data store, only https pages
-/// on the MAS host, no new windows, the login form filled once with the hidden password.
-private struct MasPageView: View {
+/// One row: opens device-detail; a swipe signs the device out (action askSignOut).
+private struct DeviceRowLink: View {
+    let row: BipeDevices.Row
     @ObservedObject var devices: LinkedDevicesModel
 
     var body: some View {
-        NavigationStack {
-            Group {
-                if case .page(let url, let host) = devices.signOutPhase {
-                    PrivateWebView(url: url,
-                                   host: host,
-                                   username: devices.username,
-                                   takePassword: devices.takePassword,
-                                   onSignInFailed: devices.pageFailed)
-                } else {
+        NavigationLink {
+            DeviceDetailView(row: row, devices: devices)
+        } label: {
+            DeviceRowLabel(row: row, place: devices.place(of: row))
+        }
+        // The same action as the swipe, for VoiceOver.
+        .accessibilityActions {
+            if row.canSignOut {
+                Button(BipeStrings.linkedDevicesSignOut) { devices.signOutTarget = .one(row) }
+            }
+        }
+        .swipeActions(edge: .trailing) {
+            if row.canSignOut {
+                Button(role: .destructive) {
+                    devices.signOutTarget = .one(row)
+                } label: {
+                    Text(BipeStrings.linkedDevicesSignOut)
+                }
+            }
+        }
+    }
+}
+
+/// Icon, name, kind and details, last use and place.
+private struct DeviceRowLabel: View {
+    let row: BipeDevices.Row
+    let place: String?
+
+    var body: some View {
+        HStack(spacing: 12) {
+            (PhosphorIcon(rawValue: row.icon) ?? .warning).image
+                .resizable()
+                .frame(width: 22, height: 22)
+                .foregroundStyle(row.warning ? BipeColor.trustCautionInk : BipeColor.accentInk)
+            VStack(alignment: .leading, spacing: 2) {
+                if row.isThis {
+                    Text(BipeStrings.devicesThisDevice)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(BipeColor.accentInk)
+                }
+                Text(row.title)
+                    .foregroundStyle(BipeColor.inkPrimary)
+                Text(DeviceText.details(row))
+                    .font(.subheadline)
+                    .foregroundStyle(BipeColor.inkSecondary)
+                if let use = DeviceText.use(row, place: place) {
+                    Text(use)
+                        .font(.subheadline)
+                        .foregroundStyle(BipeColor.inkSecondary)
+                }
+                if row.warning {
+                    Text(BipeStrings.devicesUnknownWarning)
+                        .font(.footnote)
+                        .foregroundStyle(BipeColor.trustCautionInk)
+                }
+            }
+        }
+        .contentShape(Rectangle())
+    }
+}
+
+/// The text lines of a device row, shared by the row and device-detail.
+enum DeviceText {
+    /// Kind, system and app, and "fora do Brasil" for a program that sends data out of Brazil.
+    static func details(_ row: BipeDevices.Row) -> String {
+        var parts = [row.kindLabel]
+        if let os = row.os { parts.append(os) }
+        if let app = row.app, app != row.name { parts.append(app) }
+        if row.leavesBrazil { parts.append(BipeStrings.devicesOutsideBrazil) }
+        return parts.joined(separator: " · ")
+    }
+
+    /// Last use and place. This phone shows no last use.
+    static func use(_ row: BipeDevices.Row, place: String?) -> String? {
+        var parts: [String] = []
+        if !row.isThis, let lastUsed = row.lastUsed {
+            parts.append(BipeStrings.linkedDevicesLastUsed(lastUsed.formatted(.relative(presentation: .named))))
+        }
+        if let place { parts.append(place) }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+}
+
+/// Spec device-detail (ADR 0291): everything Bipe knows about one device.
+struct DeviceDetailView: View {
+    let row: BipeDevices.Row
+    @ObservedObject var devices: LinkedDevicesModel
+    @ObservedObject private var settings: SettingsModel
+    @Environment(\.dismiss) private var dismiss
+
+    init(row: BipeDevices.Row, devices: LinkedDevicesModel) {
+        self.row = row
+        self.devices = devices
+        _settings = ObservedObject(wrappedValue: devices.model)
+    }
+
+    var body: some View {
+        List {
+            Section {
+                HStack(spacing: 12) {
+                    (PhosphorIcon(rawValue: row.icon) ?? .warning).image
+                        .resizable()
+                        .frame(width: 28, height: 28)
+                        .foregroundStyle(row.warning ? BipeColor.trustCautionInk : BipeColor.accentInk)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(row.title)
+                            .font(.headline)
+                            .foregroundStyle(BipeColor.inkPrimary)
+                        Text(DeviceText.details(row))
+                            .font(.subheadline)
+                            .foregroundStyle(BipeColor.inkSecondary)
+                    }
+                }
+                if row.warning {
+                    Text(BipeStrings.devicesUnknownWarning)
+                        .font(.subheadline)
+                        .foregroundStyle(BipeColor.trustCautionInk)
+                }
+            } footer: {
+                if row.isThis {
+                    Text(BipeStrings.devicesThisDeviceHint)
+                }
+            }
+            Section {
+                if !row.isThis, let lastUsed = row.lastUsed {
+                    Text(BipeStrings.linkedDevicesLastUsed(lastUsed.formatted(.relative(presentation: .named))))
+                }
+                if let place = devices.place(of: row) {
+                    Text(BipeStrings.deviceDetailPlace(place))
+                }
+                if let ip = row.ip {
+                    Text(BipeStrings.deviceDetailIp(ip))
+                }
+                if let linked = row.linkedDate {
+                    Text(BipeStrings.deviceDetailLinkedAt(linked.formatted(date: .abbreviated, time: .shortened)))
+                }
+                if let linkedBy = row.linkedBy {
+                    Text(BipeStrings.deviceDetailLinkedBy(devices.name(of: linkedBy)))
+                }
+                Text(row.attested ? BipeStrings.deviceDetailAttested : BipeStrings.deviceDetailNotAttested)
+                // Action copyId: the one place that shows the device ID (ADR 0291).
+                Button {
+                    UIPasteboard.general.string = row.deviceId
+                    BipeHaptics.play(.tick)
+                    devices.notice = BipeStrings.deviceDetailIdCopied
+                } label: {
+                    Text(BipeStrings.deviceDetailId(row.deviceId))
+                        .foregroundStyle(BipeColor.inkPrimary)
+                }
+            }
+            .foregroundStyle(BipeColor.inkPrimary)
+            if row.kind == "assistant" {
+                Section {
+                    // Action toggleAssistantSend: the same value as the row assistantSend of the group.
+                    Toggle(isOn: Binding(get: { settings.assistantSend ?? false }, set: { isOn in
+                        Task {
+                            if await settings.setAssistantSend(isOn) { BipeHaptics.play(.tick) }
+                        }
+                    })) {
+                        SettingsRowLabel(title: BipeStrings.privacyAssistantSend, footer: BipeStrings.privacyAssistantSendFooter)
+                    }
+                    .disabled(settings.assistantSend == nil)
+                }
+            }
+            if row.canSignOut {
+                Section {
+                    Button(role: .destructive) {
+                        devices.signOutTarget = .one(row)
+                    } label: {
+                        Text(BipeStrings.linkedDevicesSignOut)
+                    }
+                }
+            }
+        }
+        .navigationTitle(row.isThis ? BipeStrings.devicesThisDevice : row.title)
+        .navigationBarTitleDisplayMode(.inline)
+        .accessibilityIdentifier(BipeScreen.deviceDetail.rawValue)
+        .linkedDevicesSignOut(devices)
+        .toast($devices.notice)
+        // The device left the list: its detail closes.
+        .onChange(of: devices.rows) { _, rows in
+            if case .loaded = devices.phase, !rows.contains(where: { $0.deviceId == row.deviceId }) { dismiss() }
+        }
+    }
+}
+
+private extension View {
+    /// The sign-out sheet of linked-devices and device-detail, and its error.
+    func linkedDevicesSignOut(_ devices: LinkedDevicesModel) -> some View {
+        modifier(SignOutDialogs(devices: devices))
+    }
+}
+
+private struct SignOutDialogs: ViewModifier {
+    @ObservedObject var devices: LinkedDevicesModel
+
+    func body(content: Content) -> some View {
+        content
+            .confirmationDialog(title,
+                                isPresented: Binding(get: { devices.signOutTarget != nil && devices.signOutPhase == .idle },
+                                                     set: { if !$0 { devices.cancelSignOut() } }),
+                                titleVisibility: .visible) {
+                Button(role: .destructive) {
+                    Task { await devices.confirmSignOut() }
+                } label: {
+                    Text(devices.signOutTarget == .others ? BipeStrings.devicesSignOutOthers : BipeStrings.linkedDevicesSignOut)
+                }
+                Button(role: .cancel) {
+                    devices.cancelSignOut()
+                } label: {
+                    Text(BipeStrings.appCancel)
+                }
+            } message: {
+                Text(devices.signOutTarget == .others ? BipeStrings.devicesSignOutOthersBody : BipeStrings.linkedDevicesSignOutBody)
+            }
+            .overlay {
+                if devices.signOutPhase == .loading {
                     VStack(spacing: 12) {
                         ProgressView()
                         Text(BipeStrings.appLinkedDevicesSignOutLoading)
                             .foregroundStyle(BipeColor.inkSecondary)
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .padding(24)
+                    .background(RoundedRectangle(cornerRadius: 12).fill(BipeColor.surfaceRaised))
                 }
             }
-            .background(BipeColor.surfaceBase.ignoresSafeArea())
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button {
-                        Task { await devices.pageClosed() }
-                    } label: {
-                        Text(BipeStrings.appClose)
-                    }
+            .alert(BipeStrings.linkedDevicesTitle, isPresented: Binding(get: { devices.signOutPhase == .failed }, set: { _ in })) {
+                Button(role: .cancel) {
+                    devices.cancelSignOut()
+                } label: {
+                    Text(BipeStrings.appClose)
                 }
+            } message: {
+                Text(BipeStrings.appLinkedDevicesSignOutError)
             }
-        }
-    }
-}
-
-struct PrivateWebView: UIViewRepresentable {
-    let url: URL
-    let host: String
-    let username: String
-    let takePassword: () -> String?
-    let onSignInFailed: () -> Void
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(host: host, username: username, takePassword: takePassword, onSignInFailed: onSignInFailed)
     }
 
-    func makeUIView(context: Context) -> WKWebView {
-        let configuration = WKWebViewConfiguration()
-        configuration.websiteDataStore = .nonPersistent()
-        configuration.preferences.javaScriptCanOpenWindowsAutomatically = false
-        let webView = WKWebView(frame: .zero, configuration: configuration)
-        webView.navigationDelegate = context.coordinator
-        webView.uiDelegate = context.coordinator
-        webView.load(URLRequest(url: url))
-        return webView
-    }
-
-    func updateUIView(_ webView: WKWebView, context: Context) {}
-
-    static func dismantleUIView(_ webView: WKWebView, coordinator: Coordinator) {
-        webView.stopLoading()
-    }
-
-    @MainActor
-    final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
-        private let host: String
-        private let username: String
-        private let takePassword: () -> String?
-        private let onSignInFailed: () -> Void
-        private var filledLogin = false
-
-        init(host: String, username: String, takePassword: @escaping () -> String?, onSignInFailed: @escaping () -> Void) {
-            self.host = host
-            self.username = username
-            self.takePassword = takePassword
-            self.onSignInFailed = onSignInFailed
-        }
-
-        /// A navigation or a form post off the MAS host stops the load.
-        func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction) async -> WKNavigationActionPolicy {
-            guard let url = navigationAction.request.url else { return .cancel }
-            return BipeWebLink.isAllowed(url, host: host) || url.absoluteString == "about:blank" ? .allow : .cancel
-        }
-
-        /// No new windows.
-        func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,
-                     for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
-            nil
-        }
-
-        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-            Task { @MainActor in
-                let isLoginForm = (try? await webView.evaluateJavaScript(BipeWebLink.isLoginFormScript)) as? Bool ?? false
-                guard isLoginForm else { return }
-                guard !filledLogin, let password = takePassword(),
-                      let script = BipeWebLink.loginScript(username: username, password: password) else {
-                    // The login form a second time: the sign-in failed.
-                    onSignInFailed()
-                    return
-                }
-                filledLogin = true
-                _ = try? await webView.evaluateJavaScript(script)
-            }
+    private var title: String {
+        switch devices.signOutTarget {
+        case .one(let row): BipeStrings.linkedDevicesSignOutTitle(row.title)
+        case .others: BipeStrings.devicesSignOutOthersTitle
+        case nil: ""
         }
     }
 }
