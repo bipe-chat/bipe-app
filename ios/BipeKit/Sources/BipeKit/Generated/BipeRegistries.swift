@@ -975,7 +975,8 @@ public enum BipeRegistries {
     public static let workReplyByBody = "Resposta enviada"
     public static let workNoteBodyMaxLength = 4000
     /// Device kinds and device entries (bipe ADR 0291, bipe-chat/bipe#1479; registries/device-kinds.json). Rules: test-vectors/device-kinds.json.
-    public static let deviceInfoEventType = "chat.bipe.device_info"
+    public static let deviceInfoField = "chat.bipe.device_info"
+    public static let deviceInfoMsgtype = "m.notice"
     public static let deviceFieldMaxLength = 64
     public static let deviceUnknownWarning = false
     public static let deviceKinds: [DeviceKind] = [
@@ -987,9 +988,9 @@ public enum BipeRegistries {
         DeviceKind(key: "unknown", icon: "warning", label: "bipe_device_kind_unknown", section: "devices", leavesBrazil: false),
     ]
     public static let deviceUserAgents: [DeviceUserAgentRule] = [
-        DeviceUserAgentRule(pattern: "^Bipe/([0-9][0-9.]*) \\(([^;()]+); (iOS [0-9.]+)\\)$", kind: "phone", app: "Bipe $1", model: "$2", os: "$3"),
-        DeviceUserAgentRule(pattern: "^Bipe/([0-9][0-9.]*) \\(([^;()]+); (Android [0-9.]+)\\)$", kind: "phone", app: "Bipe $1", model: "$2", os: "$3"),
-        DeviceUserAgentRule(pattern: "^Bipe/([0-9][0-9.]*) \\(([^;()]+); ((?:macOS|Windows) [0-9.]+)\\)$", kind: "computer-app", app: "Bipe $1", model: "$2", os: "$3"),
+        DeviceUserAgentRule(pattern: "^Bipe/([0-9][0-9.]*) \\(([A-Za-z0-9 ,._-]+); (iOS [0-9.]+)\\)$", kind: "phone", app: "Bipe $1", model: "$2", os: "$3"),
+        DeviceUserAgentRule(pattern: "^Bipe/([0-9][0-9.]*) \\(([A-Za-z0-9 ,._-]+); (Android [0-9.]+)\\)$", kind: "phone", app: "Bipe $1", model: "$2", os: "$3"),
+        DeviceUserAgentRule(pattern: "^Bipe/([0-9][0-9.]*) \\(([A-Za-z0-9 ,._-]+); ((?:macOS|Windows) [0-9.]+)\\)$", kind: "computer-app", app: "Bipe $1", model: "$2", os: "$3"),
         DeviceUserAgentRule(pattern: "^Mozilla/", kind: "browser", app: nil, model: nil, os: nil),
     ]
     public static let deviceBrowsers: [DeviceNameRule] = [

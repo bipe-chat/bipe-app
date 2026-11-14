@@ -7,6 +7,7 @@
 mod badge;
 mod chat_state;
 mod cvm;
+mod devices;
 mod govbr;
 mod home_score;
 mod identity;
@@ -32,6 +33,7 @@ mod generated {
 pub use badge::*;
 pub use chat_state::*;
 pub use cvm::*;
+pub use devices::*;
 pub use govbr::*;
 pub use home_score::*;
 pub use identity::*;

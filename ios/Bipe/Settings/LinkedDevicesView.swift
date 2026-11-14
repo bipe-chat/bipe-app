@@ -130,47 +130,25 @@ final class LinkedDevicesModel: ObservableObject {
     }
 }
 
-struct LinkedDevicesView: View {
+/// Spec linked-devices inside the group Aparelhos e assistentes (ADR 0291): the device rows as the first section of
+/// SettingsGroupView. Link a computer is the group's registry row linkComputer.
+struct LinkedDevicesSection: View {
     @StateObject private var devices: LinkedDevicesModel
-    private let settings: SettingsModel
-    /// Set by AppTabsView for the account row of Link a computer (bipe-chat/bipe#985).
-    @EnvironmentObject private var tabs: AppTabsModel
-    @State private var showsLinkComputer = false
 
     init(model: SettingsModel) {
         _devices = StateObject(wrappedValue: LinkedDevicesModel(model: model))
-        settings = model
     }
 
     var body: some View {
-        List {
-            Section {
-                // Action linkComputer: opens link-computer-scan, the only entry to a web sign-in (ADR 0116, rule 5).
-                Button {
-                    showsLinkComputer = true
-                } label: {
-                    Label {
-                        Text(BipeStrings.linkedDevicesLinkComputer)
-                            .foregroundStyle(BipeColor.inkPrimary)
-                    } icon: {
-                        PhosphorIconView(icon: .desktop, size: 22)
-                    }
-                }
-            } footer: {
-                Text(BipeStrings.linkedDevicesFooter)
-            }
-            Section {
-                content
-            }
+        Section {
+            content
+        } header: {
+            Text(BipeStrings.devicesSectionDevices)
+        } footer: {
+            Text(BipeStrings.linkedDevicesFooter)
         }
-        .navigationTitle(BipeStrings.linkedDevicesTitle)
-        .navigationBarTitleDisplayMode(.inline)
         .accessibilityIdentifier(BipeScreen.linkedDevices.rawValue)
         .task { await devices.load() }
-        .refreshable { await devices.load() }
-        .fullScreenCover(isPresented: $showsLinkComputer, onDismiss: { Task { await devices.load() } }) {
-            LinkComputerView(settings: settings, tabs: tabs)
-        }
         .confirmationDialog(signOutTitle,
                             isPresented: Binding(get: { devices.signOutCandidate != nil && devices.signOutPhase == .idle },
                                                  set: { if !$0 && devices.signOutPhase == .idle { devices.cancelSignOut() } }),

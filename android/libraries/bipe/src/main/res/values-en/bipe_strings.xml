@@ -1072,6 +1072,9 @@
     <string name="bipe_devices_summary_unknown">Unknown devices: %1$s</string>
     <string name="bipe_devices_section_devices">Devices</string>
     <string name="bipe_devices_section_programs">Assistants and programs</string>
+    <string name="bipe_devices_section_assistants">Assistants</string>
+    <string name="bipe_devices_no_assistants">I don\'t want assistants reading my messages</string>
+    <string name="bipe_devices_no_assistants_footer">Applies to what you send from now on. A modified app can still copy your messages.</string>
     <string name="bipe_devices_section_others_assistants">Other people\'s assistants</string>
     <string name="bipe_devices_this_device">This device</string>
     <string name="bipe_devices_this_device_hint">To take your account off this device, use Sign out of this device in Your account.</string>

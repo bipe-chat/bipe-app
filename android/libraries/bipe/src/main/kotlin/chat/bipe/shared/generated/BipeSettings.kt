@@ -41,7 +41,6 @@ enum class BipeSettingsRow(
     PRIVACY_EXPORT("privacy.export", BipeSettingsRowKind.ACTION, R.string.bipe_privacy_export, R.string.bipe_privacy_export_footer, null, null, null),
     PRIVACY_WHAT_BIPE_KEEPS("privacy.whatBipeKeeps", BipeSettingsRowKind.URL, R.string.bipe_privacy_what_bipe_keeps, null, null, "https://bipe.chat/lgpd/", "https://bipe.chat/en/lgpd/"),
     PRIVACY_WHO_CAN_READ("privacy.whoCanRead", BipeSettingsRowKind.URL, R.string.bipe_privacy_who_can_read, null, null, "https://bipe.chat/quem-pode-ler/", "https://bipe.chat/en/who-can-read/"),
-    PRIVACY_ASSISTANT_SEND("privacy.assistantSend", BipeSettingsRowKind.SWITCH, R.string.bipe_privacy_assistant_send, R.string.bipe_privacy_assistant_send_footer, null, null, null),
     ACCOUNT_REACH_STATUS("account.reachStatus", BipeSettingsRowKind.LINK, R.string.bipe_account_status_title, null, null, null, null),
     ACCOUNT_WAYS_BACK_STATUS("account.waysBackStatus", BipeSettingsRowKind.INFO, R.string.bipe_account_ways_back, null, null, null, null),
     ACCOUNT_EMAIL("account.email", BipeSettingsRowKind.LINK, R.string.bipe_email_title, null, null, null, null),
@@ -51,11 +50,13 @@ enum class BipeSettingsRow(
     ACCOUNT_CHANGE_PIN("account.changePin", BipeSettingsRowKind.LINK, R.string.bipe_pin_change_title, null, null, null, null),
     ACCOUNT_APP_LOCK("account.appLock", BipeSettingsRowKind.SWITCH, R.string.bipe_account_app_lock, null, null, null, null),
     ACCOUNT_BIOMETRIC_UNLOCK("account.biometricUnlock", BipeSettingsRowKind.SWITCH, R.string.bipe_account_biometric_unlock, null, null, null, null),
-    ACCOUNT_LINK_PHONE("account.linkPhone", BipeSettingsRowKind.ACTION, R.string.bipe_app_link_phone_action, null, null, null, null),
-    ACCOUNT_LINKED_DEVICES("account.linkedDevices", BipeSettingsRowKind.LINK, R.string.bipe_linked_devices_title, null, null, null, null),
-    ACCOUNT_OLD_MESSAGES("account.oldMessages", BipeSettingsRowKind.LINK, R.string.bipe_account_old_messages, R.string.bipe_account_old_messages_footer, null, null, null),
     ACCOUNT_SIGN_OUT("account.signOut", BipeSettingsRowKind.DESTRUCTIVE, R.string.bipe_account_sign_out, null, null, null, null),
     ACCOUNT_DELETE("account.delete", BipeSettingsRowKind.DESTRUCTIVE, R.string.bipe_account_delete, null, null, null, null),
+    DEVICES_LINK_COMPUTER("devices.linkComputer", BipeSettingsRowKind.ACTION, R.string.bipe_devices_link_computer_or_browser, null, null, null, null),
+    DEVICES_LINK_PHONE("devices.linkPhone", BipeSettingsRowKind.ACTION, R.string.bipe_app_link_phone_action, null, null, null, null),
+    DEVICES_OLD_MESSAGES("devices.oldMessages", BipeSettingsRowKind.LINK, R.string.bipe_account_old_messages, R.string.bipe_account_old_messages_footer, null, null, null),
+    DEVICES_ASSISTANT_SEND("devices.assistantSend", BipeSettingsRowKind.SWITCH, R.string.bipe_privacy_assistant_send, R.string.bipe_privacy_assistant_send_footer, null, null, null),
+    DEVICES_NO_ASSISTANTS("devices.noAssistants", BipeSettingsRowKind.SWITCH, R.string.bipe_devices_no_assistants, R.string.bipe_devices_no_assistants_footer, "planned:1081", null, null),
     CHATS_APPEARANCE("chats.appearance", BipeSettingsRowKind.CHOICE, R.string.bipe_chats_theme, null, null, null, null),
     CHATS_COLORS("chats.colors", BipeSettingsRowKind.LINK, R.string.bipe_chats_colors, R.string.bipe_chats_colors_footer, null, null, null),
     CHATS_ACCESSIBILITY("chats.accessibility", BipeSettingsRowKind.LINK, R.string.bipe_chats_accessibility, null, null, null, null),
@@ -113,6 +114,7 @@ enum class BipeSettingsGroup(
     PROFILE(R.string.bipe_settings_profile, null, false),
     PRIVACY(R.string.bipe_settings_privacy, "lock-simple", false),
     ACCOUNT(R.string.bipe_settings_account, "user-circle", false),
+    DEVICES(R.string.bipe_devices_group_title, "devices", false),
     NOTIFICATIONS(R.string.bipe_settings_notifications, "bell", true),
     CHATS(R.string.bipe_settings_chats, "chat-circle", false),
     HELP(R.string.bipe_settings_help, "info", false),
@@ -121,8 +123,9 @@ enum class BipeSettingsGroup(
     val sections: List<BipeSettingsSection>
         get() = when (this) {
             PROFILE -> listOf()
-            PRIVACY -> listOf(BipeSettingsSection("talk", R.string.bipe_privacy_who_can_talk, null, listOf(BipeSettingsRow.PRIVACY_MESSAGING, BipeSettingsRow.PRIVACY_REQUEST_PHOTOS, BipeSettingsRow.PRIVACY_BLOCKED)), BipeSettingsSection("find", R.string.bipe_privacy_who_can_find, null, listOf(BipeSettingsRow.PRIVACY_NUMBER, BipeSettingsRow.PRIVACY_DISCOVERY, BipeSettingsRow.PRIVACY_CONTACTS)), BipeSettingsSection("see", R.string.bipe_privacy_what_others_see, null, listOf(BipeSettingsRow.PRIVACY_PRESENCE, BipeSettingsRow.PRIVACY_READ_RECEIPTS)), BipeSettingsSection("data", R.string.bipe_privacy_your_data, null, listOf(BipeSettingsRow.PRIVACY_EXPORT, BipeSettingsRow.PRIVACY_WHAT_BIPE_KEEPS, BipeSettingsRow.PRIVACY_WHO_CAN_READ)), BipeSettingsSection("assistants", R.string.bipe_privacy_assistants, null, listOf(BipeSettingsRow.PRIVACY_ASSISTANT_SEND)))
-            ACCOUNT -> listOf(BipeSettingsSection("status", null, null, listOf(BipeSettingsRow.ACCOUNT_REACH_STATUS)), BipeSettingsSection("waysBack", R.string.bipe_fallback_title, null, listOf(BipeSettingsRow.ACCOUNT_WAYS_BACK_STATUS, BipeSettingsRow.ACCOUNT_EMAIL, BipeSettingsRow.ACCOUNT_LINKED_ACCOUNTS, BipeSettingsRow.ACCOUNT_RECOVERY_KEY, BipeSettingsRow.ACCOUNT_THEFT_PROTECTION)), BipeSettingsSection("pin", R.string.bipe_account_pin_lock_section, R.string.bipe_account_pin_footer, listOf(BipeSettingsRow.ACCOUNT_CHANGE_PIN, BipeSettingsRow.ACCOUNT_APP_LOCK, BipeSettingsRow.ACCOUNT_BIOMETRIC_UNLOCK)), BipeSettingsSection("devices", R.string.bipe_account_devices, null, listOf(BipeSettingsRow.ACCOUNT_LINK_PHONE, BipeSettingsRow.ACCOUNT_LINKED_DEVICES, BipeSettingsRow.ACCOUNT_OLD_MESSAGES)), BipeSettingsSection("leave", null, null, listOf(BipeSettingsRow.ACCOUNT_SIGN_OUT, BipeSettingsRow.ACCOUNT_DELETE)))
+            PRIVACY -> listOf(BipeSettingsSection("talk", R.string.bipe_privacy_who_can_talk, null, listOf(BipeSettingsRow.PRIVACY_MESSAGING, BipeSettingsRow.PRIVACY_REQUEST_PHOTOS, BipeSettingsRow.PRIVACY_BLOCKED)), BipeSettingsSection("find", R.string.bipe_privacy_who_can_find, null, listOf(BipeSettingsRow.PRIVACY_NUMBER, BipeSettingsRow.PRIVACY_DISCOVERY, BipeSettingsRow.PRIVACY_CONTACTS)), BipeSettingsSection("see", R.string.bipe_privacy_what_others_see, null, listOf(BipeSettingsRow.PRIVACY_PRESENCE, BipeSettingsRow.PRIVACY_READ_RECEIPTS)), BipeSettingsSection("data", R.string.bipe_privacy_your_data, null, listOf(BipeSettingsRow.PRIVACY_EXPORT, BipeSettingsRow.PRIVACY_WHAT_BIPE_KEEPS, BipeSettingsRow.PRIVACY_WHO_CAN_READ)))
+            ACCOUNT -> listOf(BipeSettingsSection("status", null, null, listOf(BipeSettingsRow.ACCOUNT_REACH_STATUS)), BipeSettingsSection("waysBack", R.string.bipe_fallback_title, null, listOf(BipeSettingsRow.ACCOUNT_WAYS_BACK_STATUS, BipeSettingsRow.ACCOUNT_EMAIL, BipeSettingsRow.ACCOUNT_LINKED_ACCOUNTS, BipeSettingsRow.ACCOUNT_RECOVERY_KEY, BipeSettingsRow.ACCOUNT_THEFT_PROTECTION)), BipeSettingsSection("pin", R.string.bipe_account_pin_lock_section, R.string.bipe_account_pin_footer, listOf(BipeSettingsRow.ACCOUNT_CHANGE_PIN, BipeSettingsRow.ACCOUNT_APP_LOCK, BipeSettingsRow.ACCOUNT_BIOMETRIC_UNLOCK)), BipeSettingsSection("leave", null, null, listOf(BipeSettingsRow.ACCOUNT_SIGN_OUT, BipeSettingsRow.ACCOUNT_DELETE)))
+            DEVICES -> listOf(BipeSettingsSection("devices", R.string.bipe_devices_section_devices, null, listOf(BipeSettingsRow.DEVICES_LINK_COMPUTER, BipeSettingsRow.DEVICES_LINK_PHONE, BipeSettingsRow.DEVICES_OLD_MESSAGES)), BipeSettingsSection("assistants", R.string.bipe_devices_section_assistants, null, listOf(BipeSettingsRow.DEVICES_ASSISTANT_SEND, BipeSettingsRow.DEVICES_NO_ASSISTANTS)))
             NOTIFICATIONS -> listOf()
             CHATS -> listOf(BipeSettingsSection("look", R.string.bipe_chats_appearance, null, listOf(BipeSettingsRow.CHATS_APPEARANCE, BipeSettingsRow.CHATS_COLORS, BipeSettingsRow.CHATS_ACCESSIBILITY, BipeSettingsRow.CHATS_LANGUAGE)), BipeSettingsSection("media", R.string.bipe_chats_photos_videos, null, listOf(BipeSettingsRow.CHATS_SHOW_MEDIA, BipeSettingsRow.CHATS_MEDIA_QUALITY, BipeSettingsRow.CHATS_DATA_USE)), BipeSettingsSection("more", null, null, listOf(BipeSettingsRow.CHATS_MURAL, BipeSettingsRow.CHATS_STICKER_SUGGESTIONS, BipeSettingsRow.CHATS_LIVE_LOCATION, BipeSettingsRow.CHATS_YEAR_RECAP)))
             HELP -> listOf(BipeSettingsSection("help", null, null, listOf(BipeSettingsRow.HELP_DOCS, BipeSettingsRow.HELP_SUPPORT, BipeSettingsRow.HELP_REPORT_PROBLEM)), BipeSettingsSection("about", null, R.string.bipe_about_steward, listOf(BipeSettingsRow.HELP_TERMS, BipeSettingsRow.HELP_PRIVACY, BipeSettingsRow.HELP_LICENSES, BipeSettingsRow.HELP_VERSIONS)))
@@ -130,6 +133,6 @@ enum class BipeSettingsGroup(
 
     companion object {
         /** The group rows under "Configurações" in the Você tab, in order. [PROFILE] opens from the header. */
-        val root: List<BipeSettingsGroup> = listOf(PRIVACY, ACCOUNT, NOTIFICATIONS, CHATS, HELP)
+        val root: List<BipeSettingsGroup> = listOf(PRIVACY, ACCOUNT, DEVICES, NOTIFICATIONS, CHATS, HELP)
     }
 }

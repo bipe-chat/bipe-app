@@ -143,6 +143,20 @@ pub const WORK_NOTE_FIELD: &str = "chat.bipe.work_note";
 pub const WORK_REPLY_BY_FIELD: &str = "chat.bipe.reply_by";
 pub const WORK_NOTE_BODY_MAX_LENGTH: usize = 4000;
 
+/// registries/device-kinds.json (ADR 0291, bipe-chat/bipe#1479). Patterns are in the Rust syntax (rust-regex.mjs): a
+/// capture group n of the registry pattern is group n + 1 here, and $n in a template names registry group n.
+pub const DEVICE_INFO_FIELD: &str = "chat.bipe.device_info";
+pub const DEVICE_INFO_MSGTYPE: &str = "m.notice";
+pub const DEVICE_FIELD_MAX_LENGTH: usize = 64;
+pub const DEVICE_UNKNOWN_WARNING: bool = false;
+/// (key, icon, label, section, leaves Brazil) in registry order.
+pub const DEVICE_KINDS: &[(&str, &str, &str, &str, bool)] = &[("phone", "phone", "bipe_device_kind_phone", "devices", false), ("computer-app", "desktop", "bipe_device_kind_computer", "devices", false), ("browser", "link", "bipe_device_kind_browser", "devices", false), ("assistant", "chat-text", "bipe_device_kind_assistant", "programs", true), ("bridge", "share-network", "bipe_device_kind_bridge", "programs", true), ("unknown", "warning", "bipe_device_kind_unknown", "devices", false)];
+/// (pattern, kind, app, model, os) in registry order.
+pub const DEVICE_USER_AGENTS: &[(&str, &str, Option<&str>, Option<&str>, Option<&str>)] = &[("(^Bipe/([0-9][0-9.]*) \\(([A-Za-z0-9 ,._-]+); (iOS [0-9.]+)\\)$)", "phone", Some("Bipe $1"), Some("$2"), Some("$3")), ("(^Bipe/([0-9][0-9.]*) \\(([A-Za-z0-9 ,._-]+); (Android [0-9.]+)\\)$)", "phone", Some("Bipe $1"), Some("$2"), Some("$3")), ("(^Bipe/([0-9][0-9.]*) \\(([A-Za-z0-9 ,._-]+); ((?:macOS|Windows) [0-9.]+)\\)$)", "computer-app", Some("Bipe $1"), Some("$2"), Some("$3")), ("(^Mozilla/)", "browser", None, None, None)];
+/// (pattern, name template) in registry order.
+pub const DEVICE_BROWSERS: &[(&str, &str)] = &[("(Edg/([0-9]+))", "Edge $1"), ("(OPR/([0-9]+))", "Opera $1"), ("(Firefox/([0-9]+))", "Firefox $1"), ("(Chrome/([0-9]+))", "Chrome $1"), ("(Version/([0-9]+)[0-9.]* [^\\n\\r\\x{2028}\\x{2029}]*Safari/)", "Safari $1")];
+pub const DEVICE_SYSTEMS: &[(&str, &str)] = &[("((?:iPhone|iPad)[^\\n\\r\\x{2028}\\x{2029}]* OS ([0-9]+))", "iOS $1"), ("(Android ([0-9]+))", "Android $1"), ("(Windows NT)", "Windows"), ("(CrOS)", "ChromeOS"), ("(Mac OS X)", "macOS"), ("(Linux)", "Linux")];
+
 /// registries/onboarding.json (bipe-chat/bipe#202, bipe-chat/bipe#752, bipe-chat/bipe#894).
 pub const PIN_REMINDER_DAYS: &[u32] = &[1, 3, 7, 14, 30];
 pub const PIN_REMINDER_THEN_EVERY_DAYS: u32 = 60;
