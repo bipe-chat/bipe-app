@@ -260,16 +260,16 @@ struct GroupLinkCode: Identifiable, Equatable, CustomStringConvertible {
 }
 
 /// Spec group-link-open notes: a group link code that came with no account on the phone (a link, a paste or a scan)
-/// waits here for 7 days, through sign-up or recovery. app-tabs takes it once and opens group-link-open; signup-done
+/// waits here until it is used, through sign-up or recovery, however long that takes. The server decides whether the
+/// link still works: group-link-open shows bipe_group_link_open_invalid for an expired one. app-tabs takes it once and opens group-link-open; signup-done
 /// drops it when the group opened. Like ShopClaim, it lives in UserDefaults; the code is never logged.
 enum GroupLinkHold {
     private static let codeKey = "bipe.groupLink.held.code"
+    /// Builds before this one also kept a date and dropped the code after 7 days. clear() removes it.
     private static let dateKey = "bipe.groupLink.held.date"
-    private static let lifetime: TimeInterval = 7 * 24 * 60 * 60
 
     static func keep(_ code: String) {
         UserDefaults.standard.set(code, forKey: codeKey)
-        UserDefaults.standard.set(Date(), forKey: dateKey)
     }
 
     /// `true` when `url` is a group link, which then waits.
@@ -280,12 +280,10 @@ enum GroupLinkHold {
         return true
     }
 
-    /// The held code, once. A code older than 7 days is dropped.
+    /// The held code, once.
     static func take() -> GroupLinkCode? {
         defer { clear() }
-        guard let code = UserDefaults.standard.string(forKey: codeKey),
-              let date = UserDefaults.standard.object(forKey: dateKey) as? Date,
-              Date().timeIntervalSince(date) < lifetime else { return nil }
+        guard let code = UserDefaults.standard.string(forKey: codeKey) else { return nil }
         return GroupLinkCode(code: code)
     }
 
