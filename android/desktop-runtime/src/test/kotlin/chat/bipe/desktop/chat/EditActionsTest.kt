@@ -144,6 +144,7 @@ class EditActionsTest {
             assertTrue(fixture.actions.start("row"))
             fixture.actions.change("Current edit")
             fixture.actions.change("Late old text", oldFrame); fixture.actions.save(oldFrame)
+            assertFalse(fixture.actions.cancel(oldFrame))
             assertTrue(fixture.actions.phase.value is EditPhase.Composing)
             assertEquals("Current edit", fixture.actions.phase.value.draft!!.text)
             assertEquals(1, calls.get())

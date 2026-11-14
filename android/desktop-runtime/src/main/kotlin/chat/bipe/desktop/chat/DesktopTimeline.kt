@@ -241,6 +241,19 @@ class DesktopTimeline private constructor(
         else if (edits.phase.value == EditPhase.Idle) send()
     }
 
+    /** Escape cancels the context in its UI frame, preserving the ordinary draft and any in-flight save. */
+    fun cancelContext(expectedEdit: MessageEditDraft?, expectedReply: String?): Boolean {
+        var cancelled = false
+        group.publish {
+            if (expectedEdit != null) cancelled = edits.cancel(expectedEdit)
+            else if (edits.phase.value == EditPhase.Idle && expectedReply != null &&
+                (composer.state.value as? ComposerState.Editing)?.replyTo == expectedReply) {
+                composer.cancelReply(); cancelled = true
+            }
+        }
+        return cancelled
+    }
+
     fun startReply(rowId: String): Boolean {
         if (currentRow(rowId)?.canReply != true || !edits.cancel()) return false
         return replies.start(rowId)
@@ -319,14 +332,14 @@ class DesktopTimeline private constructor(
             }
         })))
         group.launch {
-            val snapshots = SnapshotVector<MessageRow>()
+            val snapshots = SnapshotVector<TimelineSnapshot>()
             try {
                 for (batch in changes) {
                     try {
-                        batch.forEach { snapshots.apply(it.toVectorDiff().snapshot(::message)) }
+                        batch.forEach { snapshots.apply(it.toVectorDiff().snapshot(::snapshot)) }
                     } finally { dispose(batch) }
                     group.publish {
-                        mutableRows.value = LoadPhase.Ready(snapshots.visible())
+                        mutableRows.value = LoadPhase.Ready(snapshots.visible().messageRows())
                     }
                 }
             } catch (cancelled: CancellationException) { throw cancelled }
@@ -340,6 +353,12 @@ class DesktopTimeline private constructor(
         }
         // Back-pagination failure is retryable; the live listener remains attached for offline/local events.
         loadEarlier()
+    }
+
+    private fun snapshot(item: TimelineItem): TimelineSnapshot? {
+        val day = item.asVirtual() as? VirtualTimelineItem.DateDivider
+        if (day != null) return TimelineSnapshot.Day(day.ts.toLong())
+        return message(item)?.let { TimelineSnapshot.Message(it) }
     }
 
     private fun message(item: TimelineItem): MessageRow? {
@@ -382,7 +401,8 @@ class DesktopTimeline private constructor(
                 canReply = reactionTarget != null && event.canBeRepliedTo,
                 reply = content.inReplyTo?.let(::quote), isEdited = (kind as? MsgLikeKind.Message)?.content?.isEdited == true,
                 originalEventId = (event.eventOrTransactionId as? EventOrTransactionId.EventId)?.eventId,
-                canEdit = event.isOwn && event.isEditable && type == MessageRow.Kind.TEXT && reactionTarget != null)
+                canEdit = event.isOwn && event.isEditable && type == MessageRow.Kind.TEXT && reactionTarget != null,
+                senderId = event.sender)
         } finally { event.destroy() }
     }
 

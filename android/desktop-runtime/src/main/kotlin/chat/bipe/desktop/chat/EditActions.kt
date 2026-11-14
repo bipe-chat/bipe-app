@@ -60,9 +60,10 @@ class EditActions internal constructor(private val group: AccountTaskGroup, priv
         current.draft?.let { mutablePhase.value = EditPhase.Composing(it.copy(text = text, revision = it.revision + 1)) }
     }
 
-    fun cancel(): Boolean {
+    fun cancel(expected: MessageEditDraft? = null): Boolean {
         var accepted = false
         group.publish {
+            if (expected != null && mutablePhase.value.draft?.session !== expected.session) return@publish
             if (mutablePhase.value !is EditPhase.Saving) { mutablePhase.value = EditPhase.Idle; accepted = true }
         }
         return accepted

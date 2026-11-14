@@ -85,7 +85,7 @@ private data class MessageCommand(val label: String, val enabled: Boolean, val i
         if (event.buttons.isSecondaryPressed) { event.changes.forEach { it.consume() }; open() }
     }.combinedClickable(onClick = { focus.requestFocus() }, onLongClick = open, onLongClickLabel = label)
     Box {
-        Surface(modifier, shape = RoundedCornerShape(18.dp),
+        Surface(modifier, shape = RoundedCornerShape(16.dp),
             border = if (highlighted) BorderStroke(2.dp, colors["accent.fill"]) else null,
             color = colors[if (row.own) "bubble.own" else "bubble.other"], contentColor = colors["ink.primary"], content = content)
         DropdownMenu(expanded = popup == TimelinePopup.MessageMenu(row.id) && hasMenu, onDismissRequest = { show(null) },

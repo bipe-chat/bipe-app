@@ -4,6 +4,7 @@
 
 package chat.bipe.desktop.ui
 
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -23,6 +24,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.Rect
@@ -30,6 +35,8 @@ import androidx.compose.ui.input.key.*
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -40,6 +47,7 @@ import chat.bipe.desktop.safety.registryId
 import chat.bipe.desktop.storage.StoredSlot
 import chat.bipe.desktop.settings.AppearancePhase
 import chat.bipe.desktop.ui.common.BipeButton
+import java.util.Locale
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -184,9 +192,20 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
     val background = (appearance as? AppearancePhase.Ready)?.values?.background(s.appearancePolicy) ?: s.appearancePolicy.defaultBackground
     var destination by remember(account) { mutableStateOf(Destination.CHATS) }
     val selections = remember(account) { mutableStateMapOf<Destination, String>() }
-    val searches = remember(account) { mutableStateMapOf<Destination, String>() }
+    val searches = remember(account) { mutableStateMapOf<Destination, TextFieldValue>() }
+    val viewports = remember(account) { mutableMapOf<String, RoomViewport>() }
+    val searchFocus = remember(account) { FocusRequester() }
+    val workspaceFocus = remember(account) { FocusRequester() }
+    var searchFocused by remember(account) { mutableStateOf(false) }
+    var searchRequest by remember(account) { mutableStateOf(0) }
     val selected = selections[destination]
-    val search = searches[destination].orEmpty()
+    val searchValue = searches[destination] ?: TextFieldValue()
+    val search = searchValue.text
+    LaunchedEffect(account) { workspaceFocus.requestFocus() }
+    LaunchedEffect(searchRequest, destination) {
+        if (searchRequest > 0 && destination != Destination.YOU &&
+            !(destination == Destination.GROUPS && profile.kind == AccountKind.COMPANY)) searchFocus.requestFocus()
+    }
     LaunchedEffect(account, destination, selected) {
         if (destination == Destination.YOU || (destination == Destination.GROUPS && profile.kind == AccountKind.COMPANY)) model.clearRoom()
         else if (selected == null) model.clearRoom() else model.selectRoom(selected)
@@ -249,7 +268,24 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
             })
         }
     }
-    Column {
+    Column(Modifier.onPreviewKeyEvent { event ->
+        if (event.type == KeyEventType.KeyDown && event.key == Key.K && event.isCtrlPressed &&
+            !event.isAltPressed && !event.isMetaPressed && !event.isShiftPressed) {
+            if (destination == Destination.YOU || (destination == Destination.GROUPS && profile.kind == AccountKind.COMPANY))
+                destination = Destination.CHATS
+            val value = searches[destination] ?: TextFieldValue()
+            searches[destination] = value.copy(selection = TextRange(0, value.text.length))
+            searchRequest++; true
+        } else false
+    }.onKeyEvent { event ->
+        if (event.type != KeyEventType.KeyDown || event.key != Key.Escape) false
+        else when {
+            popup != null -> { popup = null; true }
+            editing != FavouriteEditing.Normal -> { editing = FavouriteEditing.Normal; true }
+            searchFocused -> { searches[destination] = TextFieldValue(); workspaceFocus.requestFocus(); true }
+            else -> false
+        }
+    }.focusRequester(workspaceFocus).focusable()) {
         Row(Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.width(304.dp)) {
                 TextButton(onClick = { popup = WorkspacePopup.Accounts }) { Text(profile.name, maxLines = 1, overflow = TextOverflow.Ellipsis) }
@@ -279,8 +315,9 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
             }
         } else Row(Modifier.weight(1f)) {
             Column(Modifier.width(320.dp).fillMaxHeight()) {
-                OutlinedTextField(search, { searches[destination] = it }, singleLine = true,
-                    placeholder = { Text(s.text("bipe_app_search_placeholder")) }, modifier = Modifier.fillMaxWidth().padding(12.dp))
+                OutlinedTextField(searchValue, { searches[destination] = it }, singleLine = true,
+                    placeholder = { Text(s.text("bipe_app_search_placeholder")) }, modifier = Modifier.fillMaxWidth().padding(12.dp)
+                        .focusRequester(searchFocus).onFocusChanged { searchFocused = it.isFocused })
                 if (favourites == FavouritesPhase.Unavailable || favouriteState?.sync is FavouritesSync.Failed) {
                     Row(Modifier.padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(s.text("bipe_error_generic"), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
@@ -365,7 +402,8 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
                                 }
                                 HorizontalDivider(color = colors["line.subtle"])
                             }
-                            Box(Modifier.weight(1f)) { TimelineView(state.model, s, colors, background) }
+                            Box(Modifier.weight(1f)) { TimelineView(state.model, s, colors, background,
+                                viewports.getOrPut(state.model.roomId) { RoomViewport() }, allRows.firstOrNull { it.id == state.model.roomId }) }
                         }
                     }
                 }
@@ -377,7 +415,8 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
     }
 }
 
-@Composable private fun TimelineView(model: DesktopTimeline, s: DesktopCatalog, colors: DesktopColors, background: String) {
+@Composable private fun TimelineView(model: DesktopTimeline, s: DesktopCatalog, colors: DesktopColors, background: String,
+                                     viewport: RoomViewport, room: ChatRow?) {
     val load by model.rows.collectAsState()
     val composer by model.composer.state.collectAsState()
     val editing by model.edits.phase.collectAsState()
@@ -389,68 +428,111 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
     val reactionAction by model.reactions.phase.collectAsState()
     val deletion by model.deletion.phase.collectAsState()
     var popup by remember(model) { mutableStateOf<TimelinePopup?>(null) }
-    val listState = rememberLazyListState()
+    val listState = viewport.list
+    val zone = ZoneId.systemDefault()
+    val today = timelineToday(zone)
+    val jumpVisible by remember(listState) { derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 0 } }
+    val userScroll = remember(viewport) { object : NestedScrollConnection {
+        override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+            if (source == NestedScrollSource.UserInput && consumed.y != 0f)
+                viewport.policy.userScrolled(listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset == 0)
+            return Offset.Zero
+        }
+    } }
     val composerFocus = remember(model) { FocusRequester() }
     val notices = remember(model) { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val original by model.originalNavigation.collectAsState()
     val rows = when (val snapshot = load) { is LoadPhase.Ready -> snapshot.value; else -> emptyList() }
+    LaunchedEffect(rows) {
+        if (viewport.policy.messagesChanged(rows)) listState.scrollToItem(0)
+    }
     LaunchedEffect(original) {
         val target = (original as? OriginalNavigation.Found)?.rowId ?: return@LaunchedEffect
         val index = rows.asReversed().indexOfFirst { it.id == target }
-        if (index >= 0) listState.scrollToItem(index)
+        if (index >= 0) {
+            viewport.policy.userScrolled(false)
+            listState.scrollToItem(index)
+        }
     }
-    Column(Modifier.fillMaxSize().chatBackdrop(s, colors, background)) {
+    Column(Modifier.fillMaxSize().chatBackdrop(s, colors, background).onKeyEvent { event ->
+        if (event.type != KeyEventType.KeyDown || event.key != Key.Escape) false
+        else when {
+            popup != null -> { popup = null; true }
+            editing is EditPhase.Saving -> true
+            editDraft != null || (composer as? ComposerState.Editing)?.replyTo != null -> {
+                model.cancelContext(editDraft, (composer as? ComposerState.Editing)?.replyTo)
+                composerFocus.requestFocus(); true
+            }
+            else -> false
+        }
+    }) {
         TextButton(onClick = { model.loadEarlier() }) { Text(s.text("bipe_action_show_more")) }
         when (load) {
             LoadPhase.Loading -> Text(s.text("bipe_web_loading"), Modifier.padding(16.dp))
             LoadPhase.Failed -> Text(s.text("bipe_error_generic"), Modifier.padding(16.dp))
             is LoadPhase.Ready -> Unit
         }
-        LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = listState, reverseLayout = true, contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(rows.asReversed(), key = { it.id }) { message ->
-                val warning = message.safety as? MessageSafety.Warning
-                val seconds = pauses[message.id] ?: if (warning?.kind?.registryId() in s.moneyPauseKinds) s.moneyPauseSeconds else 0
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = if (message.own) Arrangement.End else Arrangement.Start) {
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp),
-                        horizontalAlignment = if (message.own) Alignment.End else Alignment.Start) {
-                        MessageSurface(model, message, seconds, (original as? OriginalNavigation.Found)?.rowId == message.id,
-                            popup, { popup = it }, s, colors, inputEnabled, { composerFocus.requestFocus() }, {
-                                scope.launch { notices.showSnackbar(s.text("bipe_app_copied")) }
-                            }) {
-                            Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
-                                if (!message.own) Text(message.sender, style = MaterialTheme.typography.labelMedium)
-                                message.reply?.let { quote ->
-                                    LaunchedEffect(message.id) { model.loadReply(message.id) }
-                                    ReplyQuote(quote, s, {
-                                        if (quote.details is MessageQuote.Details.Ready) model.openOriginal(quote.eventId)
-                                        else model.loadReply(message.id, retry = true)
-                                    })
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            LazyColumn(Modifier.fillMaxSize().nestedScroll(userScroll), state = listState, reverseLayout = true,
+                contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                items(rows.asReversed(), key = { it.id }) { message ->
+                    Column {
+                        message.dayBefore?.let { TimelineDay(it, today, zone, s, colors) }
+                        val warning = message.safety as? MessageSafety.Warning
+                        val seconds = pauses[message.id] ?: if (warning?.kind?.registryId() in s.moneyPauseKinds) s.moneyPauseSeconds else 0
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = if (message.own) Arrangement.End else Arrangement.Start) {
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp),
+                                horizontalAlignment = if (message.own) Alignment.End else Alignment.Start) {
+                                MessageSurface(model, message, seconds, (original as? OriginalNavigation.Found)?.rowId == message.id,
+                                    popup, { popup = it }, s, colors, inputEnabled, { composerFocus.requestFocus() }, {
+                                        scope.launch { notices.showSnackbar(s.text("bipe_app_copied")) }
+                                    }) {
+                                    Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        if (message.showsSender(room?.isDm == true, room?.peerUserId))
+                                            Text(message.sender, style = MaterialTheme.typography.labelMedium, color = colors["accent.ink"])
+                                        message.reply?.let { quote ->
+                                            LaunchedEffect(message.id) { model.loadReply(message.id) }
+                                            ReplyQuote(quote, s, {
+                                                if (quote.details is MessageQuote.Details.Ready) model.openOriginal(quote.eventId)
+                                                else model.loadReply(message.id, retry = true)
+                                            })
+                                        }
+                                        if (seconds > 0 || message.kind != MessageRow.Kind.TEXT) Text(message.body)
+                                        else SelectionContainer { Text(message.body) }
+                                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                            Text(timeLabel(message.timestamp), style = MaterialTheme.typography.labelSmall, color = colors["ink.secondary"],
+                                                modifier = Modifier.clearAndSetSemantics {
+                                                    contentDescription = TimelineDates.fullTimestamp(message.timestamp, zone, Locale.forLanguageTag(s.locale))
+                                                })
+                                            if (message.isEdited) Text(s.text("bipe_app_message_edited"), style = MaterialTheme.typography.labelSmall, color = colors["ink.secondary"])
+                                        }
+                                        if (message.delivery == MessageRow.Delivery.SENDING) Text(s.text("bipe_app_timeline_sending"), style = MaterialTheme.typography.bodySmall)
+                                        if (message.delivery == MessageRow.Delivery.FAILED) {
+                                            if (message.canRetry) TextButton(onClick = { model.retry(message.id) }) { Text(s.text("bipe_app_timeline_failed")) }
+                                            else Text(s.text("bipe_error_generic"), style = MaterialTheme.typography.bodySmall)
+                                        }
+                                    }
                                 }
-                                if (seconds > 0 || message.kind != MessageRow.Kind.TEXT) Text(message.body)
-                                else SelectionContainer { Text(message.body) }
-                                Text(timeLabel(message.timestamp), style = MaterialTheme.typography.labelSmall)
-                                if (message.isEdited) Text(s.text("bipe_app_message_edited"), style = MaterialTheme.typography.labelSmall)
-                                if (message.delivery == MessageRow.Delivery.SENDING) Text(s.text("bipe_app_timeline_sending"), style = MaterialTheme.typography.bodySmall)
-                                if (message.delivery == MessageRow.Delivery.FAILED) {
-                                    if (message.canRetry) TextButton(onClick = { model.retry(message.id) }) { Text(s.text("bipe_app_timeline_failed")) }
-                                    else Text(s.text("bipe_error_generic"), style = MaterialTheme.typography.bodySmall)
+                                MessageReactions(model, message, { popup = it }, s, colors)
+                                when (val safety = message.safety) {
+                                    is MessageSafety.Warning -> ScamWarningCard(model, message.id, safety.kind, seconds, s, colors)
+                                    MessageSafety.Unavailable -> Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(s.text("bipe_error_generic"), style = MaterialTheme.typography.bodySmall)
+                                        TextButton(onClick = { model.retrySafety(message.id) }) { Text(s.text("bipe_app_retry")) }
+                                    }
+                                    MessageSafety.Checking -> Text(s.text("bipe_web_loading"), style = MaterialTheme.typography.bodySmall)
+                                    MessageSafety.Clear, MessageSafety.NotApplicable -> Unit
                                 }
                             }
-                        }
-                        MessageReactions(model, message, { popup = it }, s, colors)
-                        when (val safety = message.safety) {
-                            is MessageSafety.Warning -> ScamWarningCard(model, message.id, safety.kind, seconds, s, colors)
-                            MessageSafety.Unavailable -> Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(s.text("bipe_error_generic"), style = MaterialTheme.typography.bodySmall)
-                                TextButton(onClick = { model.retrySafety(message.id) }) { Text(s.text("bipe_app_retry")) }
-                            }
-                            MessageSafety.Checking -> Text(s.text("bipe_web_loading"), style = MaterialTheme.typography.bodySmall)
-                            MessageSafety.Clear, MessageSafety.NotApplicable -> Unit
                         }
                     }
                 }
             }
+        if (jumpVisible) JumpToNewest(s, colors, Modifier.align(Alignment.BottomEnd).padding(12.dp)) {
+            viewport.policy.jumpToNewest()
+            scope.launch { listState.scrollToItem(0) }
+        }
         }
         SnackbarHost(notices, Modifier.padding(horizontal = 16.dp))
         if (deletion is DeletePhase.Failed) Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {

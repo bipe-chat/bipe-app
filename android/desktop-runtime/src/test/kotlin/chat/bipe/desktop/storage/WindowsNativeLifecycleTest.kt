@@ -149,6 +149,13 @@ class WindowsNativeLifecycleTest {
                 timeline.composer.state.first { it is ComposerState.Editing }
                 val original = (timeline.rows.value as LoadPhase.Ready).value.single { it.body == "Synthetic lifecycle message" }
                 assertTrue(original.canReply)
+                assertEquals("@peer:example.test", original.senderId)
+                assertTrue((timeline.rows.value as LoadPhase.Ready).value.any { it.dayBefore != null })
+                timeline.composer.edit("Kept when Escape cancels a reply")
+                assertTrue(timeline.replies.start(original.id))
+                assertTrue(timeline.cancelContext(null, original.eventId))
+                assertEquals("Kept when Escape cancels a reply", (timeline.composer.state.value as ComposerState.Editing).text)
+                assertNull((timeline.composer.state.value as ComposerState.Editing).replyTo)
                 timeline.composer.edit("Synthetic reply body")
                 assertTrue(timeline.replies.start(original.id))
                 timeline.send()
