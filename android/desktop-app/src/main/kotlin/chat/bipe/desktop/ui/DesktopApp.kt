@@ -38,6 +38,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import chat.bipe.desktop.chat.*
@@ -476,14 +477,14 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
         Box(Modifier.weight(1f).fillMaxWidth()) {
             // An empty loading frame must not remeasure a retained room viewport and clamp its anchor to zero.
             if (rows.isNotEmpty()) LazyColumn(Modifier.fillMaxSize().nestedScroll(userScroll), state = listState, reverseLayout = true,
-                contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 items(rows.asReversed(), key = { it.id }) { message ->
                     Column {
                         message.dayBefore?.let { TimelineDay(it, today, zone, s, colors) }
                         val warning = message.safety as? MessageSafety.Warning
                         val seconds = pauses[message.id] ?: if (warning?.kind?.registryId() in s.moneyPauseKinds) s.moneyPauseSeconds else 0
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = if (message.own) Arrangement.End else Arrangement.Start) {
-                            Column(verticalArrangement = Arrangement.spacedBy(6.dp),
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp),
                                 horizontalAlignment = if (message.own) Alignment.End else Alignment.Start) {
                                 MessageSurface(model, message, seconds, (original as? OriginalNavigation.Found)?.rowId == message.id,
                                     popup, { popup = it }, s, colors, inputEnabled, { composerFocus.requestFocus() }, {
@@ -491,7 +492,7 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
                                     }) {
                                     Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                         if (message.showsSender(room?.isDm == true, room?.peerUserId))
-                                            Text(message.sender, style = MaterialTheme.typography.labelMedium, color = colors["accent.ink"])
+                                            Text(message.sender, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = colors["accent.ink"])
                                         message.reply?.let { quote ->
                                             LaunchedEffect(message.id) { model.loadReply(message.id) }
                                             ReplyQuote(quote, s, {
@@ -501,8 +502,8 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
                                         }
                                         if (seconds > 0 || message.kind != MessageRow.Kind.TEXT) Text(message.body)
                                         else SelectionContainer { Text(message.body) }
-                                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                                            Text(timeLabel(message.timestamp), style = MaterialTheme.typography.labelSmall, color = colors["ink.secondary"],
+                                        Row(Modifier.align(Alignment.End), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                            Text(timeLabel(message.timestamp, s.locale), style = MaterialTheme.typography.labelSmall, color = colors["ink.secondary"],
                                                 modifier = Modifier.clearAndSetSemantics {
                                                     contentDescription = TimelineDates.fullTimestamp(message.timestamp, zone, Locale.forLanguageTag(s.locale))
                                                 })
@@ -584,5 +585,5 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
     }
 }
 
-private fun timeLabel(timestamp: Long): String = DateTimeFormatter.ofLocalizedTime(java.time.format.FormatStyle.SHORT)
-    .format(Instant.ofEpochMilli(timestamp).atZone(ZoneId.systemDefault()))
+private fun timeLabel(timestamp: Long, locale: String): String = DateTimeFormatter.ofLocalizedTime(java.time.format.FormatStyle.SHORT)
+    .withLocale(Locale.forLanguageTag(locale)).format(Instant.ofEpochMilli(timestamp).atZone(ZoneId.systemDefault()))
