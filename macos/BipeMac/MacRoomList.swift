@@ -30,6 +30,8 @@ final class MacRoomList: ObservableObject {
     private var known: [String: BipeRowActivity.Row] = [:]
     private var pendingFavourite: [String: Bool] = [:]
     private var orderUnsaved = false
+    /// The drafts room (ADR 0210, ADR 0291): it holds drafts and device entries, never a chat.
+    private var hiddenRoomIDs: Set<String> = []
 
     func attach(client: Client, service: RoomListService, ownUserID: String) async throws {
         reset()
@@ -79,7 +81,7 @@ final class MacRoomList: ObservableObject {
         if let subscriptions { Task { await subscriptions.close() } }
         subscriptions = nil
         client = nil
-        rooms = [[], [], []]; rows = []; known = [:]; pendingFavourite = [:]
+        rooms = [[], [], []]; rows = []; known = [:]; pendingFavourite = [:]; hiddenRoomIDs = []
         loaded = false; failed = false; actionFailed = false; busy = []
         favouritesOrder = []; orderUnsaved = false
         onRows?([])
@@ -170,11 +172,17 @@ final class MacRoomList: ObservableObject {
         await task.value
     }
 
+    /// Leaves a room out of every list of this account.
+    func hide(roomID: String) {
+        guard hiddenRoomIDs.insert(roomID).inserted else { return }
+        rebuild()
+    }
+
     private func rebuild() {
         rebuildTask?.cancel()
         let generation = generation
         let ownUserID = ownUserID
-        var seen = Set<String>()
+        var seen = hiddenRoomIDs
         let combined = rooms.flatMap { $0 }.filter { seen.insert($0.id()).inserted }
         rebuildTask = Task { [weak self] in
             guard let self else { return }
