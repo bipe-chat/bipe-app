@@ -76,6 +76,8 @@ class SignupFlowModel(
     val onHaveAccount: () -> Unit = {},
     /** Set for a sign-up from account-new: it starts at signup-name with the invite, and has no inviter. */
     val start: SignupStart? = null,
+    /** Spec group-link-open notes: a valid group link code waits for the account, through sign-up or recovery. */
+    private val onGroupCode: (String) -> Unit = {},
 ) {
     /** The steps on top of onboarding-welcome. System back pops one step (action back). */
     enum class Route { INVITE_CODE, NAME, PIN, PIN_CONFIRM, FALLBACK, CREATE }
@@ -230,6 +232,8 @@ class SignupFlowModel(
         val invite = api.invitePreview(code)
         if (invite.valid) return invite
         val group = api.groupLinkPreview(code)
+        // Also when it signs nobody up (recovery path) and when the invite at sign-up fails (signup-done).
+        if (group.valid) onGroupCode(code)
         return BipeInvitePreview(valid = group.valid && group.signsUp == true)
     }
 

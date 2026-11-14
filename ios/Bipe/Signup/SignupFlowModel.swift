@@ -228,12 +228,25 @@ final class SignupFlowModel: ObservableObject {
         await preview(code)
     }
 
+    /// Action pasteLink of onboarding-welcome: the first bipe.chat/convite/ or bipe.chat/g/ link in the pasted text.
+    /// Other text does nothing.
+    func pasteLink(_ text: String) async {
+        let words = text.split(whereSeparator: { $0.isWhitespace }).prefix(64)
+        guard let url = words.lazy.compactMap({ URL(string: String($0)) }).first(where: {
+            BipeInviteLink.code(from: $0) != nil || BipeInviteLink.groupCode(from: $0) != nil
+        }) else { return }
+        await openInviteLink(url)
+    }
+
     /// An invite code, else a group link code that signs people up (ADR 0184, spec group-link-open). Only a personal
     /// invite has an inviter handle.
     private func checkCode(_ code: String) async throws(BipeAPIError) -> (valid: Bool, inviterHandle: String?) {
         let invite = try await api.invitePreview(code: code)
         if invite.valid { return (true, invite.inviterHandle) }
         let group = try await api.groupLinkPreview(code: code)
+        // Spec group-link-open notes: the code waits for the account, also when it signs nobody up (recovery path) and
+        // when the invite at sign-up fails (signup-done opens group-link-open with it).
+        if group.valid { GroupLinkHold.keep(code) }
         return (group.valid && group.signsUp == true, nil)
     }
 

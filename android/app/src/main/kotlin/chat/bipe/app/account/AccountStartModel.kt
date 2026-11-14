@@ -86,6 +86,13 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
      *  (action openInviteLink) reads it, or [routeHeldLink] once the phone is signed in. */
     var pendingInviteLink: android.net.Uri? = null
 
+    /** Spec group-link-open notes: a group link code from a paste or a scan in sign-up, held like [pendingInviteLink]. */
+    private var heldGroupCode: String? = null
+
+    fun holdGroupCode(code: String) {
+        heldGroupCode = code
+    }
+
     /**
      * noAccount shows recovery-start instead of onboarding-welcome: after "Já tenho conta", for a recovery link, or while
      * a kept recovery waits (spec recovery-waiting notes).
@@ -418,8 +425,17 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
 
     /** signup-done finished: chat-list shows, with the inviter's chat open when there is one. */
     fun finishSignup(openRoomId: String?) {
+        val outcome = _signupOutcome.value
         initialRoomId = openRoomId
         _signupOutcome.value = null
+        // An invite link was used by the sign-up. A group link is done when its group opened (spec signup-done
+        // continue); otherwise group-link-open opens with it, so join runs again.
+        pendingInviteLink = pendingInviteLink?.takeIf { chat.bipe.shared.BipeInviteLink.groupCode(it) != null }
+        if (outcome?.groupRoomId != null && outcome.groupRoomId == openRoomId) {
+            pendingInviteLink = null
+            heldGroupCode = null
+        }
+        routeHeldLink()
     }
 
     /**
@@ -528,10 +544,17 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
      * group-link-open, an invite to invite-signed-in. Without this, only onboarding read it, and the tap was lost.
      */
     private fun routeHeldLink() {
-        val uri = pendingInviteLink ?: return
+        // signup-done runs first; finishSignup routes what is left.
+        if (_signupOutcome.value != null) return
+        val uri = pendingInviteLink
+        val group = uri?.let { chat.bipe.shared.BipeInviteLink.groupCode(it) } ?: heldGroupCode
         pendingInviteLink = null
-        if (chat.bipe.app.people.PeopleLinks.offerGroupLink(uri)) return
-        chat.bipe.shared.BipeInviteLink.code(uri)?.let { _inviteTap.value = it }
+        heldGroupCode = null
+        if (group != null) {
+            chat.bipe.app.people.PeopleLinks.open(chat.bipe.app.people.PeopleRoute.GroupLinkOpen(group))
+            return
+        }
+        uri?.let { chat.bipe.shared.BipeInviteLink.code(it) }?.let { _inviteTap.value = it }
     }
 
     private fun add(session: AccountSession) {

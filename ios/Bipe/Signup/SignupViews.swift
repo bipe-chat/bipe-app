@@ -107,6 +107,8 @@ struct OnboardingWelcomeView: View {
     /// How far the button sheet reaches over the cover.
     private static let sheetOverlap: CGFloat = 28
     @State private var showsSite = false
+    /// Action pasteLink: the clipboard holds a URL. Read with detectPatterns, which shows no paste prompt.
+    @State private var clipboardHasLink = false
     /// The wordmark follows the system text size.
     @ScaledMetric(relativeTo: .largeTitle) private var wordmarkSize: CGFloat = 52
 
@@ -150,6 +152,10 @@ struct OnboardingWelcomeView: View {
         }
         .accessibilityIdentifier(BipeScreen.onboardingWelcome.rawValue)
         .task { await model.appear() }
+        .task { await checkClipboard() }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            Task { await checkClipboard() }
+        }
         // Action learnMore: the site in the in-app browser, so sign-up stays where it was.
         .sheet(isPresented: $showsSite) {
             SafariPage(url: BipeLegalLinks.homeURL(site: AppConfig.publicSite))
@@ -221,8 +227,30 @@ struct OnboardingWelcomeView: View {
                     // haveAccount: recovery-start (bipe-chat/bipe#556).
                     SecondaryButton(title: button.title) { model.onHaveAccount() }
                 }
+                if clipboardHasLink, model.invite == nil {
+                    // Action pasteLink: iOS has no install referrer, so the link page copied the link before the
+                    // App Store opened. The system paste button reads the clipboard only on a tap, with no prompt.
+                    HStack(spacing: 12) {
+                        Text(BipeStrings.onboardingPasteLink)
+                            .font(.subheadline)
+                            .foregroundStyle(BipeColor.inkSecondary)
+                        PasteButton(payloadType: String.self) { texts in
+                            guard let text = texts.first else { return }
+                            Task { @MainActor in await model.pasteLink(text) }
+                        }
+                        .labelStyle(.titleAndIcon)
+                        .buttonBorderShape(.capsule)
+                        .tint(BipeColor.accentFill)
+                    }
+                }
             }
         }
+    }
+
+    /// Action pasteLink: shown while the clipboard holds a URL.
+    private func checkClipboard() async {
+        let found = (try? await UIPasteboard.general.detectPatterns(for: [.probableWebURL])) ?? []
+        clipboardHasLink = found.contains(.probableWebURL)
     }
 
     /// The title of the start variant; invited names the inviter.

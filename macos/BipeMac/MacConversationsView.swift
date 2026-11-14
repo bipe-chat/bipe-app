@@ -22,6 +22,10 @@ struct MacConversationsView: View {
     @State private var notificationsRoom: String?
     @State private var photoPickerRoom: String?
     @State private var contextRoom: String?
+    /// Spec group-link: the group whose link sheet shows, and whether this account may make its link.
+    @State private var groupLinkRoom: String?
+    @State private var canMakeGroupLink = false
+    @ObservedObject private var groupLinks = MacGroupLinks.shared
 
     /// The account keeps the open chat of each destination, so switching destinations comes back to it.
     private var selectedRoom: Binding<String?> {
@@ -81,6 +85,19 @@ struct MacConversationsView: View {
                             forwardTargets: list.rows, opensPhotoPicker: photoPickerRoom == row.id).id(row.id)
                     .environment(\.bipeHandles, account.handles)
                     .environment(\.bipeCompanySeals, account.seals)
+                    // Spec group-link: admins who can change power levels (canOwnUserSendState m.room.power_levels).
+                    .task(id: row.id) {
+                        canMakeGroupLink = false
+                        guard !row.isDm, let levels = try? await row.room.getPowerLevels() else { return }
+                        canMakeGroupLink = levels.canOwnUserSendState(stateEvent: .roomPowerLevels)
+                    }
+                    .toolbar {
+                        if !row.isDm, canMakeGroupLink {
+                            ToolbarItem(placement: .automatic) {
+                                Button(BipeStrings.groupLinkTitle) { groupLinkRoom = row.id }.help(BipeStrings.groupLinkTitle)
+                            }
+                        }
+                    }
             } else {
                 placeholder(scope.title)
             }
@@ -97,6 +114,25 @@ struct MacConversationsView: View {
         .onDisappear { reordering = false }
         .sheet(isPresented: $startingChat) {
             MacStartChatSheet(account: account, opened: { room in startingChat = false; openChat(room) }, close: { startingChat = false })
+        }
+        .sheet(isPresented: Binding(get: { groupLinkRoom != nil }, set: { if !$0 { groupLinkRoom = nil } })) {
+            if let row = list.rows.first(where: { $0.id == groupLinkRoom }) {
+                MacGroupLinkSheet(account: account, room: row.room) { groupLinkRoom = nil }
+            }
+        }
+        // Spec group-link-open: a group link tapped in a message, in the destination on screen.
+        .sheet(item: Binding(get: { account.destination == scope ? groupLinks.pending : nil },
+                             set: { if $0 == nil { groupLinks.pending = nil } })) { pending in
+            MacGroupLinkOpenSheet(account: account, code: pending.code, opened: { room in
+                groupLinks.pending = nil
+                // A personal account lists groups under Grupos; a company account lists them with its chats.
+                if account.isCompany || scope == .groups {
+                    openChat(room)
+                } else {
+                    account.selectedRooms[.groups] = room
+                    account.destination = .groups
+                }
+            }, close: { groupLinks.pending = nil })
         }
         .sheet(isPresented: Binding(get: { notificationsRoom != nil }, set: { if !$0 { notificationsRoom = nil } })) {
             if let row = list.rows.first(where: { $0.id == notificationsRoom }) {

@@ -39,6 +39,7 @@ import chat.bipe.app.account.AccountSession
 import chat.bipe.app.common.MediaLoader
 import chat.bipe.app.invites.InviteSomeoneNewRow
 import chat.bipe.shared.R
+import chat.bipe.shared.generated.BipeRegistries
 import chat.bipe.shared.generated.BipeScreen
 
 /**
@@ -83,7 +84,10 @@ fun GroupInviteMembersScreen(
                                 is GroupInviteMembersModel.Mode.Pick -> onDone(model.selectedPeople())
                                 is GroupInviteMembersModel.Mode.Invite -> {
                                     val people = model.selectedPeople()
-                                    model.invite(reachNotice = api?.let { client -> suspend { reachNoticeFor(context, session, client) } }) { onDone(people) }
+                                    model.invite(
+                                        reachNotice = api?.let { client -> suspend { reachNoticeFor(context, session, client) } },
+                                        fullNotice = context.getString(R.string.bipe_group_link_full, BipeRegistries.GROUP_MAX_MEMBERS.toString()),
+                                    ) { onDone(people) }
                                 }
                             }
                         },

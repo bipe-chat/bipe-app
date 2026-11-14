@@ -4,6 +4,8 @@
 
 package chat.bipe.app.groups
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import androidx.activity.compose.BackHandler
@@ -42,8 +44,11 @@ import chat.bipe.app.account.AccountSession
 import chat.bipe.app.common.AppConfig
 import chat.bipe.app.common.BipeButton
 import chat.bipe.app.common.BipeOutlinedButton
+import chat.bipe.app.common.BipeToasts
+import chat.bipe.app.common.BipeTonalButton
 import chat.bipe.app.people.PeopleScaffold
 import chat.bipe.app.people.PeopleService
+import chat.bipe.app.people.QrCode
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
 import chat.bipe.shared.api.BipeApiClient
@@ -91,8 +96,11 @@ class GroupLinkModel(
         val accessError: Boolean = false,
         val noCode: Boolean = false,
         val share: String? = null,
+        /** Action showQr: the QR code of url shows. */
+        val showsQr: Boolean = false,
     )
 
+    private val appContext = context.applicationContext
     private val _state = MutableStateFlow(State())
     val state: StateFlow<State> = _state.asStateFlow()
     private val store = BipeInviteStore(context, session.userId)
@@ -162,6 +170,16 @@ class GroupLinkModel(
     }
 
     fun shared() = _state.update { it.copy(share = null) }
+
+    /** Action copy. */
+    fun copy() {
+        val url = _state.value.url ?: return _state.update { it.copy(noCode = true) }
+        appContext.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText(url, url))
+        BipeToasts.copied(appContext)
+    }
+
+    /** Action showQr. */
+    fun toggleQr() = _state.update { if (it.url == null) it.copy(noCode = true) else it.copy(showsQr = !it.showsQr) }
 
     /** Action revoke. */
     fun revoke() {
@@ -238,6 +256,15 @@ fun GroupLinkScreen(session: AccountSession, roomId: String, onBack: () -> Unit)
                     Text(stringResource(R.string.bipe_group_link_joined, link.joined.toString()), color = colors.inkSecondary)
                     val enabled = state.phase != GroupLinkModel.Phase.WORKING
                     BipeButton(onClick = model::share, enabled = enabled) { Text(stringResource(R.string.bipe_group_link_share)) }
+                    BipeTonalButton(onClick = model::copy, enabled = enabled) { Text(stringResource(R.string.bipe_group_link_copy)) }
+                    BipeTonalButton(onClick = model::toggleQr, enabled = enabled) { Text(stringResource(R.string.bipe_group_link_qr)) }
+                    val url = state.url
+                    if (state.showsQr && url != null) {
+                        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            QrCode(url)
+                            Text(stringResource(R.string.bipe_group_link_qr_footer), style = MaterialTheme.typography.bodySmall, color = colors.inkSecondary, textAlign = TextAlign.Center)
+                        }
+                    }
                     BipeOutlinedButton(onClick = { confirmsRevoke = true }, enabled = enabled) { Text(stringResource(R.string.bipe_group_link_revoke)) }
                 }
                 else -> {
@@ -277,8 +304,22 @@ fun GroupLinkScreen(session: AccountSession, roomId: String, onBack: () -> Unit)
     }
 }
 
+/**
+ * ADR 0253 (registries/group-limits.json): a group with maxMembers joined and invited members, the groups service
+ * account not counted, takes nobody new. The server refuses the invite; this tells the person why.
+ */
+object GroupSeats {
+    suspend fun isFull(room: Room): Boolean {
+        val info = runCatching { room.roomInfo() }.getOrNull() ?: return false
+        val service = runCatching { room.member(BipeRegistries.groupsAccountId).membership }.getOrNull()
+        val inRoom = service == MembershipState.Join || service == MembershipState.Invite
+        val seated = info.joinedMembersCount.toLong() + info.invitedMembersCount.toLong() - (if (inRoom) 1 else 0)
+        return seated >= BipeRegistries.GROUP_MAX_MEMBERS
+    }
+}
+
 /** Phase of spec group-link-open. */
-private enum class GroupLinkOpenPhase { LOADING, PREVIEW, JOINING, INVALID, REFUSED, FAILED }
+private enum class GroupLinkOpenPhase { LOADING, PREVIEW, JOINING, INVALID, REFUSED, FULL, FAILED }
 
 /** Spec group-link-open: the group of a bipe.chat/g/<code> link, joined with one tap. */
 @Composable
@@ -293,7 +334,11 @@ fun GroupLinkOpenScreen(people: PeopleService, code: String, openChat: (String) 
         phase = try {
             val found = people.api.groupLinkPreview(code)
             preview = found
-            if (found.valid) GroupLinkOpenPhase.PREVIEW else GroupLinkOpenPhase.INVALID
+            when {
+                !found.valid -> GroupLinkOpenPhase.INVALID
+                found.full == true -> GroupLinkOpenPhase.FULL
+                else -> GroupLinkOpenPhase.PREVIEW
+            }
         } catch (error: BipeApiException) {
             GroupLinkOpenPhase.FAILED
         }
@@ -312,6 +357,7 @@ fun GroupLinkOpenScreen(people: PeopleService, code: String, openChat: (String) 
                 phase = when ((error as? BipeApiException.Server)?.code) {
                     BipeApiErrorCode.NOT_FOUND -> GroupLinkOpenPhase.INVALID
                     BipeApiErrorCode.GROUP_LINK_NO_ACCESS -> GroupLinkOpenPhase.REFUSED
+                    BipeApiErrorCode.GROUP_FULL -> GroupLinkOpenPhase.FULL
                     else -> GroupLinkOpenPhase.FAILED
                 }
             } catch (error: ClientException) {
@@ -332,6 +378,12 @@ fun GroupLinkOpenScreen(people: PeopleService, code: String, openChat: (String) 
                     Text(stringResource(R.string.bipe_group_link_open_invalid), color = colors.inkPrimary, textAlign = TextAlign.Center)
                 GroupLinkOpenPhase.REFUSED ->
                     Text(stringResource(R.string.bipe_app_room_link_invite_only), color = colors.inkPrimary, textAlign = TextAlign.Center)
+                GroupLinkOpenPhase.FULL -> {
+                    shown?.name?.takeIf { it.isNotBlank() }?.let {
+                        Text(it, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, color = colors.inkPrimary, textAlign = TextAlign.Center)
+                    }
+                    Text(stringResource(R.string.bipe_group_link_full, BipeRegistries.GROUP_MAX_MEMBERS.toString()), color = colors.inkPrimary, textAlign = TextAlign.Center)
+                }
                 GroupLinkOpenPhase.FAILED -> {
                     Text(stringResource(R.string.bipe_error_network), color = colors.inkPrimary, textAlign = TextAlign.Center)
                     BipeButton(onClick = { attempt++ }) { Text(stringResource(R.string.bipe_app_retry)) }
