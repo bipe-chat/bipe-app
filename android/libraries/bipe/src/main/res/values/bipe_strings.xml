@@ -1064,7 +1064,7 @@
     <string name="bipe_linked_devices_unknown_name">Aparelho sem nome</string>
     <string name="bipe_linked_devices_sign_out">Desconectar</string>
     <string name="bipe_linked_devices_sign_out_title">Desconectar %1$s?</string>
-    <string name="bipe_linked_devices_sign_out_body">O aparelho sai da sua conta e para de receber suas conversas. Na página que abre, confirme a saída.</string>
+    <string name="bipe_linked_devices_sign_out_body">O aparelho sai da sua conta e para de receber suas conversas.</string>
     <string name="bipe_linked_devices_sign_out_biometric">Confirme que é você para desconectar um aparelho.</string>
     <string name="bipe_linked_devices_error">Não deu para carregar os aparelhos. Tente de novo.</string>
     <string name="bipe_devices_group_title">Aparelhos e assistentes</string>
@@ -1217,7 +1217,7 @@
     <string name="bipe_app_lock_wrong">A senha não confere. Tente de novo.</string>
     <string name="bipe_app_lock_biometric_offer_title">Abrir o Bipe com %1$s?</string>
     <string name="bipe_app_lock_biometric_offer_use">Usar %1$s</string>
-    <string name="bipe_app_linked_devices_sign_out_loading">Abrindo a página para desconectar…</string>
+    <string name="bipe_app_linked_devices_sign_out_loading">Desconectando…</string>
     <string name="bipe_app_linked_devices_sign_out_error">Não deu para desconectar o aparelho. Tente de novo.</string>
     <string name="bipe_app_linked_devices_signed_out">Aparelho desconectado.</string>
     <string name="bipe_app_sign_out_title">Sair do Bipe neste celular?</string>
