@@ -82,7 +82,8 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
     val session: AccountSession?
         get() = _sessions.value.firstOrNull { it.userId == _userId.value }
 
-    /** A bipe.chat/convite link the app was opened with, for onboarding-welcome (action openInviteLink). */
+    /** A bipe.chat/convite or /g/ link the app was opened with before the account was ready: onboarding-welcome
+     *  (action openInviteLink) reads it, or [routeHeldLink] once the phone is signed in. */
     var pendingInviteLink: android.net.Uri? = null
 
     /**
@@ -518,6 +519,19 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
         (context.applicationContext as BipeApplication).push.attach(session)
         chat.bipe.app.media.MediaPreviewSync.attach(context, session)
         _phase.value = Phase.READY
+        routeHeldLink()
+    }
+
+    /**
+     * A link that came while the account still opened (a cold start from a tap in WhatsApp) waits in
+     * [pendingInviteLink]. Once the phone is signed in it goes where a link on a signed-in phone goes: a group link to
+     * group-link-open, an invite to invite-signed-in. Without this, only onboarding read it, and the tap was lost.
+     */
+    private fun routeHeldLink() {
+        val uri = pendingInviteLink ?: return
+        pendingInviteLink = null
+        if (chat.bipe.app.people.PeopleLinks.offerGroupLink(uri)) return
+        chat.bipe.shared.BipeInviteLink.code(uri)?.let { _inviteTap.value = it }
     }
 
     private fun add(session: AccountSession) {

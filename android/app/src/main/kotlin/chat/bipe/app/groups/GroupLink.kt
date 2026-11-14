@@ -106,7 +106,7 @@ class GroupLinkModel(
         _state.update { it.copy(phase = Phase.LOADING) }
         scope.launch {
             try {
-                val link = withToken { api.groupLinks(roomId, it) }.firstOrNull()
+                val link = shown(withToken { api.groupLinks(roomId, it) })
                 val kept = store.groupLink(roomId)
                 val url = if (kept != null && kept.first == link?.id) kept.second else null
                 if (url == null) store.removeGroupLink(roomId)
@@ -116,6 +116,14 @@ class GroupLinkModel(
             }
         }
     }
+
+    /**
+     * The link this screen shows. The list holds the links of every admin of the group, newest first. This admin's own
+     * link comes first, so a newer link from another admin does not drop the URL this phone kept, and revoke ends this
+     * admin's link. Another admin's link shows only when this admin has none.
+     */
+    private fun shown(links: List<BipeGroupLink>): BipeGroupLink? =
+        links.firstOrNull { it.createdBy == session.userId } ?: links.firstOrNull()
 
     /** Action create: the service account comes in with invite power, then the server makes the link. */
     fun create() {
@@ -138,7 +146,8 @@ class GroupLinkModel(
             try {
                 val created = withToken { api.createGroupLink(roomId, it) }
                 store.saveGroupLink(created.id, created.url, roomId)
-                val link = withToken { api.groupLinks(roomId, it) }.firstOrNull()
+                val links = withToken { api.groupLinks(roomId, it) }
+                val link = links.firstOrNull { it.id == created.id } ?: shown(links)
                 _state.update { it.copy(phase = Phase.ACTIVE, link = link, url = created.url, share = message(created.url)) }
             } catch (error: BipeApiException) {
                 fail(error)
