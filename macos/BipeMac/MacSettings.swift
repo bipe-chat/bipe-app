@@ -16,8 +16,24 @@ final class MacSettingsModel: ObservableObject {
     @Published private(set) var status: BipeAccountStatus?
     @Published private(set) var hasRecoveryKey = false
     @Published private(set) var notificationsOn: Bool?
+    /// Spec linked-devices phase, read-only on the Mac (ADR 0291).
+    @Published private(set) var devices = DevicesPhase.loading
+    @Published private(set) var deviceCounts: BipeDevices.Counts?
+    /// Place per IP (GET /v1/web-link/place). The IP goes to no outside service.
+    @Published private(set) var places: [String: String] = [:]
+
+    enum DevicesPhase: Equatable {
+        case loading
+        case loaded([BipeDevices.Row])
+        case failed
+    }
 
     init(account: MacAccount) { self.account = account }
+
+    var deviceRows: [BipeDevices.Row] {
+        if case .loaded(let rows) = devices { return rows }
+        return []
+    }
 
     /// `nil` until GET /v1/me/account answers. The Mac has no token store of its own, so the server's flag counts
     /// (spec settings-root, Mac note).
@@ -35,7 +51,40 @@ final class MacSettingsModel: ObservableObject {
         async let messaging: Void = loadMessaging()
         async let accountStatus: Void = loadAccount()
         async let notifications: Void = loadNotifications()
-        _ = await (messaging, accountStatus, notifications)
+        async let devices: Void = loadDevices()
+        _ = await (messaging, accountStatus, notifications, devices)
+    }
+
+    /// Spec linked-devices appear: the devices, the entries of the drafts room, deviceRows, then the place of each row.
+    func loadDevices() async {
+        guard let list = await MacDeviceEntries.list(account: account) else {
+            if deviceRows.isEmpty { devices = .failed }
+            return
+        }
+        devices = .loaded(list.rows)
+        deviceCounts = list.counts
+        let api = account.api
+        for ip in Set(list.rows.compactMap(\.ip)) where places[ip] == nil {
+            let found = try? await account.authorized { (token: String) async throws(BipeAPIError) -> BipeWebLinkPlace in
+                try await api.webLinkPlace(ip: ip, accessToken: token)
+            }
+            if let label = found?.label() { places[ip] = label }
+        }
+    }
+
+    /// Spec linked-devices retry.
+    func retryDevices() async {
+        devices = .loading
+        await loadDevices()
+    }
+
+    func place(of row: BipeDevices.Row) -> String? {
+        row.ip.flatMap { places[$0] }
+    }
+
+    /// The title of the approving device for device-detail linkedBy.
+    func deviceName(of deviceId: String) -> String {
+        deviceRows.first { $0.deviceId == deviceId }?.title ?? deviceId
     }
 
     private func loadMessaging() async {
@@ -74,7 +123,7 @@ final class MacSettingsModel: ObservableObject {
         case .account: waysBack?.summary
         case .notifications: notificationsOn.map { $0 ? BipeStrings.settingsNotificationsOn : BipeStrings.macNotificationsOff }
         case .help: BipeStrings.helpVersion(MacSettingsText.version)
-        case .devices: nil
+        case .devices: deviceCounts?.summary
         case .profile, .chats: nil
         }
     }
@@ -248,7 +297,7 @@ private struct MacSettingsGroupView: View {
         switch row {
         case .privacyMessaging, .privacyReadReceipts,
              .accountWaysBackStatus, .accountEmail, .accountLinkedAccounts, .accountRecoveryKey,
-             .devicesLinkComputer, .accountSignOut,
+             .accountSignOut,
              .chatsAppearance, .chatsColors, .chatsShowMedia, .chatsMediaQuality: return true
         default: return false
         }
@@ -265,6 +314,9 @@ private struct MacSettingsGroupView: View {
         Form {
             if group == .account, let warning = model.waysBack?.warning {
                 Section { MacNotice(text: warning) }
+            }
+            if group == .devices {
+                MacDeviceSections(model: model)
             }
             ForEach(sections, id: \.section.key) { visible in
                 Section {
@@ -336,9 +388,6 @@ private struct MacSettingsGroupView: View {
             valueRow(row, linkedSummary)
         case .accountRecoveryKey:
             valueRow(row, model.hasRecoveryKey ? BipeStrings.accountRecoveryKeySaved : BipeStrings.accountRecoveryKeyMissing)
-        case .devicesLinkComputer:
-            // ADR 0291: the Mac shows the list read-only; linking starts on the computer (ADR 0266).
-            NavigationLink { MacLinkedDevicesView(account: model.account) } label: { Text(BipeStrings.linkedDevicesTitle) }
         case .accountSignOut:
             Button(role: .destructive) { showsSignOut = true } label: {
                 Text(row.title).foregroundStyle(BipeColor.trustDangerInk)
@@ -376,77 +425,6 @@ private struct MacShowMediaRow: View {
             Text(BipeStrings.chatsShowMediaPrivate).tag(MediaPreviews.private)
             Text(BipeStrings.chatsShowMediaNever).tag(MediaPreviews.off)
         }.disabled(media.policy == nil)
-    }
-}
-
-/// Spec linked-devices, Mac note: the other devices of the account, read-only. Signing one out needs the phone.
-private struct MacLinkedDevicesView: View {
-    enum Phase { case loading, loaded, failed }
-    let account: MacAccount
-    @State private var phase = Phase.loading
-    @State private var devices: [BipeMatrixDevice] = []
-
-    var body: some View {
-        Form {
-            Section {
-                switch phase {
-                case .loading:
-                    ProgressView().frame(maxWidth: .infinity)
-                case .failed:
-                    Text(BipeStrings.linkedDevicesError).foregroundStyle(BipeColor.inkSecondary)
-                    Button(BipeStrings.appRetry) { Task { await load() } }.buttonStyle(.bipeBordered)
-                case .loaded:
-                    if devices.isEmpty {
-                        Text(BipeStrings.linkedDevicesEmpty).foregroundStyle(BipeColor.inkSecondary)
-                    }
-                    ForEach(devices) { device in
-                        HStack(spacing: 12) {
-                            Image(decorative: "desktop").renderingMode(.template).resizable()
-                                .frame(width: 22, height: 22).foregroundStyle(BipeColor.glyphSecondary)
-                                .accessibilityHidden(true)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(Self.name(device))
-                                if let lastUsed = device.lastUsed {
-                                    Text(BipeStrings.linkedDevicesLastUsed(lastUsed.formatted(.relative(presentation: .named))))
-                                        .macFont(.subheadline).foregroundStyle(BipeColor.inkSecondary)
-                                }
-                            }
-                        }
-                    }
-                }
-            } footer: {
-                Text(BipeStrings.macLinkedDevicesFooter)
-            }
-        }
-        .formStyle(.grouped)
-        .macFont(.body)
-        .navigationTitle(BipeStrings.linkedDevicesTitle)
-        .accessibilityIdentifier(BipeScreen.linkedDevices.rawValue)
-        .task { await load() }
-    }
-
-    /// Action appear: the devices of the account without this Mac, newest use first.
-    private func load() async {
-        phase = .loading
-        guard let client = account.client, let homeserver = URL(string: client.homeserver()) else {
-            phase = .failed
-            return
-        }
-        let matrix = BipeMatrixAccountAPI(homeserver: homeserver)
-        do {
-            let ownID = try? client.deviceId()
-            devices = try await account.authorized { (token: String) async throws(BipeAPIError) -> [BipeMatrixDevice] in
-                try await matrix.devices(accessToken: token)
-            }.filter { $0.deviceId != ownID }.sorted { ($0.lastSeenTs ?? 0) > ($1.lastSeenTs ?? 0) }
-            phase = .loaded
-        } catch {
-            phase = .failed
-        }
-    }
-
-    private static func name(_ device: BipeMatrixDevice) -> String {
-        guard let name = device.displayName, !name.isEmpty else { return BipeStrings.linkedDevicesUnknownName }
-        return name
     }
 }
 

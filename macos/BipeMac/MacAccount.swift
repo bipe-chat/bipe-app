@@ -240,7 +240,7 @@ final class MacAccount: ObservableObject {
         let key = try vault.storeKey(create: !restoring)
         return try await Self.builder(data: paths.data, cache: paths.cache, key: key)
             .setSessionDelegate(sessionDelegate: delegate)
-            .userAgent(userAgent: "Bipe/Mac")
+            .userAgent(userAgent: MacModel.userAgent)
             .homeserverUrl(url: "https://matrix.bipe.net.br")
             .build()
     }
@@ -320,6 +320,16 @@ final class MacAccount: ObservableObject {
         Task { await refreshProfile() }
         try await roomList.attach(client: client, service: sync.roomListService(), ownUserID: userId)
         guard attempt == current else { return }
+        // ADR 0291: this Mac's device entry, on link and on each start when a field changed. The drafts room that
+        // holds it stays out of the chat list.
+        let ownUserID = userId
+        Task { [weak self] in
+            if let room = await MacDeviceEntries.draftsRoom(client: client), self?.attempt == current {
+                self?.roomList.hide(roomID: room.id())
+            }
+            guard self?.attempt == current else { return }
+            await MacDeviceEntries.writeSelf(client: client, userId: ownUserID)
+        }
         try await requests.attach(client: client, service: sync.roomListService(), userID: userId,
                                   subscriptions: roomList.subscriptions) { [weak self] in
             try? self?.client?.session().accessToken
