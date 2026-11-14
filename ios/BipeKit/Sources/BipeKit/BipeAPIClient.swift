@@ -910,6 +910,8 @@ public struct BipeGroupLinkPreview: Decodable, Sendable {
     /// The creator's public name, else @handle.
     public let inviterName: String?
     public let signsUp: Bool?
+    /// The group has registries/group-limits.json maxMembers members (ADR 0253): nobody new can join.
+    public let full: Bool?
 }
 
 /// One active group link (ADR 0184).
@@ -1273,6 +1275,7 @@ public enum BipeAPIErrorCode: String, Sendable {
     case keepLimit = "keep_limit"
     /// 409. The groups service account is not in the group or may not invite (ADR 0184).
     case groupLinkNoAccess = "group_link_no_access"
+    case groupFull = "group_full"
     /// 403. A device of a work account that is not the owner's (ADR 0251).
     case ownerOnly = "owner_only"
     /// 409. The work account has the most people it can have (ADR 0252).
@@ -1360,6 +1363,7 @@ public enum BipeAPIError: Error, Sendable, Equatable {
             case .brandMarkLimit: BipeStrings.brandMarksLimit
             case .keepLimit: BipeStrings.voiceKeepLimit(String(BipeRegistries.voiceMediaMaxKeptPerAccount))
             case .groupLinkNoAccess: BipeStrings.groupLinkErrorAccess
+            case .groupFull: BipeStrings.groupLinkFull(String(BipeRegistries.groupMaxMembers))
             case .ownerOnly: BipeStrings.teamOwnerOnly
             case .seatLimit, .seatWindowOpen: BipeStrings.teamError
             case .seatWindowClosed: BipeStrings.teamAddExpired

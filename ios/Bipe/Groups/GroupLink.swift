@@ -25,6 +25,8 @@ final class GroupLinkModel: ObservableObject {
     @Published var showsShare = false
     @Published var showsNoCode = false
     @Published var confirmsRevoke = false
+    @Published var showsQr = false
+    @Published var notice: String?
 
     let session: AccountSession
     let roomId: String
@@ -107,6 +109,19 @@ final class GroupLinkModel: ObservableObject {
         if url == nil { showsNoCode = true } else { showsShare = true }
     }
 
+    /// Action copy.
+    func copy() {
+        guard let url else { showsNoCode = true; return }
+        UIPasteboard.general.url = url
+        notice = BipeStrings.appCopied
+    }
+
+    /// Action showQr.
+    func toggleQr() {
+        guard url != nil else { showsNoCode = true; return }
+        withBipeAnimation { showsQr.toggle() }
+    }
+
     /// Action revoke.
     func revoke() async {
         guard let link else { return }
@@ -168,9 +183,25 @@ struct GroupLinkView: View {
                     }
                     Section {
                         Button(BipeStrings.groupLinkShare) { model.share() }
+                        Button(BipeStrings.groupLinkCopy) { model.copy() }
+                        Button(BipeStrings.groupLinkQr) { model.toggleQr() }
                         Button(BipeStrings.groupLinkRevoke, role: .destructive) { model.confirmsRevoke = true }
                     }
                     .disabled(model.phase == .working)
+                    if model.showsQr, let url = model.url {
+                        Section {
+                            VStack(spacing: 12) {
+                                QRCodeImage(text: url.absoluteString)
+                                    .frame(maxWidth: 240, maxHeight: 240)
+                                Text(BipeStrings.groupLinkQrFooter)
+                                    .font(.footnote)
+                                    .foregroundStyle(BipeColor.inkSecondary)
+                                    .multilineTextAlignment(.center)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
+                        }
+                    }
                 } else {
                     Section {
                         Text(BipeStrings.groupLinkBody)
@@ -187,6 +218,7 @@ struct GroupLinkView: View {
         .navigationTitle(BipeStrings.groupLinkTitle)
         .navigationBarTitleDisplayMode(.inline)
         .accessibilityIdentifier(BipeScreen.groupLink.rawValue)
+        .toast($model.notice)
         .task { await model.appear() }
         .sheet(isPresented: $model.showsShare) {
             if let message = model.message { ShareSheet(items: [message]) }
@@ -207,11 +239,60 @@ struct GroupLinkView: View {
     }
 }
 
+/// ADR 0253 (registries/group-limits.json): a group with maxMembers joined and invited members, the groups service
+/// account not counted, takes nobody new. The server refuses the invite; this tells the person why.
+enum GroupSeats {
+    static func isFull(_ room: Room) async -> Bool {
+        guard let info = try? await room.roomInfo() else { return false }
+        let service = (try? await room.member(userId: BipeRegistries.groupsAccountID))?.membership
+        let seated = Int(info.joinedMembersCount) + Int(info.invitedMembersCount) - (service == .join || service == .invite ? 1 : 0)
+        return seated >= BipeRegistries.groupMaxMembers
+    }
+
+    static var fullNotice: String { BipeStrings.groupLinkFull(String(BipeRegistries.groupMaxMembers)) }
+}
+
 /// A bipe.chat/g/<code> link (spec group-link-open). Prints redacted: the code is a secret.
 struct GroupLinkCode: Identifiable, Equatable, CustomStringConvertible {
     let code: String
     var id: String { code }
     var description: String { "GroupLinkCode(redacted)" }
+}
+
+/// Spec group-link-open notes: a group link code that came with no account on the phone (a link, a paste or a scan)
+/// waits here for 7 days, through sign-up or recovery. app-tabs takes it once and opens group-link-open; signup-done
+/// drops it when the group opened. Like ShopClaim, it lives in UserDefaults; the code is never logged.
+enum GroupLinkHold {
+    private static let codeKey = "bipe.groupLink.held.code"
+    private static let dateKey = "bipe.groupLink.held.date"
+    private static let lifetime: TimeInterval = 7 * 24 * 60 * 60
+
+    static func keep(_ code: String) {
+        UserDefaults.standard.set(code, forKey: codeKey)
+        UserDefaults.standard.set(Date(), forKey: dateKey)
+    }
+
+    /// `true` when `url` is a group link, which then waits.
+    @discardableResult
+    static func keep(_ url: URL) -> Bool {
+        guard let code = BipeInviteLink.groupCode(from: url) else { return false }
+        keep(code)
+        return true
+    }
+
+    /// The held code, once. A code older than 7 days is dropped.
+    static func take() -> GroupLinkCode? {
+        defer { clear() }
+        guard let code = UserDefaults.standard.string(forKey: codeKey),
+              let date = UserDefaults.standard.object(forKey: dateKey) as? Date,
+              Date().timeIntervalSince(date) < lifetime else { return nil }
+        return GroupLinkCode(code: code)
+    }
+
+    static func clear() {
+        UserDefaults.standard.removeObject(forKey: codeKey)
+        UserDefaults.standard.removeObject(forKey: dateKey)
+    }
 }
 
 /// Spec group-link-open.
@@ -223,6 +304,7 @@ final class GroupLinkOpenModel: ObservableObject {
         case joining
         case invalid
         case refused
+        case full
         case failed
     }
 
@@ -247,7 +329,7 @@ final class GroupLinkOpenModel: ObservableObject {
         do {
             let preview = try await api.groupLinkPreview(code: code)
             self.preview = preview
-            phase = preview.valid ? .preview : .invalid
+            phase = !preview.valid ? .invalid : preview.full == true ? .full : .preview
         } catch {
             phase = .failed
         }
@@ -266,6 +348,7 @@ final class GroupLinkOpenModel: ObservableObject {
             switch error {
             case .server(.notFound, _, _): phase = .invalid
             case .server(.groupLinkNoAccess, _, _): phase = .refused
+            case .server(.groupFull, _, _): phase = .full
             default: phase = .failed
             }
         } catch {
@@ -327,6 +410,14 @@ struct GroupLinkOpenView: View {
                         .multilineTextAlignment(.center)
                 case .refused:
                     Text(BipeStrings.appRoomLinkInviteOnly)
+                        .foregroundStyle(BipeColor.inkPrimary)
+                        .multilineTextAlignment(.center)
+                case .full:
+                    Text(model.name)
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(BipeColor.inkPrimary)
+                        .multilineTextAlignment(.center)
+                    Text(BipeStrings.groupLinkFull(String(BipeRegistries.groupMaxMembers)))
                         .foregroundStyle(BipeColor.inkPrimary)
                         .multilineTextAlignment(.center)
                 case .failed:

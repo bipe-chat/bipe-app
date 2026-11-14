@@ -88,6 +88,9 @@ final class AccountStartModel: ObservableObject {
     func openLink(_ url: URL) {
         // A claim link waits for the account, through sign-up (ADR 0195 point 7).
         if ShopClaim.keep(url) { return }
+        // Spec group-link-open notes: with no account on screen, a group link waits through sign-up or recovery.
+        // A signed-in phone routes it in app-tabs.
+        if phase != .ready, GroupLinkHold.keep(url) { return }
         guard BipeRecoveryLink.token(from: url) != nil else { return }
         recoveryLink = url
         showsRecovery = true
@@ -217,6 +220,9 @@ final class AccountStartModel: ObservableObject {
 
     /// signup-done finished: chat-list shows, with the inviter's chat open when there is one.
     func finishSignup(openRoomId: String?) {
+        // Spec signup-done continue: the group opened, so the held link is done. Otherwise app-tabs opens
+        // group-link-open with it and join runs again.
+        if let group = signupOutcome?.groupRoomId, group == openRoomId { GroupLinkHold.clear() }
         initialRoomId = openRoomId
         signupOutcome = nil
     }

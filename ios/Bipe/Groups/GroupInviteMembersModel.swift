@@ -182,6 +182,8 @@ final class GroupInviteMembersModel: ObservableObject {
             case .refused:
                 results[userId] = .refused
                 allSent = false
+                // Spec group-invite-members reachNotice: a full group says so once (ADR 0253).
+                if reachNotice == nil, await GroupSeats.isFull(room) { reachNotice = GroupSeats.fullNotice }
             case .limited:
                 // The person stays marked as not invited; the notice says why, once.
                 results[userId] = .failed

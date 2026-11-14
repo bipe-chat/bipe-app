@@ -5600,6 +5600,18 @@ public enum BipeStrings {
         String(format: NSLocalizedString("bipe_group_link_preview_count", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
 
+    public static var groupLinkCopy: String { NSLocalizedString("bipe_group_link_copy", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var groupLinkQr: String { NSLocalizedString("bipe_group_link_qr", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var groupLinkQrFooter: String { NSLocalizedString("bipe_group_link_qr_footer", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func groupLinkFull(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_group_link_full", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var onboardingPasteLink: String { NSLocalizedString("bipe_onboarding_paste_link", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static func feedPageTitle(_ p1: String) -> String {
         String(format: NSLocalizedString("bipe_feed_page_title", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }

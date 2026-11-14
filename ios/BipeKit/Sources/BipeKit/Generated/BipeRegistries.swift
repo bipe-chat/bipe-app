@@ -747,6 +747,9 @@ public enum BipeRegistries {
     public static let inviteCodePattern = "(?<![A-Z0-9])([A-HJKMNP-Z2-9]{4})[ \\-\\u2010-\\u2014\\u2212]?([A-HJKMNP-Z2-9]{4})[ \\-\\u2010-\\u2014\\u2212]?([A-HJKMNP-Z2-9]{4})(?![A-Z0-9])"
     public static let inviteCodeMaxInputLength = 2048
 
+    /// The size cap of a group (registries/group-limits.json, ADR 0253).
+    public static let groupMaxMembers = 256
+
     /// Brazilian mobile numbers for contact discovery (registries/phone-numbers.json).
     public static let phoneCountryCode = "55"
     public static let phoneAreaCodes: Set<String> = [

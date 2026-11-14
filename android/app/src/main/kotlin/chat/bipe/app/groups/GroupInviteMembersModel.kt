@@ -149,7 +149,7 @@ class GroupInviteMembersModel(
     fun selectedPeople(): List<Person> = selected.mapNotNull { userId -> people.firstOrNull { it.userId == userId } }
 
     /** Action invite, invite mode: one call per person; each row shows its result. onAllSent runs when all succeed. */
-    fun invite(reachNotice: (suspend () -> String)? = null, onAllSent: () -> Unit) {
+    fun invite(reachNotice: (suspend () -> String)? = null, fullNotice: String? = null, onAllSent: () -> Unit) {
         val invite = mode as? Mode.Invite ?: return
         if (_phase.value != Phase.CHOOSING || selected.isEmpty()) return
         val room = runCatching { session.client.getRoom(invite.roomId) }.getOrNull() ?: return
@@ -163,6 +163,8 @@ class GroupInviteMembersModel(
                     InviteOutcome.REFUSED -> {
                         results[userId] = PersonPick.Status.REFUSED
                         allSent = false
+                        // Spec group-invite-members reachNotice: a full group says so once (ADR 0253).
+                        if (_reachNotice.value == null && fullNotice != null && GroupSeats.isFull(room)) _reachNotice.value = fullNotice
                     }
                     InviteOutcome.LIMITED -> {
                         // The person stays marked as not invited; the notice says why, once.

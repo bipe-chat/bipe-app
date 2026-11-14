@@ -724,6 +724,9 @@ object BipeRegistries {
     const val INVITE_CODE_PATTERN = "(?<![A-Z0-9])([A-HJKMNP-Z2-9]{4})[ \\-\\u2010-\\u2014\\u2212]?([A-HJKMNP-Z2-9]{4})[ \\-\\u2010-\\u2014\\u2212]?([A-HJKMNP-Z2-9]{4})(?![A-Z0-9])"
     const val INVITE_CODE_MAX_INPUT_LENGTH = 2048
 
+    /** The size cap of a group (registries/group-limits.json, ADR 0253). */
+    const val GROUP_MAX_MEMBERS = 256
+
     /** Brazilian mobile numbers for contact discovery (registries/phone-numbers.json). */
     const val PHONE_COUNTRY_CODE = "55"
     val phoneAreaCodes: Set<String> = setOf(

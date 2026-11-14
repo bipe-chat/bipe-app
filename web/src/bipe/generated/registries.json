@@ -667,6 +667,11 @@
   "alphabet": "ABCDEFGHJKMNPQRSTUVWXYZ23456789",
   "maxInputLength": 2048
  },
+ "groupLimits": {
+  "$comment": "ADR 0253, bipe-chat/bipe#1068: the size cap of a group until the E2EE measurement (bipe-chat/bipe#75) reports. maxMembers counts joined and invited members, the groups service account not counted. A group link signs up at most maxMembers people. bipe-infra compose/synapse-modules/bipe_messaging.py refuses a join or an invite into a full group with the same value: change both. Spaces are exempt. A group already above the cap keeps its members and takes no new ones.",
+  "version": 1,
+  "maxMembers": 256
+ },
  "phones": {
   "$comment": "Phone numbers for contact discovery (bipe/docs/usernames.md layer 5). normalizePhone(text): drop every '(0)' (the European trunk notation '+31 (0)6 ...'); keep a leading '+' and the digits of the first maxInputLength characters; '00' at the start means '+'. With '+' and countryCode: the rest must be a Brazilian mobile (below). With '+' and another country code: accepted as written when the digits are internationalMinDigits to internationalMaxDigits long and do not start with 0 (E.164; no per-country check). Without '+': Brazilian only. Drop a trunk prefix '0' plus a two-digit carrier code (0 + carrier + area + subscriber), or a bare trunk '0', or a leading countryCode, to reach area code + subscriber. Brazilian mobile: the area code must be in areaCodes; the subscriber must be mobileLength digits starting with mobilePrefix. Result: '+' and the digits, or null. Brazilian landlines and numbers without a country or area code are null. Cases: test-vectors/phone-numbers.json. Yearly confirmation (bipe-chat/bipe#470, bipe/docs/phone-link.md): a linked number stays findable for linkConfirmMonths after its last proof (confirmed_at); lookup skips it after that. The apps warn linkConfirmWarnDays before confirm_by. displayPhone(e164) (ADR 0191, bipe-chat/bipe#787, #788): formats an E.164 number for reading. The first display entry whose countryCode starts the digits, whose prefix (may be empty) starts the rest, and whose pattern has one # per digit of the rest gives '+' countryCode, a space, then the rest put into the pattern. No entry fits: the E.164 number as it is. Any other text comes back unchanged. Cases: test-vectors/phone-numbers.json display.",
   "version": 1,
@@ -6988,6 +6993,11 @@
    "bipe_group_link_open_history": "Você vai ver as mensagens enviadas depois que entrar.",
    "bipe_group_link_preview_title": "Grupo %1$s no Bipe",
    "bipe_group_link_preview_count": "Pessoas no grupo: %1$s. Toque para entrar.",
+   "bipe_group_link_copy": "Copiar o link",
+   "bipe_group_link_qr": "Mostrar o QR code",
+   "bipe_group_link_qr_footer": "Quem aponta a câmera para este código entra no grupo pelo Bipe.",
+   "bipe_group_link_full": "Este grupo está cheio. Um grupo do Bipe tem até %1$s pessoas.",
+   "bipe_onboarding_paste_link": "Colar o link do convite",
    "bipe_feed_page_title": "%1$s no Bipe",
    "bipe_feed_public_label": "Público",
    "bipe_feed_empty": "Ainda não há publicações.",
@@ -9551,6 +9561,11 @@
    "bipe_group_link_open_history": "You'll see messages sent after you join.",
    "bipe_group_link_preview_title": "Group %1$s on Bipe",
    "bipe_group_link_preview_count": "People in the group: %1$s. Tap to join.",
+   "bipe_group_link_copy": "Copy the link",
+   "bipe_group_link_qr": "Show the QR code",
+   "bipe_group_link_qr_footer": "Anyone who points their camera at this code joins the group in Bipe.",
+   "bipe_group_link_full": "This group is full. A Bipe group has up to %1$s people.",
+   "bipe_onboarding_paste_link": "Paste the invite link",
    "bipe_feed_page_title": "%1$s on Bipe",
    "bipe_feed_public_label": "Public",
    "bipe_feed_empty": "No posts yet.",

@@ -150,6 +150,7 @@ fun AccountStartScreen(model: AccountStartModel, tabs: AppTabsModel) {
                 scope,
                 onSignedUp = model::didSignUp,
                 onHaveAccount = { model.showRecovery(true) },
+                onGroupCode = model::holdGroupCode,
             )
         }
         LaunchedEffect(signup) { model.pendingInviteLink?.let(signup::openInviteLink) }

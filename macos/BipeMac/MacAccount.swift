@@ -48,6 +48,8 @@ final class MacAccount: ObservableObject {
     private(set) var client: Client?
     private var sync: SyncService?
     let api = BipeAPIClient(baseURL: URL(string: "https://api.bipe.net.br")!)
+    /// Spec group-link: the link this Mac made, per room ID, for this session only. A bearer secret: never logged.
+    var groupLinkURLs: [String: (id: String, url: URL)] = [:]
     private(set) lazy var requests = MacChatRequests(api: api)
     let drafts = MacDrafts()
     let media = MacMedia()
