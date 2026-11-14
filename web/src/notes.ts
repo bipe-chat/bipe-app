@@ -8,6 +8,8 @@
 import { useEffect, useState } from 'react';
 import {
   Membership,
+  RoomHistoryVisibility,
+  RoomNotificationMode,
   RoomPreset,
   RoomVisibility,
   type ClientLike as Client,
@@ -22,7 +24,13 @@ const EVENT_TYPE = 'chat.bipe.self_chat';
  * A private room with only the account's own user, saved in global account data as {"room_id": ...}: the self-chat here,
  * and the notes room of a work account (work/work-notes.ts). pendingKey keeps a created room until account data has it.
  */
-export type OwnRoom = { accountDataType: string; pendingKey: (userId: string) => string; name: () => string };
+export type OwnRoom = {
+  accountDataType: string;
+  pendingKey: (userId: string) => string;
+  name: () => string;
+  /** The drafts room (bipe-shared docs/drafts-room.md "The room"): history from the join, and muted. */
+  joinedHistoryMuted?: boolean;
+};
 
 const SELF_CHAT: OwnRoom = {
   accountDataType: EVENT_TYPE,
@@ -102,7 +110,7 @@ export async function openOwnRoom(client: Client, own: OwnRoom): Promise<string>
       avatar: undefined,
       powerLevelContentOverride: undefined,
       joinRuleOverride: undefined,
-      historyVisibilityOverride: undefined,
+      historyVisibilityOverride: own.joinedHistoryMuted ? new RoomHistoryVisibility.Joined() : undefined,
       canonicalAlias: undefined,
       isSpace: false,
     });
@@ -112,5 +120,9 @@ export async function openOwnRoom(client: Client, own: OwnRoom): Promise<string>
   await client.setAccountData(own.accountDataType, JSON.stringify({ room_id: id }));
   localStorage.removeItem(pendingKey);
   await roomWhenSynced(client, id);
+  if (own.joinedHistoryMuted) {
+    const settings = await client.getNotificationSettings();
+    await settings.setRoomNotificationMode(id, RoomNotificationMode.Mute).catch(() => undefined);
+  }
   return id;
 }

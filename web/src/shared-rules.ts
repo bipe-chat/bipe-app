@@ -243,3 +243,120 @@ export function homePlan(chats: HomeChatInput[]): HomeTile[] {
     reason: t.reason === undefined ? null : t.reason === core.HomeReason.Mention ? 'mention' : 'unanswered',
   }));
 }
+
+// --- Devices (ADR 0291, bipe-chat/bipe#1482) ----------------------------------------------------------------------
+
+/** A valid device entry of the drafts room (deviceInfoFromEvent). Times in milliseconds. */
+export type DeviceEntry = {
+  deviceId: string;
+  source: string;
+  kind: string;
+  model: string | null;
+  os: string | null;
+  app: string | null;
+  linkedAt: number | null;
+  linkedBy: string | null;
+  attested: boolean;
+  ts: number;
+};
+
+/** Type DeviceRow of spec linked-devices, without the place. */
+export type DeviceRow = {
+  deviceId: string;
+  isThis: boolean;
+  kind: string;
+  icon: string;
+  label: string;
+  section: string;
+  leavesBrazil: boolean;
+  name: string | null;
+  os: string | null;
+  app: string | null;
+  lastSeen: number | null;
+  ip: string | null;
+  linkedAt: number | null;
+  linkedBy: string | null;
+  attested: boolean;
+  warning: boolean;
+};
+
+/** One device of GET /_matrix/client/v3/devices. */
+export type MatrixDevice = { device_id: string; display_name?: string | null; last_seen_ts?: number | null; last_seen_ip?: string | null };
+
+const optionalNumber = (n: bigint | undefined) => (n === undefined ? null : Number(n));
+
+/** The raw event JSON of a drafts room event, as a valid device entry or null. senderVerified: the SDK shows no shield. */
+export function deviceInfoFromEvent(event: unknown, ownUserId: string, senderVerified: boolean): DeviceEntry | null {
+  const result = core.deviceInfoFromEvent(JSON.stringify(event ?? null), ownUserId, senderVerified);
+  if (result.tag !== core.DeviceInfoResult_Tags.Entry) return null;
+  const e = result.inner.entry;
+  return {
+    deviceId: e.deviceId,
+    source: e.source,
+    kind: e.kind,
+    model: e.model ?? null,
+    os: e.os ?? null,
+    app: e.app ?? null,
+    linkedAt: optionalNumber(e.linkedAt),
+    linkedBy: e.linkedBy ?? null,
+    attested: e.attested,
+    ts: Number(e.ts),
+  };
+}
+
+/** What a user agent says about a device, or null when no rule matches. */
+export function userAgentInfo(userAgent: string): { kind: string; app: string | null; model: string | null; os: string | null } | null {
+  const info = core.userAgentInfo(userAgent);
+  if (info === undefined) return null;
+  return { kind: info.kind, app: info.app ?? null, model: info.model ?? null, os: info.os ?? null };
+}
+
+/** The rows of Aparelhos e assistentes: this device first, then newest use first. */
+export function deviceRows(
+  thisDeviceId: string,
+  devices: MatrixDevice[],
+  entries: DeviceEntry[],
+): { rows: DeviceRow[]; counts: { devices: number; programs: number; unknown: number } } {
+  const list = core.deviceRows(
+    thisDeviceId,
+    devices.map((d) => ({
+      deviceId: d.device_id,
+      displayName: d.display_name ?? undefined,
+      lastSeenTs: optionalBig(d.last_seen_ts),
+      lastSeenIp: d.last_seen_ip ?? undefined,
+    })),
+    entries.map((e) => ({
+      deviceId: e.deviceId,
+      source: e.source,
+      kind: e.kind,
+      model: e.model ?? undefined,
+      os: e.os ?? undefined,
+      app: e.app ?? undefined,
+      linkedAt: optionalBig(e.linkedAt),
+      linkedBy: e.linkedBy ?? undefined,
+      attested: e.attested,
+      ts: big(e.ts),
+    })),
+  );
+  return {
+    rows: list.rows.map((r) => ({
+      deviceId: r.deviceId,
+      isThis: r.isThis,
+      kind: r.kind,
+      icon: r.icon,
+      label: r.label,
+      section: r.section,
+      leavesBrazil: r.leavesBrazil,
+      name: r.name ?? null,
+      os: r.os ?? null,
+      app: r.app ?? null,
+      lastSeen: optionalNumber(r.lastSeen),
+      ip: r.ip ?? null,
+      linkedAt: optionalNumber(r.linkedAt),
+      linkedBy: r.linkedBy ?? null,
+      attested: r.attested,
+      warning: r.warning,
+    })),
+    counts: { devices: list.counts.devices, programs: list.counts.programs, unknown: list.counts.unknown },
+  };
+}
