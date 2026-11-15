@@ -64,6 +64,12 @@ class PushRegistration(private val context: Context, private val scope: Coroutin
     var transport: PushTransport? = null
     private var session: AccountSession? = null
 
+    /**
+     * The pushkey of the pusher set in this process. The saved registration alone does not prove the pusher is on the
+     * server: Synapse deletes a pusher when Sygnal rejects its token. So each launch sets it once again.
+     */
+    @Volatile private var setPushkey: String? = null
+
     private val isDebug: Boolean
         get() = context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
 
@@ -98,7 +104,7 @@ class PushRegistration(private val context: Context, private val scope: Coroutin
         // the push opens only that account. Sygnal never gets the Matrix ID.
         val route = (context.applicationContext as BipeApplication).notifications.accountRoute(session.userId)
         val current = _registration.value
-        if (current != null && current.userId == session.userId && current.pushkey == pushkey && current.appId == appId &&
+        if (setPushkey == pushkey && current != null && current.userId == session.userId && current.pushkey == pushkey && current.appId == appId &&
             current.lang == lang && current.accountRoute == route
         ) {
             return
@@ -118,6 +124,7 @@ class PushRegistration(private val context: Context, private val scope: Coroutin
                     append = false,
                 )
                 if (this@PushRegistration.session === session) {
+                    setPushkey = pushkey
                     save(Registration(session.userId, pushkey, appId, lang, System.currentTimeMillis(), route))
                 }
             }
@@ -132,6 +139,7 @@ class PushRegistration(private val context: Context, private val scope: Coroutin
             runCatching { session.client.deletePusher(PusherIdentifiers(registration.pushkey, registration.appId)) }
         }
         save(null)
+        setPushkey = null
         this.session = null
     }
 

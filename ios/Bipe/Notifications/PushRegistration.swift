@@ -40,6 +40,9 @@ final class PushRegistration: ObservableObject {
     /// The pushkey of the member pusher set in this process. A pusher set with append false for another user removes
     /// the member pusher on the server, so it is set again after each one.
     private var memberPushkey: String?
+    /// The pushkey of the account pusher set in this process. The saved registration alone does not prove the pusher is
+    /// on the server: Synapse deletes a pusher when Sygnal rejects its token. So each launch sets it once again.
+    private var accountPushkey: String?
     private static let registrationKey = "pushRegistration"
 
     private init() {
@@ -101,7 +104,7 @@ final class PushRegistration: ObservableObject {
         let route = accountRoutes.route(for: session.userId)
         let pushkey = token.map { String(format: "%02x", $0) }.joined()
         let lang = Self.appLanguage
-        if let registration, registration.userId == session.userId, registration.pushkey == pushkey,
+        if accountPushkey == pushkey, let registration, registration.userId == session.userId, registration.pushkey == pushkey,
            registration.appId == AppConfig.pusherAppId, registration.lang == lang, registration.ownerVersion == 2, registration.accountRoute == route {
             await registerMember(pushkey: pushkey, lang: lang, routes: accountRoutes)
             return
@@ -119,6 +122,7 @@ final class PushRegistration: ObservableObject {
             guard self.session === session else { return }
             // append false removed the member pusher on the server too.
             memberPushkey = nil
+            accountPushkey = pushkey
             save(Registration(userId: session.userId, pushkey: pushkey, appId: AppConfig.pusherAppId,
                               lang: lang, registeredAt: .now, ownerVersion: 2, accountRoute: route))
             await registerMember(pushkey: pushkey, lang: lang, routes: accountRoutes)
@@ -171,6 +175,7 @@ final class PushRegistration: ObservableObject {
         let saved = registration
         member = nil
         memberPushkey = nil
+        accountPushkey = nil
         session = nil
         save(nil)
         if let owner, let saved, saved.userId == owner.userId {
