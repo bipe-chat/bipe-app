@@ -4,7 +4,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ACCESSIBILITY_FIELDS, accessibility, accessibilityPlan, NEXT } from './asc.mjs';
+import { ACCESSIBILITY_FIELDS, accessibility, accessibilityPlan, STORE } from './asc.mjs';
 
 const table = (rows) => `# Bipe\n\n## Accessibility\n\nText.\n\n| Label | iPhone |\n|---|---|\n${rows}\n\n### pt-BR\n\nAcessibilidade.\n\n## Screenshots\n`;
 const all = (answer) => Object.keys(ACCESSIBILITY_FIELDS).map((name) => `| ${name} | ${answer(name)} |`).join('\n');
@@ -29,7 +29,7 @@ test('accessibility changes a draft, creates one otherwise, and publishes only w
   const calls = [];
   const fake = (declarations) => async (method, path, body) => {
     calls.push([method, path, body]);
-    if (path.startsWith('/v1/apps?')) return { data: [{ id: 'app1', attributes: { bundleId: NEXT.appId } }] };
+    if (path.startsWith('/v1/apps?')) return { data: [{ id: 'app1', attributes: { bundleId: STORE.appId } }] };
     if (path.endsWith('/accessibilityDeclarations') && method === 'GET') return { data: declarations };
     if (method === 'POST') return { data: { id: 'new1' } };
     return {};

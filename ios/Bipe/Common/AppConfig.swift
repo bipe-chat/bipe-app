@@ -23,12 +23,12 @@ enum AppConfig {
     /// sign-in starts only from a static client. Same ID as bipe-infra ess/bipe-security.yaml.
     static let oauthClientID = "01M70XQV1WHH63433MNSE34SXX"
 
-    /// The bundle ID of the app (project.yml BIPE_APP_ID, bipe-chat/bipe#602): chat.bipe.app.next for tester builds,
-    /// the fork's ID for the store set at the switch. Each target's Info.plist carries it.
-    static let appID = infoValue("BipeAppID", fallback: "chat.bipe.app.next")
+    /// The bundle ID of the app (project.yml BIPE_APP_ID): chat.bipe.app for every build (ADR 0294).
+    /// Each target's Info.plist carries it.
+    static let appID = infoValue("BipeAppID", fallback: "chat.bipe.app")
 
     /// The app group (project.yml BIPE_APP_GROUP). The SDK store and caches live there.
-    static let appGroup = infoValue("BipeAppGroup", fallback: "group.chat.bipe.next")
+    static let appGroup = infoValue("BipeAppGroup", fallback: "group.chat.bipe")
 
     /// The device name the homeserver shows in the session list.
     static let deviceName = "Bipe"

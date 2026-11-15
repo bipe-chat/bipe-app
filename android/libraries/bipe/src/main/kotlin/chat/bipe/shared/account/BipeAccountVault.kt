@@ -166,7 +166,7 @@ class BipeAccountVault(context: Context) : BipeVaultStore {
         // A Keystore that cannot answer now is like any other passing Keystore error: keep the file, write nothing.
         val ownKey = runCatching { hasOwnKey() }.getOrNull() ?: return@withContext null
         if (!ownKey) {
-            // This app never wrote the file: on the store ID set it is the fork's vault (same name, its own key,
+            // This app never wrote the file: it is the fork's vault (same name, its own key,
             // bipe-chat/bipe#603). Keep it for BipeForkVault and start empty; never delete it as a lost key. When the
             // move fails, write nothing, so the fork's file is never overwritten.
             return@withContext if (setAside(file)) BipeVaultData() else null

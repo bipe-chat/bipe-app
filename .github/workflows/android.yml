@@ -4,7 +4,7 @@
 
 # Android build (bipe-chat/bipe#549): debug and release APKs. The release APK is
 # debug-signed (bipe-chat/bipe#575). The debug APK is uploaded as bipe-debug-apk; the
-# tester APK of chat.bipe.app.next comes from testflight.yml. Flavours (ADR 0150): play
+# tester APK of chat.bipe.app comes from testflight.yml. Flavours (ADR 0150): play
 # (Block Store) is the tester and store build; foss has no Google Play services and is
 # built here so it keeps compiling.
 name: android
@@ -72,10 +72,9 @@ jobs:
       # its build on the welcome cover and in Settings instead of the placeholder 0.1.0 (1).
       - name: Build debug and release (play and foss)
         run: ./gradlew --no-daemon assembleDebug assembleRelease $(node ../tools/version.mjs --gradle)
-      # The store ID set (bipe-chat/bipe#602): the fork's application ID (ADR 0061), never uploaded before the switch.
       # The Play bundle of the store release (bipe-chat/bipe#604), debug-signed here: store-release.yml signs and uploads it.
-      - name: Build release and the store AAB with the store ID set
-        run: ./gradlew --no-daemon assemblePlayRelease bundlePlayRelease -PbipeIdSet=store
+      - name: Build the store AAB
+        run: ./gradlew --no-daemon bundlePlayRelease
       # Artifact storage (bipe-chat org quota): one debug APK is about 136 MB and each push makes one. Keep 2 days.
       - name: Upload the debug APK
         uses: actions/upload-artifact@v4

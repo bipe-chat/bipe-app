@@ -8,23 +8,23 @@ import Testing
 
 /// Linked Apple or Google account for recovery (ADR 0096): the link-done redirect and the provider list.
 struct LinkedRecoveryTests {
-    private let scheme = "chat.bipe.app.next"
+    private let scheme = "chat.bipe.app"
 
     @Test
     func linkDoneCarriesTheHandoffOnlyForThisApp() throws {
-        let done = try #require(URL(string: "chat.bipe.app.next:/link-done?flow=abc_123#hand-OFF_9"))
+        let done = try #require(URL(string: "chat.bipe.app:/link-done?flow=abc_123#hand-OFF_9"))
         #expect(BipeLinkDone(url: done, scheme: scheme) == .done(flowId: "abc_123", handoff: "hand-OFF_9"))
-        let cancelled = try #require(URL(string: "chat.bipe.app.next:/link-done?flow=abc&error=cancelled"))
+        let cancelled = try #require(URL(string: "chat.bipe.app:/link-done?flow=abc&error=cancelled"))
         #expect(BipeLinkDone(url: cancelled, scheme: scheme) == .cancelled(flowId: "abc"))
-        let failed = try #require(URL(string: "chat.bipe.app.next:/link-done?flow=abc&error=invalid"))
+        let failed = try #require(URL(string: "chat.bipe.app:/link-done?flow=abc&error=invalid"))
         #expect(BipeLinkDone(url: failed, scheme: scheme) == .failed(flowId: "abc"))
-        let noHandoff = try #require(URL(string: "chat.bipe.app.next:/link-done?flow=abc"))
+        let noHandoff = try #require(URL(string: "chat.bipe.app:/link-done?flow=abc"))
         #expect(BipeLinkDone(url: noHandoff, scheme: scheme) == .failed(flowId: "abc"))
         let otherApp = try #require(URL(string: "chat.bipe.app:/link-done?flow=abc#x"))
         #expect(BipeLinkDone(url: otherApp, scheme: scheme) == nil)
-        let otherPath = try #require(URL(string: "chat.bipe.app.next:/other?flow=abc#x"))
+        let otherPath = try #require(URL(string: "chat.bipe.app:/other?flow=abc#x"))
         #expect(BipeLinkDone(url: otherPath, scheme: scheme) == nil)
-        let badFlow = try #require(URL(string: "chat.bipe.app.next:/link-done?flow=a%2Fb#x"))
+        let badFlow = try #require(URL(string: "chat.bipe.app:/link-done?flow=a%2Fb#x"))
         #expect(BipeLinkDone(url: badFlow, scheme: scheme) == nil)
     }
 
