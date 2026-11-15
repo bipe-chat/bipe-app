@@ -21,6 +21,8 @@ struct ChatTimelineView: View {
     /// The list keeps to the newest message until the person scrolls up (chat-timeline opens at the bottom).
     @State private var followsNewest = true
     @State private var scrollPhase: ScrollPhase = .idle
+    /// The visible height of the list (container minus composer and bar insets). A short chat fills it from the bottom.
+    @State private var viewportHeight: CGFloat = 0
     /// Spec chat-timeline searchInChat (bipe-chat/bipe#861).
     @State private var searchingChat = false
     /// The group menu's group-details row.
@@ -448,6 +450,10 @@ struct ChatTimelineView: View {
                 set: { if !$0 { model[keyPath: keyPath] = nil } })
     }
 
+    nonisolated private static func viewportHeight(_ geometry: ScrollGeometry) -> CGFloat {
+        max(0, geometry.containerSize.height - geometry.contentInsets.top - geometry.contentInsets.bottom)
+    }
+
     nonisolated private static func isAtBottom(_ geometry: ScrollGeometry) -> Bool {
         geometry.contentOffset.y + geometry.containerSize.height - geometry.contentInsets.bottom
             >= geometry.contentSize.height - 40
@@ -483,6 +489,13 @@ struct ChatTimelineView: View {
                 .scrollTargetLayout()
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
+                // A chat shorter than the screen sits at the bottom by layout, not by scrolling. Scrolling a short
+                // list to its last row pushed the rows under the composer: one message showed, then went away on
+                // the next height change (rows loading, a reaction pill).
+                .frame(minHeight: model.dayFocus == nil ? viewportHeight : 0, alignment: .bottom)
+            }
+            .onScrollGeometryChange(for: CGFloat.self, of: Self.viewportHeight) { _, height in
+                viewportHeight = height
             }
             .defaultScrollAnchor(model.dayFocus == nil ? .bottom : .top)
             .scrollDismissesKeyboard(.interactively)
