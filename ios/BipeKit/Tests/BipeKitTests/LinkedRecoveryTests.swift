@@ -20,7 +20,7 @@ struct LinkedRecoveryTests {
         #expect(BipeLinkDone(url: failed, scheme: scheme) == .failed(flowId: "abc"))
         let noHandoff = try #require(URL(string: "chat.bipe.app:/link-done?flow=abc"))
         #expect(BipeLinkDone(url: noHandoff, scheme: scheme) == .failed(flowId: "abc"))
-        let otherApp = try #require(URL(string: "chat.bipe.app:/link-done?flow=abc#x"))
+        let otherApp = try #require(URL(string: "chat.bipe.app.dev:/link-done?flow=abc#x"))
         #expect(BipeLinkDone(url: otherApp, scheme: scheme) == nil)
         let otherPath = try #require(URL(string: "chat.bipe.app:/other?flow=abc#x"))
         #expect(BipeLinkDone(url: otherPath, scheme: scheme) == nil)
