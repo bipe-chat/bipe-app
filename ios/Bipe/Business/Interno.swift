@@ -268,9 +268,8 @@ final class InternoSessions: ObservableObject {
         }
         NotificationActions.shared.attach(member)
         _ = chatList(for: member)
-        if PushRegistration.shared.attachedUserId == workId {
-            PushRegistration.shared.attachMember(member)
-        }
+        // Spec interno notes, Push: the member session has its own pusher, also when its work account is not open.
+        PushRegistration.shared.add(member)
     }
 
     // MARK: End
@@ -310,7 +309,7 @@ final class InternoSessions: ObservableObject {
         sessions[workId] = nil
         member.onAuthError = nil
         NotificationActions.shared.detach(userId: member.userId)
-        await PushRegistration.shared.detachMember(member)
+        await PushRegistration.shared.remove(userId: member.userId)
         listTasks.removeValue(forKey: member.userId)?.cancel()
         chatLists[member.userId] = nil
     }

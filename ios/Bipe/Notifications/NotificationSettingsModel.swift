@@ -159,7 +159,7 @@ final class NotificationSettingsModel: ObservableObject {
     func refreshPhone() async {
         let push = PushRegistration.shared
         await push.appBecameActive()
-        phoneEnabled = push.permission == .allowed && push.registration != nil
+        phoneEnabled = push.permission == .allowed && push.registration(for: session.userId) != nil
     }
 
     /// Action enablePhone: asks the permission once, else opens the app's system settings.

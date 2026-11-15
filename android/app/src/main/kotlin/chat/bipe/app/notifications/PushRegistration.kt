@@ -9,6 +9,7 @@ import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.os.Build
+import android.util.Log
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import chat.bipe.app.BipeApplication
@@ -17,11 +18,17 @@ import chat.bipe.app.common.AppConfig
 import chat.bipe.shared.BipePushMessage
 import chat.bipe.shared.R
 import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.json.JSONObject
 import org.matrix.rustcomponents.sdk.HttpPusherData
 import org.matrix.rustcomponents.sdk.PushFormat
@@ -39,12 +46,13 @@ interface PushTransport {
 
 /**
  * Spec push-registration (bipe-shared product/screens/push-registration.json). No screen: it registers this
- * phone with Bipe's Sygnal when the person allows notifications, and removes the pusher at sign-out.
+ * phone with Bipe's Sygnal when the person allows notifications, with one pusher for each session on the phone (every
+ * account and every Interno member session), and removes a session's pusher when that session signs out.
  */
 class PushRegistration(private val context: Context, private val scope: CoroutineScope) {
     enum class Permission { NOT_ASKED, ALLOWED, DENIED }
 
-    /** Type PushRegistration, saved so a new token or language can be compared with it. */
+    /** Type PushRegistration, saved per Matrix ID so a new token, language or route can be compared with it. */
     data class Registration(
         val userId: String,
         val pushkey: String,
@@ -53,35 +61,66 @@ class PushRegistration(private val context: Context, private val scope: Coroutin
         val registeredAt: Long,
         /** The random account route in the pusher's default_payload. `null` for a pusher from before routing. */
         val accountRoute: String? = null,
-    )
+    ) {
+        /** The same pusher on the server: only [registeredAt] may differ. */
+        fun isSamePusher(other: Registration): Boolean =
+            userId == other.userId && pushkey == other.pushkey && appId == other.appId && lang == other.lang &&
+                accountRoute == other.accountRoute
+    }
 
     private val prefs = context.getSharedPreferences("push", Context.MODE_PRIVATE)
     private val _permission = MutableStateFlow(readPermission())
     val permission: StateFlow<Permission> = _permission.asStateFlow()
-    private val _registration = MutableStateFlow(loadRegistration())
-    val registration: StateFlow<Registration?> = _registration.asStateFlow()
+
+    /** State registrations: the pushers this phone set, by Matrix ID. */
+    private val _registrations = MutableStateFlow(loadRegistrations())
+    val registrations: StateFlow<Map<String, Registration>> = _registrations.asStateFlow()
 
     var transport: PushTransport? = null
-    private var session: AccountSession? = null
+
+    /** Every session on the phone that gets a pusher, by Matrix ID: the accounts and the Interno member sessions. */
+    private val sessions = MutableStateFlow<Map<String, AccountSession>>(emptyMap())
 
     /**
-     * The pushkey of the pusher set in this process. The saved registration alone does not prove the pusher is on the
-     * server: Synapse deletes a pusher when Sygnal rejects its token. So each launch sets it once again.
+     * The pushers set in this process, by Matrix ID. The saved registration alone does not prove the pusher is on the
+     * server: Synapse deletes a pusher when Sygnal rejects its token. So each launch sets each pusher once again.
      */
-    @Volatile private var setPushkey: String? = null
+    private val setInProcess = ConcurrentHashMap<String, Registration>()
+
+    /** One registration run at a time, so append false (see [register]) never runs after another session's pusher. */
+    private val mutex = Mutex()
 
     private val isDebug: Boolean
         get() = context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
 
-    /** The account is ready: keep its pusher current. */
-    fun attach(session: AccountSession) {
-        this.session = session
+    /** Action sessionAdded: an account or an Interno member session opened, or was built again. It gets its pusher. */
+    fun add(session: AccountSession) {
+        sessions.update { it + (session.userId to session) }
+        setInProcess.remove(session.userId)
         appBecameActive()
     }
 
     /**
+     * Action signOut: deletes the session's pusher before the session ends. The other sessions keep theirs. A failure
+     * does not stop the sign-out.
+     */
+    suspend fun remove(userId: String) {
+        // The lock waits for a registration that runs now, so its pusher cannot land after this delete.
+        mutex.withLock {
+            val session = sessions.value[userId]
+            sessions.update { it - userId }
+            setInProcess.remove(userId)
+            val saved = _registrations.value[userId]
+            save(userId, null)
+            if (session != null && saved != null) {
+                runCatching { session.client.deletePusher(PusherIdentifiers(saved.pushkey, saved.appId)) }
+            }
+        }
+    }
+
+    /**
      * Action appBecameActive: reads the permission and asks for a token when allowed. A denied phone keeps
-     * its pusher, so notifications come back when the person allows them again.
+     * its pushers, so notifications come back when the person allows them again.
      */
     fun appBecameActive() {
         _permission.value = readPermission()
@@ -94,24 +133,32 @@ class PushRegistration(private val context: Context, private val scope: Coroutin
         appBecameActive()
     }
 
-    /** Action tokenReceived: sets the HTTP pusher when the token, the account or the language changed. */
+    /**
+     * Action tokenReceived: sets the pusher of each session whose token, language or route changed, or that this
+     * process has not set yet.
+     */
     fun tokenReceived(pushkey: String) {
-        val session = session ?: return
         if (_permission.value != Permission.ALLOWED) return
+        scope.launch { mutex.withLock { register(pushkey) } }
+    }
+
+    private suspend fun register(pushkey: String) {
         val appId = AppConfig.pusherAppId(context.packageName, isDebug)
         val lang = appLanguage()
-        // Spec push-registration: a random route, bound on this phone to the account, travels in the data message so
-        // the push opens only that account. Sygnal never gets the Matrix ID.
-        val route = (context.applicationContext as BipeApplication).notifications.accountRoute(session.userId)
-        val current = _registration.value
-        if (setPushkey == pushkey && current != null && current.userId == session.userId && current.pushkey == pushkey && current.appId == appId &&
-            current.lang == lang && current.accountRoute == route
-        ) {
-            return
-        }
-        val defaultPayload = JSONObject().put(BipePushMessage.ACCOUNT_ROUTE, route).toString()
-        scope.launch {
-            runCatching {
+        val notifications = (context.applicationContext as BipeApplication).notifications
+        // append true keeps the pushers of the other sessions with this token (bipe-chat/bipe#1519). Only the first
+        // pusher on a phone with no saved registration (a new install, or every account signed out) uses append false,
+        // once: it removes pushers that an earlier install left with this token.
+        var replaceOthers = _registrations.value.isEmpty()
+        for (userId in sessions.value.keys.sorted()) {
+            val session = sessions.value[userId] ?: continue
+            // Spec push-registration: a random route, bound on this phone to the account, travels in the data message
+            // so the push opens only that account. Sygnal never gets the Matrix ID.
+            val route = notifications.accountRoute(userId)
+            val wanted = Registration(userId, pushkey, appId, lang, System.currentTimeMillis(), route)
+            if (setInProcess[userId]?.isSamePusher(wanted) == true) continue
+            val defaultPayload = JSONObject().put(BipePushMessage.ACCOUNT_ROUTE, route).toString()
+            val set = runCatching {
                 // Content-free: event_id_only. FCM gets a data message with the room ID, the event ID, the count and
                 // the account route of default_payload.
                 session.client.setPusher(
@@ -121,26 +168,26 @@ class PushRegistration(private val context: Context, private val scope: Coroutin
                     deviceDisplayName = Build.MODEL,
                     profileTag = null,
                     lang = lang,
-                    append = false,
+                    append = !replaceOthers,
                 )
-                if (this@PushRegistration.session === session) {
-                    setPushkey = pushkey
-                    save(Registration(session.userId, pushkey, appId, lang, System.currentTimeMillis(), route))
-                }
+            }
+            val error = set.exceptionOrNull()
+            if (error is CancellationException) throw error
+            if (error != null) {
+                Log.w(TAG, "pusher registration failed")
+                continue
+            }
+            replaceOthers = false
+            // The session signed out or was built again while the pusher was set.
+            if (sessions.value[userId] !== session) continue
+            val old = _registrations.value[userId]
+            setInProcess[userId] = wanted
+            save(userId, wanted)
+            // A new token or app ID is a new pusher: the one with the old token goes.
+            if (old != null && (old.pushkey != pushkey || old.appId != appId)) {
+                runCatching { session.client.deletePusher(PusherIdentifiers(old.pushkey, old.appId)) }
             }
         }
-    }
-
-    /** Action signOut: deletes the pusher of this phone before the session ends. A failure does not stop the sign-out. */
-    suspend fun signOut() {
-        val session = session
-        val registration = _registration.value
-        if (session != null && registration != null) {
-            runCatching { session.client.deletePusher(PusherIdentifiers(registration.pushkey, registration.appId)) }
-        }
-        save(null)
-        setPushkey = null
-        this.session = null
     }
 
     private fun readPermission(): Permission {
@@ -160,43 +207,51 @@ class PushRegistration(private val context: Context, private val scope: Coroutin
     /** pt-BR or en, the languages of the generated strings. */
     private fun appLanguage(): String = if (Locale.getDefault().language == "en") "en" else "pt-BR"
 
-    private fun loadRegistration(): Registration? = prefs.getString(KEY_REGISTRATION, null)?.let { text ->
-        runCatching {
-            val json = JSONObject(text)
-            Registration(
-                json.getString("userId"),
-                json.getString("pushkey"),
-                json.getString("appId"),
-                json.getString("lang"),
-                json.getLong("registeredAt"),
-                json.optString("accountRoute").takeIf { it.isNotEmpty() },
-            )
-        }.getOrNull()
+    private fun loadRegistrations(): Map<String, Registration> {
+        prefs.getString(KEY_REGISTRATIONS, null)?.let { text ->
+            runCatching {
+                val json = JSONObject(text)
+                return json.keys().asSequence().mapNotNull { key -> parse(json.getJSONObject(key))?.let { key to it } }.toMap()
+            }
+        }
+        // The single registration of builds before bipe-chat/bipe#1519.
+        val legacy = prefs.getString(KEY_LEGACY_REGISTRATION, null)?.let { runCatching { parse(JSONObject(it)) }.getOrNull() }
+        return if (legacy == null) emptyMap() else mapOf(legacy.userId to legacy)
     }
 
-    private fun save(registration: Registration?) {
-        _registration.value = registration
-        val editor = prefs.edit()
-        if (registration == null) {
-            editor.remove(KEY_REGISTRATION)
-        } else {
-            editor.putString(
-                KEY_REGISTRATION,
+    private fun parse(json: JSONObject): Registration? = runCatching {
+        Registration(
+            json.getString("userId"),
+            json.getString("pushkey"),
+            json.getString("appId"),
+            json.getString("lang"),
+            json.getLong("registeredAt"),
+            json.optString("accountRoute").takeIf { it.isNotEmpty() },
+        )
+    }.getOrNull()
+
+    private fun save(userId: String, registration: Registration?) {
+        val all = _registrations.updateAndGet { if (registration == null) it - userId else it + (userId to registration) }
+        val json = JSONObject()
+        all.forEach { (key, value) ->
+            json.put(
+                key,
                 JSONObject()
-                    .put("userId", registration.userId)
-                    .put("pushkey", registration.pushkey)
-                    .put("appId", registration.appId)
-                    .put("lang", registration.lang)
-                    .put("registeredAt", registration.registeredAt)
-                    .put("accountRoute", registration.accountRoute)
-                    .toString(),
+                    .put("userId", value.userId)
+                    .put("pushkey", value.pushkey)
+                    .put("appId", value.appId)
+                    .put("lang", value.lang)
+                    .put("registeredAt", value.registeredAt)
+                    .put("accountRoute", value.accountRoute),
             )
         }
-        editor.apply()
+        prefs.edit().putString(KEY_REGISTRATIONS, json.toString()).remove(KEY_LEGACY_REGISTRATION).apply()
     }
 
     private companion object {
         const val KEY_ASKED = "permissionAsked"
-        const val KEY_REGISTRATION = "registration"
+        const val KEY_REGISTRATIONS = "registrations"
+        const val KEY_LEGACY_REGISTRATION = "registration"
+        const val TAG = "PushRegistration"
     }
 }

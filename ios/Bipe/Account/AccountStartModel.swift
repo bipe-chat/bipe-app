@@ -95,11 +95,10 @@ final class AccountStartModel: ObservableObject {
         recoveryLink = url
         showsRecovery = true
     }
-    /// Spec push-registration: keep this phone's pusher on the current account.
+    /// The services that follow the current account.
     private func attachServices(_ session: AccountSession) {
         guard attachedUserId != session.userId else { return }
         attachedUserId = session.userId
-        PushRegistration.shared.attach(session)
         // Spec timeline-media notes: show-media and invite photos follow the current account (MSC4278).
         MediaPreviewSync.shared.attach(session)
     }
@@ -242,11 +241,10 @@ final class AccountStartModel: ObservableObject {
         await LiveLocationCenter.shared.stopAll(userId: session.userId)
         // Spec interno: the member session of a work account leaves with it, before the account's pusher goes.
         await InternoSessions.shared.signOut(forWork: session.userId, alreadyLoggedOut: alreadyLoggedOut)
-        if attachedUserId == session.userId {
-            // Spec push-registration, action signOut: the pusher goes before the session ends.
-            attachedUserId = nil
-            await PushRegistration.shared.signOut()
-        }
+        if attachedUserId == session.userId { attachedUserId = nil }
+        // Spec push-registration, action signOut: this account's pusher goes before the session ends; the other
+        // accounts keep theirs.
+        await PushRegistration.shared.remove(userId: session.userId)
         await session.signOut(alreadyLoggedOut: alreadyLoggedOut)
         AccountList.remove(session.userId)
         CompanyRole.remember(nil, userId: session.userId)
@@ -273,6 +271,8 @@ final class AccountStartModel: ObservableObject {
         let order = AccountList.order
         watchAuthErrors(session)
         NotificationActions.shared.attach(session)
+        // Spec push-registration sessionAdded: every account on the phone has its own pusher, open or not.
+        PushRegistration.shared.add(session)
         Task { await KeychainMove.report(session, api: api) }
         Task { await PhoneReport.report(session, api: api) }
         Task { await LiveLocationCenter.shared.cleanUp(session) }
@@ -391,6 +391,7 @@ final class AccountStartModel: ObservableObject {
         NotificationActions.shared.detach(userId: old.userId)
         watchAuthErrors(fresh)
         NotificationActions.shared.attach(fresh)
+        PushRegistration.shared.add(fresh)
         sessions[index] = fresh
         if attachedUserId == fresh.userId {
             attachedUserId = nil
