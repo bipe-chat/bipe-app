@@ -2,8 +2,7 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
-// IDs: ADR 0147. Tester builds use their own application ID (chat.bipe.app.next), so they
-// sit next to the fork on one phone. At the switch the app takes the fork's ID (ADR 0061).
+// IDs: ADR 0294. Every build has the application ID chat.bipe.app (ADR 0061); debug builds add .debug.
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -13,8 +12,8 @@ plugins {
 }
 
 // The Firebase project's client values (not secrets: they ship in every APK). BuildConfig field to Gradle property.
-// Spec app-update (ADR 0233): testflight.yml passes -PbipeSelfUpdate=true for the tester APK only. Never the store ID set.
-val selfUpdate = findProperty("bipeSelfUpdate") == "true" && findProperty("bipeIdSet") != "store"
+// Spec app-update (ADR 0233): testflight.yml passes -PbipeSelfUpdate=true for the tester APK only. Never a Play build.
+val selfUpdate = findProperty("bipeSelfUpdate") == "true"
 
 val firebaseValues = mapOf(
     "FIREBASE_APP_ID" to "bipeFirebaseAppId",
@@ -28,10 +27,7 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        // ID set (bipe-chat/bipe#602, docs/client-switch-plan.md step 2): tester builds use chat.bipe.app.next;
-        // -PbipeIdSet=store builds the fork's ID (ADR 0061). CI builds the store set unsigned and never uploads it
-        // before the switch.
-        applicationId = if (findProperty("bipeIdSet") == "store") "chat.bipe.app" else "chat.bipe.app.next"
+        applicationId = "chat.bipe.app"
         minSdk = 26
         targetSdk = 36
         // Every build passes the version from `node tools/version.mjs --gradle` (ADR 0088): the version name of
@@ -40,7 +36,7 @@ android {
         versionName = (findProperty("bipeVersionName") as String?) ?: "0.1.0"
         buildConfigField("String", "BIPE_COMMIT", "\"${(findProperty("bipeCommit") as String?).orEmpty()}\"")
         // Trust step 5, Verificar com gov.br (spec govbr-verify, bipe-chat/bipe#544): a build value, never a stored or remote
-        // one. Off here and so in every release build; the debug build type turns it on for the tester ID set only, until
+        // one. Off here and so in every release build; the debug build type turns it on, until
         // bipe-chat/bipe#542 and bipe-chat/bipe#17 close. The manifest placeholder enables the PDF intake alias with it.
         buildConfigField("boolean", "BIPE_GOVBR", "false")
         manifestPlaceholders["bipeGovbrEnabled"] = "false"
@@ -82,9 +78,8 @@ android {
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
-            val govbr = (findProperty("bipeIdSet") != "store").toString()
-            buildConfigField("boolean", "BIPE_GOVBR", govbr)
-            manifestPlaceholders["bipeGovbrEnabled"] = govbr
+            buildConfigField("boolean", "BIPE_GOVBR", "true")
+            manifestPlaceholders["bipeGovbrEnabled"] = "true"
         }
         release {
             // APK size (bipe-app was 317 MB): R8 removes unused code and resources. proguard-rules.pro keeps what the
@@ -92,9 +87,10 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // The tester APK (testflight.yml, bipe.chat/baixar) holds arm64 only: the four ABIs of the Rust SDK and
-            // WebRTC made 284 MB of the 317. The store AAB keeps every ABI; Play sends each phone only its own.
-            if (findProperty("bipeIdSet") != "store") {
+            // The tester APK (testflight.yml, bipe.chat/baixar, the only build with selfUpdate) holds arm64 only: the
+            // four ABIs of the Rust SDK and WebRTC made 284 MB of the 317. The store AAB keeps every ABI; Play sends
+            // each phone only its own.
+            if (selfUpdate) {
                 ndk { abiFilters += "arm64-v8a" }
             }
             // The "upload" config holds the key given by the workflow: the Play upload key in store-release.yml, the

@@ -2,15 +2,15 @@
 # Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 # Copyright 2026 Bipe contributors
 
-# Tester builds (bipe-chat/bipe#575, ADR 0147). Every push to main:
+# Tester builds (bipe-chat/bipe#575, ADR 0178, ADR 0294). Every push to main:
 # - iOS (ID set store: the release app chat.bipe.app, ADR 0178): archive with manual signing by the team's existing distribution certificate (secrets
 #   DIST_CERT_P12, DIST_CERT_PASSWORD; bipe-chat/bipe#585) and profiles made through the App
 #   Store Connect API, upload to TestFlight and add the build to the internal testing group
 #   (and to the external group when BIPE_EXTERNAL_TESTING is true, bipe-chat/bipe#658);
 #   also export an ad hoc IPA for the devices registered in team 992N457T8D (artifact
-#   bipe-next-ipa). The job never makes a certificate: automatic signing made a development
+#   bipe-ipa). The job never makes a certificate: automatic signing made a development
 #   certificate on every run until the team reached Apple's limit.
-# - Android: a release APK of chat.bipe.app.next signed with the fixed tester key (artifact bipe-next-apk).
+# - Android: a release APK of chat.bipe.app signed with the fixed tester key (artifact bipe-apk).
 # Version (bipe-chat/bipe#584, ADR 0088, ADR 0163, ADR 0227): the version name is an odometer that rolls at each public release (tools/version.mjs);
 # build number: its build plus the number of commits (tools/version.mjs). Both platforms carry the same pair.
 # Install commands: AGENTS.md, "Tester builds".
@@ -172,10 +172,6 @@ jobs:
             BIPE_CI_PROFILE_NSE="$BIPE_CI_PROFILE_NSE" \
             BIPE_CI_PROFILE_SHARE="$BIPE_CI_PROFILE_SHARE" \
             BIPE_APS_ENVIRONMENT=production \
-            BIPE_APP_ID=chat.bipe.app \
-            BIPE_APP_GROUP=group.chat.bipe \
-            BIPE_SHARE_ID_SUFFIX=shareextension \
-            BIPE_DISPLAY_NAME=Bipe \
             MARKETING_VERSION="$VERSION_NAME" \
             CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
             BIPE_COMMIT="${{ needs.build-number.outputs.commit }}" | tee "$RUNNER_TEMP/archive.log" | grep -E "error:|ARCHIVE (SUCCEEDED|FAILED)" || true
@@ -212,7 +208,7 @@ jobs:
       - name: Keep the ad hoc IPA
         uses: actions/upload-artifact@v4
         with:
-          name: bipe-next-ipa
+          name: bipe-ipa
           path: ${{ runner.temp }}/adhoc/*.ipa
           retention-days: 7
       - name: Add the build to the internal testing group
@@ -285,16 +281,16 @@ jobs:
             echo "::error::The tester APK is signed with a debug key, not the tester key."
             exit 1
           fi
-          mv app/build/outputs/apk/play/release/*.apk "app/build/outputs/apk/play/release/Bipe-Next-${{ needs.build-number.outputs.number }}.apk"
+          mv app/build/outputs/apk/play/release/*.apk "app/build/outputs/apk/play/release/Bipe-${{ needs.build-number.outputs.number }}.apk"
           # bipe-infra k8s/bipe/apk-pull.yaml serves this APK at bipe.chat/baixar/android/bipe.apk. It checks the
           # SHA-256 file and reads the version file.
           cd app/build/outputs/apk/play/release
-          sha256sum "Bipe-Next-${{ needs.build-number.outputs.number }}.apk" > "Bipe-Next-${{ needs.build-number.outputs.number }}.apk.sha256"
+          sha256sum "Bipe-${{ needs.build-number.outputs.number }}.apk" > "Bipe-${{ needs.build-number.outputs.number }}.apk.sha256"
           echo "${{ needs.build-number.outputs.version }}" > version
       - name: Keep the tester APK
         uses: actions/upload-artifact@v4
         with:
-          name: bipe-next-apk
+          name: bipe-apk
           path: |
             android/app/build/outputs/apk/play/release/*.apk
             android/app/build/outputs/apk/play/release/*.apk.sha256

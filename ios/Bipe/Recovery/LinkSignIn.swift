@@ -19,7 +19,7 @@ enum LinkSignIn {
 
     /// The app's own URL scheme for the web flow: the bundle ID (the API knows the Bipe IDs).
     static var appId: String {
-        Bundle.main.bundleIdentifier ?? "chat.bipe.app.next"
+        Bundle.main.bundleIdentifier ?? "chat.bipe.app"
     }
 
     /// Runs the sign-in. `accessToken` set: a link for the signed-in account; `nil`: a recovery.

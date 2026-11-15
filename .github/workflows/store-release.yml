@@ -252,7 +252,7 @@ jobs:
           ORG_GRADLE_PROJECT_bipeFirebaseApiKey: ${{ vars.STORE_FIREBASE_API_KEY }}
           ORG_GRADLE_PROJECT_bipeFirebaseSenderId: ${{ vars.STORE_FIREBASE_SENDER_ID }}
         run: |
-          ./gradlew --no-daemon bundlePlayRelease -PbipeIdSet=store \
+          ./gradlew --no-daemon bundlePlayRelease \
             -PbipeBuildNumber="$BUILD_NUMBER" -PbipeVersionName="$VERSION_NAME" -PbipeCommit="${{ needs.build-number.outputs.commit }}" \
             -PbipeUploadStoreFile="$RUNNER_TEMP/upload.keystore"
       - name: Check the AAB signature
