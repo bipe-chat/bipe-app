@@ -203,8 +203,10 @@ pub fn device_rows(this_device_id: String, devices: Vec<AccountDevice>, entries:
             let e = best.iter().find(|b| b.device_id == dev.device_id).copied();
             let (key, icon, label, section, leaves) = kind_of(e.map_or("unknown", |e| e.kind.as_str())).expect("registry kind");
             let is_this = dev.device_id == this_device_id;
-            let name = e
-                .and_then(|e| e.model.clone().or_else(|| e.app.clone()))
+            let model = e.and_then(|e| e.model.as_deref()).map(apple_model_name);
+            let name = model
+                .clone()
+                .or_else(|| e.and_then(|e| e.app.clone()))
                 .or_else(|| dev.display_name.as_deref().and_then(device_text));
             AccountDeviceRow {
                 device_id: dev.device_id.clone(),
@@ -215,7 +217,7 @@ pub fn device_rows(this_device_id: String, devices: Vec<AccountDevice>, entries:
                 section: section.to_owned(),
                 leaves_brazil: leaves,
                 name,
-                model: e.and_then(|e| e.model.clone()),
+                model,
                 os: e.and_then(|e| e.os.clone()),
                 app: e.and_then(|e| e.app.clone()),
                 last_seen: dev.last_seen_ts,
@@ -246,6 +248,11 @@ pub fn device_rows(this_device_id: String, devices: Vec<AccountDevice>, entries:
         }
     }
     AccountDeviceList { rows, counts }
+}
+
+/// The product name of an iPhone identifier (registries/apple-models.json, bipe-chat/bipe#1517), else the model as it is.
+fn apple_model_name(model: &str) -> String {
+    APPLE_MODELS.iter().find(|(id, _)| *id == model).map_or(model, |(_, name)| *name).to_owned()
 }
 
 type KindRow = (&'static str, &'static str, &'static str, &'static str, bool);
