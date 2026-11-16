@@ -37,7 +37,7 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -292,10 +292,11 @@ fun ChatTimelineScreen(
     var showsStickers by remember { mutableStateOf(false) }
     NotificationsPromptTrigger(session, roomId, messages)
     val greeting = stringResource(R.string.bipe_inviter_greeting)
-    val listState = rememberLazyListState()
+    // No saved scroll position: every open of the chat starts at the newest message.
+    val listState = remember(roomId) { LazyListState() }
     // The list keeps to the newest message until the person scrolls up (chat-timeline opens at the bottom).
-    var followsNewest by rememberSaveable(roomId) { mutableStateOf(true) }
-    var seenNewestId by rememberSaveable(roomId) { mutableStateOf<String?>(null) }
+    var followsNewest by remember(roomId) { mutableStateOf(true) }
+    var seenNewestId by remember(roomId) { mutableStateOf<String?>(null) }
     var dmMenu by remember { mutableStateOf(false) }
     var groupMenu by remember { mutableStateOf(false) }
     // Spec chat-timeline searchInChat (bipe-chat/bipe#861): a message hit scrolls this chat to it.
@@ -351,8 +352,10 @@ fun ChatTimelineScreen(
         val newest = rows.lastOrNull() ?: return@LaunchedEffect
         // The person's own message always returns to the newest message.
         if (newest.id != seenNewestId && newest.message?.isOwn == true) followsNewest = true
+        // The first rows of an open jump into place; only later messages scroll.
+        val opening = seenNewestId == null
         seenNewestId = newest.id
-        if (followsNewest) if (reduceMotion) listState.scrollToItem(0) else listState.animateScrollToItem(0)
+        if (followsNewest) if (reduceMotion || opening) listState.scrollToItem(0) else listState.animateScrollToItem(0)
     }
     // Day view: the "newer" loader item sits before the rows at index 0.
     val rowOffset = if (dayFocus != null) 1 else 0
