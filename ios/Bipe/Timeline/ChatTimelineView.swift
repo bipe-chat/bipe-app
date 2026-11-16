@@ -23,6 +23,9 @@ struct ChatTimelineView: View {
     @State private var scrollPhase: ScrollPhase = .idle
     /// The visible height of the list (container minus composer and bar insets). A short chat fills it from the bottom.
     @State private var viewportHeight: CGFloat = 0
+    /// True when the rows are taller than the visible height. A chat that fits never scrolls by code: it sits at
+    /// the bottom by layout, and a scroll to its last row could leave the list on blank space.
+    @State private var overflows = false
     /// Spec chat-timeline searchInChat (bipe-chat/bipe#861).
     @State private var searchingChat = false
     /// The group menu's group-details row.
@@ -454,6 +457,10 @@ struct ChatTimelineView: View {
         max(0, geometry.containerSize.height - geometry.contentInsets.top - geometry.contentInsets.bottom)
     }
 
+    nonisolated private static func overflows(_ geometry: ScrollGeometry) -> Bool {
+        geometry.contentSize.height > viewportHeight(geometry) + 1
+    }
+
     nonisolated private static func isAtBottom(_ geometry: ScrollGeometry) -> Bool {
         geometry.contentOffset.y + geometry.containerSize.height - geometry.contentInsets.bottom
             >= geometry.contentSize.height - 40
@@ -497,6 +504,9 @@ struct ChatTimelineView: View {
             .onScrollGeometryChange(for: CGFloat.self, of: Self.viewportHeight) { _, height in
                 viewportHeight = height
             }
+            .onScrollGeometryChange(for: Bool.self, of: Self.overflows) { _, value in
+                overflows = value
+            }
             .defaultScrollAnchor(model.dayFocus == nil ? .bottom : .top)
             .scrollDismissesKeyboard(.interactively)
             // Spec chat-timeline floatingDate: the day of the top row on screen, while the list scrolls.
@@ -535,7 +545,7 @@ struct ChatTimelineView: View {
                 }
             }
             .onScrollGeometryChange(for: CGFloat.self, of: \.contentSize.height) { _, _ in
-                if followsNewest, model.dayFocus == nil, let lastId = model.rows.last?.id {
+                if followsNewest, overflows, model.dayFocus == nil, let lastId = model.rows.last?.id {
                     proxy.scrollTo(lastId, anchor: .bottom)
                 }
             }
@@ -544,7 +554,7 @@ struct ChatTimelineView: View {
                 guard let lastId, model.dayFocus == nil else { return }
                 // The person's own message always returns to the newest message.
                 if model.rows.last?.message?.isOwn == true { followsNewest = true }
-                guard followsNewest else { return }
+                guard followsNewest, overflows else { return }
                 // The first rows of an open jump into place; only a new message after them scrolls. An animated
                 // first scroll showed the chat sliding up when it opened. There is no saved scroll position.
                 if oldLastId == nil {
