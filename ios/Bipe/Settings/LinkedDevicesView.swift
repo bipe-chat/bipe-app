@@ -378,6 +378,13 @@ struct DeviceDetailView: View {
                     .disabled(settings.assistantSend == nil)
                 }
             }
+            if row.kind == "bridge" {
+                // Spec device-detail notes: what Beeper sees (ADR 0128 point 2, bipe-chat/bipe#1516).
+                Section {
+                    Text(BipeStrings.deviceDetailBridgeSees)
+                        .foregroundStyle(BipeColor.inkPrimary)
+                }
+            }
             if row.canSignOut {
                 Section {
                     Button(role: .destructive) {

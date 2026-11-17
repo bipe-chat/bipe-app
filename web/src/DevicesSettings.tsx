@@ -190,6 +190,12 @@ export function DeviceDetail({ row, rows, onBack }: { row: DeviceRow; rows: Devi
             </button>
           </Row>
         </Section>
+        {/* Spec device-detail notes: what Beeper sees (ADR 0128 point 2, bipe-chat/bipe#1516). */}
+        {row.kind === 'bridge' && (
+          <Section>
+            <TextRow text={s('bipe_device_detail_bridge_sees')} />
+          </Section>
+        )}
         {copied && (
           <p role="status" className="px-4 text-footnote text-ink-secondary">
             {s('bipe_device_detail_id_copied')}
