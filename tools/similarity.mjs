@@ -34,6 +34,14 @@
 // similarity alone is above THRESHOLD is no longer listed. The files JPlag
 // could not compare come from failedSubmissions in runInformation.json.
 //
+// Test sources (isTestSource): the average rule only warns. Unit tests never
+// ship in an app binary, and JPlag's coarse tokens make short assert-dense
+// tests look alike: on bipe-app#671, seven Windows unit tests reached 0.50 to
+// 0.71 against dozens of unrelated Element tests with no shared code line, and
+// rewriting them moved the scores by 0.04. The maximum-match rule below still
+// fails a test file, so a copied test block cannot pass. MZ approved this on
+// 17 November 2026.
+//
 // Maximum-match rule (bipe-chat/bipe#1127): the average rule misses a block
 // copied into a large file, because the large file pulls the average down.
 // The scan therefore also looks for the longest run of consecutive code lines
@@ -54,6 +62,12 @@ export const THRESHOLD = 0.5;
 export const MIN_MATCHED_TOKENS = 100;
 
 export const MAX_MATCH_LINES = 12;
+
+/** Unit and UI test sources: Gradle test source sets, Swift test targets and folders, web test files. */
+export function isTestSource(path) {
+  return /(^|\/)src\/(test|androidTest|screenshotTest)\//.test(path) || /(^|\/)[A-Za-z]*Tests\//.test(path)
+    || /Tests?\.(swift|kt)$/.test(path) || /\.test\.(ts|tsx|mjs)$/.test(path);
+}
 export const MIN_LINE_CHARS = 8;
 
 export const LANGS = {
@@ -243,7 +257,7 @@ export function evaluate(rows, ours, theirs, threshold = THRESHOLD, tokens = new
     const max = Number(r[cMax]);
     const matched = matchedTokens(avg, tokens.get(mine), tokens.get(other));
     const pair = { ours: ours.get(mine), theirs: theirs.get(other), avg, max, matched };
-    if (avg > threshold && matched >= minTokens) failures.push(pair);
+    if (avg > threshold && matched >= minTokens && !isTestSource(pair.ours)) failures.push(pair);
     else if (avg > threshold || max > threshold) warnings.push(pair);
   }
   const byAvg = (x, y) => y.avg - x.avg || y.max - x.max;
