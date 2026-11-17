@@ -5,6 +5,7 @@
 import BipeKit
 import Phosphor
 import SwiftUI
+import UIKit
 
 /// Spec app-lock, action lock: the cover over Bipe while the lock is on. Off by default (ADR 0137).
 @MainActor
@@ -111,26 +112,71 @@ final class AppLockModel: ObservableObject {
     }
 }
 
-/// Puts the lock screen, or the plain cover, over the app.
+/// Puts the lock screen, or the plain cover, over the app. Both show in a window of their own (AppLockWindows), so a
+/// sheet or the media viewer cannot show above them (bipe-chat/bipe#1364).
 struct AppLockGate: ViewModifier {
     @ObservedObject private var lock = AppLockModel.shared
     @Environment(\.scenePhase) private var scenePhase
 
     func body(content: Content) -> some View {
         content
-            .overlay {
-                if lock.isLocked {
-                    AppLockScreen(lock: lock)
-                } else if lock.isCovered {
-                    BipeColor.surfaceBase.ignoresSafeArea()
-                }
-            }
+            .onChange(of: lock.isLocked, initial: true) { AppLockWindows.shared.update(lock) }
+            .onChange(of: lock.isCovered) { AppLockWindows.shared.update(lock) }
             .onChange(of: scenePhase) { _, phase in
                 lock.scenePhaseChanged(phase)
+                // At once, not on the next view update: the app switcher takes its picture right after this.
+                AppLockWindows.shared.update(lock)
             }
             .task {
                 if lock.isLocked { await lock.useBiometrics() }
             }
+    }
+}
+
+/// One window per scene above the app window, at alert level plus one, while the lock or the cover shows. A sheet, an
+/// alert or the media viewer is presented inside the app window, so it stays under this window and gets no touches.
+@MainActor
+final class AppLockWindows {
+    static let shared = AppLockWindows()
+    private var windows: [ObjectIdentifier: UIWindow] = [:]
+
+    func update(_ lock: AppLockModel) {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        guard lock.isLocked || lock.isCovered else {
+            guard !windows.isEmpty else { return }
+            for window in windows.values { window.isHidden = true }
+            windows.removeAll()
+            // The app window takes the key again, so the keyboard and VoiceOver go back to it.
+            scenes.flatMap(\.windows).first { $0.windowLevel == .normal }?.makeKey()
+            return
+        }
+        for scene in scenes where windows[ObjectIdentifier(scene)] == nil {
+            let window = UIWindow(windowScene: scene)
+            window.windowLevel = .alert + 1
+            let host = UIHostingController(rootView: AppLockCover(lock: lock))
+            host.view.accessibilityViewIsModal = true
+            window.rootViewController = host
+            window.makeKeyAndVisible()
+            windows[ObjectIdentifier(scene)] = window
+        }
+    }
+}
+
+/// The content of the lock window: the PIN pad while locked, else the plain cover for the app switcher.
+private struct AppLockCover: View {
+    @ObservedObject var lock: AppLockModel
+    /// The window does not inherit the app root's modifiers: same appearance and type as BipeApp.
+    @AppStorage(Appearance.key) private var appearance = Appearance.system.rawValue
+
+    var body: some View {
+        ZStack {
+            BipeColor.surfaceBase.ignoresSafeArea()
+            if lock.isLocked {
+                AppLockScreen(lock: lock)
+            }
+        }
+        .bipeRoundedType()
+        .preferredColorScheme(Appearance(rawValue: appearance)?.colorScheme)
     }
 }
 
