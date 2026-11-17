@@ -53,6 +53,8 @@ final class MacAccount: ObservableObject {
     private(set) lazy var requests = MacChatRequests(api: api)
     let drafts = MacDrafts()
     let media = MacMedia()
+    /// Spec block-person: the account's ignored users, for the DM block bar.
+    let blocked = MacBlockedUsers()
     private let vault: MacSessionVault
     private var savedUserID: String?
     private var openID: BipeOpenIDTokens?
@@ -102,6 +104,7 @@ final class MacAccount: ObservableObject {
 
     func retry() {
         media.reset()
+        blocked.reset()
         loginTask?.cancel()
         refreshTask?.cancel()
         roomList.reset()
@@ -288,6 +291,7 @@ final class MacAccount: ObservableObject {
         guard attempt == current else { throw CancellationError() }
         self.client = client
         media.attach(client)
+        blocked.attach(client)
         userId = try client.userId()
         displayName = BipeAccountLabels.label(for: userId)
         handle = BipeHandleCache.handle(for: userId)
@@ -438,6 +442,7 @@ final class MacAccount: ObservableObject {
 
     private func endSession() async {
         media.reset()
+        blocked.reset()
         attempt = UUID()
         loginTask?.cancel()
         refreshTask?.cancel()

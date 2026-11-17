@@ -193,6 +193,10 @@ struct MacChatView: View {
     let face: MacAvatarDescriptor?
     @ObservedObject var media: MacMedia
     @StateObject private var model: MacTimeline
+    @StateObject private var identity: IdentityChangeModel
+    @ObservedObject var blocked: MacBlockedUsers
+    /// Opens another chat of this account in the window (inviteAgain makes a new DM).
+    let openChat: (String) -> Void
     @Environment(\.scenePhase) private var scenePhase
     @FocusState private var composerFocused: Bool
     private enum Picker { case media, file }
@@ -201,18 +205,41 @@ struct MacChatView: View {
     @State private var reportFailed = false
     let forwardTargets: [MacRoomSummary]
 
-    init(room: Room, name: String, drafts: MacDrafts, media: MacMedia, face: MacAvatarDescriptor? = nil, forwardTargets: [MacRoomSummary] = [], opensPhotoPicker: Bool = false) {
+    init(room: Room, name: String, client: Client, drafts: MacDrafts, media: MacMedia, blocked: MacBlockedUsers,
+         face: MacAvatarDescriptor? = nil, forwardTargets: [MacRoomSummary] = [], opensPhotoPicker: Bool = false,
+         openChat: @escaping (String) -> Void = { _ in }) {
+        self.blocked = blocked
+        self.openChat = openChat
+        _identity = StateObject(wrappedValue: IdentityChangeModel(client: client, ownUserId: room.ownUserId(), roomId: room.id()))
         self.forwardTargets = forwardTargets
         _picker = State(initialValue: opensPhotoPicker ? .media : nil)
         self.room = room
         self.name = name
         self.face = face
         self.media = media
-        _model = StateObject(wrappedValue: MacTimeline(drafts: drafts))
+        _model = StateObject(wrappedValue: MacTimeline(drafts: drafts, client: client))
     }
 
-    private var composer: some View {
+    /// The person of a DM when this account blocked them: the block bar takes the composer's place (ADR 0141).
+    private var blockedPeer: String? {
+        guard model.isDm, let peer = model.peerID, blocked.isBlocked(peer) else { return nil }
+        return peer
+    }
+
+    @ViewBuilder private var composer: some View {
+        if let peer = blockedPeer {
+            MacBlockedBar(blocked: blocked, userID: peer, name: name)
+        } else {
+            openComposer
+        }
+    }
+
+    private var openComposer: some View {
         VStack(spacing: 0) {
+            MacDmLeftBar(away: model.peerAway, name: name, inviting: model.invitingAgain) {
+                Task { if let roomID = await model.inviteAgain() { openChat(roomID) } }
+            }
+            MacIdentityChangeBar(model: identity)
             if model.failed { MacNotice(text: BipeStrings.errorGeneric, danger: true).padding() }
             if let error = model.uploadError, model.preparedAttachment == nil {
                 MacNotice(text: error, danger: true).padding()
@@ -231,7 +258,7 @@ struct MacChatView: View {
                 }
             }
             MacComposer(isEditing: model.editingID != nil,
-                        canSend: model.ready && !model.sending && model.canSubmitDraft,
+                        canSend: model.ready && !model.sending && model.canSubmitDraft && !identity.blocksSending,
                         canAttach: model.ready && !model.preparing && !model.sending,
                         preparing: model.preparing,
                         choose: { choice in
@@ -242,7 +269,7 @@ struct MacChatView: View {
                     .lineLimit(1...5)
                     .onKeyPress(.return, phases: .down) { press in
                         guard !press.modifiers.contains(.shift) else { return .ignored }
-                        if model.ready && !model.sending && model.canSubmitDraft { Task { await model.send() } }
+                        if model.ready && !model.sending && model.canSubmitDraft && !identity.blocksSending { Task { await model.send() } }
                         return .handled
                     }
                     .textFieldStyle(.plain).padding(.vertical, 11)
@@ -319,6 +346,9 @@ struct MacChatView: View {
                 }
             }
         }
+        .alert(BipeStrings.dmInviteAgainFailed, isPresented: $model.inviteAgainFailed) {
+            Button(BipeStrings.appClose, role: .cancel) {}
+        }
         .alert(BipeStrings.appReactionFailed, isPresented: $model.reactionFailed) {
             Button(BipeStrings.appClose, role: .cancel) {}
         }
@@ -355,6 +385,7 @@ struct MacChatView: View {
             MacForwardSheet(message: message, targets: forwardTargets) { model.forwarding = nil }
         }
         .task { await model.run(room: room) }
+        .task { await identity.observe() }
         .task(id: room.id()) { await media.checkRequestRooms(for: room.id()) }
         .dropDestination(for: URL.self) { urls, _ in
             guard let url = urls.first, url.isFileURL, model.ready, !model.preparing, !model.sending else { return false }

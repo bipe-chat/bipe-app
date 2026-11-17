@@ -60,6 +60,20 @@ final class TypingStream: TypingNotificationsListener {
     }
 }
 
+/// Client.ignoredUsers updates (spec block-person). The iOS PeopleService and the Mac use it.
+final class IgnoredUsersStream: IgnoredUsersListener {
+    let updates: AsyncStream<[String]>
+    private let continuation: AsyncStream<[String]>.Continuation
+
+    init() {
+        (updates, continuation) = AsyncStream.makeStream()
+    }
+
+    func call(ignoredUserIds: [String]) {
+        continuation.yield(ignoredUserIds)
+    }
+}
+
 /// The operations of an SDK vector diff. Room list entries and timeline items use the same shape.
 enum VectorDiff<Element> {
     case append([Element])
