@@ -39,7 +39,8 @@ object BipeRowActivity {
      * The row of a room. Only a local event with a preview can give the row its text (bipe-chat/bipe#592 follow-up: a
      * call, a deleted message or a room change never blanks the text).
      * 1. A message-like local event with a preview, newer than the SDK latest event: its time and its preview. An own
-     *    join, leave or room creation line counts only when the room has no other local event with a preview.
+     *    join, leave or room creation line counts only when the room has no other local event with a preview. When the
+     *    SDK latest event is such an own line, a local message with a preview replaces it too.
      * 2. Else the SDK latest event. When it has no preview, the row keeps the newest local preview, else the known one.
      * 3. Without an SDK latest event: the newest message-like local event with a preview, undecryptable ones included.
      *    Else the newest local event of any kind (time only). A time known earlier in this account session is kept when
@@ -55,6 +56,13 @@ object BipeRowActivity {
         val text = newestMessage?.let(::row) ?: known
         if (sdk != null) {
             if (newestMessage != null && newestMessage.timestampMs > sdk.timestampMs) return row(newestMessage)
+            // The SDK latest event is often the own join itself. A local own line at or after its time is that event:
+            // the row keeps the message (MZ, 17 Nov 2026, build 855 still showed "You joined" for Heverton).
+            if (newestMessage != null && !(newestMessage.isOwn && newestMessage.isStateLine) &&
+                localEvents.any { it.isOwn && it.isStateLine && it.previewText != null && it.timestampMs >= sdk.timestampMs }
+            ) {
+                return row(newestMessage)
+            }
             if (sdk.previewText == null && text?.previewText != null) {
                 return Row(sdk.timestampMs, text.previewText, text.latestIncomingMs)
             }

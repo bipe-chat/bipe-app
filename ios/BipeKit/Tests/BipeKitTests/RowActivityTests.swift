@@ -36,6 +36,15 @@ struct RowActivityTests {
         #expect(row == .init(timestampMs: 1_700_000_000_000, previewText: "oi", latestIncomingMs: 1_700_000_000_000))
     }
 
+    /// The SDK latest event is the own join itself (build 855 on device): the row still shows the message.
+    @Test func sdkLatestOwnJoinKeepsTheMessage() {
+        let sdk = SDK(timestampMs: 1_700_000_300_000, previewText: "joined", isIncoming: false)
+        let events = [Event(timestampMs: 1_700_000_000_000, kind: .message, previewText: "oi", isOwn: false),
+                      Event(timestampMs: 1_700_000_300_000, kind: .message, previewText: "joined", isOwn: true, isStateLine: true)]
+        let row = BipeRowActivity.resolve(sdk: sdk, localEvents: events, known: nil)
+        #expect(row == .init(timestampMs: 1_700_000_000_000, previewText: "oi", latestIncomingMs: 1_700_000_000_000))
+    }
+
     /// The own join line still shows in a room with no message.
     @Test func ownJoinAloneShowsItsLine() {
         let events = [Event(timestampMs: 1_700_000_300_000, kind: .message, previewText: "joined", isOwn: true, isStateLine: true)]
