@@ -34,6 +34,10 @@ export const BipeScreen = {
   agendaSettings: "agenda-settings",
   /** Set up the agenda (flow business). Spec: bipe-shared/product/screens/agenda-setup.json */
   agendaSetup: "agenda-setup",
+  /** Amigo secreto card (flow groups). Spec: bipe-shared/product/screens/amigo-secreto-card.json */
+  amigoSecretoCard: "amigo-secreto-card",
+  /** Set up an amigo secreto (flow groups). Spec: bipe-shared/product/screens/amigo-secreto-setup.json */
+  amigoSecretoSetup: "amigo-secreto-setup",
   /** App colours (flow settings). Spec: bipe-shared/product/screens/app-colors.json */
   appColors: "app-colors",
   /** App lock (flow settings). Spec: bipe-shared/product/screens/app-lock.json */
