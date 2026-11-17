@@ -2578,6 +2578,8 @@ public enum BipeStrings {
         String(format: NSLocalizedString("bipe_device_detail_linked_by", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
 
+    public static var deviceDetailBridgeSees: String { NSLocalizedString("bipe_device_detail_bridge_sees", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var deviceDetailAttested: String { NSLocalizedString("bipe_device_detail_attested", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var deviceDetailNotAttested: String { NSLocalizedString("bipe_device_detail_not_attested", tableName: "Bipe", bundle: .module, comment: "") }

@@ -94,22 +94,36 @@ struct MacRoomSummary: Identifiable {
         return BipeChatRowName.person(userID: userID, displayName: displayName, handle: nil)
     }
 
-    /// Spec chat-list, row text: "You: " before an own message, the sender's name before another member's in a group.
-    static func activity(_ latest: LatestEventValue, isDm: Bool, known: BipeRowActivity.Row?) -> BipeRowActivity.Row {
+    /// The row date and text (BipeRowActivity): the SDK latest event and the local timeline events read by
+    /// RowActivityScanner. The SDK latest event can be the own join, or an older event when a message arrived before its
+    /// room key (bipe-chat/bipe#592): a local message then gives the row its text.
+    static func activity(_ latest: LatestEventValue, isDm: Bool, localEvents: [BipeRowActivity.LocalEvent] = [],
+                         known: BipeRowActivity.Row?) -> BipeRowActivity.Row {
         let sdk: BipeRowActivity.SDKLatest?
         switch latest {
         case .remote(let timestamp, let sender, let own, let profile, let content):
-            let text = preview(content).map { text in
-                if own { return BipeStrings.chatListOwnPreview(text) }
-                return isDm ? text : "\(personName(profile, userID: sender)): \(text)"
-            }
-            sdk = .init(timestampMs: timestamp, previewText: text, isIncoming: !own)
+            sdk = .init(timestampMs: timestamp, previewText: text(content, own: own, sender: sender, profile: profile, isDm: isDm),
+                        isIncoming: !own)
         case .local(let timestamp, _, _, let content, _):
             sdk = .init(timestampMs: timestamp, previewText: preview(content).map(BipeStrings.chatListOwnPreview), isIncoming: false)
         case .remoteInvite(let timestamp, _, _): sdk = .init(timestampMs: timestamp, previewText: nil, isIncoming: false)
         case .none: sdk = nil
         }
-        return BipeRowActivity.resolve(sdk: sdk, localEvents: [], known: known)
+        return BipeRowActivity.resolve(sdk: sdk, localEvents: localEvents, known: known)
+    }
+
+    /// The row text of a local timeline event, the same as for the SDK latest event.
+    static func rowPreview(_ event: EventTimelineItem, isDm: Bool) -> String? {
+        text(event.content, own: event.isOwn, sender: event.sender, profile: event.senderProfile, isDm: isDm)
+    }
+
+    /// Spec chat-list, row text: "You: " before an own message, the sender's name before another member's in a group.
+    private static func text(_ content: TimelineItemContent, own: Bool, sender: String, profile: ProfileDetails,
+                             isDm: Bool) -> String? {
+        preview(content).map { text in
+            if own { return BipeStrings.chatListOwnPreview(text) }
+            return isDm ? text : "\(personName(profile, userID: sender)): \(text)"
+        }
     }
 
     private static func preview(_ content: TimelineItemContent) -> String? {

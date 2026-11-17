@@ -158,6 +158,12 @@ private struct MacDeviceDetailView: View {
                     Text(BipeStrings.deviceDetailIdCopied).foregroundStyle(BipeColor.inkSecondary)
                 }
             }
+            if row.kind == "bridge" {
+                // Spec device-detail notes: what Beeper sees (ADR 0128 point 2, bipe-chat/bipe#1516).
+                Section {
+                    Text(BipeStrings.deviceDetailBridgeSees)
+                }
+            }
         }
         .formStyle(.grouped)
         .macFont(.body)

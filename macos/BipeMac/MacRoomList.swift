@@ -28,6 +28,8 @@ final class MacRoomList: ObservableObject {
     private(set) var subscriptions: BipeRoomSubscriptions?
     var onRows: (([MacRoomSummary]) -> Void)?
     private var known: [String: BipeRowActivity.Row] = [:]
+    /// The local timeline events of each row (spec chat-list, row text; shared with iOS).
+    private var rowActivity: RowActivityScanner?
     private var pendingFavourite: [String: Bool] = [:]
     private var orderUnsaved = false
     /// The drafts room (ADR 0210, ADR 0291): it holds drafts and device entries, never a chat.
@@ -37,6 +39,9 @@ final class MacRoomList: ObservableObject {
         reset()
         self.client = client
         self.ownUserID = ownUserID
+        rowActivity = RowActivityScanner(client: client, preview: { event, _, isDm in
+            MacRoomSummary.rowPreview(event, isDm: isDm)
+        }) { [weak self] in self?.rebuild() }
         let generation = generation
         subscriptions = BipeRoomSubscriptions { try await service.subscribeToRooms(roomIds: $0) }
         let list = try await service.allRooms()
@@ -54,7 +59,15 @@ final class MacRoomList: ObservableObject {
             tasks.append(Task { [weak self] in
                 for await updates in stream.updates {
                     guard let self, !Task.isCancelled, self.generation == generation else { return }
-                    for update in updates { self.rooms[index].apply(update.vectorDiff) }
+                    for update in updates {
+                        // A room that moved or changed may have newer events than the ones read for its row.
+                        switch update {
+                        case .set(_, let room), .insert(_, let room), .pushFront(let room), .pushBack(let room):
+                            self.rowActivity?.invalidate(roomId: room.id())
+                        default: break
+                        }
+                        self.rooms[index].apply(update.vectorDiff)
+                    }
                     if index == 0 { self.loaded = true }
                     self.rebuild()
                     if index == 1 {
@@ -81,6 +94,7 @@ final class MacRoomList: ObservableObject {
         if let subscriptions { Task { await subscriptions.close() } }
         subscriptions = nil
         client = nil
+        rowActivity = nil
         rooms = [[], [], []]; rows = []; known = [:]; pendingFavourite = [:]; hiddenRoomIDs = []
         loaded = false; failed = false; actionFailed = false; busy = []
         favouritesOrder = []; orderUnsaved = false
@@ -190,7 +204,9 @@ final class MacRoomList: ObservableObject {
             for room in combined {
                 guard !Task.isCancelled, self.generation == generation else { return }
                 guard let info = try? await room.roomInfo(), info.membership == .joined, !info.isSpace else { continue }
-                let activity = MacRoomSummary.activity(await room.latestEvent(), isDm: info.isDm, known: self.known[room.id()])
+                let activity = MacRoomSummary.activity(await room.latestEvent(), isDm: info.isDm,
+                                                       localEvents: self.rowActivity?.localEvents(roomId: room.id()) ?? [],
+                                                       known: self.known[room.id()])
                 self.known[room.id()] = activity
                 if self.pendingFavourite[room.id()] == info.isFavourite { self.pendingFavourite[room.id()] = nil }
                 rows.append(MacRoomSummary(room: room, info: info, ownUserID: ownUserID,
