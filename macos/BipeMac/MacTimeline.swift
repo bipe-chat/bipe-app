@@ -139,6 +139,11 @@ final class MacTimeline: ObservableObject {
     private var canRedactOther = false
     private var draftBeforeEdit = ""
     @Published private(set) var reacting: Set<String> = []
+    /// Spec typing-indicator typingNames: the people typing now, without this account.
+    @Published private(set) var typingNames: [String] = []
+    /// Spec typing-indicator: typing on at most once every 4 seconds.
+    static let typingInterval: TimeInterval = 4
+    private var typingSentAt: Date?
     @Published private(set) var attachmentPhase: MacAttachmentPhase = .idle
     var preparing: Bool { attachmentPhase.preparing }
     var preparedAttachment: MacPreparedAttachment? { attachmentPhase.media }
@@ -222,9 +227,16 @@ final class MacTimeline: ObservableObject {
             self.timeline = timeline
             let stream = TimelineDiffStream()
             listener = await timeline.addListener(listener: stream)
+            let typing = TypingStream()
+            let typingHandle = room.subscribeToTypingNotifications(listener: typing)
+            let typingTask = Task { [weak self] in
+                for await userIDs in typing.updates { await self?.typingChanged(userIDs, room: room) }
+            }
             ready = true
             defer {
+                typingTask.cancel(); typingHandle.cancel()
                 if self.timeline === timeline {
+                    sendTyping(false); typingNames = []
                     listener?.cancel(); listener = nil; self.timeline = nil; self.room = nil; ready = false
                     highlightTask?.cancel(); highlightedRowID = nil; scrollTarget = nil
                 }
@@ -244,6 +256,8 @@ final class MacTimeline: ObservableObject {
         guard let info = try? await room.roomInfo() else { return }
         isDm = info.isDm
         joinedMembers = info.joinedMembersCount
+        // Spec message-pins: Fixar and Desafixar follow pins made on other devices.
+        pinned = Set(info.pinnedEventIds)
         dmPeerID = info.isDm ? info.heroes.first(where: { $0.userId != room.ownUserId() })?.userId : nil
         isPrivateRoom = info.isDm || info.isPublic == false
         await readSenderFacts(room, info: info)
@@ -406,7 +420,46 @@ final class MacTimeline: ObservableObject {
                 _ = try await timeline.send(msg: messageEventContentFromMarkdown(md: text))
             }
             if draft == text, replyID == reply { draft = ""; replyID = nil }
+            sendTyping(false)
         } catch { failed = true }
+    }
+
+    // MARK: Spec typing-indicator
+
+    /// Action editDraft of chat-timeline, with typing-indicator draftChanged: typing on at most every 4 seconds while
+    /// the draft has text, typing off when it becomes blank. An edit of a sent message sends no typing.
+    func editDraft(_ text: String) {
+        draft = text
+        guard editingID == nil else { return }
+        if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            sendTyping(false)
+        } else if typingSentAt.map({ Date().timeIntervalSince($0) >= Self.typingInterval }) ?? true {
+            sendTyping(true)
+        }
+    }
+
+    private func sendTyping(_ isTyping: Bool) {
+        guard let room, MacPresence.sharesTyping() else { return }
+        if isTyping {
+            typingSentAt = Date()
+        } else {
+            guard typingSentAt != nil else { return }
+            typingSentAt = nil
+        }
+        Task { try? await room.typingNotice(isTyping: isTyping) }
+    }
+
+    private func typingChanged(_ userIDs: [String], room: Room) async {
+        guard MacPresence.sharesTyping() else { typingNames = []; return }
+        let ownUserID = room.ownUserId()
+        var names: [String] = []
+        for userID in userIDs where userID != ownUserID {
+            if let known = memberNames[userID] { names.append(known); continue }
+            let displayName = (try? await room.memberDisplayName(userId: userID)) ?? nil
+            names.append(BipeChatRowName.person(userID: userID, displayName: displayName, handle: nil))
+        }
+        guard self.room === room, !Task.isCancelled else { return }
+        typingNames = names
     }
 
     func startReply(_ message: MacMessage) {
