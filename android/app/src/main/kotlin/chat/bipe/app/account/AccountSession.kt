@@ -112,6 +112,11 @@ class AccountSession(val client: Client, val syncService: SyncService, val userI
             data.copy(accounts = if (kept != null) data.accounts + (userId to kept) else data.accounts - userId)
         }
         deleteStore(context, userId)
+        // bipe-chat/bipe#1370: no decrypted media and no recent searches of this account stay. The media folder is one
+        // for all accounts; another account on the phone downloads its media again.
+        chat.bipe.app.media.forgetMediaCache()
+        chat.bipe.app.media.StorageMeter.deleteAppMedia(context)
+        chat.bipe.app.chatlist.RecentSearches.forget(context, userId)
     }
 
     companion object {

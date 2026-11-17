@@ -178,6 +178,11 @@ final class AccountSession {
         SessionStore.delete(userId: userId)
         BipeCredentialStore().deletePassword(for: userId)
         Self.deleteStore(userId: userId)
+        // bipe-chat/bipe#1370: no decrypted media and no recent searches of this account stay. The media folders are
+        // one for all accounts; another account on the phone downloads its media again.
+        await MediaLoader.forgetAll()
+        await StorageMeter.deleteAppMedia()
+        await RecentSearches.forget(userId: userId)
     }
 
     /// Builds a client whose store lives in the app group, one folder per account
