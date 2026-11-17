@@ -16,6 +16,7 @@ import chat.bipe.app.notifications.PushRegistration
 import chat.bipe.shared.BipePushMessage
 import chat.bipe.shared.R
 import chat.bipe.shared.api.BipeApiClient
+import chat.bipe.shared.api.BipeApiErrorCode
 import chat.bipe.shared.api.BipeApiException
 import chat.bipe.shared.api.storeWorkMemberRecovery
 import chat.bipe.shared.api.workMemberSession
@@ -33,11 +34,13 @@ import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONObject
 import org.matrix.rustcomponents.sdk.EnableRecoveryProgress
 import org.matrix.rustcomponents.sdk.EnableRecoveryProgressListener
+import org.matrix.rustcomponents.sdk.Encryption
 import org.matrix.rustcomponents.sdk.HttpPusherData
 import org.matrix.rustcomponents.sdk.Membership
 import org.matrix.rustcomponents.sdk.PushFormat
 import org.matrix.rustcomponents.sdk.PusherIdentifiers
 import org.matrix.rustcomponents.sdk.PusherKind
+import org.matrix.rustcomponents.sdk.RecoveryException
 import org.matrix.rustcomponents.sdk.RecoveryState
 import org.matrix.rustcomponents.sdk.VerificationState
 import java.util.Collections
@@ -299,8 +302,13 @@ class InternoSessions(private val app: BipeApplication) {
                 RecoveryState.UNKNOWN -> return
             }
             if (!isActive(member)) return
-            BipeApiClient.withTokenRetry({ work.accessToken() }) { app.accountStart.api.storeWorkMemberRecovery(key, it) }
-            keysDone(member)
+            try {
+                BipeApiClient.withTokenRetry({ work.accessToken() }) { app.accountStart.api.storeWorkMemberRecovery(key, recoveryKey, it) }
+                keysDone(member)
+            } catch (e: BipeApiException.Server) {
+                if (e.code != BipeApiErrorCode.RECOVERY_CHANGED) throw e
+                settleKeys(work, member, encryption, key)
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -308,6 +316,37 @@ class InternoSessions(private val app: BipeApplication) {
             Log.w(TAG, "member keys: ${e::class.simpleName}, retried on the next open")
         } finally {
             linking.remove(member.userId)
+        }
+    }
+
+    /**
+     * 409 recovery_changed (bipe#1471): another device of the person stored a key after this device read the session.
+     * The homeserver keeps the key backup that finished last, so either the stored key or [ownKey] opens it. Recover
+     * with the stored key: when it opens, this device uses that backup and gets the earlier history. When the key does
+     * not match, this device's backup is the one on the homeserver: PUT [ownKey] over the stored key. At most three
+     * rounds; another failure goes up to [linkKeys] and waits for the next open.
+     */
+    private suspend fun settleKeys(work: AccountSession, member: AccountSession, encryption: Encryption, ownKey: String) {
+        repeat(3) {
+            val grant = BipeApiClient.withTokenRetry({ work.accessToken() }) { app.accountStart.api.workMemberSession(it) }
+            if (grant.userId != member.userId || !isActive(member)) return
+            val stored = grant.recoveryKey
+            if (stored != null) {
+                try {
+                    encryption.recover(stored)
+                    keysDone(member)
+                    return
+                } catch (e: RecoveryException.SecretStorage) {
+                    // The stored key does not open the backup on the homeserver: this device's key does.
+                }
+            }
+            try {
+                BipeApiClient.withTokenRetry({ work.accessToken() }) { app.accountStart.api.storeWorkMemberRecovery(ownKey, stored, it) }
+                keysDone(member)
+                return
+            } catch (e: BipeApiException.Server) {
+                if (e.code != BipeApiErrorCode.RECOVERY_CHANGED) throw e
+            }
         }
     }
 
