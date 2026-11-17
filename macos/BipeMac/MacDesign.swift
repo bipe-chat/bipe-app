@@ -126,6 +126,10 @@ struct MacMessageView: View {
                         .buttonStyle(.plain).accessibilityLabel(BipeStrings.a11yOpenOriginal)
                         .task(id: reply.eventId) { await loadReply() }
                     }
+                    // Voice messages show the forward in their source line (voice-message); every other kind here.
+                    if !message.isDeleted, message.voice == nil, let line = BipeForwardMark.line(count: message.forwardCount) {
+                        MacForwardLine(source: line)
+                    }
                     if message.isDeleted {
                         Text(message.isOwn ? BipeStrings.appMessageDeletedOwn : BipeStrings.appMessageDeleted)
                             .macFont(.body).italic().foregroundStyle(BipeColor.inkSecondary)

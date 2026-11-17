@@ -304,6 +304,10 @@ struct MacChatView: View {
                                                isHighlighted: model.highlightedRowID == message.id,
                                                openOriginal: { eventID in Task { await model.openOriginal(eventID: eventID) } },
                                                loadReply: { await model.loadReply(rowID: message.id) })
+                                    .modifier(MacSelectableRow(isOn: model.selection != nil,
+                                                               isPicked: model.selection?.contains(message.id) == true,
+                                                               canSelect: model.canSelect(message),
+                                                               toggle: { model.toggleSelection(message) }))
                                     .id(message.id).onAppear { model.startMoneyPause(message) }
                                     .onChange(of: message.warning) { _, _ in model.startMoneyPause(message) }
                             case .day(let id, let date):
@@ -336,7 +340,17 @@ struct MacChatView: View {
             }
 
         }
-        .safeAreaInset(edge: .bottom, spacing: 0) { composer }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            VStack(spacing: 0) {
+                if let notice = model.notice {
+                    Text(notice).macFont(.callout).padding(.horizontal, 12).padding(.vertical, 6)
+                        .background(BipeColor.surfaceRaised, in: Capsule()).padding(.bottom, 6)
+                        .accessibilityAddTraits(.updatesFrequently)
+                }
+                // Spec message-forward startSelection: the selection bar takes the composer's place.
+                if model.selection != nil { MacSelectionBar(model: model) } else { composer }
+            }
+        }
         .navigationTitle(name)
         .toolbar {
             ToolbarItem(placement: .navigation) {
@@ -381,8 +395,10 @@ struct MacChatView: View {
                 }
             }.formStyle(.grouped).frame(width: 460).navigationTitle(BipeStrings.appMessageActionReport)
         }
-        .sheet(item: $model.forwarding) { message in
-            MacForwardSheet(message: message, targets: forwardTargets) { model.forwarding = nil }
+        .sheet(item: $model.forwarding) { forwarding in
+            MacForwardSheet(forwarding: forwarding, targets: forwardTargets.filter { $0.id != room.id() }) { failed in
+                model.forwardClosed(failed: failed)
+            }
         }
         .task { await model.run(room: room) }
         .task { await identity.observe() }

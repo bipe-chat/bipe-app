@@ -45,10 +45,14 @@ struct MacMessage: Identifiable {
     var file: MacFile? = nil
     var video: MacVideo? = nil
     var voice: MacVoice? = nil
+    /// Spec message-forward (bipe-chat/bipe#933): the chat.bipe.forward count of the event, for the forward line.
+    var forwardCount = 0
     /// Spec read-receipts: the tick of a sent own message; nil while it sends or failed, and on other people's messages.
     var receipt: MacReceipt? = nil
     /// Spec identity-change sendAnyway: the send queue held this own message because of a member's identity.
     var sendFailure: MacSendFailure? = nil
+    /// Spec message-forward: a sent message of kind message with its event JSON.
+    var canForward: Bool { isSent && forwardJson != nil && forwardMessage != nil }
     var isSent: Bool { eventID != nil && !pending && !failed && !isDeleted }
     var hasMediaCaption: Bool { isImage || file != nil || video != nil }
     var composerPreview: String {
@@ -132,7 +136,16 @@ final class MacTimeline: ObservableObject {
     @Published private(set) var editingPreview: String?
     @Published var deleting: MacMessage?
     @Published var reporting: MacMessage?
-    @Published var forwarding: MacMessage?
+    /// Spec message-forward open: the messages the chat picker sends, in timeline order.
+    @Published var forwarding: MacForwarding?
+    /// Spec message-forward selection mode (bipe-chat/bipe#860): the picked row IDs; nil when the mode is off.
+    @Published private(set) var selection: [String]?
+    @Published var confirmsDeleteSelection = false
+    /// A short notice under the timeline: forward done or failed, the selection limit, a failed delete.
+    @Published private(set) var notice: String?
+    private var noticeTask: Task<Void, Never>?
+    /// Spec message-forward notes: at most 10 messages in a selection.
+    nonisolated static let selectionLimit = 10
     @Published var copied = false
     private var canPin = false
     private var canRedactOwn = true
@@ -432,7 +445,8 @@ final class MacTimeline: ObservableObject {
             case .copyLink: !isDm && message.isSent
             case .pin: canPin && message.isSent && !pinned.contains(eventID)
             case .unpin: canPin && message.isSent && pinned.contains(eventID)
-            case .forward: message.isSent && message.forwardJson != nil && message.forwardMessage != nil
+            case .forward: message.canForward
+            case .select: selection == nil && canSelect(message)
             case .retry: message.isOwn && message.failed
             case .delete: message.canDelete
             case .report: !message.isOwn && message.isSent
@@ -460,7 +474,8 @@ final class MacTimeline: ObservableObject {
                     else { _ = try await timeline.unpinEvent(eventId: eventID); pinned.remove(eventID) }
                 } catch { failed = true }
             }
-        case .forward: forwarding = message
+        case .forward: forwarding = MacForwarding(messages: [message])
+        case .select: startSelection(message)
         case .retry:
             // Spec chat-timeline retrySend, with identity-change sendAnyway for a message the identity rules held.
             guard let handle = items.first(where: { $0.uniqueId().id == message.id })?.asEvent()?.lazyProvider.getSendHandle() else { return }
@@ -482,6 +497,100 @@ final class MacTimeline: ObservableObject {
             } else { deleting = message }
         case .report: reporting = message
         default: break
+        }
+    }
+
+    // MARK: Spec message-forward selection (bipe-chat/bipe#860)
+
+    /// A selectable row: a sent message that can be forwarded, or an own sent message the account can delete.
+    func canSelect(_ message: MacMessage) -> Bool {
+        message.isSent && (message.canForward || deletesInSelection(message))
+    }
+
+    private func deletesInSelection(_ message: MacMessage) -> Bool { message.isOwn && message.isSent && message.canDelete }
+
+    /// The picked messages that are still in the timeline and selectable, in timeline order.
+    var selectedMessages: [MacMessage] {
+        guard let selection else { return [] }
+        let picked = Set(selection)
+        return messages.filter { picked.contains($0.id) && canSelect($0) }
+    }
+
+    /// Action startSelection: the mode starts with this message picked.
+    func startSelection(_ message: MacMessage) {
+        guard canSelect(message) else { return }
+        if editingID != nil { cancelEdit() }
+        selection = [message.id]
+    }
+
+    /// Action toggleSelection: an 11th message shows the limit; removing the last one ends the mode.
+    func toggleSelection(_ message: MacMessage) {
+        guard var picked = selection else { return }
+        if let index = picked.firstIndex(of: message.id) {
+            picked.remove(at: index)
+        } else if picked.count >= Self.selectionLimit {
+            show(BipeStrings.selectLimit(String(Self.selectionLimit)))
+            return
+        } else if canSelect(message) {
+            picked.append(message.id)
+        } else {
+            return
+        }
+        selection = picked.isEmpty ? nil : picked
+    }
+
+    func cancelSelection() {
+        selection = nil
+        confirmsDeleteSelection = false
+    }
+
+    /// bipe_forward_action of the bar: on only when every picked message can be forwarded.
+    var canForwardSelection: Bool {
+        let picked = selectedMessages
+        return !picked.isEmpty && picked.allSatisfy(\.canForward)
+    }
+
+    /// bipe_app_message_action_delete of the bar: on when one picked message is own and can be deleted.
+    var canDeleteSelection: Bool { selectedMessages.contains(where: deletesInSelection) }
+
+    func forwardSelection() {
+        guard canForwardSelection else { return }
+        forwarding = MacForwarding(messages: selectedMessages)
+    }
+
+    /// The dialog of deleteSelection confirmed: deletes each own picked message for everyone, without a reason.
+    func confirmDeleteSelection() async {
+        let ids = selectedMessages.filter(deletesInSelection).map(\.id)
+        let targets = ids.compactMap { id in items.first(where: { $0.uniqueId().id == id })?.asEvent()?.eventOrTransactionId }
+        cancelSelection()
+        guard let timeline, !targets.isEmpty else { return }
+        var anyFailed = false
+        for target in targets {
+            do { try await timeline.redactEvent(eventOrTransactionId: target, reason: nil) } catch { anyFailed = true }
+        }
+        if anyFailed { show(BipeStrings.selectDeleteFailed) }
+    }
+
+    /// The picker closed: nil when cancelled, else the names of the chats whose send failed.
+    func forwardClosed(failed: [String]?) {
+        let count = forwarding?.messages.count ?? 0
+        forwarding = nil
+        guard let failed else { return }
+        // A sent forward ends selection mode; a cancelled picker keeps it.
+        cancelSelection()
+        if failed.isEmpty {
+            show(count > 1 ? BipeStrings.selectForwardDone : BipeStrings.forwardDone)
+        } else {
+            show(BipeStrings.forwardFailed(failed.joined(separator: ", ")))
+        }
+    }
+
+    private func show(_ text: String) {
+        notice = text
+        noticeTask?.cancel()
+        noticeTask = Task { [weak self] in
+            guard (try? await Task.sleep(for: .seconds(2))) != nil else { return }
+            self?.notice = nil
         }
     }
 
@@ -847,6 +956,7 @@ final class MacTimeline: ObservableObject {
                           isImage: payload.photo != nil,
                           forwardJson: forwardJson, forwardMessage: forwardMessage, reply: reply, isEdited: payload.isEdited, isDeleted: payload.isDeleted,
                           file: payload.file, video: payload.video, voice: payload.voice,
+                          forwardCount: decryptable ? BipeForwardMark.count(eventJson: debugInfo.originalJson) : 0,
                           receipt: event.isOwn && !pending && !failed && eventID != nil ? receipt : nil, sendFailure: sendFailure)
     }
 }
