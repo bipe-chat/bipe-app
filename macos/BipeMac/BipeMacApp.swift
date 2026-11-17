@@ -396,7 +396,7 @@ struct MacChatView: View {
             }.formStyle(.grouped).frame(width: 460).navigationTitle(BipeStrings.appMessageActionReport)
         }
         .sheet(item: $model.forwarding) { forwarding in
-            MacForwardSheet(forwarding: forwarding, targets: forwardTargets.filter { $0.id != room.id() }) { failed in
+            MacForwardSheet(forwarding: forwarding, targets: forwardTargets) { failed in
                 model.forwardClosed(failed: failed)
             }
         }
