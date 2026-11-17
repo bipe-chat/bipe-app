@@ -194,7 +194,7 @@ final class InternoSessions: ObservableObject {
                 return
             }
             // A key stored for an older identity does not open the new one.
-            await storeRecovery(member, encryption: encryption, serverHasKey: false, api: api)
+            await storeRecovery(member, encryption: encryption, grantKey: grantKey, keyWorks: false, api: api)
             return
         }
         await useGrantKey(member, encryption: encryption, grantKey: grantKey, api: api)
@@ -214,18 +214,19 @@ final class InternoSessions: ObservableObject {
             }
             return
         }
-        await storeRecovery(member, encryption: encryption, serverHasKey: grantKey != nil, api: api)
+        await storeRecovery(member, encryption: encryption, grantKey: grantKey, keyWorks: grantKey != nil, api: api)
     }
 
-    /// Step 3: this device is verified and bipe-api holds no working key: make one and PUT it. serverHasKey with
-    /// recovery enabled here means the key in bipe-api works: nothing to send. Recovery enabled or incomplete without
-    /// a key in bipe-api makes a new key (the old one is in no hands). Runs until one PUT succeeds.
-    private static func storeRecovery(_ member: AccountSession, encryption: Encryption, serverHasKey: Bool,
+    /// Step 3: this device is verified and bipe-api holds no working key: make one and PUT it over grantKey, the key
+    /// this device got from the session. keyWorks with recovery enabled here means the key in bipe-api works: nothing
+    /// to send. Recovery enabled or incomplete without a working key makes a new key (the old one is in no hands). A
+    /// 409 recovery_changed goes to settle. Runs until one PUT or recover succeeds.
+    private static func storeRecovery(_ member: AccountSession, encryption: Encryption, grantKey: String?, keyWorks: Bool,
                                       api: BipeBusinessAPI) async {
         guard !recoveryStored(member.userId), encryption.verificationState() == .verified else { return }
         let state = encryption.recoveryState()
         if state == .unknown { return }
-        if serverHasKey, state == .enabled {
+        if keyWorks, state == .enabled {
             setRecoveryStored(true, memberId: member.userId)
             return
         }
@@ -237,10 +238,56 @@ final class InternoSessions: ObservableObject {
             } else {
                 key = try await encryption.resetRecoveryKey()
             }
-            try await api.putMemberRecovery(recoveryKey: key)
-            setRecoveryStored(true, memberId: member.userId)
+            do {
+                try await api.putMemberRecovery(recoveryKey: key, seen: grantKey)
+                setRecoveryStored(true, memberId: member.userId)
+            } catch BipeAPIError.server(.recoveryChanged, _, _) {
+                await settle(member, encryption: encryption, ownKey: key, api: api)
+            }
         } catch {
             AccountStep.log.error("interno: recovery key not stored")
+        }
+    }
+
+    /// 409 recovery_changed (bipe#1471): another device of the person stored a key after this device read the session.
+    /// The homeserver keeps the key backup that finished last, so either the stored key or ownKey opens it. Recover with
+    /// the stored key: when it opens, this device uses that backup and gets the earlier history. When the key does not
+    /// match, this device's backup is the one on the homeserver: PUT ownKey over the stored key. At most three rounds;
+    /// a network failure waits for the next open.
+    private static func settle(_ member: AccountSession, encryption: Encryption, ownKey: String,
+                               api: BipeBusinessAPI) async {
+        for _ in 0..<3 {
+            let stored: String?
+            do {
+                let grant = try await api.memberSession()
+                guard grant.userId == member.userId else { return }
+                stored = grant.recoveryKey
+            } catch {
+                AccountStep.log.error("interno: member grant read failed")
+                return
+            }
+            if let stored {
+                do {
+                    try await encryption.recover(recoveryKey: stored)
+                    setRecoveryStored(true, memberId: member.userId)
+                    return
+                } catch RecoveryError.SecretStorage {
+                    // The stored key does not open the backup on the homeserver: this device's key does.
+                } catch {
+                    AccountStep.log.error("interno: recover failed")
+                    return
+                }
+            }
+            do {
+                try await api.putMemberRecovery(recoveryKey: ownKey, seen: stored)
+                setRecoveryStored(true, memberId: member.userId)
+                return
+            } catch BipeAPIError.server(.recoveryChanged, _, _) {
+                continue
+            } catch {
+                AccountStep.log.error("interno: recovery key not stored")
+                return
+            }
         }
     }
 
