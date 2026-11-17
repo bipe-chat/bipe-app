@@ -533,6 +533,9 @@ enum class BipeApiErrorCode(val id: String) {
 
     /** 409. The work account already has a Geral room (ADR 0284). The app leaves its own room and joins that one. */
     GERAL_EXISTS("geral_exists"),
+
+    /** 409. Another device of the person stored a member recovery key first (bipe#1471). The app reads the session again. */
+    RECOVERY_CHANGED("recovery_changed"),
     ;
 
     companion object {
@@ -624,7 +627,7 @@ sealed class BipeApiException(cause: Throwable? = null) : Exception(cause) {
             BipeApiErrorCode.SEAT_LIMIT, BipeApiErrorCode.SEAT_WINDOW_OPEN -> context.getString(R.string.bipe_team_error)
             BipeApiErrorCode.SEAT_WINDOW_CLOSED -> context.getString(R.string.bipe_team_add_expired)
             BipeApiErrorCode.CHAT_TAKEN, BipeApiErrorCode.SEAT_REQUIRED -> context.getString(R.string.bipe_chat_assign_error)
-            BipeApiErrorCode.GERAL_EXISTS -> context.getString(R.string.bipe_interno_error)
+            BipeApiErrorCode.GERAL_EXISTS, BipeApiErrorCode.RECOVERY_CHANGED -> context.getString(R.string.bipe_interno_error)
             BipeApiErrorCode.BAD_REQUEST, BipeApiErrorCode.NOT_FOUND, BipeApiErrorCode.INTERNAL, BipeApiErrorCode.PHOTO_INVALID,
             BipeApiErrorCode.PASSWORD_WEAK, BipeApiErrorCode.SUPPORT_UNAVAILABLE ->
                 context.getString(R.string.bipe_error_generic)

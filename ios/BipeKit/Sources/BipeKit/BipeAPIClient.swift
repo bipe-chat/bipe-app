@@ -1290,6 +1290,8 @@ public enum BipeAPIErrorCode: String, Sendable {
     case seatRequired = "seat_required"
     /// 409. The work account already has a Geral room (ADR 0284); the app joins that one.
     case geralExists = "geral_exists"
+    /// 409. Another device of the person stored a member recovery key first (bipe#1471); the app reads the session again.
+    case recoveryChanged = "recovery_changed"
 }
 
 public enum BipeAPIError: Error, Sendable, Equatable {
@@ -1368,7 +1370,7 @@ public enum BipeAPIError: Error, Sendable, Equatable {
             case .seatLimit, .seatWindowOpen: BipeStrings.teamError
             case .seatWindowClosed: BipeStrings.teamAddExpired
             case .chatTaken, .seatRequired: BipeStrings.chatAssignError
-            case .geralExists: BipeStrings.internoError
+            case .geralExists, .recoveryChanged: BipeStrings.internoError
             case .badRequest, .notFound, .internal: BipeStrings.errorGeneric
             }
         case .network:

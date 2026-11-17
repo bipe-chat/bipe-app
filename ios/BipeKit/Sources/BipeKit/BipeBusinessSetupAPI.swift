@@ -2,6 +2,7 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
+import CryptoKit
 import Foundation
 
 // The Trabalho tab step by step (ADR 0194). Contract: bipe-shared api/openapi.yaml, /v1/me/business/tools, sector,
@@ -376,7 +377,19 @@ public enum BipeMemberIdentity {
 }
 
 private struct WorkGeral: Encodable { let roomId: String }
-private struct WorkMemberRecovery: Encodable { let recoveryKey: String }
+/// Body of PUT members/recovery. replaces is always sent, null included: a body without it is the old overwrite.
+private struct WorkMemberRecovery: Encodable {
+    let recoveryKey: String
+    let replaces: String?
+
+    private enum CodingKeys: String, CodingKey { case recoveryKey, replaces }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(recoveryKey, forKey: .recoveryKey)
+        try container.encode(replaces, forKey: .replaces)
+    }
+}
 
 extension BipeBusinessAPI {
     /// `GET /v1/me/business/members`. A device of the work account with a person, else 403 `seat_required`.
@@ -396,9 +409,16 @@ extension BipeBusinessAPI {
     }
 
     /// `PUT /v1/me/business/members/recovery`. Stores the member identity's recovery key for the person's next device.
-    /// 404 `not_found` when the seat has no member identity. Never log the key.
-    public func putMemberRecovery(recoveryKey: String) async throws(BipeAPIError) {
+    /// `seen` is the key that POST members/session gave this device, or nil (bipe#1471): 409 `recovery_changed` when
+    /// another device stored a key after that. 404 `not_found` when the seat has no member identity. Never log the key.
+    public func putMemberRecovery(recoveryKey: String, seen: String?) async throws(BipeAPIError) {
+        let body = WorkMemberRecovery(recoveryKey: recoveryKey, replaces: seen.map(Self.recoveryKeyHash))
         let _: BipeAPIClient.NoContent = try await request("PUT", ["v1", "me", "business", "members", "recovery"],
-                                                           json: WorkMemberRecovery(recoveryKey: recoveryKey))
+                                                           json: body)
+    }
+
+    /// The SHA-256 (lower-case hex) of a recovery key's UTF-8 bytes: the contract's `replaces`.
+    public static func recoveryKeyHash(_ recoveryKey: String) -> String {
+        SHA256.hash(data: Data(recoveryKey.utf8)).map { String(format: "%02x", $0) }.joined()
     }
 }

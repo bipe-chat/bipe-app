@@ -368,19 +368,6 @@ enum PeopleError: Error {
     case limitExceeded
 }
 
-final class IgnoredUsersStream: IgnoredUsersListener {
-    let updates: AsyncStream<[String]>
-    private let continuation: AsyncStream<[String]>.Continuation
-
-    init() {
-        (updates, continuation) = AsyncStream.makeStream()
-    }
-
-    func call(ignoredUserIds: [String]) {
-        continuation.yield(ignoredUserIds)
-    }
-}
-
 /// The people screens a navigation stack can push.
 enum PeopleRoute: Hashable {
     case person(userId: String, fromDm: Bool)
