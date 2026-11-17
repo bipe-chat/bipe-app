@@ -2598,6 +2598,14 @@ public enum BipeStrings {
 
     public static var deviceDetailIdCopied: String { NSLocalizedString("bipe_device_detail_id_copied", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var deviceDetailReadsAll: String { NSLocalizedString("bipe_device_detail_reads_all", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var deviceDetailReadsAllFooter: String { NSLocalizedString("bipe_device_detail_reads_all_footer", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var deviceDetailReadsOwnOnly: String { NSLocalizedString("bipe_device_detail_reads_own_only", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var deviceDetailReadsFailed: String { NSLocalizedString("bipe_device_detail_reads_failed", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var linkComputerWarningTitle: String { NSLocalizedString("bipe_link_computer_warning_title", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var linkComputerWarningBody: String { NSLocalizedString("bipe_link_computer_warning_body", tableName: "Bipe", bundle: .module, comment: "") }
