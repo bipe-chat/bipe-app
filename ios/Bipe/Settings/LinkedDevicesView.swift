@@ -302,12 +302,14 @@ struct DeviceDetailView: View {
     let row: BipeDevices.Row
     @ObservedObject var devices: LinkedDevicesModel
     @ObservedObject private var settings: SettingsModel
+    @StateObject private var readChats: AssistantReadChats
     @Environment(\.dismiss) private var dismiss
 
     init(row: BipeDevices.Row, devices: LinkedDevicesModel) {
         self.row = row
         self.devices = devices
         _settings = ObservedObject(wrappedValue: devices.model)
+        _readChats = StateObject(wrappedValue: AssistantReadChats(session: devices.model.session))
     }
 
     var body: some View {
@@ -377,6 +379,8 @@ struct DeviceDetailView: View {
                     }
                     .disabled(settings.assistantSend == nil)
                 }
+                // State fullContentRooms (bipe-chat/bipe#1515).
+                AssistantReadChatsSection(chats: readChats)
             }
             if row.canSignOut {
                 Section {
@@ -393,6 +397,9 @@ struct DeviceDetailView: View {
         .accessibilityIdentifier(BipeScreen.deviceDetail.rawValue)
         .linkedDevicesSignOut(devices)
         .toast($devices.notice)
+        .task {
+            if row.kind == "assistant" { readChats.start() }
+        }
         // The device left the list: its detail closes.
         .onChange(of: devices.rows) { _, rows in
             if case .loaded = devices.phase, !rows.contains(where: { $0.deviceId == row.deviceId }) { dismiss() }

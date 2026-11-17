@@ -192,10 +192,10 @@ fun rememberLinkedDevices(model: SettingsModel): LinkedDevicesModel {
 
 /** True while device-detail is in front: the group screen shows only that page. */
 @Composable
-fun LinkedDevicesPage(devices: LinkedDevicesModel): Boolean {
+fun LinkedDevicesPage(devices: LinkedDevicesModel, openChat: (String) -> Unit = {}): Boolean {
     val state by devices.state.collectAsState()
     val row = state.detail?.let { id -> state.rows.firstOrNull { it.deviceId == id } } ?: return false
-    DeviceDetail(devices, state, row)
+    DeviceDetail(devices, state, row, openChat)
     return true
 }
 
@@ -393,12 +393,17 @@ private fun DeviceRow(row: BipeDevices.Row, place: String?, devices: LinkedDevic
 
 /** Spec device-detail (ADR 0291): everything Bipe knows about one device. */
 @Composable
-private fun DeviceDetail(devices: LinkedDevicesModel, state: LinkedDevicesModel.State, row: BipeDevices.Row) {
+private fun DeviceDetail(devices: LinkedDevicesModel, state: LinkedDevicesModel.State, row: BipeDevices.Row, openChat: (String) -> Unit) {
     val context = LocalContext.current
     val view = LocalView.current
     val scope = rememberCoroutineScope()
     val colors = BipeTheme.colors
     val settings by devices.model.state.collectAsState()
+    // State fullContentRooms (bipe-chat/bipe#1515).
+    val noName = stringResource(R.string.bipe_dm_no_name)
+    val readChats = remember(row.deviceId) { AssistantReadChats(devices.model.session, scope, noName) }
+    if (row.kind == "assistant") LaunchedEffect(readChats) { readChats.start() }
+    val readPhase by readChats.phase.collectAsState()
     BackHandler { devices.open(null) }
     val title = if (row.isThis) stringResource(R.string.bipe_devices_this_device) else row.title(context)
     SettingsPage(title, BipeScreen.DEVICE_DETAIL.id, onBack = { devices.open(null) }) {
@@ -473,6 +478,7 @@ private fun DeviceDetail(devices: LinkedDevicesModel, state: LinkedDevicesModel.
                     scope.launch { if (devices.model.setAssistantSend(isOn)) view.bipeHaptic(BipeHaptic.Tick) }
                 }
             }
+            assistantReadChatsItems(readPhase, onRetry = readChats::load, openChat = openChat)
         }
         if (row.canSignOut) {
             item(key = "device-sign-out") {

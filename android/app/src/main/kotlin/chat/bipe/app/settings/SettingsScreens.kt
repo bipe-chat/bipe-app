@@ -202,7 +202,8 @@ fun SettingsHost(
                 }
             }
         }
-        is SettingsRoute.Group -> SettingsGroupScreen(model, route.group, onBack = pop, onOpen = { stack.add(it) }, onSignedOut = onSignedOut)
+        is SettingsRoute.Group -> SettingsGroupScreen(model, route.group, onBack = pop, onOpen = { stack.add(it) }, onSignedOut = onSignedOut,
+            onOpenChat = { stack.clear(); onOpenChat(it) })
         is SettingsRoute.People -> PeopleScreen(route.route, people, PeopleNavigation(
             push = { stack.add(SettingsRoute.People(it)) }, pop = pop,
             openChat = { stack.clear(); onOpenChat(it) },
@@ -373,6 +374,7 @@ fun SettingsGroupScreen(
     onBack: () -> Unit,
     onOpen: (SettingsRoute) -> Unit,
     onSignedOut: () -> Unit,
+    onOpenChat: (String) -> Unit = {},
 ) {
     val context = LocalContext.current
     val view = LocalView.current
@@ -453,7 +455,7 @@ fun SettingsGroupScreen(
 
     // Spec linked-devices (ADR 0291): the device rows open the group Aparelhos e assistentes.
     val linked = if (group == BipeSettingsGroup.DEVICES) rememberLinkedDevices(model) else null
-    if (linked != null && LinkedDevicesPage(linked)) return
+    if (linked != null && LinkedDevicesPage(linked, onOpenChat)) return
     val linkedState = linked?.state?.collectAsState()?.value
     SettingsPage(stringResource(group.title), BipeScreen.SETTINGS_GROUP.id, onBack) {
         // The company account's owner on this phone (spec settings-group notes, bipe-chat/bipe#444).
