@@ -104,6 +104,10 @@ class WindowsNativeLifecycleTest {
                     path.contains("/send/m.room.message/") && exchange.requestMethod == "PUT" -> 200 to """{"event_id":"$sentEventId"}"""
                     path.contains("/redact/${'$'}own/") && exchange.requestMethod == "PUT" -> 200 to """{"event_id":"${'$'}redaction"}"""
                     path.contains("/typing/") && exchange.requestMethod == "PUT" -> 200 to "{}"
+                    // The typing row asks the SDK for display names, and the SDK loads the member list first.
+                    path.endsWith("/rooms/$room/members") -> 200 to """{"chunk":[
+                        {"type":"m.room.member","room_id":"$room","state_key":"@synthetic:example.test","sender":"@synthetic:example.test","event_id":"${'$'}member","origin_server_ts":2,"content":{"membership":"join","displayname":"Synthetic"}},
+                        {"type":"m.room.member","room_id":"$room","state_key":"@peer:example.test","sender":"@peer:example.test","event_id":"${'$'}peer","origin_server_ts":2,"content":{"membership":"join","displayname":"Peer"}}]}"""
                     path.endsWith("/keys/upload") -> 200 to """{"one_time_key_counts":{"signed_curve25519":50}}"""
                     path.endsWith("/keys/query") -> 200 to """{"device_keys":{},"failures":{}}"""
                     path.endsWith("/keys/claim") -> 200 to """{"one_time_keys":{},"failures":{}}"""

@@ -5,88 +5,101 @@
 package chat.bipe.desktop.chat
 
 import chat.bipe.app.common.VectorDiff
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
 import org.junit.Test
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.util.Locale
 
+/** Each case records what the policy or formatter answered at every step and compares the whole story once. */
 class TimelinePresentationTest {
     private fun message(id: String, own: Boolean = false, sender: String = "@peer:test") = MessageRow(
         id, "Same display name", own, "Body", MessageRow.Kind.TEXT, 1, MessageRow.Delivery.SENT, senderId = sender)
 
+    /** Feeds message lists and scroll events to one policy; returns whether each list moved the view to the newest. */
+    private fun TimelineScrollPolicy.story(vararg steps: Any): List<Boolean> = steps.mapNotNull { step ->
+        when (step) {
+            is Scroll -> { userScrolled(step.atNewest); null }
+            Jump -> { jumpToNewest(); null }
+            is List<*> -> messagesChanged(step.filterIsInstance<MessageRow>())
+            else -> error("Unknown step $step")
+        }
+    }
+    private data class Scroll(val atNewest: Boolean)
+    private data object Jump
+
     @Test fun followingIncomingAndReadingHistoryAreSeparateUntilThePersonJumpsBack() {
-        val policy = TimelineScrollPolicy()
         val first = message("first"); val next = message("next"); val latest = message("latest")
-        assertTrue(policy.messagesChanged(listOf(first)))
-        assertTrue(policy.messagesChanged(listOf(first, next)))
-        policy.userScrolled(false)
-        assertFalse(policy.messagesChanged(listOf(first, next, latest)))
-        assertFalse(policy.messagesChanged(listOf(message("history"), first, next, latest)))
-        assertFalse(policy.messagesChanged(listOf(first, next, latest.copy(isEdited = true))))
-        policy.jumpToNewest()
-        assertTrue(policy.messagesChanged(listOf(first, next, latest, message("new"))))
+        val answers = TimelineScrollPolicy().story(
+            listOf(first), listOf(first, next), Scroll(false),
+            listOf(first, next, latest), listOf(message("history"), first, next, latest),
+            listOf(first, next, latest.copy(isEdited = true)), Jump,
+            listOf(first, next, latest, message("new")))
+        assertEquals(listOf(true, true, false, false, false, true), answers)
     }
 
     @Test fun ownArrivalFollowsButRemovingNewestCannotConfuseAnOlderOwnMessageWithANewSend() {
-        val policy = TimelineScrollPolicy(); val own = message("own", own = true); val incoming = message("incoming")
-        policy.messagesChanged(listOf(own, incoming)); policy.userScrolled(false)
-        assertFalse(policy.messagesChanged(listOf(own)))
+        val own = message("own", own = true); val incoming = message("incoming")
         val queued = message("queued", own = true).copy(delivery = MessageRow.Delivery.SENDING)
-        assertTrue(policy.messagesChanged(listOf(own, queued)))
-        assertFalse(policy.messagesChanged(listOf(own, queued.copy(delivery = MessageRow.Delivery.SENT))))
+        val answers = TimelineScrollPolicy().story(
+            listOf(own, incoming), Scroll(false), listOf(own), listOf(own, queued),
+            listOf(own, queued.copy(delivery = MessageRow.Delivery.SENT)))
+        assertEquals(listOf(false, true, false), answers.drop(1))
     }
 
     @Test fun roomViewportsDoNotResetWhileLoadingAndTheirFollowPoliciesAreIndependent() {
-        val first = TimelineScrollPolicy(); val other = TimelineScrollPolicy()
         val row = message("same-id")
-        first.messagesChanged(listOf(row)); first.userScrolled(false)
-        assertFalse(first.messagesChanged(emptyList()))
-        assertFalse(first.messagesChanged(listOf(row)))
-        assertTrue(other.messagesChanged(listOf(row)))
-        assertFalse(first.messagesChanged(listOf(row, message("new"))))
-        first.userScrolled(true)
-        assertTrue(first.messagesChanged(listOf(row, message("newer"))))
+        val first = TimelineScrollPolicy(); val other = TimelineScrollPolicy()
+        // Interleaved on purpose: the second room's answer must not depend on the first room's scroll state.
+        val loading = first.story(listOf(row), Scroll(false), emptyList<MessageRow>(), listOf(row)).drop(1)
+        val otherRoom = other.story(listOf(row))
+        val later = first.story(listOf(row, message("new")), Scroll(true), listOf(row, message("newer")))
+        assertEquals(listOf(listOf(false, false), listOf(true), listOf(false, true)), listOf(loading, otherRoom, later))
     }
 
     @Test fun sdkDividersSurviveHiddenItemsHistoryPrependAndDividerReplacementWithoutChangingMessageIdentity() {
         val vector = SnapshotVector<TimelineSnapshot>()
+        fun rows() = vector.visible().messageRows().map { it.id to it.dayBefore }
         vector.apply(VectorDiff.Reset(listOf(TimelineSnapshot.Day(200), null, TimelineSnapshot.Message(message("b")),
             TimelineSnapshot.Message(message("c")))))
-        assertEquals(listOf(200L, null), vector.visible().messageRows().map { it.dayBefore })
+        val reset = rows()
         vector.apply(VectorDiff.Insert(0, TimelineSnapshot.Day(100)))
         vector.apply(VectorDiff.Insert(1, TimelineSnapshot.Message(message("a"))))
-        var rows = vector.visible().messageRows()
-        assertEquals(listOf("a", "b", "c"), rows.map { it.id })
-        assertEquals(listOf(100L, 200L, null), rows.map { it.dayBefore })
+        val prepended = rows()
         vector.apply(VectorDiff.Set(2, TimelineSnapshot.Day(250)))
         vector.apply(VectorDiff.Remove(4))
-        rows = vector.visible().messageRows()
-        assertEquals(listOf("a", "c"), rows.map { it.id })
-        assertEquals(listOf(100L, 250L), rows.map { it.dayBefore })
+        assertEquals(listOf(
+            listOf("b" to 200L, "c" to null),
+            listOf("a" to 100L, "b" to 200L, "c" to null),
+            listOf("a" to 100L, "c" to 250L),
+        ), listOf(reset, prepended, rows()))
     }
 
     @Test fun groupNamesNeverCollapseAndOnlyTheCurrentDmPeerCanLoseTheSenderLine() {
         val peer = message("peer")
-        assertFalse(peer.showsSender(true, "@peer:test"))
-        assertTrue(peer.showsSender(false, "@peer:test"))
-        assertTrue(peer.showsSender(true, null))
-        assertTrue(message("former", sender = "@former:test").showsSender(true, "@peer:test"))
-        assertTrue(peer.copy(kind = MessageRow.Kind.UNDECRYPTABLE).showsSender(true, "@peer:test"))
-        assertFalse(peer.copy(own = true).showsSender(false, null))
-        assertTrue(peer.copy(kind = MessageRow.Kind.DELETED).showsSender(false, null))
+        val cases = mapOf(
+            "dm peer" to peer.showsSender(true, "@peer:test"),
+            "group" to peer.showsSender(false, "@peer:test"),
+            "dm without known peer" to peer.showsSender(true, null),
+            "former dm member" to message("former", sender = "@former:test").showsSender(true, "@peer:test"),
+            "locked message from peer" to peer.copy(kind = MessageRow.Kind.UNDECRYPTABLE).showsSender(true, "@peer:test"),
+            "own in group" to peer.copy(own = true).showsSender(false, null),
+            "deleted in group" to peer.copy(kind = MessageRow.Kind.DELETED).showsSender(false, null),
+        )
+        assertEquals(mapOf("dm peer" to false, "group" to true, "dm without known peer" to true, "former dm member" to true,
+            "locked message from peer" to true, "own in group" to false, "deleted in group" to true), cases)
     }
 
     @Test fun todayAndYesterdayUseLocalDaysAcrossDstAndYearBoundaries() {
         val zone = ZoneId.of("Europe/Amsterdam")
         val day = LocalDate.of(2026, 10, 26)
-        val timestamp = ZonedDateTime.of(2026, 10, 25, 0, 30, 0, 0, zone).toInstant().toEpochMilli()
-        assertEquals("Yesterday", TimelineDates.label(timestamp, day, zone, Locale.ENGLISH, "Today", "Yesterday"))
-        assertEquals("Today", TimelineDates.label(timestamp, day.minusDays(1), zone, Locale.ENGLISH, "Today", "Yesterday"))
         val newYear = LocalDate.of(2027, 1, 1)
-        assertEquals("Yesterday", TimelineDates.label(newYear.minusDays(1).atStartOfDay(zone).toInstant().toEpochMilli(),
-            newYear, zone, Locale.ENGLISH, "Today", "Yesterday"))
+        val timestamp = ZonedDateTime.of(2026, 10, 25, 0, 30, 0, 0, zone).toInstant().toEpochMilli()
+        fun label(at: Long, today: LocalDate) = TimelineDates.label(at, today, zone, Locale.ENGLISH, "Today", "Yesterday")
+        assertEquals(listOf("Yesterday", "Today", "Yesterday"), listOf(
+            label(timestamp, day), label(timestamp, day.minusDays(1)),
+            label(newYear.minusDays(1).atStartOfDay(zone).toInstant().toEpochMilli(), newYear)))
     }
 
     @Test fun olderDatesUseAppLanguageAndOnlyAnotherYearShowsItsYearAndFullTimestampStaysAccessible() {
@@ -95,9 +108,12 @@ class TimelinePresentationTest {
         val today = LocalDate.of(2026, 11, 14)
         val english = TimelineDates.label(timestamp, today, zone, Locale.ENGLISH, "Today", "Yesterday")
         val portuguese = TimelineDates.label(timestamp, today, zone, Locale.forLanguageTag("pt-BR"), "Hoje", "Ontem")
-        assertTrue(english.contains("June")); assertFalse(english.contains("2026"))
-        assertTrue(portuguese.contains("junho")); assertFalse(portuguese.contains("2026"))
-        assertTrue(TimelineDates.label(timestamp, today.plusYears(1), zone, Locale.ENGLISH, "Today", "Yesterday").contains("2026"))
-        assertTrue(TimelineDates.fullTimestamp(timestamp, zone, Locale.ENGLISH).contains("2026"))
+        val nextYear = TimelineDates.label(timestamp, today.plusYears(1), zone, Locale.ENGLISH, "Today", "Yesterday")
+        assertEquals(mapOf("english month" to true, "english year" to false, "portuguese month" to true, "portuguese year" to false,
+            "another year shows it" to true, "full timestamp year" to true), mapOf(
+            "english month" to ("June" in english), "english year" to ("2026" in english),
+            "portuguese month" to ("junho" in portuguese), "portuguese year" to ("2026" in portuguese),
+            "another year shows it" to ("2026" in nextYear),
+            "full timestamp year" to ("2026" in TimelineDates.fullTimestamp(timestamp, zone, Locale.ENGLISH))))
     }
 }
