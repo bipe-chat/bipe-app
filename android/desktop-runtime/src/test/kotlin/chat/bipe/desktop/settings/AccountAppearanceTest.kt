@@ -21,13 +21,13 @@ class AccountAppearanceTest {
             val backend = Backend().apply { server = """{"palette":"pitanga","readReceipts":false,"future":{"preserve":7},"mural":true}""" }
             val model = AccountAppearance.create(owner, policy, backend, Journal())
             model.pickBackground("frutas")
-            assertEquals(AppearanceSync.IDLE, model.settled().sync)
+            val sync = model.settled().sync
             val sent = BipeSyncedSettings.parse(backend.writes.single())
-            assertEquals("frutas", BipeSyncedSettings.string(sent, "chatBackground"))
-            assertEquals("pitanga", BipeSyncedSettings.string(sent, "palette"))
-            assertEquals(false, BipeSyncedSettings.bool(sent, "readReceipts"))
-            assertEquals(true, BipeSyncedSettings.bool(sent, "mural"))
-            assertEquals(JsonPrimitive(7), sent.getValue("future").jsonObject["preserve"])
+            assertEquals(mapOf("sync" to AppearanceSync.IDLE, "chatBackground" to "frutas", "palette" to "pitanga",
+                "readReceipts" to false, "mural" to true, "unknown key" to JsonPrimitive(7)), mapOf("sync" to sync,
+                "chatBackground" to BipeSyncedSettings.string(sent, "chatBackground"), "palette" to BipeSyncedSettings.string(sent, "palette"),
+                "readReceipts" to BipeSyncedSettings.bool(sent, "readReceipts"), "mural" to BipeSyncedSettings.bool(sent, "mural"),
+                "unknown key" to sent.getValue("future").jsonObject["preserve"]))
         }
     }
 
@@ -81,14 +81,11 @@ class AccountAppearanceTest {
             journal.fail = true
             model.pickPalette("goiaba")
             val failure = model.settled()
-            assertEquals("acai", failure.values.palette(policy))
-            assertTrue((failure.sync as AppearanceSync.FAILED).action is AppearanceRetry.Edit)
-            assertTrue(backend.writes.isEmpty())
+            val failed = Triple(failure.values.palette(policy), (failure.sync as AppearanceSync.FAILED).action is AppearanceRetry.Edit, backend.writes.size)
             journal.fail = false
             model.retry().join()
-            assertEquals("goiaba", model.ready().values.palette(policy))
-            assertEquals(AppearanceSync.IDLE, model.ready().sync)
-            assertEquals(1, backend.writes.size)
+            val retried = Triple(model.ready().values.palette(policy), model.ready().sync, backend.writes.size)
+            assertEquals(Triple("acai", true, 0) to Triple("goiaba", AppearanceSync.IDLE, 1), failed to retried)
         }
     }
 

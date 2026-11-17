@@ -19,15 +19,19 @@ class DeleteActionsTest {
             val model = DeleteActions(AccountTaskGroup.create(owner), { current }, backend)
             model.start(); model.ready()
             val intent = model.candidate("row")!!
-            assertEquals("\$own", intent.eventId); assertEquals(0, backend.calls.get())
-            assertNull(model.candidate("another-row"))
-            current = current.copy(own = false)
-            assertNull(model.candidate("row")); model.confirm(intent)
-            current = message().copy(delivery = MessageRow.Delivery.FAILED)
-            assertNull(model.candidate("row")); model.confirm(intent)
-            current = message().copy(kind = MessageRow.Kind.DELETED)
-            assertNull(model.candidate("row")); model.confirm(intent)
-            assertEquals(0, backend.calls.get())
+            val facts = mutableMapOf<String, Any?>("target" to intent.eventId, "calls after reading" to backend.calls.get(),
+                "another row" to model.candidate("another-row"))
+            // Each change makes the same row ineligible; a dialog opened earlier cannot confirm it either.
+            for ((name, row) in listOf("incoming" to message().copy(own = false),
+                    "failed send" to message().copy(delivery = MessageRow.Delivery.FAILED),
+                    "already deleted" to message().copy(kind = MessageRow.Kind.DELETED))) {
+                current = row
+                facts[name] = model.candidate("row")
+                model.confirm(intent)
+            }
+            facts["calls"] = backend.calls.get()
+            assertEquals(mapOf("target" to "\$own", "calls after reading" to 0, "another row" to null, "incoming" to null,
+                "failed send" to null, "already deleted" to null, "calls" to 0), facts)
         }
     }
 
@@ -41,10 +45,10 @@ class DeleteActionsTest {
             current = message().copy(eventId = "\$replacement")
             model.confirm(original)
             current = null; model.confirm(original)
-            assertEquals(0, backend.calls.get())
+            val sameAccount = backend.calls.get()
             val other = DeleteActions(AccountTaskGroup.create(second), { message() }, backend)
             other.start(); other.ready(); other.confirm(original)
-            assertEquals(0, backend.calls.get())
+            assertEquals(0 to 0, sameAccount to backend.calls.get())
         } }
     }
 
@@ -95,9 +99,9 @@ class DeleteActionsTest {
             model.confirm(intent); entered.await()
             val closing = async(start = CoroutineStart.UNDISPATCHED) { group.close() }
             release.complete(Unit); closing.await()
-            assertTrue(model.phase.value is DeletePhase.Deleting)
-            assertNull(model.candidate("row")); model.confirm(intent)
-            assertEquals(1, backend.calls.get()); assertTrue(owner.isCurrent())
+            val stillDeleting = model.phase.value is DeletePhase.Deleting
+            val candidate = model.candidate("row"); model.confirm(intent)
+            assertEquals(listOf(true, null, 1, true), listOf(stillDeleting, candidate, backend.calls.get(), owner.isCurrent()))
         }
     }
 
