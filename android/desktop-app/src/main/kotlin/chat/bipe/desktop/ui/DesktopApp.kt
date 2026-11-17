@@ -54,6 +54,7 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlin.math.floor
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 @Composable
@@ -406,7 +407,8 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
                                 HorizontalDivider(color = colors["line.subtle"])
                             }
                             Box(Modifier.weight(1f)) { TimelineView(state.model, s, colors, background,
-                                viewports.getOrPut(state.model.roomId) { RoomViewport() }, allRows.firstOrNull { it.id == state.model.roomId }, presence.enabled) }
+                                viewports.getOrPut(state.model.roomId) { RoomViewport() }, allRows.firstOrNull { it.id == state.model.roomId }, presence.enabled,
+                                account.runtime.media) }
                         }
                     }
                 }
@@ -419,8 +421,11 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
 }
 
 @Composable private fun TimelineView(model: DesktopTimeline, s: DesktopCatalog, colors: DesktopColors, background: String,
-                                     viewport: RoomViewport, room: ChatRow?, sharesTyping: Boolean) {
+                                     viewport: RoomViewport, room: ChatRow?, sharesTyping: Boolean, media: AccountMedia) {
     val load by model.rows.collectAsState()
+    val mediaPolicy by model.mediaPolicy.collectAsState()
+    // Spec timeline-media tapToShow: a click shows that one message only, while this room stays open.
+    var revealed by remember(model) { mutableStateOf(emptySet<String>()) }
     val typing by model.typing.phase.collectAsState()
     val foreground = LocalWindowInfo.current.isWindowFocused
     DisposableEffect(model, foreground) {
@@ -508,7 +513,19 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
                                                 else model.loadReply(message.id, retry = true)
                                             })
                                         }
-                                        if (seconds > 0 || message.kind != MessageRow.Kind.TEXT) Text(message.body)
+                                        val attached = message.media
+                                        if (attached != null) {
+                                            MediaBody(attached, mediaPolicy.shows(message.own), message.id in revealed, { revealed = revealed + message.id },
+                                                media, { path -> scope.launch {
+                                                    try { media.save(attached, path) }
+                                                    catch (cancelled: CancellationException) { throw cancelled }
+                                                    catch (_: Exception) { notices.showSnackbar(s.text("bipe_app_save_error")) }
+                                                } }, s, colors)
+                                            // The caption shows under the media as text; the money pause blocks selecting it, as for text.
+                                            attached.caption?.takeIf { it.isNotBlank() }?.let { caption ->
+                                                if (seconds > 0) Text(caption) else SelectionContainer { Text(caption) }
+                                            }
+                                        } else if (seconds > 0 || message.kind != MessageRow.Kind.TEXT) Text(message.body)
                                         else SelectionContainer { Text(message.body) }
                                         Row(Modifier.align(Alignment.End), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
                                             Text(timeLabel(message.timestamp, s.locale), style = MaterialTheme.typography.labelSmall, color = colors["ink.secondary"],

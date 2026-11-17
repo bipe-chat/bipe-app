@@ -92,7 +92,7 @@ class DesktopTimeline private constructor(
         try {
             val kind = (event.content as? TimelineItemContent.MsgLike)?.content?.kind as? MsgLikeKind.Message
             check(event.isOwn && event.isEditable && event.isRemote && event.localSendState == null && kind != null)
-            check(kind.content.msgType is MessageType.Text || kind.content.msgType is MessageType.Notice || kind.content.msgType is MessageType.Emote)
+            check(kind.content.msgType.isText())
             val powers = room.getPowerLevels()
             try { check(powers.canOwnUserSendMessage(MessageLikeEventType.RoomMessage)) } finally { powers.destroy() }
             group.requireCurrent()
@@ -105,6 +105,9 @@ class DesktopTimeline private constructor(
     private val pause = MoneyPause()
     private val mutablePause = MutableStateFlow<Map<String, Int>>(emptyMap())
     val pauseSeconds = mutablePause.asStateFlow()
+    private val mutableMediaPolicy = MutableStateFlow<MediaShowPolicy>(MediaShowPolicy.Unknown)
+    /** Spec timeline-media showMedia and fromStranger for this room; a row may load its picture only when this allows it or after a click. */
+    val mediaPolicy = mutableMediaPolicy.asStateFlow()
     fun warningShown(rowId: String) {
         group.publish {
             val warning = (currentRow(rowId)?.safety as? MessageSafety.Warning) ?: return@publish
@@ -401,8 +404,38 @@ class DesktopTimeline private constructor(
                 delay(5_000)
             }
         }
+        startMediaPolicy()
         // Back-pagination failure is retryable; the live listener remains attached for offline/local events.
         loadEarlier()
+    }
+
+    /** Reads the account's MSC4278 setting and follows its changes; the computer never writes it (spec timeline-media notes). */
+    private suspend fun startMediaPolicy() {
+        val showMedia = MutableStateFlow<ShowMedia?>(null)
+        try {
+            group.own(TaskResource(runtime.client.subscribeToMediaPreviewConfig(object : MediaPreviewConfigListener {
+                override fun onChange(mediaPreviewConfig: MediaPreviewConfig?) { showMedia.value = ShowMedia.of(mediaPreviewConfig?.mediaPreviews) }
+            })))
+        } catch (cancelled: CancellationException) { throw cancelled }
+          catch (_: Exception) { /* Without the subscription the first read below still applies. */ }
+        group.launch {
+            try { if (showMedia.value == null) showMedia.value = ShowMedia.of(runtime.client.getMediaPreviewDisplayPolicy()) }
+            catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) { /* Unknown keeps other people's media behind a click. */ }
+        }
+        group.launch {
+            showMedia.collect { value ->
+                if (value == null) return@collect
+                val known = try {
+                    val info = room.roomInfo()
+                    val dm = try { info.isDm } finally { info.destroy() }
+                    // A room whose join rule is unknown counts as private, as on the phones.
+                    MediaShowPolicy.Known(value, dm, room.isPublic() == true)
+                } catch (cancelled: CancellationException) { throw cancelled }
+                  catch (_: Exception) { MediaShowPolicy.Unknown }
+                group.publish { mutableMediaPolicy.value = known }
+            }
+        }
     }
 
     private fun snapshot(item: TimelineItem): TimelineSnapshot? {
@@ -419,19 +452,23 @@ class DesktopTimeline private constructor(
         try {
             val content = (event.content as? TimelineItemContent.MsgLike)?.content ?: return null
             val kind = content.kind
-            val type = when (kind) {
-                is MsgLikeKind.Message -> if (kind.content.msgType is MessageType.Text || kind.content.msgType is MessageType.Notice ||
-                                               kind.content.msgType is MessageType.Emote) MessageRow.Kind.TEXT else MessageRow.Kind.UNSUPPORTED
-                is MsgLikeKind.UnableToDecrypt -> MessageRow.Kind.UNDECRYPTABLE
-                MsgLikeKind.Redacted -> MessageRow.Kind.DELETED
+            val media = MessageMedia.of(kind)
+            val type = when {
+                kind is MsgLikeKind.Message && kind.content.msgType.isText() -> MessageRow.Kind.TEXT
+                media != null -> MessageRow.Kind.MEDIA
+                kind is MsgLikeKind.UnableToDecrypt -> MessageRow.Kind.UNDECRYPTABLE
+                kind == MsgLikeKind.Redacted -> MessageRow.Kind.DELETED
                 else -> MessageRow.Kind.UNSUPPORTED
             }
             val body = when (type) {
                 MessageRow.Kind.TEXT -> (kind as MsgLikeKind.Message).content.body
+                MessageRow.Kind.MEDIA -> media!!.summary(labels)
                 MessageRow.Kind.UNDECRYPTABLE -> labels.undecryptable
                 MessageRow.Kind.DELETED -> labels.deleted
                 MessageRow.Kind.UNSUPPORTED -> labels.unsupported
             }
+            // The scam warning reads text and media captions (spec timeline-media notes), never a kind label.
+            val checksSafety = type == MessageRow.Kind.TEXT || (type == MessageRow.Kind.MEDIA && !media?.caption.isNullOrBlank())
             val profile = event.senderProfile as? ProfileDetails.Ready
             val delivery = when (event.localSendState) {
                 is EventSendState.NotSentYet -> MessageRow.Delivery.SENDING
@@ -448,14 +485,15 @@ class DesktopTimeline private constructor(
             }
             return MessageRow(id, realName(profile?.displayName, event.sender, labels.noName),
                 event.isOwn, body, type, event.timestamp.toLong(), delivery, canRetry = handle != null,
-                safety = messageSafety(body, event.isOwn, type == MessageRow.Kind.TEXT, safetyEngine),
+                safety = messageSafety(body, event.isOwn, checksSafety, safetyEngine),
                 eventId = reactionTarget,
                 reactions = if (reactionTarget == null) emptyList() else reactionSnapshots(content.reactions, runtime.client.userId()),
                 canReply = reactionTarget != null && event.canBeRepliedTo,
                 reply = content.inReplyTo?.let(::quote), isEdited = (kind as? MsgLikeKind.Message)?.content?.isEdited == true,
                 originalEventId = (event.eventOrTransactionId as? EventOrTransactionId.EventId)?.eventId,
                 canEdit = event.isOwn && event.isEditable && type == MessageRow.Kind.TEXT && reactionTarget != null,
-                senderId = event.sender, readersAtEvent = event.readReceipts.keys.toSet())
+                senderId = event.sender, readersAtEvent = event.readReceipts.keys.toSet(),
+                media = media.takeIf { type == MessageRow.Kind.MEDIA })
         } finally { event.destroy() }
     }
 
@@ -466,7 +504,8 @@ class DesktopTimeline private constructor(
                 is EmbeddedEventDetails.Ready -> {
                     val kind = (event.content as? TimelineItemContent.MsgLike)?.content?.kind
                     val preview = when (kind) {
-                        is MsgLikeKind.Message -> kind.content.body
+                        is MsgLikeKind.Message -> MessageMedia.of(kind.content.msgType)?.summary(labels) ?: kind.content.body
+                        is MsgLikeKind.Sticker -> labels.mediaLabel(MessageMedia.Kind.STICKER)
                         MsgLikeKind.Redacted -> labels.deleted
                         is MsgLikeKind.UnableToDecrypt -> labels.undecryptable
                         else -> labels.unsupported
@@ -496,3 +535,6 @@ class DesktopTimeline private constructor(
         }
     }
 }
+
+/** Text, notice and emote are the text rows; every other message type is media or unsupported. */
+internal fun MessageType.isText(): Boolean = this is MessageType.Text || this is MessageType.Notice || this is MessageType.Emote
