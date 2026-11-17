@@ -474,6 +474,16 @@ private fun DeviceDetail(devices: LinkedDevicesModel, state: LinkedDevicesModel.
                 }
             }
         }
+        if (row.kind == "bridge") {
+            // Spec device-detail notes: what Beeper sees (ADR 0128 point 2, bipe-chat/bipe#1516).
+            item(key = "device-bridge-sees") {
+                Text(
+                    stringResource(R.string.bipe_device_detail_bridge_sees),
+                    color = colors.inkPrimary,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+                )
+            }
+        }
         if (row.canSignOut) {
             item(key = "device-sign-out") {
                 TextButton(
