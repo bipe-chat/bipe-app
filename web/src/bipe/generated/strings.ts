@@ -2589,6 +2589,7 @@ export const ptBR = {
   bipe_desktop_draft_load_error: "Não deu para abrir o rascunho desta conversa. Tente de novo antes de escrever.",
   bipe_desktop_draft_save_error: "Não deu para salvar este rascunho no computador. Mantenha o Bipe aberto e tente de novo.",
   bipe_desktop_draft_unsupported: "Esta conversa tem um rascunho de resposta, edição ou anexo que esta versão ainda não abre. O rascunho foi mantido.",
+  bipe_desktop_media_show: "Mostrar",
 } as const;
 
 export type StringKey = keyof typeof ptBR;
@@ -5176,6 +5177,7 @@ export const en: Record<StringKey, string> = {
   bipe_desktop_draft_load_error: "Could not load this chat's draft. Try again before typing.",
   bipe_desktop_draft_save_error: "Could not save this draft on this computer. Keep Bipe open and try again.",
   bipe_desktop_draft_unsupported: "This chat has a reply, edit or attachment draft that this version cannot open. It has been kept.",
+  bipe_desktop_media_show: "Show",
 };
 
 export type Locale = "pt-BR" | "en";
