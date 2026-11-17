@@ -249,6 +249,12 @@ final class AccountStartModel: ObservableObject {
         // accounts keep theirs.
         await PushRegistration.shared.remove(userId: session.userId)
         await session.signOut(alreadyLoggedOut: alreadyLoggedOut)
+        // bipe-chat/bipe#1370: no decrypted media and no recent searches of this account stay. The media folders are
+        // one for all accounts; another account on the phone downloads its media again. Here, not in AccountSession:
+        // the notification service extension builds AccountSession without the media code.
+        await MediaLoader.forgetAll()
+        await StorageMeter.deleteAppMedia()
+        RecentSearches.forget(userId: session.userId)
         AccountList.remove(session.userId)
         CompanyRole.remember(nil, userId: session.userId)
         guard userId == session.userId else { return }
