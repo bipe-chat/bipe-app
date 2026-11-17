@@ -402,8 +402,8 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
         app.notifications.detach(old.userId)
         watchAuthErrors(fresh)
         _sessions.value = _sessions.value.map { if (it === old) fresh else it }
+        app.push.add(fresh)
         if (_userId.value == fresh.userId) {
-            app.push.attach(fresh)
             chat.bipe.app.media.MediaPreviewSync.attach(context, fresh)
         }
     }
@@ -415,8 +415,6 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
         accountList.current = userId
         // Spec location-send notes, end: a switch to another account stops the live location shares.
         chat.bipe.app.location.LiveLocationCenter.accountChanged(userId)
-        // Spec push-registration: this phone's pusher follows the current account.
-        (context.applicationContext as BipeApplication).push.attach(session)
         // Spec timeline-media notes: show-media and invite photos follow the current account (MSC4278).
         chat.bipe.app.media.MediaPreviewSync.attach(context, session)
     }
@@ -473,8 +471,9 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
             if (app.accountToOpen.value == current.userId) app.accountToOpen.value = null
             if (app.recoveryToCheck.value == current.userId) app.recoveryToCheck.value = null
             if (app.invitesToRefresh.value == current.userId) app.invitesToRefresh.value = null
-            // The pusher still goes before the SDK session ends.
-            if (_userId.value == current.userId) app.push.signOut()
+            // Spec push-registration signOut: this account's pusher goes before the SDK session ends; the other accounts
+            // keep theirs.
+            app.push.remove(current.userId)
             current.signOut(context, sessionStore, vault, alreadyLoggedOut)
             accountList.remove(current.userId)
             CompanyRole.remember(context, current.userId, null)
@@ -541,8 +540,6 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
     private fun show(session: AccountSession) {
         add(session)
         _userId.value = session.userId
-        // Spec push-registration: keep this phone's pusher current.
-        (context.applicationContext as BipeApplication).push.attach(session)
         chat.bipe.app.media.MediaPreviewSync.attach(context, session)
         _phase.value = Phase.READY
         routeHeldLink()
@@ -573,6 +570,8 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
         (context.applicationContext as BipeApplication).interno.watch()
         val order = accountList.order
         watchAuthErrors(session)
+        // Spec push-registration sessionAdded: every account on the phone has its own pusher, open or not.
+        (context.applicationContext as BipeApplication).push.add(session)
         scope.launch { PhoneReport.report(context, session, api) }
         // Spec location-send notes, end: shares that a closed app left for this account stop now.
         scope.launch { chat.bipe.app.location.LiveLocationCenter.cleanUp(context, session) }
