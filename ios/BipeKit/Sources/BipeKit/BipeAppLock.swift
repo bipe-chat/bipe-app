@@ -178,15 +178,29 @@ public struct BipeAppLock: Sendable {
         return .none
     }
 
-    /// Writes the app-group copy. Without an app group (unexpanded Info.plist) it keeps the default group.
+    /// Writes the app-group copy in place, as SessionStore.write does: a failed write keeps the old record, so the lock
+    /// never turns off on a keychain error (bipe-chat/bipe#1367). Without an app group (unexpanded Info.plist) it keeps
+    /// the default group.
     @discardableResult
     private func write(_ stored: Stored) -> Bool {
         guard let data = try? JSONEncoder().encode(stored) else { return false }
-        SecItemDelete(query(group: accessGroup) as CFDictionary)
-        var item = query(group: accessGroup)
-        item[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
-        item[kSecValueData as String] = data
-        return SecItemAdd(item as CFDictionary, nil) == errSecSuccess
+        let own = query(group: accessGroup)
+        let attributes: [String: Any] = [
+            kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
+            kSecValueData as String: data,
+        ]
+        var status = SecItemUpdate(own as CFDictionary, attributes as CFDictionary)
+        if status == errSecItemNotFound {
+            var item = own
+            item.merge(attributes) { _, new in new }
+            status = SecItemAdd(item as CFDictionary, nil)
+            // Another process may have added the record between the update and the add.
+            if status == errSecDuplicateItem { status = SecItemUpdate(own as CFDictionary, attributes as CFDictionary) }
+        }
+        if status != errSecSuccess {
+            NSLog("Bipe app lock write failed: \(status)")
+        }
+        return status == errSecSuccess
     }
 }
 
