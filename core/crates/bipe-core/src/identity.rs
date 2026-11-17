@@ -328,14 +328,15 @@ fn utf16_prefix(text: &str, units: usize) -> &str {
     text
 }
 
-/// JavaScript `/\p{L}/u`: a letter. Rust `is_alphabetic` also takes the letter numbers (Nl) and the marks of
-/// Other_Alphabetic; normalize() already removed every mark, so only Nl is taken out here.
-fn is_letter(c: char) -> bool {
+/// JavaScript `/\p{L}/u`: a letter. Rust `is_alphabetic` also takes the letter numbers (Nl) and Other_Alphabetic.
+/// Callers remove marks first, and NFKD turns the circled and squared letters into letters, so what is left to take
+/// out is Nl and the enclosed letters without a decomposition (U+1F150 to U+1F189, General_Category So).
+pub(crate) fn is_letter(c: char) -> bool {
     c.is_alphabetic()
         && !matches!(c,
             '\u{16EE}'..='\u{16F0}' | '\u{2160}'..='\u{2182}' | '\u{2185}'..='\u{2188}' | '\u{3007}' | '\u{3021}'..='\u{3029}'
             | '\u{3038}'..='\u{303A}' | '\u{A6E6}'..='\u{A6EF}' | '\u{10140}'..='\u{10174}' | '\u{10341}' | '\u{1034A}'
-            | '\u{103D1}'..='\u{103D5}' | '\u{12400}'..='\u{1246E}')
+            | '\u{103D1}'..='\u{103D5}' | '\u{12400}'..='\u{1246E}' | '\u{1F130}'..='\u{1F189}')
 }
 
 /// The handle pattern text and the generated regexes that the core relies on. Tests call it.

@@ -11,6 +11,8 @@
 
 package chat.bipe.shared.generated
 
+import chat.bipe.core.TrustInput
+import chat.bipe.core.trustFacts
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -43,26 +45,31 @@ data class BipeTrustFacts(
 ) {
     companion object {
         fun evaluate(input: BipeTrustInput): BipeTrustFacts {
-            val contextKnown = (nonempty(input.accountId) && nonempty(input.deviceKey) && (input.lifecycleKnown == true) && nullableTime(input.deviceChangedAt) && nullableTime(input.identityChangedAt))
-            val badgeBound = ((input.badgeStatus == "valid") && (input.badgeAccountId == input.accountId))
-            val identityVerified = (contextKnown && badgeBound && (input.badgeDeviceKey == input.deviceKey) && nonempty(input.badgeName) && validTime(input.badgeIssuedAt) && afterChange(input.badgeIssuedAt, input.deviceChangedAt) && afterChange(input.badgeIssuedAt, input.identityChangedAt))
-            val identitySuspended = (contextKnown && !(identityVerified) && ((input.badgeStatus == "master_key_mismatch") || (badgeBound && ((input.badgeDeviceKey != input.deviceKey) || (validTime(input.badgeIssuedAt) && ((validTime(input.deviceChangedAt) && !(afterChange(input.badgeIssuedAt, input.deviceChangedAt))) || (validTime(input.identityChangedAt) && !(afterChange(input.badgeIssuedAt, input.identityChangedAt)))))))))
-            val contactConfirmed = (contextKnown && (input.confirmationAccountId == input.accountId) && (input.confirmationDeviceKey == input.deviceKey) && validTime(input.confirmedAt) && afterChange(input.confirmedAt, input.deviceChangedAt) && afterChange(input.confirmedAt, input.identityChangedAt) && ((input.confirmationMethod == "in_person") || ((input.confirmationMethod == "old_device_approval") && validTime(input.priorInPersonConfirmedAt) && atOrBefore(input.priorInPersonConfirmedAt, input.confirmedAt) && afterChange(input.priorInPersonConfirmedAt, input.identityChangedAt))))
+            val facts = trustFacts(TrustInput(
+                accountId = input.accountId,
+                deviceKey = input.deviceKey,
+                lifecycleKnown = input.lifecycleKnown,
+                deviceChangedAt = input.deviceChangedAt,
+                identityChangedAt = input.identityChangedAt,
+                badgeStatus = input.badgeStatus,
+                badgeAccountId = input.badgeAccountId,
+                badgeDeviceKey = input.badgeDeviceKey,
+                badgeName = input.badgeName,
+                badgeIssuedAt = input.badgeIssuedAt,
+                confirmationMethod = input.confirmationMethod,
+                confirmationAccountId = input.confirmationAccountId,
+                confirmationDeviceKey = input.confirmationDeviceKey,
+                confirmedAt = input.confirmedAt,
+                priorInPersonConfirmedAt = input.priorInPersonConfirmedAt,
+                warningKind = input.warningKind,
+            ))
             return BipeTrustFacts(
-                identity = (if (identityVerified) "verified" else (if (identitySuspended) "suspended" else "unverified")),
-                verifiedName = (if (identityVerified) input.badgeName else null),
-                contact = (if (contactConfirmed) "confirmed" else "unconfirmed"),
-                change = (if (!(contextKnown)) "unknown" else (if ((validTime(input.deviceChangedAt) && validTime(input.identityChangedAt))) "device_and_identity" else (if (validTime(input.deviceChangedAt)) "device" else (if (validTime(input.identityChangedAt)) "identity" else "none")))),
-                warningKind = (if (nonempty(input.warningKind)) input.warningKind else null)
+                identity = facts.identity,
+                verifiedName = facts.verifiedName,
+                contact = facts.contact,
+                change = facts.change,
+                warningKind = facts.warningKind,
             )
         }
-
-        private fun nonempty(value: String?): Boolean = value?.isNotEmpty() == true
-        private fun validTime(value: Double?): Boolean = value != null && value.isFinite() && value >= 0
-        private fun nullableTime(value: Double?): Boolean = value == null || validTime(value)
-        private fun afterChange(proof: Double?, change: Double?): Boolean =
-            validTime(proof) && (change == null || (validTime(change) && proof!! > change))
-        private fun atOrBefore(first: Double?, second: Double?): Boolean =
-            validTime(first) && validTime(second) && first!! <= second!!
     }
 }

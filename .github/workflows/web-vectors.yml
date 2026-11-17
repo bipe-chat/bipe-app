@@ -3,20 +3,27 @@
 # Copyright 2026 Bipe contributors
 
 # Web client (bipe-chat/bipe#901): the bipe-shared test vectors against web/src/bipe/generated, like the BipeKit and
-# Android vector tests, and a type check of the generated TypeScript. No wasm build.
+# Android vector tests, and a type check of the generated TypeScript. No wasm build: the seal vectors run through the
+# pinned bipe-core web bundle (bipe-chat/bipe#1457).
 name: web-vectors
 
 on:
   pull_request:
     paths:
       - "web/src/bipe/**"
+      - "web/src/seal-rules.ts"
+      - "web/scripts/**"
       - "web/package.json"
+      - "core/release/release.json"
       - ".github/workflows/web-vectors.yml"
   push:
     branches: [main]
     paths:
       - "web/src/bipe/**"
+      - "web/src/seal-rules.ts"
+      - "web/scripts/**"
       - "web/package.json"
+      - "core/release/release.json"
       - ".github/workflows/web-vectors.yml"
   workflow_dispatch:
 
@@ -73,3 +80,12 @@ jobs:
         env:
           BIPE_SHARED: ${{ github.workspace }}/bipe-shared
         run: node --test "src/bipe/*.test.mjs"
+
+      # The seal path of the page (src/seal-rules.ts) on the pinned bipe-core web bundle: badge-issuers.json,
+      # badges.json and the bundled signed lists (bipe-chat/bipe#1457).
+      - name: Seal vectors through bipe-core
+        working-directory: web
+        run: |
+          scripts/fetch-core.sh
+          pnpm exec vite build --ssr scripts/seal-vectors.ts --outDir build/vectors --emptyOutDir
+          node build/vectors/seal-vectors.js "$GITHUB_WORKSPACE/bipe-shared/test-vectors" "$PWD/src/core/bipe_core.wasm"

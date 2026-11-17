@@ -6,6 +6,8 @@ package chat.bipe.shared.onboarding
 
 import android.content.Context
 import chat.bipe.shared.generated.BipeChatListPrompt
+import chat.bipe.core.PromptSlot
+import chat.bipe.core.chatListPrompt
 import chat.bipe.shared.generated.BipeOnboarding
 import chat.bipe.shared.generated.BipeOnboardingPrompt
 
@@ -57,11 +59,8 @@ class BipePromptSlot(context: Context, userId: String) {
          * the holder took the slot).
          */
         fun chatListCard(eligible: Set<BipeChatListPrompt>, holder: String?, sinceMs: Long, nowMs: Long): BipeChatListPrompt? {
-            val entries = BipeChatListPrompt.entries.filter { it in eligible }
-            entries.firstOrNull { it.preempts }?.let { return it }
-            return entries.firstOrNull { entry ->
-                holder == null || holder == entry.key || nowMs - sinceMs >= BipeOnboarding.PROMPT_SLOT_HOURS * 3_600_000L
-            }
+            val key = chatListPrompt(eligible.map { it.key }, holder?.let { PromptSlot(it, sinceMs) }, nowMs) ?: return null
+            return BipeChatListPrompt.entries.firstOrNull { it.key == key }
         }
 
         /** The registry key of a stored enum name: PIN_REMINDER is pinReminder. */

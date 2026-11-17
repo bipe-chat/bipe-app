@@ -210,6 +210,8 @@ final class LinkComputerModel: ObservableObject {
     private var startedAt = Date.now
     /// Approve posted the MAS consent form: close then confirms, and a cancel from the SDK is the decline.
     private var approved = false
+    /// The device IDs of the account when the consent page opened, for the approval entry (ADR 0291).
+    private var devicesBefore: Set<String>?
     private var rejected = false
     private var finished = false
     /// Held only between the owner check and the one post of the MAS login form.
@@ -574,6 +576,7 @@ final class LinkComputerModel: ObservableObject {
             device = consent.device
             ip = consent.ip
             approvePhase = .consent
+            devicesBefore = await DeviceEntries.deviceIds(session: session)
             if let ip = consent.ip {
                 await lookUpPlace(ip: ip)
             } else {
@@ -592,6 +595,10 @@ final class LinkComputerModel: ObservableObject {
             do throws(MASDeviceApproval.Failure) {
                 try await approval.approve(consent)
                 approved = true
+                if let before = devicesBefore {
+                    let account = self.session
+                    Task { await DeviceEntries.writeApproval(session: account, userAgent: consent.userAgent, before: before) }
+                }
                 try? await continuationSender?.confirm()
             } catch {
                 approvalFailed(error)

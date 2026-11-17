@@ -1,7 +1,6 @@
 {
   "$comment": "Written by .github/workflows/core.yml (cargo tree, normal dependencies, no proc macros). Do not edit: copy the core-shipped-crates artifact.",
   "apple": [
-    "aho-corasick",
     "anyhow",
     "base64",
     "bitflags",
@@ -47,7 +46,6 @@
     "zmij"
   ],
   "android": [
-    "aho-corasick",
     "anyhow",
     "base64",
     "bitflags",
@@ -94,7 +92,6 @@
     "zmij"
   ],
   "jvm": [
-    "aho-corasick",
     "anyhow",
     "base64",
     "bitflags",
@@ -142,7 +139,6 @@
     "zmij"
   ],
   "web": [
-    "aho-corasick",
     "anyhow",
     "base64",
     "block-buffer",

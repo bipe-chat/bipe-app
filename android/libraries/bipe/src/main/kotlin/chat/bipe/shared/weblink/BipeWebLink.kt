@@ -2,8 +2,8 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
-// The MAS web pages of specs linked-devices and link-computer-approve (ADR 0116, ADR 0118), written from the specs,
-// the Matrix spec and api/openapi.yaml.
+// Link a computer and the Matrix account calls of specs linked-devices and link-computer-approve (ADR 0116, ADR 0118,
+// ADR 0291), written from the specs, the Matrix spec and api/openapi.yaml.
 
 package chat.bipe.shared.weblink
 
@@ -18,11 +18,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.builtins.ListSerializer
-import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 
-/** Rules of the private web view that opens MAS pages with the hidden password. */
+/** Rules for MAS pages and sign-in codes of Link a computer. */
 object BipeWebLink {
     /** The localpart of a Matrix ID: "@ana:bipe.net.br" → "ana". */
     fun localpart(userId: String): String = userId.removePrefix("@").substringBefore(':')
@@ -61,36 +59,6 @@ object BipeWebLink {
         val uri = Uri.parse(url)
         return uri.scheme.equals("https", ignoreCase = true) && uri.host.equals(host, ignoreCase = true)
     }
-
-    /** The MAS account page that ends one device's session (MSC2965 account management actions). */
-    fun sessionEndUrl(accountManagementUri: String, deviceId: String): String = Uri.parse(accountManagementUri).buildUpon()
-        .appendQueryParameter("action", "org.matrix.session_end")
-        .appendQueryParameter("device_id", deviceId)
-        .build()
-        .toString()
-
-    /**
-     * JavaScript that fills the MAS login form once and submits it. The values go in as JSON strings, so they are
-     * escaped. Returns true when the page had a password field.
-     */
-    fun loginScript(username: String, password: String): String {
-        val values = Json.encodeToString(ListSerializer(String.serializer()), listOf(username, password))
-        return """
-            (function (v) {
-              var field = document.querySelector('form input[type=password]');
-              if (!field) { return false; }
-              var form = field.form;
-              var user = form.querySelector('input[name=username]');
-              if (user) { user.value = v[0]; }
-              field.value = v[1];
-              if (form.requestSubmit) { form.requestSubmit(); } else { form.submit(); }
-              return true;
-            })($values);
-        """.trimIndent()
-    }
-
-    /** JavaScript that answers whether the page has a password field (the MAS login form). */
-    const val IS_LOGIN_FORM_SCRIPT = "!!document.querySelector('form input[type=password]')"
 }
 
 /** The parts of the auth metadata that the app reads (MSC2965). */

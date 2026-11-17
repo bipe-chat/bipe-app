@@ -1,0 +1,362 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
+// Copyright 2026 Bipe contributors
+
+// The shared Bipe rules from bipe-core (ADR 0267, bipe-chat/bipe#1458): the same code that iOS, Mac, Android and
+// Windows run. scripts/fetch-core.sh puts the pinned release into ./core, and signed-lists.ts loads it (coreReady).
+// Each function keeps the signature of the bipe-shared reference it replaces (tools/lib/registries.mjs), so a call
+// site changes only its import. The last `reg` argument of the reference is accepted and ignored: the core carries
+// the registries. main.tsx waits for coreReady before the first render.
+import * as core from './core';
+import { currentList } from './signed-lists';
+
+const big = (n: number) => BigInt(Math.trunc(n));
+const optionalBig = (n: number | null | undefined) => (n === null || n === undefined ? undefined : big(n));
+const json = (value: unknown) => (value === null || value === undefined ? undefined : JSON.stringify(value));
+
+// --- Text and names ------------------------------------------------------------------------------------------------
+
+/** normalize(): with the name homoglyph map when one is given, else without folding. */
+export function normalize(input: string, homoglyphMap?: Record<string, string>): string {
+  const folding = homoglyphMap !== undefined && Object.keys(homoglyphMap).length > 0;
+  return core.normalizeText(input, folding ? core.TextFold.Names : core.TextFold.Plain);
+}
+
+/** Security rule 8: the contact name that `name` copies after normalize(), or null. */
+export function contactCollision(name: string, contactNames: string[], _reg?: unknown): string | null {
+  return core.contactCollision(name, contactNames) ?? null;
+}
+
+export function socialHandleClean(input: string): string {
+  return core.socialHandleClean(input);
+}
+
+export function socialUrl(platform: string, input: string, _reg?: unknown): string {
+  const url = core.socialUrl(platform, input);
+  if (url === undefined) throw new Error(`socialUrl: unknown platform ${platform}`);
+  return url;
+}
+
+// --- Scam warning --------------------------------------------------------------------------------------------------
+
+/** The reference ids, in the order of core.ScamKind. */
+const SCAM_KINDS = [
+  'extortion', 'pixCode', 'boleto', 'remoteApp', 'pinRequest', 'pixKey',
+  'deliveryFee', 'lookalikeLink', 'bankAlert', 'receipt', 'newNumber', 'urgency',
+] as const;
+
+/** The one warning kind of a message, or null. Kinds in `skip` are passed over. */
+export function scamWarningKind(text: string, _reg?: unknown, skip: string[] = []): string | null {
+  const skipping = skip.map((id) => SCAM_KINDS.indexOf(id as (typeof SCAM_KINDS)[number])).filter((i) => i >= 0) as core.ScamKind[];
+  const kind = core.scamWarningKind(text, skipping);
+  return kind === undefined ? null : SCAM_KINDS[kind];
+}
+
+// --- Profile facts -------------------------------------------------------------------------------------------------
+
+type ApiProfileFacts = {
+  created_at?: string | null;
+  name_changes?: string[];
+  photo_changes?: string[];
+  number_moved_out?: string[];
+  number_moved_in?: string[];
+};
+
+const PROFILE_FACTS = ['created', 'photo', 'name', 'numberOut', 'numberIn'] as const;
+
+/** The profile fact lines (ADR 0049) in the reference shape: { lines: [{ fact, count?, at }], notice, numberNotice? }. */
+export function profileFactLines(facts: ApiProfileFacts, nowMs: number, _reg?: unknown, { alwaysCreated = false } = {}) {
+  const result = core.profileFactLines(
+    {
+      createdAt: facts.created_at ?? undefined,
+      nameChanges: facts.name_changes ?? [],
+      photoChanges: facts.photo_changes ?? [],
+      numberMovedOut: facts.number_moved_out ?? [],
+      numberMovedIn: facts.number_moved_in ?? [],
+    },
+    big(nowMs),
+    alwaysCreated,
+  );
+  const lines = result.lines.map((line) => ({
+    fact: PROFILE_FACTS[line.fact],
+    ...(line.count === undefined ? {} : { count: line.count }),
+    at: new Date(Number(line.atMs)).toISOString(),
+  }));
+  if (result.numberNotice === undefined) return { lines, notice: result.notice };
+  return { lines, notice: result.notice, numberNotice: result.numberNotice === core.NumberNotice.In ? 'in' : 'out' };
+}
+
+// --- Cleared chats -------------------------------------------------------------------------------------------------
+
+export function clearedChatMarker(content: unknown, roomId: string): number | null {
+  const marker = core.clearedChatMarker(json(content), roomId);
+  return marker === undefined ? null : Number(marker);
+}
+
+export function clearedChatHidden(marker: number | null, latestTs: number | null): boolean {
+  return core.clearedChatHidden(optionalBig(marker), optionalBig(latestTs));
+}
+
+export function clearedChatKeepsEvent(marker: number | null, eventTs: number): boolean {
+  return core.clearedChatKeepsEvent(optionalBig(marker), big(eventTs));
+}
+
+export function clearedChatsWithClear(content: unknown, roomId: string, ts: number): Record<string, unknown> {
+  return JSON.parse(core.clearedChatsWithClear(json(content), roomId, big(ts))) as Record<string, unknown>;
+}
+
+// --- Forward marks -------------------------------------------------------------------------------------------------
+
+export function forwardCount(content: unknown, _reg?: unknown): number {
+  return core.forwardCount(JSON.stringify(content ?? null));
+}
+
+export function forwardedContent(original: unknown, newContent: unknown, _reg?: unknown): Record<string, unknown> {
+  const out = core.forwardedContent(JSON.stringify(original ?? null), json(newContent));
+  return out === undefined ? (original as Record<string, unknown>) : (JSON.parse(out) as Record<string, unknown>);
+}
+
+export function forwardChatLimit(sentCounts: number[], _reg?: unknown): number {
+  return core.forwardChatLimit(sentCounts.map((c) => Math.max(0, Math.trunc(c))));
+}
+
+// --- Work notes ----------------------------------------------------------------------------------------------------
+
+type NotesContext = { ownUserId: string; joinedRoomIds?: string[]; seatIds?: string[] };
+type Hidden = { show: false; reason: string };
+export type NoteResult = { show: true; note: { roomId: string; body: string; seatId: string | null } } | Hidden;
+export type ReplyByResult = { show: true; replyBy: { roomId: string; eventId: string; seatId: string } } | Hidden;
+
+export function workNoteFromEvent(event: unknown, ctx: NotesContext, _reg?: unknown): NoteResult {
+  const result = core.workNoteFromEvent(JSON.stringify(event ?? null), ctx.ownUserId, ctx.joinedRoomIds ?? [], ctx.seatIds ?? []);
+  if (result.tag === core.WorkNoteResult_Tags.Show) {
+    const { note } = result.inner;
+    return { show: true, note: { roomId: note.roomId, body: note.body, seatId: note.seatId ?? null } };
+  }
+  return { show: false, reason: result.inner.reason };
+}
+
+export function replyByFromEvent(event: unknown, ctx: NotesContext, _reg?: unknown): ReplyByResult {
+  const result = core.replyByFromEvent(JSON.stringify(event ?? null), ctx.ownUserId, ctx.seatIds ?? []);
+  if (result.tag === core.ReplyByResult_Tags.Show) {
+    const { replyBy } = result.inner;
+    return { show: true, replyBy: { roomId: replyBy.roomId, eventId: replyBy.eventId, seatId: replyBy.seatId } };
+  }
+  return { show: false, reason: result.inner.reason };
+}
+
+// --- Account and chat-list state ----------------------------------------------------------------------------------
+
+/** Settings that follow the account (bipe-chat/bipe#1161): the content after this device reads it. */
+export function syncedSettingsReconcile(
+  server: Record<string, unknown>,
+  local: Record<string, unknown>,
+  pending: string[],
+  first: boolean,
+): Record<string, unknown> {
+  return JSON.parse(core.syncedSettingsReconcile(JSON.stringify(server), JSON.stringify(local), pending, first)) as Record<string, unknown>;
+}
+
+type DmCandidate = { roomId: string; peerUserId: string; latestActivityMs: number | null; eligible: boolean; cleared?: boolean };
+
+/** One eligible DM per peer: peer user ID to room ID. */
+export function newestDmRooms(candidates: DmCandidate[], { includingCleared = false } = {}): Record<string, string> {
+  const rooms = core.newestDmRooms(
+    candidates.map((c) => ({
+      roomId: c.roomId,
+      peerUserId: c.peerUserId,
+      eligible: c.eligible,
+      cleared: c.cleared ?? false,
+      latestActivityMs: optionalBig(c.latestActivityMs),
+    })),
+    includingCleared,
+  );
+  return Object.fromEntries(rooms);
+}
+
+/** Reconciles the Matrix archive tag with the local baseline (bipe-chat/bipe#1121 rule chatArchiveSync). */
+export function chatArchiveSync(
+  marker: number | null,
+  synced: boolean,
+  serverArchived: boolean,
+  activity: number | null,
+  incoming: number | null,
+): { marker: number | null; synced: boolean; tagWrite: boolean | null } {
+  const r = core.chatArchiveSync(optionalBig(marker), synced, serverArchived, optionalBig(activity), optionalBig(incoming));
+  return { marker: r.marker === undefined ? null : Number(r.marker), synced: r.synced, tagWrite: r.tagWrite ?? null };
+}
+
+/** ADR 0168: a Bipe user ID, checked against the current signed operator list, as the apps do. */
+export function isBipeUserID(userId: string, _reg?: unknown): boolean {
+  return core.isBipeUserId(userId, currentList(core.ListType.Operators), big(Date.now() / 1000));
+}
+
+// --- Mural home score (ADR 0246, bipe-chat/bipe#1478) -------------------------
+
+export type HomeChatInput = {
+  id: string;
+  kind: 'person' | 'company' | 'group';
+  hasSeal?: boolean;
+  official?: boolean;
+  favourite?: boolean;
+  muted?: boolean;
+  mentioned?: boolean;
+  unreadCount?: number;
+  lastFromOther?: boolean;
+  /** null: the time of the latest event is unknown. */
+  minutesSinceActivity?: number | null;
+  messagesPerWeek?: number;
+  trustWarning?: boolean;
+  modelAttention?: string | null;
+  modelDue?: boolean;
+};
+export type HomeReason = 'mention' | 'unanswered' | null;
+export type HomeTile = { id: string; scorePercent: number; score: number; tier: number | null; reason: HomeReason };
+
+const HOME_KINDS = { person: core.HomeChatKind.Person, company: core.HomeChatKind.Company, group: core.HomeChatKind.Group } as const;
+
+/** The tiles in screen order. tier null: no tile, the chat is only in the plain list. */
+export function homePlan(chats: HomeChatInput[]): HomeTile[] {
+  const tiles = core.homePlan(
+    chats.map((c) => ({
+      id: c.id,
+      kind: HOME_KINDS[c.kind],
+      hasSeal: c.hasSeal ?? false,
+      official: c.official ?? false,
+      favourite: c.favourite ?? false,
+      muted: c.muted ?? false,
+      mentioned: c.mentioned ?? false,
+      unreadCount: big(c.unreadCount ?? 0),
+      lastFromOther: c.lastFromOther ?? false,
+      minutesSinceActivity: optionalBig(c.minutesSinceActivity),
+      messagesPerWeek: big(c.messagesPerWeek ?? 0),
+      trustWarning: c.trustWarning ?? false,
+      modelAttention: c.modelAttention ?? undefined,
+      modelDue: c.modelDue ?? false,
+    })),
+  );
+  return tiles.map((t) => ({
+    id: t.id,
+    scorePercent: t.scorePercent,
+    score: t.scorePercent / 100,
+    tier: t.tier ?? null,
+    reason: t.reason === undefined ? null : t.reason === core.HomeReason.Mention ? 'mention' : 'unanswered',
+  }));
+}
+
+// --- Devices (ADR 0291, bipe-chat/bipe#1482) ----------------------------------------------------------------------
+
+/** A valid device entry of the drafts room (deviceInfoFromEvent). Times in milliseconds. */
+export type DeviceEntry = {
+  deviceId: string;
+  source: string;
+  kind: string;
+  model: string | null;
+  os: string | null;
+  app: string | null;
+  linkedAt: number | null;
+  linkedBy: string | null;
+  attested: boolean;
+  ts: number;
+};
+
+/** Type DeviceRow of spec linked-devices, without the place. */
+export type DeviceRow = {
+  deviceId: string;
+  isThis: boolean;
+  kind: string;
+  icon: string;
+  label: string;
+  section: string;
+  leavesBrazil: boolean;
+  name: string | null;
+  os: string | null;
+  app: string | null;
+  lastSeen: number | null;
+  ip: string | null;
+  linkedAt: number | null;
+  linkedBy: string | null;
+  attested: boolean;
+  warning: boolean;
+};
+
+/** One device of GET /_matrix/client/v3/devices. */
+export type MatrixDevice = { device_id: string; display_name?: string | null; last_seen_ts?: number | null; last_seen_ip?: string | null };
+
+const optionalNumber = (n: bigint | undefined) => (n === undefined ? null : Number(n));
+
+/** The raw event JSON of a drafts room event, as a valid device entry or null. senderVerified: the SDK shows no shield. */
+export function deviceInfoFromEvent(event: unknown, ownUserId: string, senderVerified: boolean): DeviceEntry | null {
+  const result = core.deviceInfoFromEvent(JSON.stringify(event ?? null), ownUserId, senderVerified);
+  if (result.tag !== core.DeviceInfoResult_Tags.Entry) return null;
+  const e = result.inner.entry;
+  return {
+    deviceId: e.deviceId,
+    source: e.source,
+    kind: e.kind,
+    model: e.model ?? null,
+    os: e.os ?? null,
+    app: e.app ?? null,
+    linkedAt: optionalNumber(e.linkedAt),
+    linkedBy: e.linkedBy ?? null,
+    attested: e.attested,
+    ts: Number(e.ts),
+  };
+}
+
+/** What a user agent says about a device, or null when no rule matches. */
+export function userAgentInfo(userAgent: string): { kind: string; app: string | null; model: string | null; os: string | null } | null {
+  const info = core.userAgentInfo(userAgent);
+  if (info === undefined) return null;
+  return { kind: info.kind, app: info.app ?? null, model: info.model ?? null, os: info.os ?? null };
+}
+
+/** The rows of Aparelhos e assistentes: this device first, then newest use first. */
+export function deviceRows(
+  thisDeviceId: string,
+  devices: MatrixDevice[],
+  entries: DeviceEntry[],
+): { rows: DeviceRow[]; counts: { devices: number; programs: number; unknown: number } } {
+  const list = core.deviceRows(
+    thisDeviceId,
+    devices.map((d) => ({
+      deviceId: d.device_id,
+      displayName: d.display_name ?? undefined,
+      lastSeenTs: optionalBig(d.last_seen_ts),
+      lastSeenIp: d.last_seen_ip ?? undefined,
+    })),
+    entries.map((e) => ({
+      deviceId: e.deviceId,
+      source: e.source,
+      kind: e.kind,
+      model: e.model ?? undefined,
+      os: e.os ?? undefined,
+      app: e.app ?? undefined,
+      linkedAt: optionalBig(e.linkedAt),
+      linkedBy: e.linkedBy ?? undefined,
+      attested: e.attested,
+      ts: big(e.ts),
+    })),
+  );
+  return {
+    rows: list.rows.map((r) => ({
+      deviceId: r.deviceId,
+      isThis: r.isThis,
+      kind: r.kind,
+      icon: r.icon,
+      label: r.label,
+      section: r.section,
+      leavesBrazil: r.leavesBrazil,
+      name: r.name ?? null,
+      os: r.os ?? null,
+      app: r.app ?? null,
+      lastSeen: optionalNumber(r.lastSeen),
+      ip: r.ip ?? null,
+      linkedAt: optionalNumber(r.linkedAt),
+      linkedBy: r.linkedBy ?? null,
+      attested: r.attested,
+      warning: r.warning,
+    })),
+    counts: { devices: list.counts.devices, programs: list.counts.programs, unknown: list.counts.unknown },
+  };
+}

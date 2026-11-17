@@ -9,7 +9,8 @@
 # 2. Check out matrix-rust-sdk at that commit and apply web/patches/*.patch.
 # 3. Build bindings/matrix-sdk-ffi for wasm32-unknown-unknown with
 #    uniffi-bindgen-react-native (ubrn) wasm2, and generate the TypeScript.
-# 4. Build the static page in web/ with pnpm.
+# 4. Take the pinned bipe-core web bundle (core/release/release.json) into web/src/core (bipe-chat/bipe#1457).
+# 5. Build the static page in web/ with pnpm.
 # Artifacts: web-bindings (src/generated), web-dist (the page).
 name: web
 
@@ -21,6 +22,7 @@ on:
       - "web/**"
       - "!web/src/bipe/**"
       - "sdk-version"
+      - "core/release/release.json"
       - ".github/workflows/web.yml"
   push:
     branches: [main]
@@ -28,6 +30,7 @@ on:
       - "web/**"
       - "!web/src/bipe/**"
       - "sdk-version"
+      - "core/release/release.json"
       - ".github/workflows/web.yml"
   workflow_dispatch:
 
@@ -168,6 +171,11 @@ jobs:
           name: web-bindings
           path: web/src/generated
           if-no-files-found: error
+
+      # The seals of the web client (bipe-chat/bipe#1457): bipe-core from its pinned release, never built here.
+      - name: The pinned bipe-core web bundle
+        working-directory: web
+        run: scripts/fetch-core.sh
 
       - name: Build the page
         working-directory: web

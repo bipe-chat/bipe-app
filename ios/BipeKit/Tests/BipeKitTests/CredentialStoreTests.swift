@@ -130,7 +130,7 @@ struct CredentialStoreTests {
     }
 
     @Test func missingOrUnexpandedOwnGroupCannotMutateAnything() {
-        for group in [nil, "", "$(AppIdentifierPrefix)chat.bipe.app.next"] as [String?] {
+        for group in [nil, "", "$(AppIdentifierPrefix)chat.bipe.app"] as [String?] {
             let fake = FakeCredentialKeychain()
             fake.seed(group: legacy, service: password, account: user, value: "legacy fixture")
             let subject = store(fake, group: group)

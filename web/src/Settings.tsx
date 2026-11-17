@@ -15,7 +15,10 @@ import { useClient } from './media';
 import { useMuralEnabled, writeMural } from './mural-plan';
 import { syncedSettingChanged } from './settings-sync';
 import { openNotes } from './notes';
-import { caretRight, chatCircle, bell, check, info, lockSimple, notepad, userCircle, warningCircle } from './phosphor/icons';
+import { caretRight, chatCircle, bell, check, devices, info, lockSimple, notepad, userCircle, warningCircle } from './phosphor/icons';
+import { useDeviceList } from './devices';
+import { DeviceDetail, DeviceSections, devicesSummary } from './DevicesSettings';
+import type { DeviceRow } from './shared-rules';
 import { Spinner } from './ui/Spinner';
 import { settings } from './registries';
 import { useAccounts } from './accounts-context';
@@ -37,6 +40,7 @@ const ICONS: Record<string, string> = {
   'user-circle': userCircle,
   bell,
   'chat-circle': chatCircle,
+  devices,
   info,
 };
 
@@ -166,6 +170,8 @@ function useRootSummaries(client: ReturnType<typeof useClient>): Record<string, 
   const palette = useSetting('palette');
   const [privacy, setPrivacy] = useState<RootSummary>();
   const [account, setAccount] = useState<RootSummary>();
+  // Group Aparelhos e assistentes (ADR 0291): the device and assistant counts.
+  const devicesText = devicesSummary(useDeviceList(client).list);
   useEffect(() => {
     let stopped = false;
     const api = apiFor(client);
@@ -195,6 +201,7 @@ function useRootSummaries(client: ReturnType<typeof useClient>): Record<string, 
   return {
     privacy,
     account,
+    devices: devicesText === undefined ? undefined : { text: devicesText },
     notifications:
       typeof Notification !== 'undefined' && Notification.permission === 'granted'
         ? { text: s('bipe_settings_notifications_on') }
@@ -343,20 +350,34 @@ function GroupScreen({ group, onBack }: { group: Group; onBack: () => void }) {
   const [signingOut, setSigningOut] = useState<'one' | 'all'>();
   const accountCount = useAccounts().accounts.list.length;
   const [showsEncryption, setShowsEncryption] = useState(false);
-  const [sub, setSub] = useState<'profile' | 'colors'>();
-  const encryption = useEncryptionState(useClient());
+  const [sub, setSub] = useState<'profile' | 'colors' | { device: DeviceRow }>();
+  const client = useClient();
+  const encryption = useEncryptionState(client);
+  const isDevices = group.key === 'devices';
+  const deviceList = useDeviceList(client, isDevices);
   if (showsEncryption) return <EncryptionSheet state={encryption} onClose={() => setShowsEncryption(false)} />;
   if (sub === 'profile') return <ProfileEdit onBack={() => setSub(undefined)} />;
   if (sub === 'colors') return <ColorsScreen onBack={() => setSub(undefined)} />;
+  if (typeof sub === 'object') {
+    const rows = deviceList.list.phase === 'loaded' ? deviceList.list.rows : [];
+    // A device that left the list keeps the row it was opened with.
+    const row = rows.find((r) => r.deviceId === sub.device.deviceId) ?? sub.device;
+    return <DeviceDetail row={row} rows={rows} onBack={() => setSub(undefined)} />;
+  }
   return (
     <div className="flex h-full min-h-0 flex-col bg-grouped-screen">
       {signingOut && <SignOutAlert all={signingOut === 'all'} onClose={() => setSigningOut(undefined)} />}
       <NavBar title={s(key(group.title))} onBack={onBack} />
       <div className="mx-auto flex w-full max-w-[640px] min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-4 pt-2 pb-6">
+        {/* Spec linked-devices, read-only in a browser: the device rows come first in the group. */}
+        {isDevices && (
+          <DeviceSections list={deviceList.list} onRetry={deviceList.retry} onOpen={(device) => setSub({ device })} />
+        )}
         {webSections(group).map((section) => (
           <Section
             key={section.key}
-            header={'title' in section && section.title ? s(key(section.title)) : undefined}
+            // The device rows above carry the header of section devices.
+            header={'title' in section && section.title && !(isDevices && section.key === 'devices') ? s(key(section.title)) : undefined}
             footer={footerOf(section)}
           >
             {section.rows.map((row) =>

@@ -4,11 +4,14 @@
 
 package chat.bipe.shared.drafts
 
-import chat.bipe.shared.generated.BipeRegistries
+import chat.bipe.core.DraftResult
+import chat.bipe.core.draftFromEvent
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 /**
  * Assistant drafts (bipe ADR 0210, bipe-chat/bipe#866; registries/drafts.json, bipe-shared docs/drafts-room.md).
@@ -53,27 +56,19 @@ object BipeAssistantDrafts {
         fromEvent(string(event["type"]), string(event["sender"]), (event["redacted"] as? JsonPrimitive)?.content == "true",
             event["content"], ownUserId, joinedRoomIds)
 
+    /** bipe-core `draftFromEvent` on the event { type, sender, redacted, content }. */
     private fun fromEvent(type: String?, sender: String?, redacted: Boolean, rawContent: JsonElement?,
                           ownUserId: String, joinedRoomIds: Set<String>): Result {
-        if (type != "m.room.message") return Result.Hide("type")
-        if (redacted) return Result.Hide("redacted")
-        if (sender != ownUserId) return Result.Hide("sender")
-        val content = rawContent as? JsonObject
-        if (content == null || string(content["msgtype"]) != "m.text") return Result.Hide("content")
-        val field = content[BipeRegistries.DRAFT_FIELD] as? JsonObject ?: return Result.Hide("field")
-        val roomId = string(field["room_id"])?.takeIf { it.startsWith("!") } ?: return Result.Hide("room_id")
-        if (roomId !in joinedRoomIds) return Result.Hide("not_joined")
-        val body = string(content["body"])?.takeIf { it.isNotBlank() } ?: return Result.Hide("body")
-        // Kotlin and JavaScript String.length both count UTF-16 code units.
-        if (body.length > BipeRegistries.DRAFT_BODY_MAX_LENGTH) return Result.Hide("body_too_long")
-        val client = string(field["client"])?.takeIf { it.isNotBlank() && it.length <= BipeRegistries.DRAFT_CLIENT_MAX_LENGTH }
-            ?: return Result.Hide("client")
-        val ids = mutableMapOf<String, String>()
-        for (key in listOf("reply_to", "thread_root")) {
-            val value = field[key] ?: continue
-            ids[key] = string(value)?.takeIf { it.startsWith("$") } ?: return Result.Hide(key)
+        val event = buildJsonObject {
+            type?.let { put("type", it) }
+            sender?.let { put("sender", it) }
+            put("redacted", redacted)
+            rawContent?.let { put("content", it) }
         }
-        return Result.Show(Draft(roomId, body, ids["reply_to"], ids["thread_root"], client.trim()))
+        return when (val result = draftFromEvent(event.toString(), ownUserId, joinedRoomIds.toList())) {
+            is DraftResult.Show -> result.draft.let { Result.Show(Draft(it.roomId, it.body, it.replyTo, it.threadRoot, it.client)) }
+            is DraftResult.Hide -> Result.Hide(result.reason)
+        }
     }
 
     private fun parse(json: String?): JsonElement? = json?.let { runCatching { Json.parseToJsonElement(it) }.getOrNull() }

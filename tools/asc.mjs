@@ -2,11 +2,11 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
-// App Store Connect API steps of the tester builds (bipe-chat/bipe#575, ADR 0147).
+// App Store Connect API steps of the tester builds (bipe-chat/bipe#575, ADR 0178, ADR 0294).
 // Node built-ins only. Request shapes: Apple's App Store Connect API reference.
 // Usage:
-//   node tools/asc.mjs prepare           Registers the bundle IDs with the App Groups
-//                                        capability; checks the app record.
+//   node tools/asc.mjs prepare           Checks the bundle IDs (registers them for a set that CI
+//                                        manages) and the app record.
 //   node tools/asc.mjs distribute <n>    Waits until build <n> is processed and adds
 //                                        it to the internal testing group.
 //   node tools/asc.mjs signing <serial>  Makes the App Store and ad hoc profiles of the
@@ -30,10 +30,10 @@
 //                                        the declaration and needs no key. Else it writes the iPhone
 //                                        declaration of the ID set's app as a draft; only --publish shows
 //                                        it on the App Store page (after the hand test, bipe-chat/bipe#505).
-// Environment: ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_PATH (path of the .p8 key). BIPE_ID_SET=store
-// (bipe-chat/bipe#604, store-release.yml) runs prepare, signing and distribute on the fork's store
-// app (chat.bipe.app, record "Bipe"): there the script never registers a bundle ID, never changes a
-// capability and never creates an app record, and it makes App Store profiles only.
+// Environment: ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_PATH (path of the .p8 key). BIPE_ID_SET picks the
+// ID set; the default is store, the release app chat.bipe.app (record "Bipe", ADR 0178). On the store
+// and beta sets the script never registers a bundle ID, never changes a capability and never creates
+// an app record. The script never creates an app record on any set.
 // The script never prints the key or the token.
 
 import { createPrivateKey, sign } from 'node:crypto';
@@ -42,35 +42,13 @@ import { join } from 'node:path';
 import { isMain } from './lib.mjs';
 
 export const API = 'https://api.appstoreconnect.apple.com';
-export const BUNDLE_ID = 'chat.bipe.app.next';
-export const BUNDLE_IDS = [
-  { identifier: BUNDLE_ID, name: 'Bipe Next' },
-  { identifier: `${BUNDLE_ID}.nse`, name: 'Bipe Next NSE' },
-  { identifier: `${BUNDLE_ID}.share`, name: 'Bipe Next Share' },
-];
-export const APP_NAME = 'Bipe Next';
-export const APP_SKU = 'bipe-next';
 export const INTERNAL_GROUP = 'Bipe team';
 export const TEAM_ID = '992N457T8D';
-// Capabilities of the bundle IDs. A profile carries only what its bundle ID has. The App
-// Groups capability needs group.chat.bipe.next linked to it, which the API cannot do (see
-// prepare). App Attest has no API capability type: automatic signing turned it on before
-// bipe-chat/bipe#585, and the archive fails with a clear message if it is off.
-export const CAPABILITIES = {
-  [BUNDLE_ID]: ['APP_GROUPS', 'PUSH_NOTIFICATIONS', 'ASSOCIATED_DOMAINS'],
-  [`${BUNDLE_ID}.nse`]: ['APP_GROUPS'],
-  [`${BUNDLE_ID}.share`]: ['APP_GROUPS'],
-};
 export const PROFILE_TYPES = { appstore: 'IOS_APP_STORE', adhoc: 'IOS_APP_ADHOC' };
 
-// ID sets (bipe-chat/bipe#602, ios/project.yml BIPE_APP_ID). next: Bipe Next, for local builds next to the
-// release app. store: the release app chat.bipe.app (ADR 0061, ADR 0178). testflight.yml uploads every main
-// build to it. Its bundle IDs, capabilities and app group group.chat.bipe were set up by hand (bipe-chat/bipe#530):
+// ID sets (bipe-chat/bipe#602, ios/project.yml BIPE_APP_ID). store: the release app chat.bipe.app (ADR 0061,
+// ADR 0178), which every build uses (ADR 0294). testflight.yml uploads every main build to it. Its bundle IDs, capabilities and app group group.chat.bipe were set up by hand (bipe-chat/bipe#530):
 // CI reads them and never changes them. Its extension IDs are .nse and .shareextension (BIPE_SHARE_ID_SUFFIX).
-export const NEXT = {
-  name: 'next', appId: BUNDLE_ID, appName: APP_NAME, bundleIds: BUNDLE_IDS, profilePrefix: 'Bipe Next CI', manage: true,
-  kinds: Object.keys(PROFILE_TYPES),
-};
 export const STORE = {
   name: 'store', appId: 'chat.bipe.app', appName: 'Bipe', profilePrefix: 'Bipe CI', manage: false,
   kinds: Object.keys(PROFILE_TYPES),
@@ -99,12 +77,11 @@ export const BENCH = {
   kinds: ['adhoc'],
   bundleIds: [{ identifier: 'chat.bipe.core.bench', name: 'Bipe Core Bench' }],
 };
-export function idSet(name = 'next') {
-  if (name === 'next') return NEXT;
+export function idSet(name = 'store') {
   if (name === 'bench') return BENCH;
   if (name === 'beta') return BETA;
   if (name === 'store') return STORE;
-  throw new Error(`unknown ID set ${name} (next, beta, store or bench)`);
+  throw new Error(`unknown ID set ${name} (store, beta or bench)`);
 }
 // The build setting of each target's profile, by position: app, NSE, share (ios/project.yml).
 const PROFILE_SETTING_ORDER = ['BIPE_CI_PROFILE_APP', 'BIPE_CI_PROFILE_NSE', 'BIPE_CI_PROFILE_SHARE'];
@@ -200,7 +177,7 @@ export function accessibilityPlan(markdown) {
  * Writes the iPhone declaration: changes the draft when there is one, else creates one. Publishes only with
  * publish (a store label is a public claim; Apple asks for it after testing the common tasks).
  */
-export async function accessibility(call, attributes, { set = NEXT, publish = false } = {}) {
+export async function accessibility(call, attributes, { set = STORE, publish = false } = {}) {
   const app = await findApp(call, set);
   if (!app) throw new Error(`no App Store Connect record for ${set.appId}`);
   const list = await call('GET', `/v1/apps/${app.id}/accessibilityDeclarations`);
@@ -226,13 +203,11 @@ export async function accessibility(call, attributes, { set = NEXT, publish = fa
 // The API filters match by prefix, so pick the exact identifier.
 export const exact = (rows, field, value) => rows.find((r) => r.attributes?.[field] === value) ?? null;
 
-async function ensureBundleId(call, { identifier, name }, set = NEXT) {
+async function ensureBundleId(call, { identifier, name }, set = STORE) {
   const list = await call('GET', `/v1/bundleIds?filter[identifier]=${encodeURIComponent(identifier)}&limit=200`);
   let row = exact(list.data, 'identifier', identifier);
   if (row) {
     console.log(`bundle ID ${identifier}: exists`);
-    // The store app's bundle IDs and capabilities belong to the live app: read, never changed.
-    if (!set.manage) return row;
   } else if (!set.manage) {
     throw new Error(`no bundle ID ${identifier} in team ${TEAM_ID}: check the store IDs (node tools/asc.mjs store-ids)`);
   } else {
@@ -242,71 +217,34 @@ async function ensureBundleId(call, { identifier, name }, set = NEXT) {
     row = made.data;
     console.log(`bundle ID ${identifier}: registered`);
   }
-  const caps = await call('GET', `/v1/bundleIds/${row.id}/bundleIdCapabilities`);
-  for (const capabilityType of CAPABILITIES[identifier] ?? []) {
-    if (caps.data.some((c) => c.attributes.capabilityType === capabilityType)) {
-      console.log(`bundle ID ${identifier}: ${capabilityType} on`);
-      continue;
-    }
-    try {
-      await call('POST', '/v1/bundleIdCapabilities', {
-        data: {
-          type: 'bundleIdCapabilities',
-          attributes: { capabilityType },
-          relationships: { bundleId: { data: { type: 'bundleIds', id: row.id } } },
-        },
-      });
-      console.log(`bundle ID ${identifier}: ${capabilityType} enabled`);
-    } catch (err) {
-      // The profile then lacks it, and the archive names the missing entitlement.
-      console.error(`::warning::bundle ID ${identifier}: cannot enable ${capabilityType} (${err.message})`);
-    }
-  }
   return row;
 }
 
-export async function findApp(call, set = NEXT) {
+export async function findApp(call, set = STORE) {
   const list = await call('GET', `/v1/apps?filter[bundleId]=${set.appId}`);
   return exact(list.data, 'bundleId', set.appId);
 }
 
-// The app group itself (group.chat.bipe.next) has no API endpoint. Xcode registered it
-// and linked it to the bundle IDs in the automatic signing runs before bipe-chat/bipe#585.
-// A new group needs that step once by hand (Certificates, Identifiers & Profiles).
-// optional (BIPE_RECORD_OPTIONAL=true, testflight.yml): a missing record of a set that CI does not manage skips
-// the TestFlight steps with a warning in the log and the job summary, instead of failing the run.
-export async function prepare(call, set = NEXT, { optional = false, summary = process.env.GITHUB_STEP_SUMMARY } = {}) {
+// The API cannot make an app record or an app group: both are made once by hand.
+// optional (BIPE_RECORD_OPTIONAL=true, testflight.yml): a missing record skips the TestFlight steps with a
+// warning in the log and the job summary, instead of failing the run.
+export async function prepare(call, set = STORE, { optional = false, summary = process.env.GITHUB_STEP_SUMMARY } = {}) {
   for (const b of set.bundleIds) await ensureBundleId(call, b, set);
-  let app = await findApp(call, set);
-  if (!app && !set.manage && optional) {
+  const app = await findApp(call, set);
+  if (!app && optional) {
     const line = `No App Store Connect record for ${set.appId}: TestFlight is skipped. The API cannot make one. Make it once in App Store Connect: Apps, +, New App, iOS, bundle ID ${set.appId}, primary language Portuguese (Brazil).`;
     console.error(`::warning::${line}`);
     if (summary) appendFileSync(summary, `## TestFlight skipped\n\n${line}\n`);
     return null;
   }
-  if (!app && !set.manage) throw new Error(`no App Store Connect app for ${set.appId}`);
-  if (!app) {
-    try {
-      const made = await call('POST', '/v1/apps', {
-        data: {
-          type: 'apps',
-          attributes: { name: APP_NAME, sku: APP_SKU, primaryLocale: 'pt-BR', bundleId: BUNDLE_ID },
-        },
-      });
-      app = made.data;
-    } catch (err) {
-      console.error(`::warning::No App Store Connect app for ${BUNDLE_ID}, and the API cannot create one (${err.message}). The ad hoc IPA is still built; TestFlight is skipped.`);
-      console.error(`Create it once in App Store Connect: Apps, +, New App: iOS, name "${APP_NAME}", primary language Portuguese (Brazil), bundle ID ${BUNDLE_ID}, SKU ${APP_SKU}.`);
-      return null;
-    }
-  }
+  if (!app) throw new Error(`no App Store Connect app for ${set.appId}`);
   console.log(`app ${set.appName}: ${app.id}`);
   return app;
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-export async function distribute(call, buildNumber, { timeoutMs = 60 * 60 * 1000, pollMs = 30 * 1000, set = NEXT } = {}) {
+export async function distribute(call, buildNumber, { timeoutMs = 60 * 60 * 1000, pollMs = 30 * 1000, set = STORE } = {}) {
   const app = await findApp(call, set);
   if (!app) throw new Error(`no app record for ${set.appId}`);
   const deadline = Date.now() + timeoutMs;
@@ -350,7 +288,7 @@ export async function distribute(call, buildNumber, { timeoutMs = 60 * 60 * 1000
 export const sameSerial = (a, b) =>
   String(a ?? '').toUpperCase().replace(/^0+/, '') === String(b ?? '').toUpperCase().replace(/^0+/, '') && !!a;
 
-export const profileName = (kind, identifier, set = NEXT) =>
+export const profileName = (kind, identifier, set = STORE) =>
   `${set.profilePrefix} ${kind === 'adhoc' ? 'Ad Hoc' : 'App Store'} ${identifier}`;
 
 // The distribution certificate whose key the runner holds. The CI never makes a certificate:
@@ -364,7 +302,7 @@ export async function findCertificate(call, serial) {
 
 // Makes the profile again on every run, so it carries the current devices and capabilities.
 // Only profiles with the CI's own names are deleted.
-export async function makeProfile(call, { kind, bundleId, certificate, devices, set = NEXT }) {
+export async function makeProfile(call, { kind, bundleId, certificate, devices, set = STORE }) {
   const name = profileName(kind, bundleId.attributes.identifier, set);
   const old = await call('GET', `/v1/profiles?filter[name]=${encodeURIComponent(name)}&limit=200`);
   for (const row of old.data.filter((r) => r.attributes?.name === name)) {
@@ -385,7 +323,7 @@ export async function makeProfile(call, { kind, bundleId, certificate, devices, 
 const xml = (value) => String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 // Export options for xcodebuild -exportArchive: manual signing with the CI profiles.
-export function exportOptions(kind, teamId = TEAM_ID, set = NEXT) {
+export function exportOptions(kind, teamId = TEAM_ID, set = STORE) {
   const entries = [
     ['method', kind === 'adhoc' ? 'release-testing' : 'app-store-connect'],
     ['destination', kind === 'adhoc' ? 'export' : 'upload'],
@@ -416,7 +354,7 @@ function installProfile(home, profile) {
   }
 }
 
-export async function signing(call, serial, { home = process.env.HOME, outDir = process.env.RUNNER_TEMP, env = process.env, set = NEXT } = {}) {
+export async function signing(call, serial, { home = process.env.HOME, outDir = process.env.RUNNER_TEMP, env = process.env, set = STORE } = {}) {
   const certificate = await findCertificate(call, serial);
   console.log(`certificate ${certificate.attributes.name ?? certificate.attributes.displayName}: expires ${certificate.attributes.expirationDate}`);
   let devices = [];
@@ -468,10 +406,10 @@ export const STORE_BUNDLE_ID = STORE.appId;
 // Read only: GET requests, nothing registered or changed. The report goes to the log and the job summary.
 export async function storeIds(call, { summary = process.env.GITHUB_STEP_SUMMARY } = {}) {
   const list = await call('GET', `/v1/bundleIds?filter[identifier]=${STORE_BUNDLE_ID}&limit=200`);
-  // The filter matches by prefix: keep the store ID and its own children, never the Bipe Next IDs.
+  // The filter matches by prefix, and other apps' IDs start with chat.bipe.app too: keep the store set's own IDs.
+  const own = new Set(STORE.bundleIds.map((b) => b.identifier));
   const ids = list.data
-    .filter((r) => r.attributes?.identifier === STORE_BUNDLE_ID
-      || (r.attributes?.identifier?.startsWith(`${STORE_BUNDLE_ID}.`) && !r.attributes.identifier.startsWith(`${BUNDLE_ID}`)))
+    .filter((r) => own.has(r.attributes?.identifier))
     .sort((a, b) => a.attributes.identifier.localeCompare(b.attributes.identifier));
   const bundleIds = [];
   for (const row of ids) {
@@ -540,7 +478,7 @@ const empty = (v) => v === null || v === undefined || v === '';
 // The fork's record can lack a resource; a 404 there means "nothing to copy".
 const orNull = (p) => p.catch((err) => { if (err.status === 404) return { data: null }; throw err; });
 
-export async function external(call, buildNumber, { enable = false, publicLink = false, set = NEXT, summary = process.env.GITHUB_STEP_SUMMARY } = {}) {
+export async function external(call, buildNumber, { enable = false, publicLink = false, set = STORE, summary = process.env.GITHUB_STEP_SUMMARY } = {}) {
   const app = await findApp(call, set);
   if (!app) throw new Error(`no app record for ${set.appId}`);
   const missing = [];
@@ -562,7 +500,7 @@ export async function external(call, buildNumber, { enable = false, publicLink =
     const storeLocs = store ? (await orNull(call('GET', `/v1/apps/${store.id}/betaAppLocalizations?limit=50`))).data ?? [] : [];
     const storeReview = store ? (await orNull(call('GET', `/v1/apps/${store.id}/betaAppReviewDetail`))).data : null;
 
-    // Beta app information: Bipe Next's own values first, then the fork's, then BETA_TEXT.
+    // Beta app information: the app's own values first, then the fork's, then BETA_TEXT.
     const loc = locs.find((l) => l.attributes.locale === BETA_LOCALE) ?? null;
     const from = storeLocs.find((l) => l.attributes.locale === BETA_LOCALE)?.attributes ?? {};
     const want = {};
@@ -581,7 +519,7 @@ export async function external(call, buildNumber, { enable = false, publicLink =
       locs = locs.map((l) => (l.id === loc.id ? made.data : l));
     }
 
-    // Review contact and demo account: copied from the fork's record where Bipe Next has none.
+    // Review contact and demo account: copied from the fork's record where the app has none.
     const copy = {};
     for (const f of REVIEW_FIELDS) {
       if (empty(review.attributes[f]) && !empty(storeReview?.attributes?.[f])) copy[f] = storeReview.attributes[f];
@@ -657,13 +595,13 @@ async function main([cmd, arg, ...rest]) {
     const attributes = accessibilityPlan(readFileSync(path, 'utf8'));
     for (const [name, field] of Object.entries(ACCESSIBILITY_FIELDS)) console.log(`${name}: ${attributes[field] ? 'yes' : 'no'}`);
     if (args.includes('--dry-run')) return 0;
-    const set = idSet(process.env.BIPE_ID_SET || 'next');
+    const set = idSet(process.env.BIPE_ID_SET || 'store');
     const result = await accessibility(client(), attributes, { set, publish: args.includes('--publish') });
     console.log(`Declaration ${result.id} for ${set.appId}: ${result.published ? 'published' : 'draft (not on the App Store page; --publish shows it)'}`);
     return 0;
   }
   const call = client();
-  const set = idSet(process.env.BIPE_ID_SET || 'next');
+  const set = idSet(process.env.BIPE_ID_SET || 'store');
   if (cmd === 'prepare') {
     // A missing app record skips only the TestFlight steps (output app=false); the ad hoc IPA needs no record.
     const app = await prepare(call, set, { optional: process.env.BIPE_RECORD_OPTIONAL === 'true' });
@@ -698,7 +636,7 @@ async function main([cmd, arg, ...rest]) {
     }
     return 0;
   }
-  console.error('usage: [BIPE_ID_SET=beta|store] node tools/asc.mjs prepare | distribute <build-number> | external <build-number> | signing <serial> | certificates | store-ids [<build-number>] | accessibility [--dry-run] [--publish] [<appstore.md>]');
+  console.error('usage: [BIPE_ID_SET=store|beta|bench] node tools/asc.mjs prepare | distribute <build-number> | external <build-number> | signing <serial> | certificates | store-ids [<build-number>] | accessibility [--dry-run] [--publish] [<appstore.md>]');
   return 2;
 }
 

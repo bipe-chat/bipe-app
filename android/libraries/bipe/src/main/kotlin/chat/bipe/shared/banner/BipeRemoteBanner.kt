@@ -8,6 +8,10 @@
 
 package chat.bipe.shared.banner
 
+import chat.bipe.core.RemoteBanner
+import chat.bipe.core.RemoteBannerState
+import chat.bipe.core.compareAppVersions
+import chat.bipe.core.remoteBannerState
 import chat.bipe.shared.api.BipeApiClient
 import java.time.Instant
 import kotlinx.serialization.SerialName
@@ -32,28 +36,15 @@ data class BipeRemoteBanner(
 
     companion object {
         /** Reference `remoteBannerState(banner, appVersion, now)`. */
-        fun state(banner: BipeRemoteBanner?, appVersion: String, now: Instant): State {
-            if (banner == null) return State.HIDDEN
-            val expires = runCatching { Instant.parse(banner.expiresAt) }.getOrNull() ?: return State.HIDDEN
-            if (!expires.isAfter(now)) return State.HIDDEN
-            val minimum = banner.minAppVersion
-            if (minimum != null && compareVersions(appVersion, minimum) < 0) return State.UPDATE
-            return State.NOTICE
-        }
+        fun state(banner: BipeRemoteBanner?, appVersion: String, now: Instant): State =
+            when (remoteBannerState(banner?.let { RemoteBanner(it.expiresAt, it.minAppVersion) }, appVersion, now.toString())) {
+                RemoteBannerState.HIDDEN -> State.HIDDEN
+                RemoteBannerState.UPDATE -> State.UPDATE
+                RemoteBannerState.NOTICE -> State.NOTICE
+            }
 
         /** Reference `compareAppVersions(a, b)`: -1, 0 or 1. Missing parts count as 0; each part reads its leading digits. */
-        fun compareVersions(a: String, b: String): Int {
-            val pa = a.split('.')
-            val pb = b.split('.')
-            fun part(parts: List<String>, index: Int): Long =
-                parts.getOrNull(index)?.takeWhile { it in '0'..'9' }?.toLongOrNull() ?: 0
-            for (index in 0 until maxOf(pa.size, pb.size)) {
-                val x = part(pa, index)
-                val y = part(pb, index)
-                if (x != y) return if (x < y) -1 else 1
-            }
-            return 0
-        }
+        fun compareVersions(a: String, b: String): Int = compareAppVersions(a, b)
     }
 }
 

@@ -2,6 +2,7 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
+import BipeCore
 import Foundation
 
 /// Assistant drafts (bipe ADR 0210, bipe-chat/bipe#866; registries/drafts.json, bipe-shared docs/drafts-room.md).
@@ -55,32 +56,14 @@ public enum BipeAssistantDrafts {
         return fromEvent(event, ownUserId: ownUserId, joinedRoomIds: joinedRoomIds)
     }
 
-    /// draftFromEvent: event is { sender, type, redacted?, content }, an event of the drafts room.
+    /// draftFromEvent (bipe-core): event is { sender, type, redacted?, content }, an event of the drafts room.
     public static func fromEvent(_ event: [String: Any], ownUserId: String, joinedRoomIds: Set<String>) -> Result {
-        guard event["type"] as? String == "m.room.message" else { return .hide(reason: "type") }
-        if let redacted = event["redacted"] as? Bool, redacted { return .hide(reason: "redacted") }
-        guard event["sender"] as? String == ownUserId else { return .hide(reason: "sender") }
-        guard let content = event["content"] as? [String: Any], content["msgtype"] as? String == "m.text" else {
-            return .hide(reason: "content")
+        guard let json = CoreJSON.text(event) else { return .hide(reason: "type") }
+        switch draftFromEvent(eventJson: json, ownUserId: ownUserId, joinedRoomIds: Array(joinedRoomIds)) {
+        case .show(let draft):
+            return .show(Draft(roomId: draft.roomId, body: draft.body, replyTo: draft.replyTo, threadRoot: draft.threadRoot, client: draft.client))
+        case .hide(let reason):
+            return .hide(reason: reason)
         }
-        guard let field = content[BipeRegistries.draftField] as? [String: Any] else { return .hide(reason: "field") }
-        guard let roomId = field["room_id"] as? String, roomId.hasPrefix("!") else { return .hide(reason: "room_id") }
-        guard joinedRoomIds.contains(roomId) else { return .hide(reason: "not_joined") }
-        guard let body = content["body"] as? String, !blank(body) else { return .hide(reason: "body") }
-        // JavaScript String.length counts UTF-16 code units.
-        guard body.utf16.count <= BipeRegistries.draftBodyMaxLength else { return .hide(reason: "body_too_long") }
-        guard let client = field["client"] as? String, !blank(client),
-              client.utf16.count <= BipeRegistries.draftClientMaxLength else { return .hide(reason: "client") }
-        var ids: [String: String] = [:]
-        for key in ["reply_to", "thread_root"] where field[key] != nil {
-            guard let id = field[key] as? String, id.hasPrefix("$") else { return .hide(reason: key) }
-            ids[key] = id
-        }
-        return .show(Draft(roomId: roomId, body: body, replyTo: ids["reply_to"], threadRoot: ids["thread_root"],
-                           client: client.trimmingCharacters(in: .whitespacesAndNewlines)))
-    }
-
-    private static func blank(_ text: String) -> Bool {
-        text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 }

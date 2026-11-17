@@ -143,6 +143,22 @@ pub const WORK_NOTE_FIELD: &str = "chat.bipe.work_note";
 pub const WORK_REPLY_BY_FIELD: &str = "chat.bipe.reply_by";
 pub const WORK_NOTE_BODY_MAX_LENGTH: usize = 4000;
 
+/// registries/device-kinds.json (ADR 0291, bipe-chat/bipe#1479). Patterns are in the Rust syntax (rust-regex.mjs): a
+/// capture group n of the registry pattern is group n + 1 here, and $n in a template names registry group n.
+pub const DEVICE_INFO_FIELD: &str = "chat.bipe.device_info";
+pub const DEVICE_INFO_MSGTYPE: &str = "m.notice";
+pub const DEVICE_FIELD_MAX_LENGTH: usize = 64;
+pub const DEVICE_UNKNOWN_WARNING: bool = false;
+/// (key, icon, label, section, leaves Brazil) in registry order.
+pub const DEVICE_KINDS: &[(&str, &str, &str, &str, bool)] = &[("phone", "phone", "bipe_device_kind_phone", "devices", false), ("computer-app", "desktop", "bipe_device_kind_computer", "devices", false), ("browser", "link", "bipe_device_kind_browser", "devices", false), ("assistant", "chat-text", "bipe_device_kind_assistant", "programs", true), ("bridge", "share-network", "bipe_device_kind_bridge", "programs", true), ("unknown", "warning", "bipe_device_kind_unknown", "devices", false)];
+/// (pattern, kind, app, model, os) in registry order.
+pub const DEVICE_USER_AGENTS: &[(&str, &str, Option<&str>, Option<&str>, Option<&str>)] = &[("(^Bipe/([0-9][0-9.]*) \\(([A-Za-z0-9 ,._-]+); (iOS [0-9.]+)\\)$)", "phone", Some("Bipe $1"), Some("$2"), Some("$3")), ("(^Bipe/([0-9][0-9.]*) \\(([A-Za-z0-9 ,._-]+); (Android [0-9.]+)\\)$)", "phone", Some("Bipe $1"), Some("$2"), Some("$3")), ("(^Bipe/([0-9][0-9.]*) \\(([A-Za-z0-9 ,._-]+); ((?:macOS|Windows) [0-9.]+)\\)$)", "computer-app", Some("Bipe $1"), Some("$2"), Some("$3")), ("(^Mozilla/)", "browser", None, None, None)];
+/// (pattern, name template) in registry order.
+pub const DEVICE_BROWSERS: &[(&str, &str)] = &[("(Edg/([0-9]+))", "Edge $1"), ("(OPR/([0-9]+))", "Opera $1"), ("(Firefox/([0-9]+))", "Firefox $1"), ("(Chrome/([0-9]+))", "Chrome $1"), ("(Version/([0-9]+)[0-9.]* [^\\n\\r\\x{2028}\\x{2029}]*Safari/)", "Safari $1")];
+pub const DEVICE_SYSTEMS: &[(&str, &str)] = &[("((?:iPhone|iPad)[^\\n\\r\\x{2028}\\x{2029}]* OS ([0-9]+))", "iOS $1"), ("(Android ([0-9]+))", "Android $1"), ("(Windows NT)", "Windows"), ("(CrOS)", "ChromeOS"), ("(Mac OS X)", "macOS"), ("(Linux)", "Linux")];
+/// registries/apple-models.json (bipe-chat/bipe#1517): (iPhone identifier, product name), sorted by identifier.
+pub const APPLE_MODELS: &[(&str, &str)] = &[("iPhone11,2", "iPhone XS"), ("iPhone11,4", "iPhone XS Max"), ("iPhone11,6", "iPhone XS Max"), ("iPhone11,8", "iPhone XR"), ("iPhone12,1", "iPhone 11"), ("iPhone12,3", "iPhone 11 Pro"), ("iPhone12,5", "iPhone 11 Pro Max"), ("iPhone12,8", "iPhone SE (2nd generation)"), ("iPhone13,1", "iPhone 12 mini"), ("iPhone13,2", "iPhone 12"), ("iPhone13,3", "iPhone 12 Pro"), ("iPhone13,4", "iPhone 12 Pro Max"), ("iPhone14,2", "iPhone 13 Pro"), ("iPhone14,3", "iPhone 13 Pro Max"), ("iPhone14,4", "iPhone 13 mini"), ("iPhone14,5", "iPhone 13"), ("iPhone14,6", "iPhone SE (3rd generation)"), ("iPhone14,7", "iPhone 14"), ("iPhone14,8", "iPhone 14 Plus"), ("iPhone15,2", "iPhone 14 Pro"), ("iPhone15,3", "iPhone 14 Pro Max"), ("iPhone15,4", "iPhone 15"), ("iPhone15,5", "iPhone 15 Plus"), ("iPhone16,1", "iPhone 15 Pro"), ("iPhone16,2", "iPhone 15 Pro Max"), ("iPhone17,1", "iPhone 16 Pro"), ("iPhone17,2", "iPhone 16 Pro Max"), ("iPhone17,3", "iPhone 16"), ("iPhone17,4", "iPhone 16 Plus"), ("iPhone17,5", "iPhone 16e"), ("iPhone18,1", "iPhone 17 Pro"), ("iPhone18,2", "iPhone 17 Pro Max"), ("iPhone18,3", "iPhone 17"), ("iPhone18,4", "iPhone Air"), ("iPhone18,5", "iPhone 17e")];
+
 /// registries/onboarding.json (bipe-chat/bipe#202, bipe-chat/bipe#752, bipe-chat/bipe#894).
 pub const PIN_REMINDER_DAYS: &[u32] = &[1, 3, 7, 14, 30];
 pub const PIN_REMINDER_THEN_EVERY_DAYS: u32 = 60;
@@ -163,6 +179,110 @@ pub const STICKER_EMOJI: &[(&str, &[&str])] = &[("😂", &["riso"]), ("🤣", &[
 pub const PIN_LENGTH: usize = 8;
 pub const PIN_DATE_YEAR_MIN: u32 = 1900;
 pub const PIN_DATE_YEAR_MAX: u32 = 2099;
+
+/// registries/trust-facts.json (ADR 0074): the inputs of trust_facts. Times are Unix seconds.
+#[derive(Clone, Debug, Default, PartialEq, uniffi::Record)]
+pub struct TrustInput {
+    pub account_id: Option<String>,
+    pub device_key: Option<String>,
+    pub lifecycle_known: Option<bool>,
+    pub device_changed_at: Option<f64>,
+    pub identity_changed_at: Option<f64>,
+    pub badge_status: Option<String>,
+    pub badge_account_id: Option<String>,
+    pub badge_device_key: Option<String>,
+    pub badge_name: Option<String>,
+    pub badge_issued_at: Option<f64>,
+    pub confirmation_method: Option<String>,
+    pub confirmation_account_id: Option<String>,
+    pub confirmation_device_key: Option<String>,
+    pub confirmed_at: Option<f64>,
+    pub prior_in_person_confirmed_at: Option<f64>,
+    pub warning_kind: Option<String>,
+}
+
+/// The trust facts of one contact. Facts only; no trust score (ADR 0074).
+#[derive(Clone, Debug, PartialEq, Eq, uniffi::Record)]
+pub struct TrustFacts {
+    pub identity: String,
+    pub verified_name: Option<String>,
+    pub contact: String,
+    pub change: String,
+    pub warning_kind: Option<String>,
+}
+
+/// The rules of registries/trust-facts.json, compiled. Reference: evaluateTrustFacts in tools/lib/trust.mjs.
+#[allow(unused_parens, clippy::nonminimal_bool)]
+pub(crate) fn trust_rules(input: &TrustInput) -> TrustFacts {
+    fn nonempty(value: &Option<String>) -> bool { value.as_deref().is_some_and(|v| !v.is_empty()) }
+    fn valid_time(value: Option<f64>) -> bool { value.is_some_and(|v| v.is_finite() && v >= 0.0) }
+    fn nullable_time(value: Option<f64>) -> bool { value.is_none() || valid_time(value) }
+    fn after_change(proof: Option<f64>, change: Option<f64>) -> bool {
+        valid_time(proof) && (change.is_none() || (valid_time(change) && proof > change))
+    }
+    fn at_or_before(first: Option<f64>, second: Option<f64>) -> bool { valid_time(first) && valid_time(second) && first <= second }
+    let context_known = (nonempty(&input.account_id) && nonempty(&input.device_key) && (input.lifecycle_known == Some(true)) && nullable_time(input.device_changed_at) && nullable_time(input.identity_changed_at));
+    let badge_bound = ((input.badge_status.as_deref() == Some("valid")) && (input.badge_account_id == input.account_id));
+    let identity_verified = (context_known && badge_bound && (input.badge_device_key == input.device_key) && nonempty(&input.badge_name) && valid_time(input.badge_issued_at) && after_change(input.badge_issued_at, input.device_changed_at) && after_change(input.badge_issued_at, input.identity_changed_at));
+    let identity_suspended = (context_known && !(identity_verified) && ((input.badge_status.as_deref() == Some("master_key_mismatch")) || (badge_bound && (!(input.badge_device_key == input.device_key) || (valid_time(input.badge_issued_at) && ((valid_time(input.device_changed_at) && !(after_change(input.badge_issued_at, input.device_changed_at))) || (valid_time(input.identity_changed_at) && !(after_change(input.badge_issued_at, input.identity_changed_at)))))))));
+    let contact_confirmed = (context_known && (input.confirmation_account_id == input.account_id) && (input.confirmation_device_key == input.device_key) && valid_time(input.confirmed_at) && after_change(input.confirmed_at, input.device_changed_at) && after_change(input.confirmed_at, input.identity_changed_at) && ((input.confirmation_method.as_deref() == Some("in_person")) || ((input.confirmation_method.as_deref() == Some("old_device_approval")) && valid_time(input.prior_in_person_confirmed_at) && at_or_before(input.prior_in_person_confirmed_at, input.confirmed_at) && after_change(input.prior_in_person_confirmed_at, input.identity_changed_at))));
+    let identity = if identity_verified {
+            "verified".to_owned()
+        } else if identity_suspended {
+            "suspended".to_owned()
+        } else {
+            "unverified".to_owned()
+        };
+    let verified_name = if identity_verified {
+            input.badge_name.clone()
+        } else {
+            None
+        };
+    let contact = if contact_confirmed {
+            "confirmed".to_owned()
+        } else {
+            "unconfirmed".to_owned()
+        };
+    let change = if !(context_known) {
+            "unknown".to_owned()
+        } else if (valid_time(input.device_changed_at) && valid_time(input.identity_changed_at)) {
+            "device_and_identity".to_owned()
+        } else if valid_time(input.device_changed_at) {
+            "device".to_owned()
+        } else if valid_time(input.identity_changed_at) {
+            "identity".to_owned()
+        } else {
+            "none".to_owned()
+        };
+    let warning_kind = if nonempty(&input.warning_kind) {
+            input.warning_kind.clone()
+        } else {
+            None
+        };
+    TrustFacts { identity, verified_name, contact, change, warning_kind }
+}
+
+/// registries/home-score.json (ADR 0246): weights and limits of home_score.rs.
+pub const HOME_WEIGHT_MENTION: f64 = 0.24;
+pub const HOME_WEIGHT_UNREAD_DIRECT: f64 = 0.22;
+pub const HOME_WEIGHT_UNREAD_COMPANY_NO_SEAL: f64 = 0.1;
+pub const HOME_WEIGHT_UNANSWERED_DIRECT: f64 = 0.06;
+pub const HOME_WEIGHT_FAVOURITE: f64 = 0.1;
+pub const HOME_UNREAD_GROUP_MIN: f64 = 0.02;
+pub const HOME_UNREAD_GROUP_MAX: f64 = 0.08;
+pub const HOME_UNREAD_GROUP_LOG_SCALE: f64 = 0.03;
+pub const HOME_TIE_MAX: f64 = 0.16;
+pub const HOME_TIE_LOG_SCALE: f64 = 0.03;
+pub const HOME_RECENCY_MAX: f64 = 0.14;
+pub const HOME_RECENCY_DECAY_MINUTES: f64 = 480.0;
+pub const HOME_UNANSWERED_MAX_MINUTES: i64 = 4320;
+pub const HOME_MUTED_FACTOR: f64 = 0.4;
+pub const HOME_OFFICIAL_CAP: f64 = 0.14;
+/// (tier, minScore, maxChats) in registry order.
+pub const HOME_TIERS: &[(u32, f64, Option<u32>)] = &[(1, 0.6, Some(2)), (2, 0.3, Some(6)), (3, 0.14, None), (4, 0.0, Some(12))];
+pub const HOME_MODEL_ATTENTION: &[(&str, f64)] = &[("reply", 0.2), ("decide", 0.2), ("fyi", 0.02), ("none", -0.18)];
+pub const HOME_MODEL_DUE: f64 = 0.06;
+pub const HOME_MODEL_MAX_WEIGHT: f64 = 0.26;
 
 /// `personAssurance` of registries/schemes.json (ADR 0275): the person assurances, strongest first, and the seal
 /// mark of each. personProofs reads it; test-vectors/person-proofs.json checks it.

@@ -44,8 +44,9 @@ env:
   RUST_VERSION: "1.95.0"
   PROFILE: small-release-stripped
   UBRN_VERSION: 0.31.0-6
-  BUDGET_NATIVE: 1048576
-  BUDGET_WASM_BROTLI: 307200
+  # ADR 0290 (bipe-chat/bipe#1393): a job fails when one slice is over its budget.
+  BUDGET_NATIVE: 3145728
+  BUDGET_WASM_BROTLI: 409600
   # The version in the names of the core-dist-* artifacts: the release's, or 0.0.0-dev on a pull request or push.
   DIST_VERSION: ${{ inputs.version || '0.0.0-dev' }}
   # Seconds per fuzz target on each run (bipe-chat/bipe#1277 item 7).
@@ -346,9 +347,11 @@ jobs:
             strip -x "$probe/base-$3" "$probe/core-$3"
             base=$(stat -f %z "$probe/base-$3"); core=$(stat -f %z "$probe/core-$3")
             echo "| $3 | $((core - base)) | $(stat -f %z "target/$3/$PROFILE/libbipe_core.dylib" 2>/dev/null || echo -) |" >> "$probe/table"
+            if [ $((core - base)) -gt "$BUDGET_NATIVE" ]; then echo "::error::$3 adds $((core - base)) bytes, over the budget of $BUDGET_NATIVE (ADR 0290)" >> "$probe/over"; fi
           }
           printf '@main struct Empty { static func main() { print(CommandLine.arguments.count) } }\n' > "$probe/empty-main.swift"
           : > "$probe/table"
+          : > "$probe/over"
           link iphoneos arm64-apple-ios17.0 aarch64-apple-ios
           link macosx arm64-apple-macos14.0 aarch64-apple-darwin
           link macosx x86_64-apple-macos14.0 x86_64-apple-darwin
@@ -371,6 +374,7 @@ jobs:
             echo "Ed25519 cases (case:core,platform): $(cat "$RUNNER_TEMP/mac.cases")"
           } >> "$GITHUB_STEP_SUMMARY"
           cat "$GITHUB_STEP_SUMMARY"
+          if [ -s "$probe/over" ]; then cat "$probe/over"; exit 1; fi
 
   android:
     name: core-android
@@ -458,8 +462,11 @@ jobs:
             echo
             echo '| ABI | Stripped .so bytes | gzip -9 |'
             echo '| --- | ------------------ | ------- |'
+            over=""
             for f in */libbipe_core.so; do
-              echo "| ${f%%/*} | $(stat -c %s "$f") | $(gzip -9c "$f" | wc -c) |"
+              n=$(stat -c %s "$f")
+              echo "| ${f%%/*} | $n | $(gzip -9c "$f" | wc -c) |"
+              if [ "$n" -gt "$BUDGET_NATIVE" ]; then over="$over ${f%%/*}:$n"; fi
             done
             echo
             echo '| Run | Metrics |'
@@ -468,6 +475,7 @@ jobs:
             echo "| x86_64 emulator, API 34, debug build, BadgeVerifier.kt | $(cat /tmp/android-emulator-base.metrics) |"
             echo "| JVM on this runner, BadgeVerifier.kt | $(cat /tmp/android-base.metrics) |"
           } >> "$GITHUB_STEP_SUMMARY"
+          if [ -n "$over" ]; then echo "::error::Android .so over the budget of $BUDGET_NATIVE bytes (ADR 0290):$over"; exit 1; fi
           cat "$GITHUB_STEP_SUMMARY"
 
   jvm:
@@ -546,6 +554,8 @@ jobs:
             echo "- $(cat "$RUNNER_TEMP/jvm.cases")"
           } >> "$GITHUB_STEP_SUMMARY"
           cat "$GITHUB_STEP_SUMMARY"
+          n=$(wc -c < "$BIPE_CORE_LIB" | tr -d ' ')
+          if [ "$n" -gt "$BUDGET_NATIVE" ]; then echo "::error::JVM library is $n bytes, over the budget of $BUDGET_NATIVE (ADR 0290)"; exit 1; fi
 
   jvm-jar:
     name: core-jvm-jar
@@ -732,12 +742,40 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
           cat "$GITHUB_STEP_SUMMARY"
+          if [ "$total" -gt "$BUDGET_WASM_BROTLI" ]; then echo "::error::Web core is $total bytes Brotli, over the budget of $BUDGET_WASM_BROTLI (ADR 0290)"; exit 1; fi
 
   # bipe-chat/bipe#1277 items 4, 5 and 8: the pinned release (core/release/release.json), taken from GitHub releases
   # the way a client takes it, never from this run. Not part of a release build.
+  # bipe-chat/bipe#1393: the release-* jobs run only when the pinned release (core/release/**) changes, or on demand.
+  release-pin:
+    name: core-release-pin
+    if: github.workflow == 'core'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      changed: ${{ steps.diff.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: diff
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [ "$EVENT" = workflow_dispatch ] || [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            echo changed=true >> "$GITHUB_OUTPUT"
+          elif git diff --quiet "$BASE" HEAD -- core/release; then
+            echo changed=false >> "$GITHUB_OUTPUT"
+          else
+            echo changed=true >> "$GITHUB_OUTPUT"
+          fi
+          cat "$GITHUB_OUTPUT"
+
   release-apple:
     name: core-release-apple
-    if: github.workflow == 'core'
+    needs: release-pin
+    if: github.workflow == 'core' && needs.release-pin.outputs.changed == 'true'
     runs-on: xcode-27
     timeout-minutes: 40
     env:
@@ -782,7 +820,8 @@ jobs:
 
   release-android:
     name: core-release-android
-    if: github.workflow == 'core'
+    needs: release-pin
+    if: github.workflow == 'core' && needs.release-pin.outputs.changed == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -854,7 +893,8 @@ jobs:
   # has the install command. Signing as in testflight.yml: the distribution certificate in a temporary keychain.
   release-ios-bench:
     name: core-release-ios-bench
-    if: github.workflow == 'core' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    needs: release-pin
+    if: github.workflow == 'core' && needs.release-pin.outputs.changed == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: xcode-27
     timeout-minutes: 40
     env:
@@ -950,7 +990,8 @@ jobs:
 
   release-jvm:
     name: core-release-jvm-${{ matrix.os }}
-    if: github.workflow == 'core'
+    needs: release-pin
+    if: github.workflow == 'core' && needs.release-pin.outputs.changed == 'true'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     strategy:
@@ -990,7 +1031,8 @@ jobs:
 
   release-web:
     name: core-release-web
-    if: github.workflow == 'core'
+    needs: release-pin
+    if: github.workflow == 'core' && needs.release-pin.outputs.changed == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:

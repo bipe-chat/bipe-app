@@ -3,7 +3,7 @@
 # Copyright 2026 Bipe contributors
 
 # The site serves the newest tester APK (bipe-chat/bipe#893). bipe-infra CronJob bipe-apk-pull copies the newest
-# bipe-next-apk artifact of main to https://bipe.chat/baixar/android/bipe.apk every 15 minutes. From 27 to 31 October
+# bipe-apk artifact of main to https://bipe.chat/baixar/android/bipe.apk every 15 minutes. From 27 to 31 October
 # 2026 it failed (its token Secret had no key) and the site served an old build. This check fails when the site's
 # latest.json names an older artifact than the newest one on main, and that artifact is older than 1 hour.
 name: apk-site
@@ -28,11 +28,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           served=$(curl -fsS https://bipe.chat/baixar/android/latest.json | jq -r .artifact_id)
-          newest=$(gh api "repos/${{ github.repository }}/actions/artifacts?name=bipe-next-apk&per_page=50" \
+          newest=$(gh api "repos/${{ github.repository }}/actions/artifacts?name=bipe-apk&per_page=50" \
             --jq '[.artifacts[] | select(.workflow_run.head_branch == "main" and (.expired | not))] | max_by(.created_at) | "\(.id) \(.created_at)"')
           read -r id created <<< "$newest"
           if [ "$id" = null ]; then
-            echo "No unexpired bipe-next-apk artifact on main: nothing to compare."
+            echo "No unexpired bipe-apk artifact on main: nothing to compare."
             exit 0
           fi
           age=$(( $(date +%s) - $(date -d "$created" +%s) ))

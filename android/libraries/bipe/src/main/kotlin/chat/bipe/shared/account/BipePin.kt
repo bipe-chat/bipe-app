@@ -5,6 +5,8 @@
 package chat.bipe.shared.account
 
 import android.content.Context
+import chat.bipe.core.PinProblem
+import chat.bipe.core.pinProblem
 import chat.bipe.shared.R
 import chat.bipe.shared.generated.BipeRegistries
 
@@ -36,31 +38,15 @@ enum class BipePinProblem(val id: String) {
  */
 object BipePin {
     /** `null` when the PIN is strong enough. */
-    fun problem(pin: String): BipePinProblem? {
-        if (!pin.all { it in '0'..'9' }) return BipePinProblem.NOT_DIGITS
-        if (pin.length != BipeRegistries.PIN_LENGTH) return BipePinProblem.WRONG_LENGTH
-        val digits = pin.map { it - '0' }
-        if (digits.all { it == digits[0] }) return BipePinProblem.REPEATED_DIGIT
-        // Up or down by one, with wrap from 9 to 0 and back.
-        for (step in listOf(1, 9)) {
-            if ((1 until digits.size).all { digits[it] == (digits[it - 1] + step) % 10 }) return BipePinProblem.SEQUENCE
-        }
-        fun number(from: Int, to: Int) = digits.subList(from, to).fold(0) { acc, d -> acc * 10 + d }
-        if (isDate(year = number(4, 8), month = number(2, 4), day = number(0, 2)) ||
-            isDate(year = number(0, 4), month = number(4, 6), day = number(6, 8))
-        ) {
-            return BipePinProblem.DATE
-        }
-        return null
+    fun problem(pin: String): BipePinProblem? = when (pinProblem(pin)) {
+        PinProblem.NOT_DIGITS -> BipePinProblem.NOT_DIGITS
+        PinProblem.WRONG_LENGTH -> BipePinProblem.WRONG_LENGTH
+        PinProblem.REPEATED_DIGIT -> BipePinProblem.REPEATED_DIGIT
+        PinProblem.SEQUENCE -> BipePinProblem.SEQUENCE
+        PinProblem.DATE -> BipePinProblem.DATE
+        null -> null
     }
 
     /** Keeps the digits only, at most the PIN length. Paste is allowed. */
     fun sanitize(input: String): String = input.filter { it in '0'..'9' }.take(BipeRegistries.PIN_LENGTH)
-
-    private fun isDate(year: Int, month: Int, day: Int): Boolean {
-        if (year !in BipeRegistries.PIN_DATE_YEAR_MIN..BipeRegistries.PIN_DATE_YEAR_MAX || month !in 1..12 || day < 1) return false
-        val leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)
-        val days = intArrayOf(31, if (leap) 29 else 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)[month - 1]
-        return day <= days
-    }
 }

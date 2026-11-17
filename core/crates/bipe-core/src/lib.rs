@@ -5,7 +5,11 @@
 //! Pure Bipe logic shared by all clients (ADR 0267). No network, files, clock, secrets or Matrix session.
 
 mod badge;
+mod chat_state;
 mod cvm;
+mod devices;
+mod govbr;
+mod home_score;
 mod identity;
 mod issuer;
 mod message_data;
@@ -16,8 +20,10 @@ mod pix;
 mod pix_marks;
 mod scam;
 mod signed_list;
+mod small_rules;
 mod text;
 mod theft;
+mod trust;
 
 /// bipe-shared tools/gen.mjs output (bipe-chat/bipe#1277). Never edit by hand.
 mod generated {
@@ -25,7 +31,11 @@ mod generated {
 }
 
 pub use badge::*;
+pub use chat_state::*;
 pub use cvm::*;
+pub use devices::*;
+pub use govbr::*;
+pub use home_score::*;
 pub use identity::*;
 pub use issuer::*;
 pub use message_data::*;
@@ -36,8 +46,10 @@ pub use pix::*;
 pub use pix_marks::*;
 pub use scam::*;
 pub use signed_list::*;
+pub use small_rules::*;
 pub use text::{TextFold, normalize_text};
 pub use theft::*;
+pub use trust::*;
 
 uniffi::setup_scaffolding!("bipe_core");
 

@@ -218,7 +218,7 @@ class MainActivity : ComponentActivity() {
 
     /**
      * Debug builds only: a dev test account from the launch intent (ADR 0147, bipe-chat/bipe#552), for example
-     * `adb shell am start -n chat.bipe.app.next.debug/chat.bipe.app.MainActivity --es bipe.dev.user @name:bipe.net.br --es bipe.dev.password ...`.
+     * `adb shell am start -n chat.bipe.app.debug/chat.bipe.app.MainActivity --es bipe.dev.user @name:bipe.net.br --es bipe.dev.password ...`.
      * The app keeps only the SDK session, never the password. The extras are removed after reading.
      */
     private fun readDevAccount(intent: Intent?) {

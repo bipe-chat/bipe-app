@@ -268,6 +268,158 @@ export function replyByFromEvent(event, ctx, reg) {
   return { show: true, replyBy: { roomId: c.room_id, eventId: c.event_id, seatId: c.seat_id } };
 }
 
+// Device kinds and device entries (bipe ADR 0291, bipe-chat/bipe#1479; registries/device-kinds.json).
+export const DEVICE_KIND_KEYS = ["phone", "computer-app", "browser", "assistant", "bridge", "unknown"];
+export function validateDeviceKinds(d, phosphor) {
+  if (d.version !== 1) fail("device-kinds: version must be 1");
+  if (d.field !== "chat.bipe.device_info" || d.msgtype !== "m.notice") fail("device-kinds: unsupported ADR 0291 names");
+  if (!Number.isInteger(d.fieldMaxLength) || d.fieldMaxLength < 16 || d.fieldMaxLength > 256) fail("device-kinds: fieldMaxLength must be an integer from 16 to 256");
+  if (typeof d.unknownWarning !== "boolean") fail("device-kinds: unknownWarning must be a boolean");
+  if (JSON.stringify(d.kinds.map((k) => k.key)) !== JSON.stringify(DEVICE_KIND_KEYS)) fail(`device-kinds: kinds must be exactly ${DEVICE_KIND_KEYS.join(", ")} in that order`);
+  for (const k of d.kinds) {
+    if (Object.keys(k).sort().join() !== "icon,key,label,leavesBrazil,section") fail(`device-kinds: ${k.key} has unknown or missing fields`);
+    if (phosphor && !phosphor.includes(k.icon)) fail(`device-kinds: ${k.key} icon "${k.icon}" is not in bipe-app tools/phosphor.json`);
+    if (!/^bipe_device_kind_[a-z_]+$/.test(k.label)) fail(`device-kinds: ${k.key} label`);
+    if (!["devices", "programs"].includes(k.section)) fail(`device-kinds: ${k.key} section`);
+    if (typeof k.leavesBrazil !== "boolean") fail(`device-kinds: ${k.key} leavesBrazil`);
+  }
+  const rule = (where, r, fields) => {
+    if (Object.keys(r).some((f) => !fields.includes(f))) fail(`device-kinds: ${where} has unknown fields`);
+    try { new RegExp(r.pattern); } catch { fail(`device-kinds: ${where} pattern`); }
+  };
+  d.userAgents.forEach((r, i) => {
+    rule(`userAgents[${i}]`, r, ["pattern", "kind", "app", "model", "os"]);
+    if (!DEVICE_KIND_KEYS.includes(r.kind) || r.kind === "unknown") fail(`device-kinds: userAgents[${i}] kind`);
+  });
+  d.browsers.forEach((r, i) => rule(`browsers[${i}]`, r, ["pattern", "name"]));
+  d.systems.forEach((r, i) => rule(`systems[${i}]`, r, ["pattern", "name"]));
+}
+
+// iPhone model names (bipe ADR 0291, bipe-chat/bipe#1517; registries/apple-models.json).
+export function validateAppleModels(a, deviceKinds) {
+  if (a.version !== 1 || !isObject(a.models)) fail("apple-models: version must be 1 with a models object");
+  for (const [id, name] of Object.entries(a.models)) {
+    if (!/^iPhone[0-9]+,[0-9]+$/.test(id)) fail(`apple-models: ${id} is not an iPhone identifier`);
+    if (typeof name !== "string" || name.trim() !== name || !name || name.length > deviceKinds.fieldMaxLength) fail(`apple-models: ${id} name`);
+  }
+}
+
+/** The product name of an iPhone identifier, or the text as it is (bipe-chat/bipe#1517). null stays null. */
+export function appleModelName(model, reg) {
+  return typeof model === "string" && Object.hasOwn(reg.appleModels.models, model) ? reg.appleModels.models[model] : model;
+}
+
+const deviceText = (v, max) => (typeof v === "string" && v.trim() && v.trim().length <= max ? v.trim() : null);
+const fillGroups = (template, m) => template.replace(/\$([1-9])/g, (_, n) => m[Number(n)] ?? "").trim();
+
+/**
+ * What a user agent says about a device (ADR 0291): the phone that approves a new device writes an approval entry from it.
+ * Returns { kind, app, model, os } with null for what the user agent does not say, or null when no rule matches.
+ */
+export function userAgentInfo(userAgent, reg) {
+  const d = reg.deviceKinds;
+  if (typeof userAgent !== "string" || !userAgent) return null;
+  const first = (rules) => {
+    for (const r of rules) {
+      const m = userAgent.match(new RegExp(r.pattern));
+      if (m) return fillGroups(r.name, m) || null;
+    }
+    return null;
+  };
+  for (const r of d.userAgents) {
+    const m = userAgent.match(new RegExp(r.pattern));
+    if (!m) continue;
+    const pick = (t) => (t === undefined ? null : deviceText(fillGroups(t, m), d.fieldMaxLength));
+    if (r.kind === "browser") return { kind: "browser", app: deviceText(first(d.browsers), d.fieldMaxLength), model: null, os: deviceText(first(d.systems), d.fieldMaxLength) };
+    return { kind: r.kind, app: pick(r.app), model: pick(r.model), os: pick(r.os) };
+  }
+  return null;
+}
+
+/**
+ * Whether a drafts room event is a valid device entry (ADR 0291): an m.room.message with msgtype m.notice and the field
+ * chat.bipe.device_info. event: { type, sender, redacted?, origin_server_ts, content }. ctx: { ownUserId, senderVerified }:
+ * senderVerified is false when the SDK shows a shield on the event (an unverified or unknown sending device).
+ * A self entry is the writing device's own; an approval entry is written by the phone that approved the device. The
+ * SDK timeline does not give the sending device ID, so the rule cannot check which device wrote an entry.
+ * Returns { ok: true, entry: { deviceId, source, kind, model, os, app, linkedAt, linkedBy, attested, ts } } or { ok: false, reason }.
+ */
+export function deviceInfoFromEvent(event, ctx, reg) {
+  const d = reg.deviceKinds;
+  const no = (reason) => ({ ok: false, reason });
+  if (!event || event.type !== "m.room.message") return no("type");
+  if (event.redacted) return no("redacted");
+  if (event.sender !== ctx.ownUserId) return no("sender");
+  if (!ctx.senderVerified) return no("unverified");
+  if (!isObject(event.content) || event.content.msgtype !== d.msgtype) return no("content");
+  const c = event.content[d.field];
+  if (!isObject(c)) return no("field");
+  if (typeof c.device_id !== "string" || !c.device_id) return no("device_id");
+  if (c.source !== "self" && c.source !== "approval") return no("source");
+  if (!DEVICE_KIND_KEYS.includes(c.kind) || c.kind === "unknown") return no("kind");
+  const text = {};
+  for (const f of ["model", "os", "app", "linked_by"]) {
+    if (c[f] === undefined) { text[f] = null; continue; }
+    text[f] = deviceText(c[f], d.fieldMaxLength);
+    if (text[f] === null) return no(f);
+  }
+  if (c.linked_at !== undefined && (!Number.isInteger(c.linked_at) || c.linked_at < 0)) return no("linked_at");
+  if (c.attested !== undefined && typeof c.attested !== "boolean") return no("attested");
+  return {
+    ok: true,
+    entry: { deviceId: c.device_id, source: c.source, kind: c.kind, model: text.model, os: text.os, app: text.app, linkedAt: c.linked_at ?? null, linkedBy: text.linked_by, attested: c.attested ?? false, ts: Number.isInteger(event.origin_server_ts) ? event.origin_server_ts : 0 },
+  };
+}
+
+/**
+ * The rows of Aparelhos e assistentes (ADR 0291).
+ * input: { thisDeviceId, devices: [{ device_id, display_name?, last_seen_ts?, last_seen_ip? }] (GET /_matrix/client/v3/devices),
+ * entries: valid entries from deviceInfoFromEvent }. Entries of devices not in the list are ignored.
+ * Returns { rows, counts: { devices, programs, unknown } }. This device is first, then newest use first.
+ */
+export function deviceRows(input, reg) {
+  const d = reg.deviceKinds;
+  const best = new Map();
+  for (const e of input.entries) {
+    const cur = best.get(e.deviceId);
+    const rank = (x) => (x.source === "self" ? 1 : 0);
+    if (!cur || rank(e) > rank(cur) || (rank(e) === rank(cur) && e.ts > cur.ts)) best.set(e.deviceId, e);
+  }
+  const rows = input.devices.map((dev) => {
+    const e = best.get(dev.device_id) ?? null;
+    const kind = d.kinds.find((k) => k.key === (e ? e.kind : "unknown"));
+    const isThis = dev.device_id === input.thisDeviceId;
+    return {
+      deviceId: dev.device_id,
+      isThis,
+      kind: kind.key,
+      icon: kind.icon,
+      label: kind.label,
+      section: kind.section,
+      leavesBrazil: kind.leavesBrazil,
+      name: appleModelName(e?.model ?? null, reg) ?? e?.app ?? deviceText(dev.display_name, d.fieldMaxLength),
+      model: appleModelName(e?.model ?? null, reg),
+      os: e?.os ?? null,
+      app: e?.app ?? null,
+      lastSeen: dev.last_seen_ts ?? null,
+      ip: dev.last_seen_ip ?? null,
+      linkedAt: e?.linkedAt ?? null,
+      linkedBy: e?.linkedBy ?? null,
+      attested: e?.attested ?? false,
+      warning: !e && !isThis && d.unknownWarning,
+      canSignOut: !isThis,
+    };
+  });
+  rows.sort((a, b) => (a.isThis !== b.isThis ? (a.isThis ? -1 : 1) : (b.lastSeen ?? -1) - (a.lastSeen ?? -1) || (a.deviceId < b.deviceId ? -1 : a.deviceId > b.deviceId ? 1 : 0)));
+  const counts = { devices: 0, programs: 0, unknown: 0 };
+  for (const r of rows) {
+    if (r.section === "programs") counts.programs++;
+    else counts.devices++;
+    if (r.kind === "unknown" && !r.isThis) counts.unknown++;
+  }
+  return { rows, counts };
+}
+
 // Report categories (bipe-chat/bipe#697, docs/report-envelope.md). The ids are the contract of the sealed report.
 export const REPORT_CATEGORY_IDS = ["csam", "child_safety", "ncii", "threat", "takeover", "scam", "impersonation", "illegal_hate", "spam", "other"];
 export function validateReportCategories(reg) {
@@ -570,6 +722,8 @@ function validate(reg, phosphor) {
   validateMcpTools(reg.mcpTools);
   validateDrafts(reg.drafts);
   validateWorkNotes(reg.workNotes);
+  validateDeviceKinds(reg.deviceKinds, phosphor);
+  validateAppleModels(reg.appleModels, reg.deviceKinds);
   const pxm = reg.pixMarks;
   if (pxm.eventType !== "chat.bipe.pix_mark" || pxm.relType !== "m.reference" || JSON.stringify(pxm.marks) !== '["sent","received","not_received"]' || pxm.txidMaxLength !== 25) fail("pix-marks: unsupported ADR 0046 schema");
   try { new RegExp(pxm.e2eIdPattern); } catch { fail("pix-marks: e2eIdPattern"); }

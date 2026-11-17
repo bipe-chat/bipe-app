@@ -141,6 +141,13 @@ pub fn cleared_chat_marker(content_json: Option<String>, room_id: String) -> Opt
     cleared_ts(rooms(&content)?.get(&room_id)?)
 }
 
+/// Every valid clear marker of the chat.bipe.cleared_chats content, by room ID (cleared_chat_marker for each room).
+#[uniffi::export]
+pub fn cleared_chat_markers(content_json: Option<String>) -> std::collections::HashMap<String, i64> {
+    let Some(content) = object(content_json.as_deref()) else { return Default::default() };
+    rooms(&content).map(|r| r.iter().filter_map(|(id, entry)| Some((id.clone(), cleared_ts(entry)?))).collect()).unwrap_or_default()
+}
+
 /// True when the chat list hides the room: it has a marker and no event after it.
 #[uniffi::export]
 pub fn cleared_chat_hidden(marker: Option<i64>, latest_ts: Option<i64>) -> bool {

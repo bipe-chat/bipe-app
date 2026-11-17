@@ -56,7 +56,8 @@ extension AccountSession {
     }
 }
 
-/// The phone model for the OAuth client name and the user agent, never for anything else.
+/// The phone model for the OAuth client name, the user agent and this phone's encrypted device entry (ADR 0291),
+/// never for anything else.
 enum PhoneModel {
     /// The hardware model, for example iPhone16,1. On the Simulator, the simulated model.
     static var identifier: String {

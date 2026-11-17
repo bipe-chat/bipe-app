@@ -33,6 +33,30 @@ public struct SocialPlatform: Sendable, Equatable {
     public let url: String
 }
 
+/// A device kind (bipe ADR 0291, registries/device-kinds.json). section: devices or programs.
+public struct DeviceKind: Sendable, Equatable {
+    public let key: String
+    public let icon: String
+    public let label: String
+    public let section: String
+    public let leavesBrazil: Bool
+}
+
+/// A user-agent rule (bipe ADR 0291). app, model and os hold $1 to $9 for the pattern's groups; nil when the rule does not say. A browser rule takes app from deviceBrowsers and os from deviceSystems.
+public struct DeviceUserAgentRule: Sendable, Equatable {
+    public let pattern: String
+    public let kind: String
+    public let app: String?
+    public let model: String?
+    public let os: String?
+}
+
+/// A name rule for a browser or a system (bipe ADR 0291). name holds $1 to $9 for the pattern's groups. The first match wins.
+public struct DeviceNameRule: Sendable, Equatable {
+    public let pattern: String
+    public let name: String
+}
+
 public enum BipeRegistries {
     /// Normalised reserved display names and their category.
     public static let reservedNames: [String: ReservedNameCategory] = [
@@ -677,8 +701,8 @@ public enum BipeRegistries {
         "list-2026-11": "0HTu-T4Qd5rDMvSR0S4veLoLRYfmCn0qHU-wQPnQifk",
     ]
     /// The bundled signed lists (newest signed/operators and signed/issuers envelope). Verify with bipe-core verifyBundledList.
-    public static let bundledOperatorList = "{\"v\":1,\"payload\":\"eyJ0eXAiOiJvcGVyYXRvcnMiLCJ2ZXJzaW9uIjoxLCJpc3N1ZWQiOjE3OTQwNTg0NjcsImV4cGlyZXMiOjE3OTUyNjgwNjcsInByZXYiOm51bGwsInJlZ2lvbiI6eyJpZCI6ImJyIiwibmFtZSI6IkJyYXNpbCIsImNvcmVfYXBpIjoiaHR0cHM6Ly9hcGkuYmlwZS5uZXQuYnIiLCJmbG9vciI6ImUyZWUifSwicmVnaW9ucyI6W10sImFwcGVhbF9rZXlzIjp7ImFwcGVhbC0yMDI2LTExIjoiSXpMWUwwX3phMDB4enE0SE5HYmZOUUhLeW15U0tQTkRuMWg0RDhiOEpoTSJ9LCJvcGVyYXRvcnMiOlt7InNlcnZlcl9uYW1lIjoiYmlwZS5uZXQuYnIiLCJuYW1lIjoiQmlwZSIsInN0YXR1cyI6InZhbGlkIiwiam9pbmVkIjoiMjAyNi0xMC0yNiIsInNpZ25pbmdfa2V5cyI6eyJlZDI1NTE5OmFfdVdoSCI6IjdIWG9nQ0ZGUjNxU1UvbmN5NTR4V0hYRkZwL3MrUWJuekh1Q2p0aGpzdmsifSwiYWNjb3VudF9hcGkiOiJodHRwczovL2FwaS5iaXBlLm5ldC5iciIsInB1c2hfZWdyZXNzIjpbIjIwMS4yMy44Mi4yNTQvMzIiXSwic2lnbnVwIjoiaW52aXRlIiwicmVwb3J0X2tleXMiOnsicmVwb3J0LWJpcGUtMjAyNi0xMSI6IjFNUzdSMHoyVW5tWTdFc3JyTUpwRVRSLUgxNkt4QlczcnZmU1NfSHJTUWcifX1dfQ\",\"sigs\":[{\"kid\":\"list-2026-11\",\"sig\":\"lNoLfIrbUR-KME3HLwtlYDrADro8bgsRLjC8HYbsvyQ-DO9-D2z9SUSMp_9smULjr37Z1ujC2XkLhTlWTHbLCg\"}]}"
-    public static let bundledIssuerRegistry = "{\"v\":1,\"payload\":\"eyJ0eXAiOiJpc3N1ZXJzIiwidmVyc2lvbiI6MSwiaXNzdWVkIjoxNzk0MDU4NDY3LCJleHBpcmVzIjoxNzk1MjY4MDY3LCJwcmV2IjpudWxsLCJzY2hlbWVzIjpbeyJpZCI6ImJyLnBpeCIsImNvdW50cnkiOiJCUiIsImNsYXNzIjoicGVyc29uIiwiYXNzdXJhbmNlIjoiYmFuayIsImFsaWFzIjoicGl4IiwibmFtZXMiOnsicHQtQlIiOiJQaXgiLCJlbiI6IlBpeCJ9fSx7ImlkIjoiYnIuZ292YnIiLCJjb3VudHJ5IjoiQlIiLCJjbGFzcyI6InBlcnNvbiIsImFzc3VyYW5jZSI6InN0YXRlIiwiYWxpYXMiOiJnb3ZiciIsIm5hbWVzIjp7InB0LUJSIjoiZ292LmJyIiwiZW4iOiJnb3YuYnIifX0seyJpZCI6ImJyLmNucGoiLCJjb3VudHJ5IjoiQlIiLCJjbGFzcyI6Im9yZyIsImFzc3VyYW5jZSI6InJlZ2lzdHJ5K2NvbnRyb2wiLCJhbGlhcyI6ImNucGoiLCJuYW1lcyI6eyJwdC1CUiI6IkNOUEoiLCJlbiI6IkNOUEoifX1dLCJyZWdpb25zIjpbeyJpZCI6ImJyIiwic2VydmVycyI6WyJiaXBlLm5ldC5iciJdLCJzY2hlbWVzIjpbImJyLnBpeCIsImJyLmdvdmJyIiwiYnIuY25waiJdfV0sImlzc3VlcnMiOlt7ImlkIjoiYmlwZSIsIm5hbWUiOiJCaXBlIiwic3RhdHVzIjoidmFsaWQiLCJhY2NyZWRpdGVkIjoiMjAyNi0xMC0yNiIsInJlZ2lvbiI6ImJyIiwibGV2ZWxzIjpbInBpeCIsImdvdmJyIiwiaW5zdGl0dXRpb24iLCJjbnBqIiwiYnJhbmQtbWFyayJdLCJzY2hlbWVzIjpbImJyLnBpeCIsImJyLmdvdmJyIiwiYnIuY25waiJdLCJrZXlzIjp7InByb2QtMjAyNi0xMCI6IjlqM19zbEJyb1pieGEzQjZUZGdjbV9VLU9fTElkck5GWHpEZ1k4b0x3eEUifX1dfQ\",\"sigs\":[{\"kid\":\"list-2026-11\",\"sig\":\"fr5yiDcxgvhSdvkv7cXC6VxLSi1wmPhEqwzuBWtMR8nHcj74RM_ZNpwdZiTtBVUBUIrSXBx2XINzIHrhCO0BAA\"}]}"
+    public static let bundledOperatorList = "{\"v\":1,\"payload\":\"eyJ0eXAiOiJvcGVyYXRvcnMiLCJ2ZXJzaW9uIjoyLCJpc3N1ZWQiOjE3OTQ3MzMyMDgsImV4cGlyZXMiOjE3OTU5NDI4MDgsInByZXYiOiJMV0RPUFc1TGVJeG1HeHV6aS1KVkJ5SGdGemJEZXd0cmN2NGQzWm82Q01VIiwicmVnaW9uIjp7ImlkIjoiYnIiLCJuYW1lIjoiQnJhc2lsIiwiY29yZV9hcGkiOiJodHRwczovL2FwaS5iaXBlLm5ldC5iciIsImZsb29yIjoiZTJlZSJ9LCJyZWdpb25zIjpbXSwiYXBwZWFsX2tleXMiOnsiYXBwZWFsLTIwMjYtMTEiOiJJekxZTDBfemEwMHh6cTRITkdiZk5RSEt5bXlTS1BORG4xaDREOGI4SmhNIn0sIm9wZXJhdG9ycyI6W3sic2VydmVyX25hbWUiOiJiaXBlLm5ldC5iciIsIm5hbWUiOiJCaXBlIiwic3RhdHVzIjoidmFsaWQiLCJqb2luZWQiOiIyMDI2LTEwLTI2Iiwic2lnbmluZ19rZXlzIjp7ImVkMjU1MTk6YV91V2hIIjoiN0hYb2dDRkZSM3FTVS9uY3k1NHhXSFhGRnAvcytRYm56SHVDanRoanN2ayJ9LCJhY2NvdW50X2FwaSI6Imh0dHBzOi8vYXBpLmJpcGUubmV0LmJyIiwicHVzaF9lZ3Jlc3MiOlsiMjAxLjIzLjgyLjI1NC8zMiJdLCJzaWdudXAiOiJpbnZpdGUiLCJyZXBvcnRfa2V5cyI6eyJyZXBvcnQtYmlwZS0yMDI2LTExIjoiMU1TN1IwejJVbm1ZN0VzcnJNSnBFVFItSDE2S3hCVzNydmZTU19IclNRZyJ9fV19\",\"sigs\":[{\"kid\":\"list-2026-11\",\"sig\":\"hwvQa7BRsXIML5QmB3tCQE5Tb1Js0P4i4D5yMrbbf4ESV93ryPlci5Y-_xSpj46-WxfzQgXq9cXdB_EWAD69Bg\"}]}"
+    public static let bundledIssuerRegistry = "{\"v\":1,\"payload\":\"eyJ0eXAiOiJpc3N1ZXJzIiwidmVyc2lvbiI6MiwiaXNzdWVkIjoxNzk0NzMzMjA4LCJleHBpcmVzIjoxNzk1OTQyODA4LCJwcmV2IjoiQ1dVWW9xVkdLMnIzRERjdV8xV0RfSnU5Z3NnTGJYNDJXOGZxdGtSLXpiayIsInNjaGVtZXMiOlt7ImlkIjoiYnIucGl4IiwiY291bnRyeSI6IkJSIiwiY2xhc3MiOiJwZXJzb24iLCJhc3N1cmFuY2UiOiJiYW5rIiwiYWxpYXMiOiJwaXgiLCJuYW1lcyI6eyJwdC1CUiI6IlBpeCIsImVuIjoiUGl4In19LHsiaWQiOiJici5nb3ZiciIsImNvdW50cnkiOiJCUiIsImNsYXNzIjoicGVyc29uIiwiYXNzdXJhbmNlIjoic3RhdGUiLCJhbGlhcyI6ImdvdmJyIiwibmFtZXMiOnsicHQtQlIiOiJnb3YuYnIiLCJlbiI6Imdvdi5iciJ9fSx7ImlkIjoiYnIuY25waiIsImNvdW50cnkiOiJCUiIsImNsYXNzIjoib3JnIiwiYXNzdXJhbmNlIjoicmVnaXN0cnkrY29udHJvbCIsImFsaWFzIjoiY25waiIsIm5hbWVzIjp7InB0LUJSIjoiQ05QSiIsImVuIjoiQ05QSiJ9fV0sInJlZ2lvbnMiOlt7ImlkIjoiYnIiLCJzZXJ2ZXJzIjpbImJpcGUubmV0LmJyIl0sInNjaGVtZXMiOlsiYnIucGl4IiwiYnIuZ292YnIiLCJici5jbnBqIl19XSwiaXNzdWVycyI6W3siaWQiOiJiaXBlIiwibmFtZSI6IkJpcGUiLCJzdGF0dXMiOiJ2YWxpZCIsImFjY3JlZGl0ZWQiOiIyMDI2LTEwLTI2IiwicmVnaW9uIjoiYnIiLCJsZXZlbHMiOlsicGl4IiwiZ292YnIiLCJpbnN0aXR1dGlvbiIsImNucGoiLCJicmFuZC1tYXJrIl0sInNjaGVtZXMiOlsiYnIucGl4IiwiYnIuZ292YnIiLCJici5jbnBqIl0sImtleXMiOnsicHJvZC0yMDI2LTEwIjoiOWozX3NsQnJvWmJ4YTNCNlRkZ2NtX1UtT19MSWRyTkZYekRnWThvTHd4RSJ9fV19\",\"sigs\":[{\"kid\":\"list-2026-11\",\"sig\":\"o10uG3EjSiv591QbCE5IwORkSi0WKgadfuiqilVr83Dy_vm1ke6knvic9NdxefNP6SRPydarqwvqklnnwzd6Cw\"}]}"
 
     /// Full Matrix user IDs of official Bipe accounts. Match exactly; names and handles are not proof.
     public static let officialAccountIDs: Set<String> = [
@@ -722,6 +746,9 @@ public enum BipeRegistries {
     /// Invite codes: the code inside anything a user pastes (registries/invite-codes.json).
     public static let inviteCodePattern = "(?<![A-Z0-9])([A-HJKMNP-Z2-9]{4})[ \\-\\u2010-\\u2014\\u2212]?([A-HJKMNP-Z2-9]{4})[ \\-\\u2010-\\u2014\\u2212]?([A-HJKMNP-Z2-9]{4})(?![A-Z0-9])"
     public static let inviteCodeMaxInputLength = 2048
+
+    /// The size cap of a group (registries/group-limits.json, ADR 0253).
+    public static let groupMaxMembers = 256
 
     /// Brazilian mobile numbers for contact discovery (registries/phone-numbers.json).
     public static let phoneCountryCode = "55"
@@ -950,6 +977,40 @@ public enum BipeRegistries {
     public static let workReplyByField = "chat.bipe.reply_by"
     public static let workReplyByBody = "Resposta enviada"
     public static let workNoteBodyMaxLength = 4000
+    /// Device kinds and device entries (bipe ADR 0291, bipe-chat/bipe#1479; registries/device-kinds.json). Rules: test-vectors/device-kinds.json.
+    public static let deviceInfoField = "chat.bipe.device_info"
+    public static let deviceInfoMsgtype = "m.notice"
+    public static let deviceFieldMaxLength = 64
+    public static let deviceUnknownWarning = false
+    public static let deviceKinds: [DeviceKind] = [
+        DeviceKind(key: "phone", icon: "phone", label: "bipe_device_kind_phone", section: "devices", leavesBrazil: false),
+        DeviceKind(key: "computer-app", icon: "desktop", label: "bipe_device_kind_computer", section: "devices", leavesBrazil: false),
+        DeviceKind(key: "browser", icon: "link", label: "bipe_device_kind_browser", section: "devices", leavesBrazil: false),
+        DeviceKind(key: "assistant", icon: "chat-text", label: "bipe_device_kind_assistant", section: "programs", leavesBrazil: true),
+        DeviceKind(key: "bridge", icon: "share-network", label: "bipe_device_kind_bridge", section: "programs", leavesBrazil: true),
+        DeviceKind(key: "unknown", icon: "warning", label: "bipe_device_kind_unknown", section: "devices", leavesBrazil: false),
+    ]
+    public static let deviceUserAgents: [DeviceUserAgentRule] = [
+        DeviceUserAgentRule(pattern: "^Bipe/([0-9][0-9.]*) \\(([A-Za-z0-9 ,._-]+); (iOS [0-9.]+)\\)$", kind: "phone", app: "Bipe $1", model: "$2", os: "$3"),
+        DeviceUserAgentRule(pattern: "^Bipe/([0-9][0-9.]*) \\(([A-Za-z0-9 ,._-]+); (Android [0-9.]+)\\)$", kind: "phone", app: "Bipe $1", model: "$2", os: "$3"),
+        DeviceUserAgentRule(pattern: "^Bipe/([0-9][0-9.]*) \\(([A-Za-z0-9 ,._-]+); ((?:macOS|Windows) [0-9.]+)\\)$", kind: "computer-app", app: "Bipe $1", model: "$2", os: "$3"),
+        DeviceUserAgentRule(pattern: "^Mozilla/", kind: "browser", app: nil, model: nil, os: nil),
+    ]
+    public static let deviceBrowsers: [DeviceNameRule] = [
+        DeviceNameRule(pattern: "Edg/([0-9]+)", name: "Edge $1"),
+        DeviceNameRule(pattern: "OPR/([0-9]+)", name: "Opera $1"),
+        DeviceNameRule(pattern: "Firefox/([0-9]+)", name: "Firefox $1"),
+        DeviceNameRule(pattern: "Chrome/([0-9]+)", name: "Chrome $1"),
+        DeviceNameRule(pattern: "Version/([0-9]+)[0-9.]* .*Safari/", name: "Safari $1"),
+    ]
+    public static let deviceSystems: [DeviceNameRule] = [
+        DeviceNameRule(pattern: "(?:iPhone|iPad).* OS ([0-9]+)", name: "iOS $1"),
+        DeviceNameRule(pattern: "Android ([0-9]+)", name: "Android $1"),
+        DeviceNameRule(pattern: "Windows NT", name: "Windows"),
+        DeviceNameRule(pattern: "CrOS", name: "ChromeOS"),
+        DeviceNameRule(pattern: "Mac OS X", name: "macOS"),
+        DeviceNameRule(pattern: "Linux", name: "Linux"),
+    ]
     /// Localpart prefix of a member identity (bipe ADR 0284 point 1, registries/accounts.json).
     public static let memberLocalpartPrefix = "m_"
 

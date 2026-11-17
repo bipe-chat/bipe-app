@@ -30,6 +30,11 @@ class MasDeviceApproval(private val host: String) {
         val device: String?,
         val ip: String?,
         internal val csrf: String,
+        /**
+         * The raw user agent of the device that asks (the title of the MAS device card), for the approval entry of
+         * ADR 0291 (BipeDevices.userAgentInfo). Null when MAS shows none.
+         */
+        val userAgent: String? = null,
     )
 
     /** Spec error codes. The log names the code, the status and the page path; never the query or a secret. */
@@ -66,6 +71,7 @@ class MasDeviceApproval(private val host: String) {
             device = device.takeIf { it.isNotEmpty() }?.joinToString(" · "),
             ip = metadata?.let(BipeLinkComputer::firstIpAddress),
             csrf = csrf,
+            userAgent = page.selectFirst(".card-header")?.attr("title")?.trim()?.takeIf { it.isNotEmpty() },
         )
     }
 

@@ -55,19 +55,13 @@ jobs:
   build:
     needs: changes
     if: needs.changes.outputs.ios == 'true'
-    name: ios (${{ matrix.configuration }}${{ matrix.ids == 'store' && ', store IDs' || '' }})
+    name: ios (${{ matrix.configuration }})
     runs-on: xcode-27
     timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
         configuration: [Debug, Release]
-        ids: [next]
-        # The store ID set (bipe-chat/bipe#602): the fork's IDs (ADR 0061), unsigned, never uploaded before the switch.
-        include:
-          - configuration: Release
-            ids: store
-            settings: BIPE_APP_ID=chat.bipe.app BIPE_APP_GROUP=group.chat.bipe BIPE_SHARE_ID_SUFFIX=shareextension BIPE_DISPLAY_NAME=Bipe
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -99,7 +93,7 @@ jobs:
             -destination "generic/platform=iOS" \
             -derivedDataPath ios/DerivedData \
             -packageCachePath "$RUNNER_TEMP/bipe-package-cache" \
-            CODE_SIGNING_ALLOWED=NO ${{ matrix.settings }} | tee "$RUNNER_TEMP/xcodebuild.log" | grep -E "error:|warning: .*Bipe|BUILD (SUCCEEDED|FAILED)" || true
+            CODE_SIGNING_ALLOWED=NO | tee "$RUNNER_TEMP/xcodebuild.log" | grep -E "error:|warning: .*Bipe|BUILD (SUCCEEDED|FAILED)" || true
           grep -q "BUILD SUCCEEDED" "$RUNNER_TEMP/xcodebuild.log"
       - name: Resolved pins equal ios/Package.resolved
         run: |
@@ -110,7 +104,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: xcodebuild-${{ matrix.configuration }}-${{ matrix.ids }}.log
+          name: xcodebuild-${{ matrix.configuration }}.log
           path: ${{ runner.temp }}/xcodebuild.log
 
   # BipeKit unit tests (bipe-chat/bipe#576): the shared vectors of bipe-shared on macOS.

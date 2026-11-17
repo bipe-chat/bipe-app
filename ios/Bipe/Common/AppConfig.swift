@@ -23,12 +23,12 @@ enum AppConfig {
     /// sign-in starts only from a static client. Same ID as bipe-infra ess/bipe-security.yaml.
     static let oauthClientID = "01M70XQV1WHH63433MNSE34SXX"
 
-    /// The bundle ID of the app (project.yml BIPE_APP_ID, bipe-chat/bipe#602): chat.bipe.app.next for tester builds,
-    /// the fork's ID for the store set at the switch. Each target's Info.plist carries it.
-    static let appID = infoValue("BipeAppID", fallback: "chat.bipe.app.next")
+    /// The bundle ID of the app (project.yml BIPE_APP_ID): chat.bipe.app for every build (ADR 0294).
+    /// Each target's Info.plist carries it.
+    static let appID = infoValue("BipeAppID", fallback: "chat.bipe.app")
 
     /// The app group (project.yml BIPE_APP_GROUP). The SDK store and caches live there.
-    static let appGroup = infoValue("BipeAppGroup", fallback: "group.chat.bipe.next")
+    static let appGroup = infoValue("BipeAppGroup", fallback: "group.chat.bipe")
 
     /// The device name the homeserver shows in the session list.
     static let deviceName = "Bipe"
@@ -36,8 +36,6 @@ enum AppConfig {
     /// Bipe's push gateway (Sygnal, bipe/docs/server-migration.md). Spec push-registration notes.
     static let pushGatewayURL = "https://push.bipe.net.br/_matrix/push/v1/notify"
 
-    /// The Sygnal app ID of this build: the bundle ID plus `.ios.dev` for the APNs sandbox (Xcode debug
-    /// builds) or `.ios.prod` for production APNs (TestFlight and ad hoc), as bipe/docs/platform-parity.md.
     /// Xcode debug builds. Developer-only paths (the beta sign-in of recovery-start) show only here.
     #if DEBUG
     static let isDeveloperBuild = true
@@ -57,11 +55,11 @@ enum AppConfig {
     /// True when TestFlight installed this Release build: its receipt is the sandbox one. The App Store gets the same binary.
     static let isTestFlight = Bundle.main.appStoreReceiptURL?.lastPathComponent == "sandboxReceipt"
 
-    #if DEBUG
-    static let pusherAppId = appID + ".ios.dev"
-    #else
-    static let pusherAppId = appID + ".ios.prod"
-    #endif
+    /// The Sygnal app ID of this build: the bundle ID plus `.ios.dev` for the APNs sandbox or `.ios.prod` for production
+    /// APNs, as bipe/docs/platform-parity.md. The signed aps-environment decides, not the build configuration: a Release
+    /// build installed from Xcode is signed for the sandbox, and its token sent to production APNs is BadDeviceToken.
+    /// Only TestFlight and the store set pass BIPE_APS_ENVIRONMENT=production.
+    static let pusherAppId = appID + (infoValue("BipeApsEnvironment", fallback: "development") == "production" ? ".ios.prod" : ".ios.dev")
 
     /// An expanded Info.plist value; the fallback when the key is missing or unexpanded.
     private static func infoValue(_ key: String, fallback: String) -> String {

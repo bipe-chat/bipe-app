@@ -4,6 +4,11 @@
 
 package chat.bipe.shared
 
+import chat.bipe.core.GovbrIncoming
+import chat.bipe.core.GovbrPhase
+import chat.bipe.core.GovbrReason
+import chat.bipe.core.govbrIncoming
+import chat.bipe.core.govbrResult
 import chat.bipe.shared.api.BipeApiClient
 import chat.bipe.shared.api.BipeApiException
 import chat.bipe.shared.api.BipeVerificationStatus
@@ -183,21 +188,41 @@ object BipeGovbrRules {
         data object Failed : Outcome
     }
 
-    /** [phase] is a [BipeGovbrFlow.Phase.id]. */
-    fun incoming(phase: String, byteCount: Int, maxDocumentBytes: Int = BipeRegistries.GOVBR_MAX_DOCUMENT_BYTES): Incoming = when {
-        phase == "checking" -> Incoming.IGNORE
-        phase != "waitingForSignature" -> Incoming.NO_OPEN_VERIFICATION
-        byteCount <= 0 || byteCount > maxDocumentBytes -> Incoming.NOT_SIGNED
-        else -> Incoming.UPLOAD
+    /** [phase] is a [BipeGovbrFlow.Phase.id]. bipe-core `govbrIncoming`; an unknown phase is treated as failed. */
+    fun incoming(phase: String, byteCount: Int, maxDocumentBytes: Int = BipeRegistries.GOVBR_MAX_DOCUMENT_BYTES): Incoming {
+        val core = when (phase) {
+            "ready" -> GovbrPhase.READY
+            "preparing" -> GovbrPhase.PREPARING
+            "waitingForSignature" -> GovbrPhase.WAITING_FOR_SIGNATURE
+            "checking" -> GovbrPhase.CHECKING
+            "verified" -> GovbrPhase.VERIFIED
+            "rejected" -> GovbrPhase.REJECTED
+            else -> GovbrPhase.FAILED
+        }
+        return when (govbrIncoming(core, byteCount.toLong(), maxDocumentBytes.toLong())) {
+            GovbrIncoming.UPLOAD -> Incoming.UPLOAD
+            GovbrIncoming.NO_OPEN_VERIFICATION -> Incoming.NO_OPEN_VERIFICATION
+            GovbrIncoming.IGNORE -> Incoming.IGNORE
+            GovbrIncoming.NOT_SIGNED -> Incoming.NOT_SIGNED
+        }
     }
 
-    /** A rejection without a reason, and the state expired, is expired. A reason this build does not know fails closed. */
-    fun outcome(state: String, reason: String?): Outcome = when (state) {
-        "verified" -> Outcome.Verified
-        "rejected" -> if (reason == null) Outcome.Rejected(BipeGovbrReason.EXPIRED)
-            else BipeGovbrReason.fromId(reason)?.let { Outcome.Rejected(it) } ?: Outcome.Failed
-        "expired" -> Outcome.Rejected(BipeGovbrReason.EXPIRED)
-        else -> Outcome.Failed
+    /** bipe-core `govbrResult`: a rejection without a reason, and the state expired, is expired. An unknown reason fails closed. */
+    fun outcome(state: String, reason: String?): Outcome {
+        val result = govbrResult(state, reason)
+        return when (result.phase) {
+            GovbrPhase.VERIFIED -> Outcome.Verified
+            GovbrPhase.REJECTED -> when (result.reason) {
+                GovbrReason.NOT_SIGNED -> Outcome.Rejected(BipeGovbrReason.NOT_SIGNED)
+                GovbrReason.NOT_GOVBR -> Outcome.Rejected(BipeGovbrReason.NOT_GOVBR)
+                GovbrReason.WRONG_DOCUMENT -> Outcome.Rejected(BipeGovbrReason.WRONG_DOCUMENT)
+                GovbrReason.EXPIRED -> Outcome.Rejected(BipeGovbrReason.EXPIRED)
+                GovbrReason.CPF_IN_USE -> Outcome.Rejected(BipeGovbrReason.CPF_IN_USE)
+                GovbrReason.CHANGED_AFTER_SIGNING -> Outcome.Rejected(BipeGovbrReason.CHANGED_AFTER_SIGNING)
+                null -> Outcome.Failed
+            }
+            else -> Outcome.Failed
+        }
     }
 
     internal fun badgeLevel(id: String): BadgeLevel? = when (id) {

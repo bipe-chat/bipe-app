@@ -198,6 +198,12 @@ struct AppTabsView: View {
             AccountNewView(tabs: model, session: session, api: api, preset: newAccountStart) { showsNewAccount = false }
         }
         .task(id: session.userId) { await runShopClaim(chatList: chatList) }
+        // Spec group-link-open notes: a group link that came before the account opens once the tabs show.
+        .task(id: session.userId) {
+            guard let held = GroupLinkHold.take() else { return }
+            model.selectTab(.conversas)
+            TabsLinks.shared.link = .groupLink(held)
+        }
         .toast($shopClaimNotice, bottom: 72)
         .onOpenURL { url in
             if ShopClaim.keep(url) {

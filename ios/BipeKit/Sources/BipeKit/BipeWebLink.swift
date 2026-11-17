@@ -2,12 +2,12 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
-// The MAS web pages of specs linked-devices and link-computer-approve (ADR 0116, ADR 0118), written from the specs,
-// the Matrix spec and api/openapi.yaml.
+// Link a computer and the Matrix account calls of specs linked-devices and link-computer-approve (ADR 0116, ADR 0118,
+// ADR 0291), written from the specs, the Matrix spec and api/openapi.yaml.
 
 import Foundation
 
-/// Rules of the private web view that opens MAS pages with the hidden password.
+/// Rules for MAS pages and sign-in codes of Link a computer.
 public enum BipeWebLink {
     /// The localpart of a Matrix ID: "@ana:bipe.net.br" → "ana".
     public static func localpart(of userID: String) -> String {
@@ -44,38 +44,6 @@ public enum BipeWebLink {
               let host = url.host()?.lowercased(), let own = URL(string: homeserver)?.host()?.lowercased() else { return false }
         return host == own
     }
-
-    /// The MAS account page that ends one device's session (MSC2965 account management actions).
-    public static func sessionEndURL(accountManagementURI: URL, deviceID: String) -> URL? {
-        guard var components = URLComponents(url: accountManagementURI, resolvingAgainstBaseURL: false) else { return nil }
-        var items = components.queryItems ?? []
-        items.append(URLQueryItem(name: "action", value: "org.matrix.session_end"))
-        items.append(URLQueryItem(name: "device_id", value: deviceID))
-        components.queryItems = items
-        return components.url
-    }
-
-    /// JavaScript that fills the MAS login form once and submits it. The values go in as JSON strings, so they are
-    /// escaped. Returns true when the page had a password field.
-    public static func loginScript(username: String, password: String) -> String? {
-        guard let data = try? JSONEncoder().encode([username, password]),
-              let values = String(data: data, encoding: .utf8) else { return nil }
-        return """
-        (function (v) {
-          var field = document.querySelector('form input[type=password]');
-          if (!field) { return false; }
-          var form = field.form;
-          var user = form.querySelector('input[name=username]');
-          if (user) { user.value = v[0]; }
-          field.value = v[1];
-          if (form.requestSubmit) { form.requestSubmit(); } else { form.submit(); }
-          return true;
-        })(\(values));
-        """
-    }
-
-    /// JavaScript that answers whether the page has a password field (the MAS login form).
-    public static let isLoginFormScript = "!!document.querySelector('form input[type=password]')"
 }
 
 /// The parts of the auth metadata that the app reads (MSC2965).

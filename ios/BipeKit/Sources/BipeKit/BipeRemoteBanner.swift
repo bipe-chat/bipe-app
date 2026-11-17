@@ -2,6 +2,7 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
+import BipeCore
 import Foundation
 
 /// The remote critical banner above the chat list (ADR 0117, bipe#386): an outage, a forced update or a change of terms.
@@ -28,36 +29,22 @@ public struct BipeRemoteBanner: Decodable, Sendable, Equatable {
     public let updateLinks: UpdateLinks?
     public let expiresAt: String
     
+    /// bipe-core `remoteBannerState`. The update state needs an update link to open; without one the banner is a notice.
     public func state(appVersion: String, now: Date = .now) -> State {
-        guard let expiry = Self.parseDate(expiresAt), now < expiry else { return .hidden }
-        if let minAppVersion, Self.compareVersions(appVersion, minAppVersion) < 0, let updateLinks {
-            return .update(updateLinks.ios)
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let banner = RemoteBanner(expiresAt: expiresAt, minAppVersion: minAppVersion)
+        switch remoteBannerState(banner: banner, appVersion: appVersion, now: formatter.string(from: now)) {
+        case .hidden: return .hidden
+        case .update: return updateLinks.map { State.update($0.ios) } ?? .notice
+        case .notice: return .notice
         }
-        return .notice
     }
     
-    /// Compares dotted versions part by part as numbers. Each part counts its leading digits only ("2-dev" is 2).
+    /// Compares dotted versions part by part as numbers (bipe-core `compareAppVersions`). Each part counts its leading
+    /// digits only ("2-dev" is 2).
     public static func compareVersions(_ a: String, _ b: String) -> Int {
-        let pa = a.split(separator: ".", omittingEmptySubsequences: false)
-        let pb = b.split(separator: ".", omittingEmptySubsequences: false)
-        for index in 0..<max(pa.count, pb.count) {
-            let x = index < pa.count ? leadingNumber(pa[index]) : 0
-            let y = index < pb.count ? leadingNumber(pb[index]) : 0
-            if x != y {
-                return x < y ? -1 : 1
-            }
-        }
-        return 0
-    }
-    
-    private static func leadingNumber(_ part: Substring) -> Int {
-        Int(part.prefix { $0.isASCII && $0.isNumber }) ?? 0
-    }
-    
-    private static func parseDate(_ value: String) -> Date? {
-        let withFraction = ISO8601DateFormatter()
-        withFraction.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return withFraction.date(from: value) ?? ISO8601DateFormatter().date(from: value)
+        Int(compareAppVersions(a: a, b: b))
     }
 }
 

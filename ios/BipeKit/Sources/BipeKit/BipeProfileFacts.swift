@@ -2,6 +2,7 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
+import BipeCore
 import Foundation
 
 /// Contract: `ProfileFacts` (ADR 0049). The account creation time and the dates of name and photo changes in the window.
@@ -43,7 +44,7 @@ public struct BipeProfileFacts: Codable, Sendable, Hashable {
 }
 
 /// The facts lines of chat-request and person-profile, and the amber notice of chat-timeline (ADR 0049).
-/// Port of bipe-shared `profileFactLines` (tools/lib/registries.mjs); test-vectors/profile-facts.json must pass.
+/// bipe-shared `profileFactLines`, run in bipe-core; test-vectors/profile-facts.json must pass.
 public nonisolated struct BipeProfileFactLines: Sendable, Equatable {
     public enum Fact: String, Sendable {
         case created
@@ -80,56 +81,26 @@ public nonisolated struct BipeProfileFactLines: Sendable, Equatable {
     /// The newest number move in the window, `nil` without one.
     public let numberNotice: NumberNotice?
 
-    private static let dayMs: Int64 = 86_400_000
-    private static let hourMs: Int64 = 3_600_000
-
-    /// `alwaysCreated`: person-profile keeps the account age at any age (ADR 0275 point 13).
+    /// `alwaysCreated`: person-profile keeps the account age at any age (ADR 0275 point 13). The rule runs in bipe-core
+    /// (`profileFactLines`).
     public init(facts: BipeProfileFacts, now: Date = Date(), alwaysCreated: Bool = false) {
-        let nowMs = Self.milliseconds(now)
-        let windowMs = Int64(BipeRegistries.profileFactsWindowDays) * Self.dayMs
-        func inWindow(_ list: [String]) -> [Int64] {
-            list.compactMap(Self.parse).map(Self.milliseconds)
-                .filter { $0 <= nowMs && nowMs - $0 < windowMs }
-                .sorted()
-        }
-        let names = inWindow(facts.nameChanges)
-        let photos = inWindow(facts.photoChanges)
-        var lines: [Line] = []
-        if let created = facts.createdAt.flatMap(Self.parse).map(Self.milliseconds),
-           created <= nowMs, alwaysCreated || nowMs - created < Int64(BipeRegistries.profileFactsNewAccountDays) * Self.dayMs {
-            lines.append(Line(fact: .created, count: nil, at: Self.date(created)))
-        }
-        if let last = photos.last {
-            lines.append(Line(fact: .photo, count: photos.count, at: Self.date(last)))
-        }
-        if let last = names.last {
-            lines.append(Line(fact: .name, count: names.count, at: Self.date(last)))
-        }
-        let movedOut = inWindow(facts.numberMovedOut).last
-        let movedIn = inWindow(facts.numberMovedIn).last
-        if let movedOut {
-            lines.append(Line(fact: .numberOut, count: nil, at: Self.date(movedOut)))
-        }
-        if let movedIn {
-            lines.append(Line(fact: .numberIn, count: nil, at: Self.date(movedIn)))
-        }
-        let pairMs = Int64(BipeRegistries.profileFactsNoticePairHours) * Self.hourMs
-        let noticeMs = Int64(BipeRegistries.profileFactsNoticeDays) * Self.dayMs
-        var notice = false
-        for name in names {
-            for photo in photos where abs(name - photo) <= pairMs && nowMs - max(name, photo) < noticeMs {
-                notice = true
+        let input = ProfileFacts(createdAt: facts.createdAt, nameChanges: facts.nameChanges, photoChanges: facts.photoChanges,
+                                 numberMovedOut: facts.numberMovedOut, numberMovedIn: facts.numberMovedIn)
+        let result = profileFactLines(facts: input, nowMs: Self.milliseconds(now), alwaysCreated: alwaysCreated)
+        lines = result.lines.map { line in
+            let fact: Fact = switch line.fact {
+            case .created: .created
+            case .photo: .photo
+            case .name: .name
+            case .numberOut: .numberOut
+            case .numberIn: .numberIn
             }
+            return Line(fact: fact, count: line.count.map(Int.init), at: Self.date(line.atMs))
         }
-        self.lines = lines
-        self.notice = notice
-        if movedOut == nil, movedIn == nil {
-            numberNotice = nil
-        } else {
-            numberNotice = (movedIn ?? -1) > (movedOut ?? -1) ? .in : .out
-        }
+        notice = result.notice
+        numberNotice = result.numberNotice.map { $0 == .in ? .in : .out }
     }
-
+    
     /// The text of the amber bar of chat-timeline, `nil` without a notice. A number move wins over a name and photo change.
     public func noticeText(name: String) -> String? {
         switch numberNotice {

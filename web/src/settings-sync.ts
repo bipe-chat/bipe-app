@@ -8,7 +8,7 @@
 
 import { useEffect } from 'react';
 import { readSetting, writeSetting } from './appearance';
-import { syncedSettingsReconcile } from './bipe/generated/lib/registries.mjs';
+import { syncedSettingsReconcile } from './shared-rules';
 import { syncedSettings } from './bipe/generated/registries.json';
 import type { ClientLike as Client } from './generated/matrix_sdk_ffi';
 import { readMural, writeMural } from './mural-plan';

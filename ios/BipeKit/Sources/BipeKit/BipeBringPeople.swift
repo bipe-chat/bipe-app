@@ -2,6 +2,7 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
+import BipeCore
 import Foundation
 
 /// The bring-people reminder rule (registries/onboarding.json bringPeople, bipe-chat/bipe#752). Port of
@@ -24,27 +25,14 @@ public nonisolated enum BipeBringPeople {
         }
     }
 
-    private static let day: TimeInterval = 86_400
-
-    /// The slot that the weekly reminder names, or nil. The oldest qualifying slot wins; on a tie, the first one.
+    /// The slot that the weekly reminder names, or nil (bipe-core `bringPeopleReminder`). The oldest qualifying slot
+    /// wins; on a tie, the first one.
     public static func reminder(declines: Int, lastAskAt: Date?, slots: [RuleSlot], now: Date) -> (slot: Int, kind: Kind)? {
-        guard declines < BipeOnboarding.bringPeopleStopAfterDeclines, let lastAskAt,
-              now.timeIntervalSince(lastAskAt) >= Double(BipeOnboarding.bringPeopleFollowUpEveryDays) * day else { return nil }
-        var best: (slot: Int, kind: Kind)?
-        for (index, slot) in slots.enumerated() {
-            let kind: Kind?
-            if slot.status == "expired" {
-                kind = .expired
-            } else if slot.status == "pending",
-                      now.timeIntervalSince(slot.sentAt) >= Double(BipeOnboarding.bringPeoplePendingAfterDays) * day {
-                kind = .pending
-            } else {
-                kind = nil
-            }
-            guard let kind else { continue }
-            if best == nil || slot.sentAt < slots[best!.slot].sentAt { best = (index, kind) }
-        }
-        return best
+        let ms = { (date: Date) in Int64((date.timeIntervalSince1970 * 1000).rounded(.down)) }
+        let state = BringPeopleState(declines: UInt32(clamping: declines), lastAskAtMs: lastAskAt.map(ms),
+                                     slots: slots.map { InviteSlot(status: $0.status, sentAtMs: ms($0.sentAt)) })
+        guard let found = bringPeopleReminder(state: state, nowMs: ms(now)) else { return nil }
+        return (Int(found.slot), found.kind == .expired ? .expired : .pending)
     }
 }
 

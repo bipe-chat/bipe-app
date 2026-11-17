@@ -44,17 +44,32 @@ export type SdkLatest = { at: number; preview?: string; isOwn: boolean };
 /**
  * The row of a room (BipeRowActivity.resolve; the same rules on every platform). Only a local event with a
  * preview gives the row its text: a call, a deleted message or a room change never blanks it.
- * 1. A local message with a preview newer than the SDK latest event: its time and preview.
+ * 1. A local message with a preview newer than the SDK latest event: its time and preview. An own join, leave or
+ *    room creation line counts only when no other local event has a preview, and a local message replaces an SDK
+ *    latest event that is such an own line.
  * 2. Else the SDK latest event. Without a preview it keeps the newest local preview, else the known one.
  * 3. Without an SDK latest event: the newest local message with a preview, else the newest local event of
  *    any kind (time only). A known time is kept when it is newer, and a known preview when there is none.
  */
 export function resolveRow(sdk: SdkLatest | undefined, local: LocalEvent[], known: Row | undefined): Row {
+  // An own join, leave or room creation line shows only when no message has a preview (MZ, 17 Nov 2026: the own
+  // join after a person's first message hid that message, "You joined").
+  const ownLine = (e: LocalEvent) => e.isOwn && !e.messageLike;
   let newest: LocalEvent | undefined;
-  for (const e of local) if (e.message && e.preview !== undefined && (!newest || e.at > newest.at)) newest = e;
+  let newestAny: LocalEvent | undefined;
+  for (const e of local) {
+    if (!e.message || e.preview === undefined) continue;
+    if (!newestAny || e.at > newestAny.at) newestAny = e;
+    if (!ownLine(e) && (!newest || e.at > newest.at)) newest = e;
+  }
+  newest ??= newestAny;
   const text = newest ? rowOf(newest) : known;
   if (sdk) {
     if (newest && newest.at > sdk.at) return rowOf(newest);
+    // The SDK latest event is often the own join itself: a local own line at or after its time is that event.
+    if (newest && !ownLine(newest) && local.some((e) => ownLine(e) && e.message && e.preview !== undefined && e.at >= sdk.at)) {
+      return rowOf(newest);
+    }
     if (sdk.preview === undefined && text?.preview !== undefined) {
       return { at: sdk.at, preview: text.preview, incomingAt: text.incomingAt };
     }

@@ -2,6 +2,7 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
+import BipeCore
 import Foundation
 import Synchronization
 
@@ -17,17 +18,14 @@ public enum BipeAssistantSend {
     /// personalSend.clientMaxLength (generated).
     public static let clientMaxLength = BipeRegistries.assistantClientMaxLength
 
-    /// assistantSendAllowed: on only when the content is an object with enabled exactly true. Absent is off.
+    /// assistantSendAllowed (bipe-core): on only when the content is an object with enabled exactly true. Absent is off.
     public static func allowed(content: Any?) -> Bool {
-        guard let object = content as? [String: Any], let enabled = object["enabled"] as? NSNumber else { return false }
-        // JSONSerialization reads true as a boolean NSNumber; 1 is a number, not true.
-        return CFGetTypeID(enabled) == CFBooleanGetTypeID() && enabled.boolValue
+        assistantSendAllowed(contentJson: content.flatMap(CoreJSON.text))
     }
 
     /// assistantSendAllowed for the raw JSON of the account data. nil (no account data) is off.
     public static func allowed(json: String?) -> Bool {
-        guard let data = json?.data(using: .utf8) else { return false }
-        return allowed(content: try? JSONSerialization.jsonObject(with: data))
+        assistantSendAllowed(contentJson: json)
     }
 
     /// The account data content for the switch.
@@ -35,11 +33,9 @@ public enum BipeAssistantSend {
         enabled ? #"{"enabled":true}"# : #"{"enabled":false}"#
     }
 
-    /// assistantSender: the client name of a message an assistant sent, or nil.
+    /// assistantSender (bipe-core): the client name of a message an assistant sent, or nil.
     public static func sender(content: [String: Any]?) -> String? {
-        guard let marker = content?[markerField] as? [String: Any] else { return nil }
-        let client = (marker["client"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return !client.isEmpty && client.utf16.count <= clientMaxLength ? client : nil
+        assistantSender(messageContentJson: content.flatMap(CoreJSON.text))
     }
 
     /// assistantSender for the raw JSON of a message event (or its content). eventId keys a cache, so a timeline
@@ -47,7 +43,7 @@ public enum BipeAssistantSend {
     public static func sender(eventId: String?, json: () -> String?) -> String? {
         if let eventId, let cached = cache.withLock({ $0[eventId] }) { return cached.client }
         var client: String?
-        if let data = json()?.data(using: .utf8), let event = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] {
+        if let event = CoreJSON.object(json()) {
             client = sender(content: (event["content"] as? [String: Any]) ?? event)
         }
         if let eventId {
@@ -64,29 +60,17 @@ public enum BipeAssistantSend {
     /// readerMarker.field (generated).
     public static let readerField = BipeRegistries.assistantReaderField
 
-    /// assistantReaders (ADR 0130, bipe-chat/bipe#439): the sorted, unique user IDs whose own marker state event says
-    /// that their assistant reads the room. A member sets only their own marker: the state key starts with @ and equals
-    /// the sender, and the field is exactly true.
+    /// assistantReaders (bipe-core, ADR 0130, bipe-chat/bipe#439): the sorted, unique user IDs whose own marker state
+    /// event says that their assistant reads the room.
     public static func readers(stateEvents: [Any]) -> [String] {
-        var out = Set<String>()
-        for case let event as [String: Any] in stateEvents {
-            guard event["type"] as? String == readerEventType,
-                  let stateKey = event["state_key"] as? String, stateKey.hasPrefix("@"),
-                  event["sender"] as? String == stateKey,
-                  let content = event["content"] as? [String: Any],
-                  let value = content[readerField] as? NSNumber,
-                  CFGetTypeID(value) == CFBooleanGetTypeID(), value.boolValue
-            else { continue }
-            out.insert(stateKey)
-        }
-        return out.sorted()
+        CoreJSON.text(stateEvents).map { assistantReaders(stateEventsJson: $0) } ?? []
     }
 
     /// assistantReaders for the raw JSON of GET /_matrix/client/v3/rooms/{roomId}/state (an array of state events).
     /// nil or a body that is not an array gives no readers.
     public static func readers(stateJson: Data?) -> [String] {
-        guard let stateJson, let events = (try? JSONSerialization.jsonObject(with: stateJson)) as? [Any] else { return [] }
-        return readers(stateEvents: events)
+        guard let stateJson, let text = String(data: stateJson, encoding: .utf8) else { return [] }
+        return assistantReaders(stateEventsJson: text)
     }
 
     private struct Cached: Sendable {

@@ -122,6 +122,8 @@ export const BipeScreen = {
   deletionAlert: "deletion-alert",
   /** Recover an unfinished desktop link (flow launch). Spec: bipe-shared/product/screens/desktop-pending-link.json */
   desktopPendingLink: "desktop-pending-link",
+  /** Device detail (flow devices). Spec: bipe-shared/product/screens/device-detail.json */
+  deviceDetail: "device-detail",
   /** Approve this phone (flow encryption). Spec: bipe-shared/product/screens/device-verification.json */
   deviceVerification: "device-verification",
   /** Delete a DM (Apagar conversa) (flow chat). Spec: bipe-shared/product/screens/dm-delete.json */

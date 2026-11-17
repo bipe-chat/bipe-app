@@ -5,7 +5,7 @@
 package chat.bipe.shared.onboarding
 
 import android.content.Context
-import chat.bipe.shared.generated.BipeOnboarding
+import chat.bipe.core.PinCheckResult
 
 /**
  * The PIN reminder schedule (registries/onboarding.json pinReminder, bipe-chat/bipe#202). Port of `pinReminderNext()`
@@ -19,14 +19,18 @@ object BipeOnboardingSchedule {
 
     /** The PIN reminder after a check: the next step and the days until the next reminder. */
     fun pinReminderNext(step: Int, result: PinResult): Next {
-        if (result == PinResult.LATER) return Next(step, 1)
-        val next = if (result == PinResult.RIGHT) step + 1 else 0
-        return Next(next, gapDays(next))
+        val core = when (result) {
+            PinResult.RIGHT -> PinCheckResult.RIGHT
+            PinResult.WRONG -> PinCheckResult.WRONG
+            PinResult.LATER -> PinCheckResult.LATER
+        }
+        val next = chat.bipe.core.pinReminderNext(step.coerceAtLeast(0).toUInt(), core)
+        return Next(next.step.toInt(), next.gapDays.toInt())
     }
 
-    /** The gap before the first reminder is `gapDays(0)`. */
+    /** The gap before the first reminder is `gapDays(0)`: the gap that a check leaves at [after] (bipe-core). */
     fun gapDays(after: Int): Int =
-        BipeOnboarding.PIN_REMINDER_DAYS.getOrNull(after) ?: BipeOnboarding.PIN_REMINDER_THEN_EVERY_DAYS
+        if (after <= 0) pinReminderNext(0, PinResult.WRONG).gapDays else pinReminderNext(after - 1, PinResult.RIGHT).gapDays
 }
 
 /** What the PIN reminder remembers per account on this phone. Holds no secret: never the PIN. */

@@ -187,6 +187,9 @@ enum class BipeScreen(val id: String) {
     /** Recover an unfinished desktop link (flow launch). Spec: bipe-shared/product/screens/desktop-pending-link.json */
     DESKTOP_PENDING_LINK("desktop-pending-link"),
 
+    /** Device detail (flow devices). Spec: bipe-shared/product/screens/device-detail.json */
+    DEVICE_DETAIL("device-detail"),
+
     /** Approve this phone (flow encryption). Spec: bipe-shared/product/screens/device-verification.json */
     DEVICE_VERIFICATION("device-verification"),
 

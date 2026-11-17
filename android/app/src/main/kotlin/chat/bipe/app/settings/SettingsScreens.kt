@@ -128,7 +128,7 @@ sealed interface SettingsRoute {
     data object PinChange : SettingsRoute
     data object AppLockSetup : SettingsRoute
     data object AppLockOff : SettingsRoute
-    data object LinkedDevices : SettingsRoute
+    data object LinkComputer : SettingsRoute
     /** Spec link-phone-show: Sua conta › Aparelhos › Trocar de celular is the only way in (bipe-chat/bipe#988). */
     data object LinkPhone : SettingsRoute
     data object LinkedAccounts : SettingsRoute
@@ -202,7 +202,8 @@ fun SettingsHost(
                 }
             }
         }
-        is SettingsRoute.Group -> SettingsGroupScreen(model, route.group, onBack = pop, onOpen = { stack.add(it) }, onSignedOut = onSignedOut)
+        is SettingsRoute.Group -> SettingsGroupScreen(model, route.group, onBack = pop, onOpen = { stack.add(it) }, onSignedOut = onSignedOut,
+            onOpenChat = { stack.clear(); onOpenChat(it) })
         is SettingsRoute.People -> PeopleScreen(route.route, people, PeopleNavigation(
             push = { stack.add(SettingsRoute.People(it)) }, pop = pop,
             openChat = { stack.clear(); onOpenChat(it) },
@@ -220,7 +221,8 @@ fun SettingsHost(
         SettingsRoute.Messaging -> MessagingPickerScreen(model, onBack = pop)
         SettingsRoute.Support -> SupportOpenScreen(session, api, onBack = pop)
         SettingsRoute.PinChange -> PinChangeScreen(model, onClose = pop)
-        SettingsRoute.LinkedDevices -> LinkedDevicesScreen(model, onBack = pop)
+        // Spec link-computer-scan: the only entry to a web or computer sign-in (ADR 0116, rule 5).
+        SettingsRoute.LinkComputer -> LinkComputerScreen(model, onClose = pop)
         SettingsRoute.LinkPhone -> LinkComputerScreen(model, onClose = pop, mode = LinkComputerModel.Mode.PHONE)
         SettingsRoute.LinkedAccounts -> LinkedAccountsScreen(model, onBack = pop)
         SettingsRoute.TheftProtection -> TheftProtectionScreen(model, onBack = pop)
@@ -372,6 +374,7 @@ fun SettingsGroupScreen(
     onBack: () -> Unit,
     onOpen: (SettingsRoute) -> Unit,
     onSignedOut: () -> Unit,
+    onOpenChat: (String) -> Unit = {},
 ) {
     val context = LocalContext.current
     val view = LocalView.current
@@ -424,8 +427,8 @@ fun SettingsGroupScreen(
             BipeSettingsRow.ACCOUNT_SIGN_OUT -> showsSignOut = true
             BipeSettingsRow.ACCOUNT_DELETE -> showsDelete = true
             BipeSettingsRow.ACCOUNT_CHANGE_PIN -> onOpen(SettingsRoute.PinChange)
-            BipeSettingsRow.ACCOUNT_LINKED_DEVICES -> onOpen(SettingsRoute.LinkedDevices)
-            BipeSettingsRow.ACCOUNT_LINK_PHONE -> onOpen(SettingsRoute.LinkPhone)
+            BipeSettingsRow.DEVICES_LINK_COMPUTER -> onOpen(SettingsRoute.LinkComputer)
+            BipeSettingsRow.DEVICES_LINK_PHONE -> onOpen(SettingsRoute.LinkPhone)
             BipeSettingsRow.ACCOUNT_LINKED_ACCOUNTS -> onOpen(SettingsRoute.LinkedAccounts)
             BipeSettingsRow.ACCOUNT_THEFT_PROTECTION -> onOpen(SettingsRoute.TheftProtection)
             BipeSettingsRow.ACCOUNT_REACH_STATUS -> onOpen(SettingsRoute.AccountStatus)
@@ -434,7 +437,7 @@ fun SettingsGroupScreen(
             BipeSettingsRow.HELP_VERSIONS -> onOpen(SettingsRoute.Versions)
             BipeSettingsRow.ACCOUNT_RECOVERY_KEY -> onOpen(SettingsRoute.RecoveryKey)
             // Spec encryption-status, action openSheet: the same sheet as the chat list banner.
-            BipeSettingsRow.ACCOUNT_OLD_MESSAGES -> encryption?.openSheet()
+            BipeSettingsRow.DEVICES_OLD_MESSAGES -> encryption?.openSheet()
             BipeSettingsRow.ACCOUNT_EMAIL -> onOpen(SettingsRoute.RecoveryEmail)
             BipeSettingsRow.CHATS_SHOW_MEDIA -> onOpen(SettingsRoute.ShowMediaChoice)
             BipeSettingsRow.CHATS_APPEARANCE -> onOpen(SettingsRoute.AppearanceChoice)
@@ -450,6 +453,10 @@ fun SettingsGroupScreen(
         }
     }
 
+    // Spec linked-devices (ADR 0291): the device rows open the group Aparelhos e assistentes.
+    val linked = if (group == BipeSettingsGroup.DEVICES) rememberLinkedDevices(model) else null
+    if (linked != null && LinkedDevicesPage(linked, onOpenChat)) return
+    val linkedState = linked?.state?.collectAsState()?.value
     SettingsPage(stringResource(group.title), BipeScreen.SETTINGS_GROUP.id, onBack) {
         // The company account's owner on this phone (spec settings-group notes, bipe-chat/bipe#444).
         val owner = if (group == BipeSettingsGroup.ACCOUNT) AccountList(context).ownerName(model.session.userId) else null
@@ -493,6 +500,7 @@ fun SettingsGroupScreen(
         if (group == BipeSettingsGroup.ACCOUNT && warning != null) {
             item(key = "ways-back-warning") { StatusCard(stringResource(warning)) }
         }
+        if (linked != null && linkedState != null) linkedDevicesItems(linkedState, linked)
         sections.forEach { (section, rows) ->
             item(key = "header-${section.key}") { SectionHeader(section.title?.let { stringResource(it) }) }
             items(rows, key = { it.id }) { row ->
@@ -557,7 +565,7 @@ fun SettingsGroupScreen(
                         }
                     }
                     // ADR 0210: off by default; on lets the user's own assistant send as the user, with a label in the chat.
-                    BipeSettingsRow.PRIVACY_ASSISTANT_SEND -> SettingsSwitchItem(
+                    BipeSettingsRow.DEVICES_ASSISTANT_SEND -> SettingsSwitchItem(
                         title,
                         footer,
                         isOn = state.assistantSend ?: false,
@@ -608,6 +616,7 @@ fun SettingsGroupScreen(
         }
     }
     DataExportDialogs(model, export)
+    linked?.let { LinkedDevicesDialogs(it) }
     if (showsSignOut) {
         SignOutSheet(model, onDismiss = { showsSignOut = false }, onSignedOut = onSignedOut)
     }
@@ -632,7 +641,7 @@ private fun isAvailable(
     // While a deletion waits, the banner (or the alert on the other devices) takes its place (spec account-delete).
     BipeSettingsRow.ACCOUNT_DELETE -> !hasDeletion
     // Only while this phone needs approval for old messages; Skip on the banner does not hide it (spec settings-group notes).
-    BipeSettingsRow.ACCOUNT_OLD_MESSAGES -> needsApproval
+    BipeSettingsRow.DEVICES_OLD_MESSAGES -> needsApproval
     else -> true
 }
 

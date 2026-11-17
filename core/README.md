@@ -4,7 +4,9 @@ The shared Rust core of ADR 0267. Spike: bipe-chat/bipe#1172.
 
 - `crates/bipe-core`: the crate. Pure logic: no network, files, clock, secrets or Matrix session.
   - `badge.rs`: badges against a flat key list (`badges.json`).
+  - `chat_state.rs`: synced settings, DM selection, chat archive and Bipe user IDs (`synced-settings.json`, `dm-selection.json`, `chat-archive.json`, `archive-sync.json`).
   - `cvm.rs`: the CVM lines of the company seal detail (`cvm-lines.json`).
+  - `govbr.rs`: the pure parts of Verificar com gov.br: what to do with an incoming PDF and the phase after a check (`govbr-verify.json`).
   - `identity.rs`: handles, invite codes, phone numbers, social handles, profile checks and the name checks of security rule 8 (`handles.json`, `handle-suggestions.json`, `invite-codes.json`, `phone-numbers.json`, `social-handles.json`, `profile-checks.json`, `relationship-names.json`).
   - `issuer.rs`: badges from several issuers against the issuer registry, with `person` and `org` schemes (`badge-issuers.json`, bipe-chat/bipe#637).
   - `message_data.rs`: rules on Matrix event content: forward marks, cleared chats, assistant send, drafts and work notes (`forward-marks.json`, `cleared-chats.json`, `assistant-send.json`, `drafts.json`, `work-notes.json`).
@@ -16,6 +18,7 @@ The shared Rust core of ADR 0267. Spike: bipe-chat/bipe#1172.
   - `scam.rs`: scam match IDs and the one warning kind of a message (`scam-detection.json`, `scam-warnings.json`). The regexes come translated from bipe-shared (`docs/scam-matching.md`).
   - `text.rs`: `normalize()` with the name, host or no homoglyph map, and JavaScript whitespace (`normalization.json`).
   - `theft.rs`: theft marks against the badge keys (`theft-marks.json`).
+  - `small_rules.rs`: onboarding schedules, the remote banner, sticker search and the PIN check (`onboarding-schedule.json`, `remote-banner.json`, `sticker-search.json`, `pins.json`).
   - `signed_list.rs`: the operator list and the issuer registry (`signed-lists.json`, bipe-chat/bipe#645).
 - `harness/`: loads each packaged artifact and runs `bipe-shared/test-vectors/badges.json`, `badge-issuers.json` and `theft-marks.json` through it.
 - `tools/uniffi-bindgen`: the bindings generator, with its own lockfile.

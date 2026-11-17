@@ -7,11 +7,14 @@ import Foundation
 import MatrixRustSDK
 
 /// Spec chat-list, bipe-chat/bipe#592: the local timeline events of every row, for the row date and text
-/// (BipeRowActivity). One scanner per account session; it reads only what the SDK already stored on this phone.
+/// (BipeRowActivity). One scanner per account session; it reads only what the SDK already stored on this device.
+/// iOS and macOS share it (macos/project.yml): each app gives its own row text of an event.
 @MainActor
 final class RowActivityScanner {
     private let client: Client
-    private let ownUserId: String
+    /// The row text of an event (roomId, isDm), or nil when the row shows no text for it.
+    typealias Preview = (EventTimelineItem, String, Bool) -> String?
+    private let preview: Preview
     private let onResults: @MainActor () -> Void
     /// Spec read-receipts, ack send: a read found the newest event from the other person in a DM (event ID, sender).
     /// Each read follows a room list change, so a DM gets at most one ack per batch.
@@ -31,9 +34,9 @@ final class RowActivityScanner {
     /// An undecryptable message whose key has not come after this many reads stays as it is until the room changes.
     private static let maxUndecryptableReads = 10
 
-    init(client: Client, ownUserId: String, onResults: @escaping @MainActor () -> Void) {
+    init(client: Client, preview: @escaping Preview, onResults: @escaping @MainActor () -> Void) {
         self.client = client
-        self.ownUserId = ownUserId
+        self.preview = preview
         self.onResults = onResults
     }
 
@@ -69,7 +72,7 @@ final class RowActivityScanner {
                 let roomId = self.queue.removeFirst()
                 var found: Read = ([], false, nil)
                 let room = try? self.client.getRoom(roomId: roomId)
-                if let room { found = await Self.read(room, ownUserId: self.ownUserId) }
+                if let room { found = await Self.read(room, preview: self.preview) }
                 guard !Task.isCancelled else { return }
                 if let room, let incoming = found.dmIncoming { self.onDmIncoming?(room, incoming.eventId, incoming.sender) }
                 self.events[roomId] = found.events
@@ -109,7 +112,7 @@ final class RowActivityScanner {
 
     /// The SDK sends the cached timeline items as the first update, before addListener returns (matrix-sdk-ffi
     /// Timeline.add_listener). No pagination, no network.
-    private static func read(_ room: Room, ownUserId: String) async -> Read {
+    private static func read(_ room: Room, preview rowPreview: Preview) async -> Read {
         guard let timeline = try? await room.timeline() else { return ([], false, nil) }
         let stream = TimelineDiffStream()
         let handle = await timeline.addListener(listener: stream)
@@ -123,9 +126,7 @@ final class RowActivityScanner {
         let roomId = room.id()
         let isDm = (try? await room.roomInfo())?.isDm ?? false
         let local = events.map { event in
-            let preview = ChatListModel.rowPreview(of: event.content, isOwn: event.isOwn,
-                                                   senderName: event.senderProfile.displayName(or: event.sender),
-                                                   roomId: roomId, isDm: isDm, ownUserId: ownUserId)
+            let preview = rowPreview(event, roomId, isDm)
             return BipeRowActivity.LocalEvent(timestampMs: event.timestamp, kind: kind(of: event.content, preview: preview),
                                               previewText: preview, isOwn: event.isOwn,
                                               isStateLine: isStateLine(event.content))

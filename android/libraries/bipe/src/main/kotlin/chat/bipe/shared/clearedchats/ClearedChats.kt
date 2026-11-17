@@ -4,11 +4,10 @@
 
 package chat.bipe.shared.clearedchats
 
-import chat.bipe.shared.runCatchingExceptions
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
+import chat.bipe.core.clearedChatHidden
+import chat.bipe.core.clearedChatKeepsEvent
+import chat.bipe.core.clearedChatMarkers
+import chat.bipe.core.clearedChatsWithClear
 
 /**
  * The markers of cleared DMs (bipe-chat/bipe#464), from the global account data event `chat.bipe.cleared_chats`.
@@ -39,51 +38,14 @@ data class ClearedChats(
     companion object {
         val EMPTY = ClearedChats(emptyMap())
 
-        // Number.MAX_SAFE_INTEGER in the reference implementation.
-        private const val MAX_SAFE_INTEGER = 9_007_199_254_740_991L
+        /** The valid markers of the account data content (bipe-core `clearedChatMarkers`). */
+        fun parse(content: String?): ClearedChats = ClearedChats(clearedChatMarkers(content))
 
-        /** Reads the raw JSON content of the event. Null or malformed content gives [EMPTY]. */
-        fun parse(content: String?): ClearedChats {
-            val rooms = rooms(parseElement(content)) ?: return EMPTY
-            val markers = rooms.mapNotNull { (roomId, entry) -> ts(entry)?.let { roomId to it } }.toMap()
-            return ClearedChats(markers)
-        }
+        fun isHidden(marker: Long?, latestTs: Long?): Boolean = clearedChatHidden(marker, latestTs)
 
-        /** True when the room list hides the room. [latestTs] is null when the room has no latest event. */
-        fun isHidden(marker: Long?, latestTs: Long?): Boolean = marker != null && (latestTs == null || latestTs <= marker)
+        fun keepsEvent(marker: Long?, eventTs: Long): Boolean = clearedChatKeepsEvent(marker, eventTs)
 
-        /** True when the timeline and search keep an event with this origin_server_ts. */
-        fun keepsEvent(marker: Long?, eventTs: Long): Boolean = marker == null || eventTs > marker
-
-        /**
-         * The content to write when the user clears [roomId] at [ts]. Keeps every other key and entry as it is.
-         * The marker never moves back.
-         */
-        fun contentClearing(content: String?, roomId: String, ts: Long): String {
-            val base = parseElement(content) as? JsonObject ?: JsonObject(emptyMap())
-            val rooms = rooms(base) ?: JsonObject(emptyMap())
-            val old = ts(rooms[roomId])
-            val newTs = if (old != null && old > ts) old else ts
-            val newRooms = JsonObject(rooms + (roomId to JsonObject(mapOf("ts" to JsonPrimitive(newTs)))))
-            return JsonObject(base + ("rooms" to newRooms)).toString()
-        }
-
-        private fun parseElement(content: String?): JsonElement? {
-            if (content == null) return null
-            return runCatchingExceptions { Json.parseToJsonElement(content) }.getOrNull()
-        }
-
-        private fun rooms(content: JsonElement?): JsonObject? = (content as? JsonObject)?.get("rooms") as? JsonObject
-
-        // A safe integer >= 0, as Number.isSafeInteger in the reference implementation. A string is not a number.
-        private fun ts(entry: JsonElement?): Long? {
-            val primitive = (entry as? JsonObject)?.get("ts") as? JsonPrimitive ?: return null
-            if (primitive.isString) return null
-            val text = primitive.content
-            val value = text.toLongOrNull()
-                ?: text.toDoubleOrNull()?.takeIf { it % 1.0 == 0.0 }?.toLong()
-                ?: return null
-            return value.takeIf { it in 0..MAX_SAFE_INTEGER }
-        }
+        /** bipe-core `clearedChatsWithClear`: keeps every other key and entry; the marker never moves back. */
+        fun contentClearing(content: String?, roomId: String, ts: Long): String = clearedChatsWithClear(content, roomId, ts)
     }
 }

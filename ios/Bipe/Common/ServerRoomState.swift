@@ -24,4 +24,23 @@ enum ServerRoomState {
         guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw Failed() }
         return data
     }
+
+    /// One state event's content from GET /_matrix/client/v3/rooms/{roomId}/state/{eventType}/{stateKey}, or nil when
+    /// the room has no such event (404). Throws on any other failure.
+    static func content(client: Client, roomId: String, eventType: String, stateKey: String) async throws -> Data? {
+        let auth = try client.session()
+        let allowed = CharacterSet.urlPathAllowed.subtracting(CharacterSet(charactersIn: "/@:!?#"))
+        func path(_ part: String) -> String { part.addingPercentEncoding(withAllowedCharacters: allowed) ?? part }
+        let base = auth.homeserverUrl.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let address = "\(base)/_matrix/client/v3/rooms/\(path(roomId))/state/\(path(eventType))/\(path(stateKey))"
+        guard let url = URL(string: address) else { throw Failed() }
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(auth.accessToken)", forHTTPHeaderField: "Authorization")
+        let (data, response) = try await URLSession.shared.data(for: request)
+        switch (response as? HTTPURLResponse)?.statusCode {
+        case 200: return data
+        case 404: return nil
+        default: throw Failed()
+        }
+    }
 }

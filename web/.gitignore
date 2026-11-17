@@ -3,3 +3,5 @@ dist/
 rust_modules/
 src/generated/
 *.tsbuildinfo
+src/core/
+build/

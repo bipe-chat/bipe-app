@@ -34,3 +34,26 @@ suspend fun serverRoomState(client: Client, roomId: String): String = withContex
         connection.disconnect()
     }
 }
+
+/**
+ * One state event's content from GET /_matrix/client/v3/rooms/{roomId}/state/{eventType}/{stateKey}, as JSON, or null
+ * when the room has no such event (404). Throws on any other failure.
+ */
+suspend fun serverStateContent(client: Client, roomId: String, eventType: String, stateKey: String): String? = withContext(Dispatchers.IO) {
+    val auth = client.session()
+    fun path(part: String) = URLEncoder.encode(part, "UTF-8").replace("+", "%20")
+    val url = URL("${auth.homeserverUrl.trimEnd('/')}/_matrix/client/v3/rooms/${path(roomId)}/state/${path(eventType)}/${path(stateKey)}")
+    val connection = url.openConnection() as HttpURLConnection
+    try {
+        connection.connectTimeout = 30_000
+        connection.readTimeout = 30_000
+        connection.setRequestProperty("Authorization", "Bearer ${auth.accessToken}")
+        when (connection.responseCode) {
+            200 -> connection.inputStream.bufferedReader().use { it.readText() }
+            404 -> null
+            else -> error("room state: HTTP ${connection.responseCode}")
+        }
+    } finally {
+        connection.disconnect()
+    }
+}

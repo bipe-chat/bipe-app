@@ -2,6 +2,7 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
+import BipeCore
 import Foundation
 
 /// The PIN reminder schedule (registries/onboarding.json pinReminder, bipe-chat/bipe#202). Port of `pinReminderNext()`
@@ -14,15 +15,20 @@ public nonisolated enum BipeOnboardingSchedule {
     }
 
     /// The PIN reminder after a check: the next step and the days until the next reminder.
+    /// bipe-core `pinReminderNext`.
     public static func pinReminderNext(step: Int, result: PinResult) -> (step: Int, gapDays: Int) {
-        if result == .later { return (step, 1) }
-        let next = result == .right ? step + 1 : 0
-        return (next, gapDays(after: next))
+        let core: PinCheckResult = switch result {
+        case .right: .right
+        case .wrong: .wrong
+        case .later: .later
+        }
+        let next = BipeCore.pinReminderNext(step: UInt32(clamping: step), result: core)
+        return (Int(next.step), Int(next.gapDays))
     }
 
-    /// The gap before the first reminder is `gapDays(after: 0)`.
+    /// The gap before the first reminder is `gapDays(after: 0)`: the gap that a check leaves at `step`.
     public static func gapDays(after step: Int) -> Int {
-        step < BipeOnboarding.pinReminderDays.count ? BipeOnboarding.pinReminderDays[step] : BipeOnboarding.pinReminderThenEveryDays
+        step <= 0 ? pinReminderNext(step: 0, result: .wrong).gapDays : pinReminderNext(step: step - 1, result: .right).gapDays
     }
 }
 

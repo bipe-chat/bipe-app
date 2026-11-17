@@ -58,6 +58,7 @@ import {
 import { mediaOf, TimelineMediaRow, type MediaInfo } from './TimelineMedia';
 import { dayText, s, timeText } from './ui/i18n';
 import { Icon } from './ui/Icon';
+import { SealMark } from './seals';
 import { OfficialBadge } from './ui/List';
 import { ROLE_BADGE, senderLabel, type SenderFacts } from './sender-facts';
 
@@ -440,6 +441,7 @@ function MessageBubble({
           {isDm ? row.who : senderLabel(row.who, row.whoId, row.whoAmbiguous, senders)}
           {role && <span className="text-accent-ink">· {s(ROLE_BADGE[role])}</span>}
           {isOfficial(row.whoId) && <OfficialBadge />}
+          {!isDm && <SealMark userId={row.whoId} size={14} />}
         </span>
       )}
       {row.forwardCount > 0 && <ForwardLine count={row.forwardCount} />}

@@ -355,9 +355,9 @@ test('asc token is an ES256 JWT that the public key verifies', () => {
 });
 
 test('asc exact ignores prefix matches', () => {
-  const rows = [{ attributes: { identifier: 'chat.bipe.app.next.nse' } }, { attributes: { identifier: 'chat.bipe.app.next' } }];
-  assert.equal(exact(rows, 'identifier', 'chat.bipe.app.next'), rows[1]);
-  assert.equal(exact(rows, 'identifier', 'chat.bipe.app'), null);
+  const rows = [{ attributes: { identifier: 'chat.bipe.app.nse' } }, { attributes: { identifier: 'chat.bipe.app' } }];
+  assert.equal(exact(rows, 'identifier', 'chat.bipe.app'), rows[1]);
+  assert.equal(exact(rows, 'identifier', 'chat.bipe'), null);
 });
 
 test('asc sameSerial ignores case and leading zeros', () => {
@@ -371,11 +371,11 @@ test('asc export options sign manually with the CI profiles', () => {
   const adhoc = exportOptions('adhoc');
   assert.match(adhoc, /<key>method<\/key><string>release-testing<\/string>/);
   assert.match(adhoc, /<key>signingStyle<\/key><string>manual<\/string>/);
-  assert.match(adhoc, /<key>chat\.bipe\.app\.next\.share<\/key><string>Bipe Next CI Ad Hoc chat\.bipe\.app\.next\.share<\/string>/);
+  assert.match(adhoc, /<key>chat\.bipe\.app\.shareextension<\/key><string>Bipe CI Ad Hoc chat\.bipe\.app\.shareextension<\/string>/);
   assert.doesNotMatch(adhoc, /destination<\/key><string>upload/);
   const upload = exportOptions('appstore');
   assert.match(upload, /<key>destination<\/key><string>upload<\/string>/);
-  assert.match(upload, new RegExp(profileName('appstore', 'chat.bipe.app.next.nse').replace(/\./g, '\\.')));
+  assert.match(upload, new RegExp(profileName('appstore', 'chat.bipe.app.nse').replace(/\./g, '\\.')));
 });
 
 // A fake App Store Connect API: records the calls, answers from fixed rows.
@@ -414,9 +414,9 @@ test('asc signing makes six profiles for the given certificate and never makes a
     { id: 'C-dist', attributes: { serialNumber: '105A9943', certificateType: 'DISTRIBUTION', name: 'Apple Distribution' } },
   ];
   const oldProfiles = [
-    { id: 'old-1', attributes: { name: 'Bipe Next CI Ad Hoc chat.bipe.app.next' } },
+    { id: 'old-1', attributes: { name: 'Bipe CI Ad Hoc chat.bipe.app' } },
     // A prefix match of the app's name: only the NSE pass deletes it.
-    { id: 'old-nse', attributes: { name: 'Bipe Next CI Ad Hoc chat.bipe.app.next.nse' } },
+    { id: 'old-nse', attributes: { name: 'Bipe CI Ad Hoc chat.bipe.app.nse' } },
   ];
   const { call, calls } = fakeAsc({ certs, oldProfiles });
   const home = mkdtempSync(join(tmpdir(), 'bipe-asc-home-'));
@@ -433,17 +433,17 @@ test('asc signing makes six profiles for the given certificate and never makes a
   assert.ok(made.filter((d) => d.attributes.profileType === 'IOS_APP_STORE').every((d) => !d.relationships.devices));
   const order = calls.map((c) => `${c.method} ${c.method === 'POST' ? c.body.data.attributes.name : c.path}`);
   assert.deepEqual(order.filter((c) => c.startsWith('DELETE')), ['DELETE /v1/profiles/old-1', 'DELETE /v1/profiles/old-nse']);
-  assert.ok(order.indexOf('DELETE /v1/profiles/old-nse') > order.indexOf('POST Bipe Next CI Ad Hoc chat.bipe.app.next'));
-  assert.ok(order.indexOf('DELETE /v1/profiles/old-nse') < order.indexOf('POST Bipe Next CI Ad Hoc chat.bipe.app.next.nse'));
+  assert.ok(order.indexOf('DELETE /v1/profiles/old-nse') > order.indexOf('POST Bipe CI Ad Hoc chat.bipe.app'));
+  assert.ok(order.indexOf('DELETE /v1/profiles/old-nse') < order.indexOf('POST Bipe CI Ad Hoc chat.bipe.app.nse'));
 
   assert.equal(readdirSync(join(home, 'Library/Developer/Xcode/UserData/Provisioning Profiles')).length, 6);
   assert.equal(readdirSync(join(home, 'Library/MobileDevice/Provisioning Profiles')).length, 6);
   assert.match(readFileSync(join(outDir, 'adhoc.plist'), 'utf8'), /release-testing/);
   assert.match(readFileSync(join(outDir, 'upload.plist'), 'utf8'), /app-store-connect/);
   assert.equal(readFileSync(envFile, 'utf8'), [
-    'BIPE_CI_PROFILE_APP=Bipe Next CI App Store chat.bipe.app.next',
-    'BIPE_CI_PROFILE_NSE=Bipe Next CI App Store chat.bipe.app.next.nse',
-    'BIPE_CI_PROFILE_SHARE=Bipe Next CI App Store chat.bipe.app.next.share',
+    'BIPE_CI_PROFILE_APP=Bipe CI App Store chat.bipe.app',
+    'BIPE_CI_PROFILE_NSE=Bipe CI App Store chat.bipe.app.nse',
+    'BIPE_CI_PROFILE_SHARE=Bipe CI App Store chat.bipe.app.shareextension',
     '',
   ].join('\n'));
 });
@@ -476,14 +476,14 @@ test('asc store-ids reads the fork store app only and changes nothing', async ()
     '/v1/bundleIds?filter[identifier]=chat.bipe.app&limit=200': [
       { id: 'B1', attributes: { identifier: 'chat.bipe.app', name: 'Bipe' } },
       { id: 'B2', attributes: { identifier: 'chat.bipe.app.nse', name: 'Bipe NSE' } },
-      { id: 'B3', attributes: { identifier: 'chat.bipe.app.next', name: 'Bipe Next' } },
-      { id: 'B4', attributes: { identifier: 'chat.bipe.app.next.nse', name: 'Bipe Next NSE' } },
+      { id: 'B3', attributes: { identifier: 'chat.bipe.app.dev', name: 'Bipe Chat' } },
+      { id: 'B4', attributes: { identifier: 'chat.bipe.app.dev.nse', name: 'Bipe Chat NSE' } },
       { id: 'B5', attributes: { identifier: 'chat.bipe.appother', name: 'Other' } },
     ],
     '/v1/bundleIds/B1/bundleIdCapabilities': [{ attributes: { capabilityType: 'PUSH_NOTIFICATIONS' } }, { attributes: { capabilityType: 'APP_GROUPS' } }],
     '/v1/bundleIds/B2/bundleIdCapabilities': [{ attributes: { capabilityType: 'APP_GROUPS' } }],
     '/v1/apps?filter[bundleId]=chat.bipe.app': [
-      { id: 'A0', attributes: { bundleId: 'chat.bipe.app.next', name: 'Bipe Next', sku: 'bipe-next' } },
+      { id: 'A0', attributes: { bundleId: 'chat.bipe.app.dev', name: 'Bipe Chat', sku: 'bipe-chat' } },
       { id: 'A1', attributes: { bundleId: 'chat.bipe.app', name: 'Bipe', sku: 'bipe' } },
     ],
     '/v1/builds?filter[app]=A1&sort=-uploadedDate&limit=200': [{ attributes: { version: '207' } }, { attributes: { version: '1024' } }, { attributes: { version: 'x' } }],
@@ -607,16 +607,15 @@ test('version: build number is the base plus the commit count, above the highest
 });
 
 // External testing (bipe-chat/bipe#658).
-function externalAsc({ nextLocs = [], nextReview = {}, storeLocs = [], storeReview = {}, groups = [], state = 'READY_FOR_BETA_SUBMISSION' }) {
+function externalAsc({ appLocs = [], appReview = {}, storeLocs = [], storeReview = {}, groups = [], state = 'READY_FOR_BETA_SUBMISSION' }) {
   const calls = [];
   const bodies = {};
   const rows = {
-    '/v1/apps?filter[bundleId]=chat.bipe.app.next': [{ id: 'N', attributes: { bundleId: 'chat.bipe.app.next' } }],
-    '/v1/apps?filter[bundleId]=chat.bipe.app': [{ id: 'N', attributes: { bundleId: 'chat.bipe.app.next' } }, { id: 'D', attributes: { bundleId: 'chat.bipe.app.dev' } }],
+    '/v1/apps?filter[bundleId]=chat.bipe.app': [{ id: 'N', attributes: { bundleId: 'chat.bipe.app' } }, { id: 'D', attributes: { bundleId: 'chat.bipe.app.dev' } }],
     '/v1/apps?filter[bundleId]=chat.bipe.app.dev': [{ id: 'S', attributes: { bundleId: 'chat.bipe.app.dev' } }],
     '/v1/apps/N/betaGroups?limit=200': groups,
-    '/v1/apps/N/betaAppLocalizations?limit=50': nextLocs,
-    '/v1/apps/N/betaAppReviewDetail': { id: 'R', attributes: nextReview },
+    '/v1/apps/N/betaAppLocalizations?limit=50': appLocs,
+    '/v1/apps/N/betaAppReviewDetail': { id: 'R', attributes: appReview },
     '/v1/apps/S/betaAppLocalizations?limit=50': storeLocs,
     '/v1/apps/S/betaAppReviewDetail': { id: 'RS', attributes: storeReview },
     '/v1/builds?filter[app]=N&filter[version]=300&limit=10': [{ id: 'B' }],
@@ -632,7 +631,7 @@ function externalAsc({ nextLocs = [], nextReview = {}, storeLocs = [], storeRevi
     }
     const attributes = body?.data?.attributes ?? {};
     if (path === '/v1/betaGroups') return { data: { id: 'G', attributes } };
-    if (path === '/v1/betaAppReviewDetails/R') return { data: { id: 'R', attributes: { ...nextReview, ...attributes } } };
+    if (path === '/v1/betaAppReviewDetails/R') return { data: { id: 'R', attributes: { ...appReview, ...attributes } } };
     if (path === '/v1/betaAppLocalizations') return { data: { id: 'L', attributes } };
     return { data: { id: 'X', attributes } };
   };
@@ -656,7 +655,7 @@ const quiet = async (fn) => {
 const CONTACT = { contactFirstName: 'Ana', contactLastName: 'Silva', contactPhone: '+5511999990000', contactEmail: 'ana@example.org', demoAccountRequired: true, demoAccountName: 'reviewer', demoAccountPassword: 'secret-demo' };
 
 test('asc external without the variable only reads', async () => {
-  const { call, calls } = externalAsc({ nextReview: CONTACT });
+  const { call, calls } = externalAsc({ appReview: CONTACT });
   const { result, out } = await quiet(() => external(call, '300', { summary: null }));
   assert.ok(calls.every((c) => c.startsWith('GET ')));
   assert.equal(result.group, null);

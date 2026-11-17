@@ -82,8 +82,25 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
     val session: AccountSession?
         get() = _sessions.value.firstOrNull { it.userId == _userId.value }
 
-    /** A bipe.chat/convite link the app was opened with, for onboarding-welcome (action openInviteLink). */
+    /** A bipe.chat/convite or /g/ link the app was opened with before the account was ready: onboarding-welcome
+     *  (action openInviteLink) reads it, or [routeHeldLink] once the phone is signed in. */
     var pendingInviteLink: android.net.Uri? = null
+
+    /**
+     * Spec group-link-open notes: a group link code that came with no account on the phone (a link, a paste or a scan)
+     * waits on disk until it is used, with no time limit of its own: the server decides whether the link still works.
+     * A closed app keeps it. Never logged.
+     */
+    private val groupHold = context.getSharedPreferences("bipe_group_link_hold", Context.MODE_PRIVATE)
+    private var heldGroupCode: String?
+        get() = groupHold.getString("code", null)
+        set(value) {
+            groupHold.edit().apply { if (value == null) remove("code") else putString("code", value) }.apply()
+        }
+
+    fun holdGroupCode(code: String) {
+        heldGroupCode = code
+    }
 
     /**
      * noAccount shows recovery-start instead of onboarding-welcome: after "Já tenho conta", for a recovery link, or while
@@ -152,6 +169,7 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
             _inviteTap.value = inviteCode
         } else {
             pendingInviteLink = uri
+            chat.bipe.shared.BipeInviteLink.groupCode(uri)?.let { heldGroupCode = it }
         }
     }
 
@@ -417,8 +435,17 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
 
     /** signup-done finished: chat-list shows, with the inviter's chat open when there is one. */
     fun finishSignup(openRoomId: String?) {
+        val outcome = _signupOutcome.value
         initialRoomId = openRoomId
         _signupOutcome.value = null
+        // An invite link was used by the sign-up. A group link is done when its group opened (spec signup-done
+        // continue); otherwise group-link-open opens with it, so join runs again.
+        pendingInviteLink = pendingInviteLink?.takeIf { chat.bipe.shared.BipeInviteLink.groupCode(it) != null }
+        if (outcome?.groupRoomId != null && outcome.groupRoomId == openRoomId) {
+            pendingInviteLink = null
+            heldGroupCode = null
+        }
+        routeHeldLink()
     }
 
     /**
@@ -518,6 +545,26 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
         (context.applicationContext as BipeApplication).push.attach(session)
         chat.bipe.app.media.MediaPreviewSync.attach(context, session)
         _phase.value = Phase.READY
+        routeHeldLink()
+    }
+
+    /**
+     * A link that came while the account still opened (a cold start from a tap in WhatsApp) waits in
+     * [pendingInviteLink]. Once the phone is signed in it goes where a link on a signed-in phone goes: a group link to
+     * group-link-open, an invite to invite-signed-in. Without this, only onboarding read it, and the tap was lost.
+     */
+    private fun routeHeldLink() {
+        // signup-done runs first; finishSignup routes what is left.
+        if (_signupOutcome.value != null) return
+        val uri = pendingInviteLink
+        val group = uri?.let { chat.bipe.shared.BipeInviteLink.groupCode(it) } ?: heldGroupCode
+        pendingInviteLink = null
+        heldGroupCode = null
+        if (group != null) {
+            chat.bipe.app.people.PeopleLinks.open(chat.bipe.app.people.PeopleRoute.GroupLinkOpen(group))
+            return
+        }
+        uri?.let { chat.bipe.shared.BipeInviteLink.code(it) }?.let { _inviteTap.value = it }
     }
 
     private fun add(session: AccountSession) {

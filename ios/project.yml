@@ -3,8 +3,7 @@
 # Copyright 2026 Bipe contributors
 
 # XcodeGen spec of the iOS app (bipe-chat/bipe#549). Run `xcodegen generate` in ios/.
-# IDs: ADR 0147. Tester builds use their own IDs (chat.bipe.app.next, group.chat.bipe.next),
-# so they sit next to the fork on one phone. At the switch the app takes the fork's IDs (ADR 0061).
+# IDs: ADR 0294. Every build, local and CI, uses the release app's IDs (ADR 0061, ADR 0178).
 # The matrix-rust-components-swift version must equal ../sdk-version (tools/sdk-version.mjs).
 name: Bipe
 
@@ -38,19 +37,14 @@ settings:
     CODE_SIGN_STYLE: Automatic
     BIPE_SIGN_STYLE: Automatic
     BIPE_SIGN_IDENTITY: Apple Development
-    # Name under the home screen icon. Tester builds are "Bipe Next" (ADR 0147). At the switch
-    # to the fork's IDs (ADR 0061) this becomes "Bipe". All three targets read it.
-    BIPE_DISPLAY_NAME: Bipe Next
-    # ID set (bipe-chat/bipe#602, docs/client-switch-plan.md step 2). Tester builds: chat.bipe.app.next.
-    # The store set (the fork's IDs, ADR 0061) passes BIPE_APP_ID=chat.bipe.app BIPE_APP_GROUP=group.chat.bipe
-    # BIPE_DISPLAY_NAME=Bipe on the xcodebuild command line; CI builds it unsigned and never uploads it before the switch.
-    # The extension IDs derive from BIPE_APP_ID: .nse, and .$(BIPE_SHARE_ID_SUFFIX) for the share extension. The fork's
-    # registered share ID is chat.bipe.app.shareextension (App Store Connect API, 25 Oct 2026), so the store set also
-    # passes BIPE_SHARE_ID_SUFFIX=shareextension.
-    # The "Report the store IDs" step of testflight.yml (node tools/asc.mjs store-ids) lists the fork's real IDs.
-    BIPE_APP_ID: chat.bipe.app.next
-    BIPE_APP_GROUP: group.chat.bipe.next
-    BIPE_SHARE_ID_SUFFIX: share
+    # Name under the home screen icon. All three targets read it.
+    BIPE_DISPLAY_NAME: Bipe
+    # The release app's IDs (ADR 0294). The extension IDs derive from BIPE_APP_ID: .nse, and .$(BIPE_SHARE_ID_SUFFIX)
+    # for the share extension. The registered share ID is chat.bipe.app.shareextension (App Store Connect API,
+    # 25 Oct 2026). The "Report the store IDs" step of testflight.yml (node tools/asc.mjs store-ids) lists them.
+    BIPE_APP_ID: chat.bipe.app
+    BIPE_APP_GROUP: group.chat.bipe
+    BIPE_SHARE_ID_SUFFIX: shareextension
 
 packages:
   MatrixRustSDK:
@@ -93,6 +87,9 @@ targets:
         BipeOwnedKeychainGroup: $(BIPE_APP_GROUP)
         BipeAppID: $(BIPE_APP_ID)
         BipeAppGroup: $(BIPE_APP_GROUP)
+        # The APNs environment of the signed entitlement. AppConfig.pusherAppId picks the Sygnal app ID from it: a token
+        # from the sandbox sent to production APNs is BadDeviceToken, and Synapse then deletes the pusher.
+        BipeApsEnvironment: $(BIPE_APS_ENVIRONMENT)
         BipeLegacyKeychainReadGroups: [$(AppIdentifierPrefix)$(BIPE_APP_ID), 992N457T8D.chat.bipe.app.dev]
         # Communication notifications (bipe-chat/bipe#771): the notification service donates INSendMessageIntent.
         NSUserActivityTypes: [INSendMessageIntent]

@@ -181,6 +181,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Recover an unfinished desktop link (flow launch). Spec: bipe-shared/product/screens/desktop-pending-link.json
     case desktopPendingLink = "desktop-pending-link"
 
+    /// Device detail (flow devices). Spec: bipe-shared/product/screens/device-detail.json
+    case deviceDetail = "device-detail"
+
     /// Approve this phone (flow encryption). Spec: bipe-shared/product/screens/device-verification.json
     case deviceVerification = "device-verification"
 

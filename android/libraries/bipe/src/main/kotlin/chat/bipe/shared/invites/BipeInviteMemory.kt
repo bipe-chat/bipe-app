@@ -21,7 +21,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
-/** Device-only links and first messages. Account IDs partition the data; the file and key belong to Bipe Next. */
+/** Device-only links and first messages. Account IDs partition the data; the file and key belong to this app. */
 @Serializable
 data class BipeInviteMemoryData(
     val links: Map<String, String> = emptyMap(),
