@@ -6,20 +6,6 @@ import BipeKit
 import MatrixRustSDK
 import SwiftUI
 
-/// Feeds the results of the SDK search service to an AsyncStream, like Common/Listeners.swift.
-final class SearchResultsStream: SearchServiceResultsListener {
-    let updates: AsyncStream<[SearchServiceResultsUpdate]>
-    private let continuation: AsyncStream<[SearchServiceResultsUpdate]>.Continuation
-
-    init() {
-        (updates, continuation) = AsyncStream.makeStream()
-    }
-
-    func onUpdate(updates: [SearchServiceResultsUpdate]) {
-        continuation.yield(updates)
-    }
-}
-
 /// Type MessageHit of spec chat-search.
 struct MessageHit: Identifiable, Equatable {
     let roomId: String
@@ -105,33 +91,6 @@ final class MessageSearchModel: ObservableObject {
         return MessageHit(roomId: roomId, eventId: message.eventId,
                           chatName: room?.displayName()?.nilIfBlank ?? BipeStrings.dmNoName,
                           senderName: sender, body: body, sentAt: Date(milliseconds: message.timestamp))
-    }
-}
-
-/// State recent of spec chat-search: the last 10 queries that opened a result, on this phone, per account.
-@MainActor
-final class RecentSearches: ObservableObject {
-    static let limit = 10
-
-    @Published private(set) var queries: [String]
-    private let key: String
-
-    init(userId: String) {
-        key = "recentSearches.\(userId)"
-        queries = UserDefaults.standard.stringArray(forKey: key) ?? []
-    }
-
-    func add(_ query: String) {
-        let query = query.trimmingCharacters(in: .whitespaces)
-        guard !query.isEmpty else { return }
-        queries = Array(([query] + queries.filter { $0 != query }).prefix(Self.limit))
-        UserDefaults.standard.set(queries, forKey: key)
-    }
-
-    /// Action clearRecent.
-    func clear() {
-        queries = []
-        UserDefaults.standard.removeObject(forKey: key)
     }
 }
 

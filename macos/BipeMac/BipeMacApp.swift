@@ -204,12 +204,19 @@ struct MacChatView: View {
     @State private var reportReason = ""
     @State private var reportFailed = false
     let forwardTargets: [MacRoomSummary]
+    /// The account's client, for the search in this chat.
+    let client: Client?
+    /// Spec chat-search openMessage: the message to scroll to once the timeline is ready.
+    let focus: MacMessageFocus?
+    @State private var searchingChat = false
 
     init(room: Room, name: String, client: Client, drafts: MacDrafts, media: MacMedia, blocked: MacBlockedUsers,
          face: MacAvatarDescriptor? = nil, forwardTargets: [MacRoomSummary] = [], opensPhotoPicker: Bool = false,
-         openChat: @escaping (String) -> Void = { _ in }) {
+         focus: MacMessageFocus? = nil, openChat: @escaping (String) -> Void = { _ in }) {
         self.blocked = blocked
         self.openChat = openChat
+        self.client = client
+        self.focus = focus
         _identity = StateObject(wrappedValue: IdentityChangeModel(client: client, ownUserId: room.ownUserId(), roomId: room.id()))
         self.forwardTargets = forwardTargets
         _picker = State(initialValue: opensPhotoPicker ? .media : nil)
@@ -345,6 +352,31 @@ struct MacChatView: View {
                     Text(name).macFont(.headline).lineLimit(1)
                 }
             }
+            // Spec chat-search with roomId (bipe-chat/bipe#861): search in this chat.
+            if client != nil {
+                ToolbarItem(placement: .automatic) {
+                    Button { searchingChat = true } label: {
+                        Image(decorative: "magnifying-glass").resizable().scaledToFit().frame(width: 18, height: 18)
+                    }
+                    .help(BipeStrings.searchInChat).accessibilityLabel(BipeStrings.searchInChat)
+                }
+            }
+        }
+        .sheet(isPresented: $searchingChat) {
+            if let client {
+                MacChatSearchSheet(roomID: room.id(), chatName: name, client: client, openMessage: { eventID in
+                    searchingChat = false
+                    Task { await model.openOriginal(eventID: eventID) }
+                }, close: { searchingChat = false })
+            }
+        }
+        // Spec chat-search openMessage: scroll to the message once the timeline has loaded.
+        .task(id: focus?.id) {
+            guard let focus else { return }
+            for _ in 0..<50 where !model.ready {
+                guard (try? await Task.sleep(for: .milliseconds(100))) != nil else { return }
+            }
+            await model.openOriginal(eventID: focus.eventID)
         }
         .alert(BipeStrings.dmInviteAgainFailed, isPresented: $model.inviteAgainFailed) {
             Button(BipeStrings.appClose, role: .cancel) {}

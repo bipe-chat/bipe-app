@@ -17,6 +17,9 @@ struct MacConversationsView: View {
     }
     @State private var showingArchived = false
     @State private var startingChat = false
+    /// Spec chat-search findByHandle: the handle the start-chat sheet opens with.
+    @State private var startHandle = ""
+    @StateObject private var messageSearch = MacMessageSearch()
     @State private var selectedRequest: String?
     @State private var reordering = false
     @State private var notificationsRoom: String?
@@ -83,7 +86,9 @@ struct MacConversationsView: View {
             } else if let row = list.rows.first(where: { $0.id == selected }), let client = account.client {
                 MacChatView(room: row.room, name: row.name, client: client, drafts: account.drafts, media: account.media,
                             blocked: account.blocked, face: row.avatar, forwardTargets: list.rows,
-                            opensPhotoPicker: photoPickerRoom == row.id, openChat: openChat).id(row.id)
+                            opensPhotoPicker: photoPickerRoom == row.id,
+                            focus: account.messageFocus?.roomID == row.id ? account.messageFocus : nil,
+                            openChat: openChat).id(row.id)
                     .environment(\.bipeHandles, account.handles)
                     .environment(\.bipeCompanySeals, account.seals)
                     // Spec group-link: admins who can change power levels (canOwnUserSendState m.room.power_levels).
@@ -104,6 +109,20 @@ struct MacConversationsView: View {
             }
         }
         .searchable(text: searchBinding, placement: .sidebar, prompt: BipeStrings.appSearchPlaceholder)
+        .searchSuggestions {
+            if search.isEmpty, let recent = account.recentSearches { MacRecentSearchSuggestions(recent: recent) }
+        }
+        // Spec chat-search editQuery: the message search follows the field, at most every 150 ms.
+        .task(id: search) {
+            guard (try? await Task.sleep(for: .milliseconds(150))) != nil else { return }
+            let rooms = Dictionary(list.rows.map { ($0.id, $0.name) }, uniquingKeysWith: { first, _ in first })
+            await messageSearch.search(search, client: account.client, rooms: rooms)
+        }
+        // Spec chat-search recent: a chat opened from a search keeps the query.
+        .onChange(of: selected) { _, room in
+            if room != nil, !search.isEmpty { account.recentSearches?.add(search) }
+            if room != account.messageFocus?.roomID { account.messageFocus = nil }
+        }
         .onChange(of: showingArchived) { _, archived in
             // A chat that start chat just opened has no row yet, and stays selected.
             if list.rows.first(where: { $0.id == selected })?.isArchived != archived, list.rows.contains(where: { $0.id == selected }) {
@@ -114,7 +133,8 @@ struct MacConversationsView: View {
         .onChange(of: favourites.count) { _, count in if count < 2 { reordering = false } }
         .onDisappear { reordering = false }
         .sheet(isPresented: $startingChat) {
-            MacStartChatSheet(account: account, opened: { room in startingChat = false; openChat(room) }, close: { startingChat = false })
+            MacStartChatSheet(account: account, initial: startHandle, opened: { room in startingChat = false; openChat(room) },
+                              close: { startingChat = false })
         }
         .sheet(isPresented: Binding(get: { groupLinkRoom != nil }, set: { if !$0 { groupLinkRoom = nil } })) {
             if let row = list.rows.first(where: { $0.id == groupLinkRoom }) {
@@ -145,6 +165,13 @@ struct MacConversationsView: View {
     private func placeholder(_ title: String) -> some View {
         Text(title).macFont(.largeTitle).foregroundStyle(BipeColor.inkSecondary)
             .frame(maxWidth: .infinity, maxHeight: .infinity).background(BipeColor.surfaceBase)
+    }
+
+    /// Spec chat-search openMessage: opens the chat and scrolls to the message.
+    private func openMessage(_ hit: MacMessageHit) {
+        account.recentSearches?.add(search)
+        account.messageFocus = MacMessageFocus(roomID: hit.roomID, eventID: hit.eventID)
+        openChat(hit.roomID)
     }
 
     /// The room opens as soon as sync lists it. The selection waits for its row.
@@ -216,6 +243,19 @@ struct MacConversationsView: View {
                     }
                     .accessibilityActions { rowMenu(row) }
             }
+            // Spec chat-search messages: under the chats, with their header.
+            if !search.isEmpty, !messageSearch.hits.isEmpty {
+                Section {
+                    ForEach(messageSearch.hits) { hit in
+                        Button { openMessage(hit) } label: { MacMessageHitRow(hit: hit) }
+                            .buttonStyle(.plain).padding(.horizontal, 16).padding(.vertical, 6)
+                            .listRowInsets(EdgeInsets())
+                            .onAppear { if hit.id == messageSearch.hits.last?.id { Task { await messageSearch.loadMore() } } }
+                    }
+                } header: {
+                    Text(BipeStrings.searchMessages)
+                }
+            }
             if !showingArchived {
                 Button(BipeStrings.archivedTitle) { showingArchived = true }
                     .listRowSeparator(.hidden)
@@ -226,9 +266,20 @@ struct MacConversationsView: View {
         }
         .listStyle(.sidebar).scrollContentBackground(.hidden)
         .overlay {
-            if rows.isEmpty, favourites.isEmpty {
+            if rows.isEmpty, favourites.isEmpty, search.isEmpty || messageSearch.hits.isEmpty {
                 if !list.loaded { ProgressView() }
-                else {
+                else if search.hasPrefix("@") {
+                    // Spec chat-search notes: no result for an @ opens findByHandle.
+                    VStack(spacing: 8) {
+                        Text(BipeStrings.appSearchNoResults(search)).macFont(.body).foregroundStyle(BipeColor.inkSecondary)
+                        Button(BipeStrings.appSearchFindHandle) {
+                            startHandle = String(search.dropFirst())
+                            startingChat = true
+                        }
+                        Text(BipeStrings.startChatSearchByHandle).macFont(.footnote).foregroundStyle(BipeColor.inkSecondary)
+                    }
+                    .multilineTextAlignment(.center).padding(24)
+                } else {
                     Text(!search.isEmpty ? BipeStrings.appSearchNoResults(search)
                          : showingArchived ? BipeStrings.archivedEmpty
                          : scope == .groups ? BipeStrings.appGroupsEmpty : BipeStrings.appChatListEmpty)
