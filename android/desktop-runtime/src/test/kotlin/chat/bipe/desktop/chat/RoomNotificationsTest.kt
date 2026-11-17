@@ -7,70 +7,80 @@ package chat.bipe.desktop.chat
 import chat.bipe.desktop.account.AccountCloseResult
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.first
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class RoomNotificationsTest {
-    @Test fun dmLegacyModeIsOnlyShownWhileCurrentAndCanNeverBeChosen() = runBlocking {
+    /** Runs [steps] on a model over a fake backend that starts at [snapshot]; returns the facts the steps report. */
+    private fun scenario(snapshot: NotifySnapshot, room: String = "group",
+                         steps: suspend (RoomNotifications, Backend) -> Map<String, Any?>): Map<String, Any?> = runBlocking {
+        var facts: Map<String, Any?> = emptyMap()
         withMediaOwner { owner ->
-            val backend = Backend(NotifySnapshot(true, true, NotifyMode.LEGACY, NotifyMode.ALL))
-            val model = RoomNotifications.create(owner, "original", backend)
-            assertEquals(listOf(NotifyMode.ALL, NotifyMode.MUTE, NotifyMode.LEGACY), model.ready().snapshot.options)
-            model.choose(NotifyMode.LEGACY); assertTrue(backend.writes.isEmpty())
-            model.choose(NotifyMode.ALL)
-            assertEquals(listOf(NotifyMode.ALL, NotifyMode.MUTE), model.settled().snapshot.options)
-            assertEquals(listOf("restore"), backend.writes)
+            val backend = Backend(snapshot)
+            facts = steps(RoomNotifications.create(owner, room, backend), backend)
         }
+        facts
     }
-    @Test fun encryptedGroupQuietUsesThePlainDefaultAndExplicitAllKeepsARoomRule() = runBlocking {
-        withMediaOwner { owner ->
-            val backend = Backend(NotifySnapshot(false, true, NotifyMode.QUIET, NotifyMode.QUIET))
-            val model = RoomNotifications.create(owner, "group", backend)
-            assertEquals(listOf(NotifyMode.QUIET, NotifyMode.ALL, NotifyMode.MUTE), model.ready().snapshot.options)
+
+    @Test fun dmLegacyModeIsOnlyShownWhileCurrentAndCanNeverBeChosen() {
+        val facts = scenario(NotifySnapshot(true, true, NotifyMode.LEGACY, NotifyMode.ALL), "original") { model, backend ->
+            val shown = model.ready().snapshot.options
+            model.choose(NotifyMode.LEGACY); val afterLegacy = backend.writes.toList()
+            model.choose(NotifyMode.ALL)
+            mapOf("shown" to shown, "legacy writes" to afterLegacy, "after all" to model.settled().snapshot.options, "writes" to backend.writes.toList())
+        }
+        assertEquals(mapOf("shown" to listOf(NotifyMode.ALL, NotifyMode.MUTE, NotifyMode.LEGACY), "legacy writes" to emptyList<String>(),
+            "after all" to listOf(NotifyMode.ALL, NotifyMode.MUTE), "writes" to listOf("restore")), facts)
+    }
+
+    @Test fun encryptedGroupQuietUsesThePlainDefaultAndExplicitAllKeepsARoomRule() {
+        val facts = scenario(NotifySnapshot(false, true, NotifyMode.QUIET, NotifyMode.QUIET)) { model, backend ->
+            val shown = model.ready().snapshot.options
             model.choose(NotifyMode.ALL); model.settled()
             model.choose(NotifyMode.QUIET); model.settled()
-            assertEquals(listOf("set:ALL", "restore"), backend.writes)
+            mapOf("shown" to shown, "writes" to backend.writes.toList())
         }
+        assertEquals(mapOf("shown" to listOf(NotifyMode.QUIET, NotifyMode.ALL, NotifyMode.MUTE), "writes" to listOf("set:ALL", "restore")), facts)
     }
-    @Test fun encryptedGroupWithAllAsDefaultCannotChooseAQuietRuleThatWouldStopPushes() = runBlocking {
-        withMediaOwner { owner ->
-            val backend = Backend(NotifySnapshot(false, true, NotifyMode.ALL, NotifyMode.ALL))
-            val model = RoomNotifications.create(owner, "group", backend)
-            assertEquals(listOf(NotifyMode.ALL, NotifyMode.MUTE), model.ready().snapshot.options)
+
+    @Test fun encryptedGroupWithAllAsDefaultCannotChooseAQuietRuleThatWouldStopPushes() {
+        val facts = scenario(NotifySnapshot(false, true, NotifyMode.ALL, NotifyMode.ALL)) { model, backend ->
+            val shown = model.ready().snapshot.options
             model.choose(NotifyMode.QUIET)
-            assertTrue(backend.writes.isEmpty())
+            mapOf("shown" to shown, "writes" to backend.writes.toList())
         }
+        assertEquals(mapOf("shown" to listOf(NotifyMode.ALL, NotifyMode.MUTE), "writes" to emptyList<String>()), facts)
     }
-    @Test fun oldMentionsOnlyRuleInAnEncryptedGroupIsRepairedBeforeShowingTheChoice() = runBlocking {
-        withMediaOwner { owner ->
-            val backend = Backend(NotifySnapshot(false, true, NotifyMode.QUIET, NotifyMode.QUIET, repairLegacyGroup = true))
-            val model = RoomNotifications.create(owner, "group", backend)
-            assertFalse(model.ready().snapshot.repairLegacyGroup)
-            assertEquals(listOf("restore"), backend.writes)
+
+    @Test fun oldMentionsOnlyRuleInAnEncryptedGroupIsRepairedBeforeShowingTheChoice() {
+        val facts = scenario(NotifySnapshot(false, true, NotifyMode.QUIET, NotifyMode.QUIET, repairLegacyGroup = true)) { model, backend ->
+            mapOf("still needs repair" to model.ready().snapshot.repairLegacyGroup, "writes" to backend.writes.toList())
         }
+        assertEquals(mapOf("still needs repair" to false, "writes" to listOf("restore")), facts)
     }
-    @Test fun partialUnmuteFailureKeepsTheOldChoiceAndRetryUsesFreshStateWithoutUnmutingTwice() = runBlocking {
-        withMediaOwner { owner ->
-            val backend = Backend(NotifySnapshot(false, true, NotifyMode.MUTE, NotifyMode.QUIET)).apply { failSet = true }
-            val model = RoomNotifications.create(owner, "group", backend)
+
+    @Test fun partialUnmuteFailureKeepsTheOldChoiceAndRetryUsesFreshStateWithoutUnmutingTwice() {
+        val facts = scenario(NotifySnapshot(false, true, NotifyMode.MUTE, NotifyMode.QUIET)) { model, backend ->
+            backend.failSet = true
             model.ready(); model.choose(NotifyMode.ALL)
             val failed = model.settled()
-            assertEquals(NotifyMode.MUTE, failed.snapshot.current); assertTrue(failed.save is NotifySave.Failed)
             backend.failSet = false; model.retry()
-            assertEquals(NotifyMode.ALL, model.settled().snapshot.current)
-            assertEquals(listOf("unmute", "set:ALL", "set:ALL"), backend.writes)
+            mapOf("after failure" to (failed.snapshot.current to (failed.save is NotifySave.Failed)),
+                "after retry" to model.settled().snapshot.current, "writes" to backend.writes.toList())
         }
+        assertEquals(mapOf("after failure" to (NotifyMode.MUTE to true), "after retry" to NotifyMode.ALL,
+            "writes" to listOf("unmute", "set:ALL", "set:ALL")), facts)
     }
-    @Test fun changesReadTheCurrentDefaultAndAnUnavailableChoiceFailsWithoutWriting() = runBlocking {
-        withMediaOwner { owner ->
-            val backend = Backend(NotifySnapshot(false, true, NotifyMode.ALL, NotifyMode.QUIET))
-            val model = RoomNotifications.create(owner, "group", backend)
+
+    @Test fun changesReadTheCurrentDefaultAndAnUnavailableChoiceFailsWithoutWriting() {
+        val facts = scenario(NotifySnapshot(false, true, NotifyMode.ALL, NotifyMode.QUIET)) { model, backend ->
             model.ready(); backend.snapshot = backend.snapshot.copy(default = NotifyMode.ALL)
             model.choose(NotifyMode.QUIET)
-            assertTrue(model.settled().save is NotifySave.Failed)
-            assertTrue(backend.writes.isEmpty())
+            mapOf("failed" to (model.settled().save is NotifySave.Failed), "writes" to backend.writes.toList())
         }
+        assertEquals(mapOf("failed" to true, "writes" to emptyList<String>()), facts)
     }
+
     @Test fun inFlightChoicesCoalesceAndRetiredAccountsCannotPublishLateAcknowledgement() = runBlocking {
         withMediaOwner { owner ->
             val entered = CompletableDeferred<Unit>(); val release = CompletableDeferred<Unit>()
@@ -80,15 +90,17 @@ class RoomNotificationsTest {
             val model = RoomNotifications.create(owner, "original", backend)
             model.ready(); model.choose(NotifyMode.MUTE); entered.await(); model.choose(NotifyMode.ALL)
             val closing = owner.closeAsync(); release.complete(Unit)
-            assertEquals(AccountCloseResult.Closed, closing.await())
-            assertTrue((model.phase.value as NotifyPhase.Ready).save is NotifySave.Sending)
-            assertEquals(listOf("set:MUTE"), backend.writes)
+            val closed = closing.await()
+            val retired = listOf(closed, (model.phase.value as NotifyPhase.Ready).save is NotifySave.Sending, backend.writes.toList())
+            var independent: NotifyMode? = null
             withMediaOwner { other ->
-                val independent = RoomNotifications.create(other, "other", Backend(NotifySnapshot(true, true, NotifyMode.ALL, NotifyMode.ALL)))
-                assertEquals(NotifyMode.ALL, independent.ready().snapshot.current)
+                independent = RoomNotifications.create(other, "other", Backend(NotifySnapshot(true, true, NotifyMode.ALL, NotifyMode.ALL)))
+                    .ready().snapshot.current
             }
+            assertEquals(listOf(AccountCloseResult.Closed, true, listOf("set:MUTE")) to NotifyMode.ALL, retired to independent)
         }
     }
+
     private suspend fun RoomNotifications.ready() = withTimeout(3_000) { phase.first { it is NotifyPhase.Ready } as NotifyPhase.Ready }
     private suspend fun RoomNotifications.settled() = withTimeout(3_000) { phase.first { it is NotifyPhase.Ready && it.save !is NotifySave.Sending } as NotifyPhase.Ready }
     private class Backend(var snapshot: NotifySnapshot) : NotifyBackend {
