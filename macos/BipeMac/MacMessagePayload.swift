@@ -11,6 +11,7 @@ struct MacMessagePayload {
     var photo: MacPhoto? = nil
     var file: MacFile? = nil
     var video: MacVideo? = nil
+    var voice: MacVoice? = nil
     var isEmote = false
     var isEdited = false
     var isDeleted = false
@@ -39,6 +40,12 @@ struct MacMessagePayload {
         case .file(let content):
             self.init(body: content.caption ?? "", formatted: content.formattedCaption)
             file = MacFile(content: content)
+        case .audio(let content):
+            // bipe-chat/bipe#1507: never the raw file name of a voice message. Its caption is the transcript (ADR 0023).
+            let isVoice = content.voice != nil
+            self.init(body: content.caption ?? "", formatted: content.formattedCaption)
+            voice = MacVoice(isVoice: isVoice, filename: content.filename,
+                             duration: content.audio?.duration ?? content.info?.duration)
         default: self.init(body: fallback)
         }
     }
