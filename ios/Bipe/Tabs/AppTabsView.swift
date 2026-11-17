@@ -206,6 +206,8 @@ struct AppTabsView: View {
         }
         .toast($shopClaimNotice, bottom: 72)
         .onOpenURL { url in
+            // Every reader below reads a file at once; then nothing of it stays in Documents/Inbox (bipe-chat/bipe#1368).
+            defer { if url.isFileURL { GovbrInbox.sweepInbox() } }
             if ShopClaim.keep(url) {
                 Task { await runShopClaim(chatList: chatList) }
                 return

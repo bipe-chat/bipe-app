@@ -86,6 +86,9 @@ final class AccountStartModel: ObservableObject {
 
     /// Routes a recovery link to the recovery flow. A signed-in phone ignores it: noAccount alone shows the flow.
     func openLink(_ url: URL) {
+        // No account on screen: no flow reads an opened file, so its copy in Documents/Inbox goes (bipe-chat/bipe#1368).
+        // A signed-in phone sweeps in app-tabs, after the reader.
+        if url.isFileURL, phase != .ready { GovbrInbox.sweepInbox() }
         // A claim link waits for the account, through sign-up (ADR 0195 point 7).
         if ShopClaim.keep(url) { return }
         // Spec group-link-open notes: with no account on screen, a group link waits through sign-up or recovery.

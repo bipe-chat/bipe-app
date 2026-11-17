@@ -60,13 +60,30 @@ final class GovbrInbox: ObservableObject {
         }
         let size = (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0
         let data = size > BipeRegistries.govbrMaxDocumentBytes ? Data() : (try? Data(contentsOf: url)) ?? Data()
-        if let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
-            let inbox = documents.appending(path: "Inbox").standardizedFileURL.path
-            if url.standardizedFileURL.path.hasPrefix(inbox + "/") {
+        if let inbox = inboxFolder() {
+            if url.standardizedFileURL.path.hasPrefix(inbox.standardizedFileURL.path + "/") {
                 try? FileManager.default.removeItem(at: url)
             }
         }
         return data
+    }
+
+    /// Deletes every file in Documents/Inbox and keeps the folder out of the backup (bipe-chat/bipe#1368). iOS copies
+    /// each file opened with Bipe there; a PDF that came at cold start, while signed out or during sign-up reaches no
+    /// reader, and a signed gov.br file holds a CPF. Runs at launch and after each open-in, after the readers.
+    nonisolated static func sweepInbox() {
+        guard let inbox = inboxFolder(), FileManager.default.fileExists(atPath: inbox.path) else { return }
+        for file in (try? FileManager.default.contentsOfDirectory(at: inbox, includingPropertiesForKeys: nil)) ?? [] {
+            try? FileManager.default.removeItem(at: file)
+        }
+        var folder = inbox
+        var values = URLResourceValues()
+        values.isExcludedFromBackup = true
+        try? folder.setResourceValues(values)
+    }
+
+    private nonisolated static func inboxFolder() -> URL? {
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.appending(path: "Inbox")
     }
 }
 
