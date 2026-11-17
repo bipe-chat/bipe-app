@@ -18,10 +18,9 @@ class AccountFavouritesTest {
             val backend = Backend().apply { server = """{"rooms":["a","group","b"],"future":{"keep":true}}""" }
             val model = AccountFavourites.create(owner, backend, Journal())
             model.move("a", 1, listOf("a", "b"))
-            assertEquals(FavouritesSync.Idle, model.settled().sync)
-            assertEquals(listOf("b", "group", "a"), model.ready().order)
-            assertEquals(JsonPrimitive(true), Json.parseToJsonElement(backend.writes.single()).jsonObject.getValue("future").jsonObject["keep"])
-            assertEquals(listOf("a"), backend.checks)
+            val sync = model.settled().sync
+            assertEquals(listOf(FavouritesSync.Idle, listOf("b", "group", "a"), JsonPrimitive(true), listOf("a")), listOf(sync,
+                model.ready().order, Json.parseToJsonElement(backend.writes.single()).jsonObject.getValue("future").jsonObject["keep"], backend.checks))
         }
     }
 
@@ -31,18 +30,17 @@ class AccountFavouritesTest {
             val backend = Backend().apply { offline = true }
             val model = AccountFavourites.create(owner, backend, journal)
             model.set("c", true)
-            assertTrue(model.settled().sync is FavouritesSync.Failed)
-            assertEquals(listOf("a", "b", "c"), model.ready().order)
-            assertTrue(backend.tags.isEmpty())
+            val failed = model.settled().sync is FavouritesSync.Failed
+            assertEquals(Triple(true, listOf("a", "b", "c"), emptyList<Pair<String, Boolean>>()), Triple(failed, model.ready().order, backend.tags.toList()))
         }
         withMediaOwner { owner ->
             val backend = Backend()
             val model = AccountFavourites.create(owner, backend, journal)
-            assertEquals(listOf("a", "b", "c"), model.ready().order)
+            val reopened = model.ready().order
             model.retry().join()
-            assertEquals(FavouritesSync.Idle, model.ready().sync)
-            assertEquals(listOf("c" to true), backend.tags)
-            assertEquals(listOf("a", "b", "c"), BipeFavouritesOrder.parse(backend.writes.single()))
+            assertEquals(mapOf("reopened" to listOf("a", "b", "c"), "sync" to FavouritesSync.Idle, "tags" to listOf("c" to true),
+                "written order" to listOf("a", "b", "c")), mapOf("reopened" to reopened, "sync" to model.ready().sync,
+                "tags" to backend.tags.toList(), "written order" to BipeFavouritesOrder.parse(backend.writes.single())))
         }
     }
 
@@ -51,15 +49,14 @@ class AccountFavouritesTest {
             val backend = Backend().apply { failWrite = true }
             val model = AccountFavourites.create(owner, backend, Journal())
             model.set("a", false)
-            assertTrue(model.settled().sync is FavouritesSync.Failed)
-            assertEquals(listOf("a" to false), backend.tags)
+            val failure = (model.settled().sync is FavouritesSync.Failed) to backend.tags.toList()
             backend.server = """{"rooms":["a","b","remote"],"future":7}"""
             backend.failWrite = false
             model.retry().join()
-            assertEquals(FavouritesSync.Idle, model.ready().sync)
-            assertEquals(listOf("b", "remote"), model.ready().order)
-            assertEquals(listOf("a" to false, "a" to false), backend.tags)
-            assertEquals(JsonPrimitive(7), Json.parseToJsonElement(backend.writes.single()).jsonObject["future"])
+            assertEquals(mapOf("failure" to (true to listOf("a" to false)), "sync" to FavouritesSync.Idle, "order" to listOf("b", "remote"),
+                "tags" to listOf("a" to false, "a" to false), "kept field" to JsonPrimitive(7)),
+                mapOf("failure" to failure, "sync" to model.ready().sync, "order" to model.ready().order, "tags" to backend.tags.toList(),
+                "kept field" to Json.parseToJsonElement(backend.writes.single()).jsonObject["future"]))
         }
     }
 
@@ -70,14 +67,12 @@ class AccountFavouritesTest {
             val model = AccountFavourites.create(owner, backend, journal)
             journal.fail = true
             model.set("c", true)
-            assertTrue(model.settled().sync is FavouritesSync.Failed)
-            assertEquals(listOf("a", "b"), model.ready().order)
-            assertTrue(backend.tags.isEmpty())
+            val failed = Triple(model.settled().sync is FavouritesSync.Failed, model.ready().order, backend.tags.toList())
             journal.fail = false
             model.set("d", true)
-            assertEquals(FavouritesSync.Idle, model.settled().sync)
-            assertEquals(listOf("a", "b", "c", "d"), model.ready().order)
-            assertEquals(listOf("c" to true, "d" to true), backend.tags)
+            val next = Triple(model.settled().sync, model.ready().order, backend.tags.toList())
+            assertEquals(Triple(true, listOf("a", "b"), emptyList<Pair<String, Boolean>>()) to
+                Triple(FavouritesSync.Idle, listOf("a", "b", "c", "d"), listOf("c" to true, "d" to true)), failed to next)
         }
     }
 

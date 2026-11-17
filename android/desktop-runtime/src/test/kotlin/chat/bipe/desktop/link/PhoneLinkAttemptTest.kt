@@ -18,7 +18,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.junit.After
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class PhoneLinkAttemptTest {
@@ -37,85 +37,85 @@ class PhoneLinkAttemptTest {
         Unit
     }
 
+    /** Starts an attempt and waits until the native login is running. */
+    private suspend fun started(attempt: PhoneLinkAttempt) = attempt.start()!!.also { protocol.ready.await() }
+
+    /** The phase after the native login ends with [outcome]: null finishes it, an exception fails it. */
+    private suspend fun endedWith(outcome: Throwable?, commit: suspend () -> Unit = { commits.incrementAndGet(); Unit }): PhoneLinkPhase {
+        val attempt = attempt(commit)
+        val task = started(attempt)
+        if (outcome == null) protocol.finish.complete(Unit) else protocol.finish.completeExceptionally(outcome)
+        task.join()
+        return attempt.phase.value
+    }
+
     @Test fun aSecondStartDoesNotCreateASecondNativeLogin() = runBlocking {
         val attempt = attempt()
-        val task = attempt.start()!!
-        protocol.ready.await()
-        assertNull(attempt.start())
-        assertEquals(1, protocol.starts.get())
-        protocol.finish.complete(Unit)
-        task.join()
-        assertEquals(PhoneLinkPhase.Linked, attempt.phase.value)
-        assertEquals(1, commits.get())
+        val task = started(attempt)
+        val second = attempt.start()
+        protocol.finish.complete(Unit); task.join()
+        assertEquals(mapOf("second start" to null, "native logins" to 1, "phase" to PhoneLinkPhase.Linked, "commits" to 1),
+            mapOf("second start" to second, "native logins" to protocol.starts.get(), "phase" to attempt.phase.value, "commits" to commits.get()))
     }
 
     @Test fun linkedRequiresTheProtocolReturnAndDurableCommit() = runBlocking {
         val beginCommit = CompletableDeferred<Unit>()
         val finishCommit = CompletableDeferred<Unit>()
         val attempt = attempt { beginCommit.complete(Unit); finishCommit.await(); commits.incrementAndGet(); Unit }
-        val task = attempt.start()!!
-        protocol.ready.await()
+        val task = started(attempt)
+        val seen = mutableListOf<Any?>()
         protocol.emit(PhoneLinkUpdate.QrReady(LinkQrPayload(byteArrayOf(0, 1, -1))))
-        assertTrue(attempt.phase.value is PhoneLinkPhase.Qr)
+        seen += attempt.phase.value is PhoneLinkPhase.Qr
         protocol.emit(PhoneLinkUpdate.ImportingKeys)
-        assertEquals(0, commits.get())
-        assertEquals(PhoneLinkPhase.ImportingKeys, attempt.phase.value)
-        protocol.finish.complete(Unit)
-        beginCommit.await()
-        assertEquals(PhoneLinkPhase.ImportingKeys, attempt.phase.value)
-        finishCommit.complete(Unit)
-        task.join()
-        assertEquals(PhoneLinkPhase.Linked, attempt.phase.value)
+        seen += commits.get(); seen += attempt.phase.value
+        protocol.finish.complete(Unit); beginCommit.await()
+        seen += attempt.phase.value
+        finishCommit.complete(Unit); task.join()
+        seen += attempt.phase.value
+        assertEquals(listOf(true, 0, PhoneLinkPhase.ImportingKeys, PhoneLinkPhase.ImportingKeys, PhoneLinkPhase.Linked), seen)
     }
 
     @Test fun checkCodePreservesLeadingZeroAndRejectsDoubleSubmit() = runBlocking {
         val attempt = attempt()
-        val task = attempt.start()!!
-        protocol.ready.await()
+        val task = started(attempt)
         val challenge = ControlledChallenge()
         protocol.emit(PhoneLinkUpdate.CheckRequested(challenge))
         val submitting = attempt.submitCheckCode("07")!!
-        assertNull(attempt.submitCheckCode("42"))
+        val second = attempt.submitCheckCode("42")
         challenge.started.await()
-        assertEquals(7u.toUByte(), challenge.value)
-        assertEquals(1, challenge.calls.get())
         protocol.emit(PhoneLinkUpdate.WaitingForApproval)
-        assertEquals(PhoneLinkPhase.Approving, attempt.phase.value)
-        challenge.finish.complete(Unit)
-        submitting.join()
-        protocol.finish.complete(Unit)
-        task.join()
+        val approving = attempt.phase.value
+        challenge.finish.complete(Unit); submitting.join()
+        protocol.finish.complete(Unit); task.join()
+        assertEquals(mapOf("second submit" to null, "sent code" to 7u.toUByte(), "native sends" to 1, "phase" to PhoneLinkPhase.Approving),
+            mapOf("second submit" to second, "sent code" to challenge.value, "native sends" to challenge.calls.get(), "phase" to approving))
     }
 
     @Test fun malformedAndUnicodeDigitsCannotReachTheNativeSender() = runBlocking {
         val attempt = attempt()
-        attempt.start()
-        protocol.ready.await()
+        started(attempt)
         val challenge = ControlledChallenge()
         protocol.emit(PhoneLinkUpdate.CheckRequested(challenge))
-        for (input in listOf("7", "007", " 7", "７７", "١٢", "ab", "-1")) {
-            assertNull(attempt.submitCheckCode(input))
-            assertTrue((attempt.phase.value as PhoneLinkPhase.CheckCode).invalidInput)
+        val inputs = listOf("7", "007", " 7", "７７", "١٢", "ab", "-1")
+        val answers = inputs.associateWith { input ->
+            attempt.submitCheckCode(input) to (attempt.phase.value as PhoneLinkPhase.CheckCode).invalidInput
         }
-        assertEquals(0, challenge.calls.get())
         attempt.cancel()
+        assertEquals(inputs.associateWith { null to true } to 0, answers to challenge.calls.get())
     }
 
     @Test fun lateProgressCannotMoveBackFromApprovalOrChangeATerminalResult() = runBlocking {
         val attempt = attempt()
-        val task = attempt.start()!!
-        protocol.ready.await()
-        protocol.emit(PhoneLinkUpdate.ImportingKeys)
-        protocol.emit(PhoneLinkUpdate.WaitingForApproval)
-        protocol.emit(PhoneLinkUpdate.QrReady(LinkQrPayload(byteArrayOf(1))))
-        assertEquals(PhoneLinkPhase.ImportingKeys, attempt.phase.value)
-        protocol.finish.complete(Unit)
-        task.join()
+        val task = started(attempt)
+        listOf(PhoneLinkUpdate.ImportingKeys, PhoneLinkUpdate.WaitingForApproval, PhoneLinkUpdate.QrReady(LinkQrPayload(byteArrayOf(1))))
+            .forEach(protocol::emit)
+        val beforeFinish = attempt.phase.value
+        protocol.finish.complete(Unit); task.join()
         protocol.emit(PhoneLinkUpdate.CheckRequested(ControlledChallenge()))
-        assertEquals(PhoneLinkPhase.Linked, attempt.phase.value)
+        val afterLateCheck = attempt.phase.value
         // A late close of the login screen cannot close the successfully linked account.
         attempt.cancel()
-        assertTrue(owner.isCurrent())
+        assertEquals(listOf(PhoneLinkPhase.ImportingKeys, PhoneLinkPhase.Linked, true), listOf(beforeFinish, afterLateCheck, owner.isCurrent()))
     }
 
     @Test fun cancelledNativeWorkThatFinishesLateCannotCommit() = runBlocking {
@@ -129,70 +129,48 @@ class PhoneLinkAttemptTest {
             override suspend fun close() {}
         }
         val attempt = PhoneLinkAttempt(owner, stubborn) { commits.incrementAndGet(); Unit }
-        val task = attempt.start()!!
-        protocol.ready.await()
+        val task = started(attempt)
         attempt.cancel()
         nativeFinished.complete(Unit)
         withTimeout(2_000) { task.join(); owner.closeAsync().await() }
-        assertEquals(PhoneLinkPhase.Cancelled, attempt.phase.value)
-        assertEquals(0, commits.get())
+        assertEquals(PhoneLinkPhase.Cancelled to 0, attempt.phase.value to commits.get())
     }
 
     @Test fun durableStorageFailureCannotPresentLinked() = runBlocking {
-        val attempt = attempt { throw StorageFailure(StorageCode.MISSING_KEY) }
-        val task = attempt.start()!!
-        protocol.ready.await()
-        protocol.finish.complete(Unit)
-        task.join()
-        assertEquals(PhoneLinkPhase.Failed(PhoneLinkFailure.STORAGE), attempt.phase.value)
-        assertFalse(owner.isCurrent())
+        val missingKey = endedWith(null) { throw StorageFailure(StorageCode.MISSING_KEY) }
+        val ownerAfterMissingKey = owner.isCurrent()
+        assertEquals(PhoneLinkPhase.Failed(PhoneLinkFailure.STORAGE) to false, missingKey to ownerAfterMissingKey)
     }
 
     @Test fun duplicateLinkIsAnExplicitFailureAndNeverReplacesTheExistingAccount() = runBlocking {
-        val attempt = attempt { throw StorageFailure(StorageCode.DUPLICATE_ACCOUNT) }
-        val task = attempt.start()!!
-        protocol.ready.await()
-        protocol.finish.complete(Unit)
-        task.join()
-        assertEquals(PhoneLinkPhase.Failed(PhoneLinkFailure.DUPLICATE_ACCOUNT), attempt.phase.value)
+        assertEquals(PhoneLinkPhase.Failed(PhoneLinkFailure.DUPLICATE_ACCOUNT),
+            endedWith(null) { throw StorageFailure(StorageCode.DUPLICATE_ACCOUNT) })
     }
 
     @Test fun expiryHasASafeFiniteState() = runBlocking {
-        val attempt = attempt()
-        val task = attempt.start()!!
-        protocol.ready.await()
-        protocol.finish.completeExceptionally(PhoneLinkException(PhoneLinkFailure.EXPIRED))
-        task.join()
-        assertEquals(PhoneLinkPhase.Failed(PhoneLinkFailure.EXPIRED), attempt.phase.value)
-        assertEquals(0, commits.get())
-        assertEquals(1, protocol.closes.get())
+        val phase = endedWith(PhoneLinkException(PhoneLinkFailure.EXPIRED))
+        assertEquals(Triple(PhoneLinkPhase.Failed(PhoneLinkFailure.EXPIRED), 0, 1), Triple(phase, commits.get(), protocol.closes.get()))
     }
 
     @Test fun unexpectedSdkErrorDoesNotExposeItsMessageInTheFailureState() = runBlocking {
-        val attempt = attempt()
-        val task = attempt.start()!!
-        protocol.ready.await()
-        protocol.finish.completeExceptionally(IllegalStateException("synthetic-private-credential"))
-        task.join()
-        assertEquals(PhoneLinkPhase.Failed(PhoneLinkFailure.PROTOCOL), attempt.phase.value)
-        assertFalse(attempt.phase.value.toString().contains("synthetic-private-credential"))
-        assertEquals(0, commits.get())
+        val phase = endedWith(IllegalStateException("synthetic-private-credential"))
+        assertEquals(Triple(PhoneLinkPhase.Failed(PhoneLinkFailure.PROTOCOL), false, 0),
+            Triple(phase, "synthetic-private-credential" in phase.toString(), commits.get()))
     }
 
     @Test fun qrBytesAndCopyFallbackPreserveAllBinaryValuesWithoutExposingMutableStorage() {
         val input = byteArrayOf(0, 77, 65, 84, 82, 73, 88, -128, -1, 10)
         val payload = LinkQrPayload(input)
-        assertEquals("AE1BVFJJWID/Cg==", payload.copyText())
         val original = payload.copyBytes()
         input.fill(0)
         payload.copyBytes().fill(1)
-        assertArrayEquals(original, payload.copyBytes())
-        assertEquals("LinkQrPayload(redacted)", payload.toString())
+        assertEquals(listOf("AE1BVFJJWID/Cg==", original.toList(), "LinkQrPayload(redacted)"),
+            listOf(payload.copyText(), payload.copyBytes().toList(), payload.toString()))
     }
 
     @Test fun missingWindowsRegistrationNeverFallsBackToAnotherPlatform() {
-        try { WindowsLoginRegistration(" "); fail("Registration must be explicit") }
-        catch (failure: PhoneLinkException) { assertEquals(PhoneLinkFailure.REGISTRATION_REQUIRED, failure.reason) }
+        val failure = runCatching { WindowsLoginRegistration(" ") }.exceptionOrNull()
+        assertEquals(PhoneLinkFailure.REGISTRATION_REQUIRED, (failure as? PhoneLinkException)?.reason)
     }
 
     private class ControlledProtocol : PhoneLinkProtocol {
