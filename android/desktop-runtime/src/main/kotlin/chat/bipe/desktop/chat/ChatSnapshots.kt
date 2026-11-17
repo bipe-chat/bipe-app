@@ -23,6 +23,11 @@ data class ChatRow(
     val peerUserId: String? = null,
     val markedUnread: Boolean = false,
     val latestIncoming: Long? = null,
+    /** Unread mentions of this account (spec notification-service: quiet alerts only on a new mention). */
+    val mentions: Long = 0,
+    /** The room's own notification rule; null follows the account default. */
+    val notifyMode: NotifyMode? = null,
+    val encrypted: Boolean = true,
 ) { val hasUnread get() = unread > 0 || markedUnread }
 data class MessageRow(
     val id: String, val sender: String, val own: Boolean, val body: String, val kind: Kind,

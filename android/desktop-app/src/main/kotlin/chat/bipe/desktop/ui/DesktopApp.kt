@@ -236,6 +236,21 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
     val favouritesEnabled = favouriteState != null && favouriteState.sync != FavouritesSync.Saving
     val draftPreviews by account.runtime.drafts.previews.collectAsState()
     val allRows = when (val snapshot = load) { is LoadPhase.Ready -> snapshot.value; else -> emptyList() }
+    val accountUserId = remember(account) { runCatching { account.runtime.client.userId() }.getOrDefault("") }
+    val showsTimeline = destination != Destination.YOU && !(destination == Destination.GROUPS && profile.kind == AccountKind.COMPANY)
+    MessageAlertEffect(accountUserId, account.list, allRows, selected.takeIf { showsTimeline }, s)
+    // A click on a notification opens its chat, only in the account that alerted.
+    val alertRoute = LocalDesktopAlerts.current?.requested
+    val alertSink = LocalDesktopAlerts.current
+    LaunchedEffect(alertRoute, accountUserId, allRows.isNotEmpty()) {
+        val route = alertRoute ?: return@LaunchedEffect
+        if (route.userId != accountUserId) return@LaunchedEffect
+        val row = allRows.firstOrNull { it.id == route.roomId } ?: return@LaunchedEffect
+        val target = if (profile.kind == AccountKind.COMPANY || row.isDm) Destination.CHATS else Destination.GROUPS
+        destination = target
+        selections[target] = row.id
+        alertSink?.consumed(route)
+    }
     val scope = if (profile.kind == AccountKind.COMPANY) ChatScope.ALL
         else if (destination == Destination.CHATS) ChatScope.DIRECT else ChatScope.GROUPS
     val sections = ChatListSections.from(allRows, order, scope, search, archivedView)

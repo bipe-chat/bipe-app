@@ -9,8 +9,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Tray
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
+import androidx.compose.ui.window.rememberTrayState
 import androidx.compose.ui.window.rememberWindowState
 import chat.bipe.app.BipeTypography
 import chat.bipe.desktop.settings.AppearancePhase
@@ -28,9 +30,18 @@ fun main() = application {
         else -> catalog.defaultPalette
     }
     val deviceAppearance by model.deviceAppearance.phase.collectAsState()
+    // Spec notification-service on a computer: alerts go through the tray icon, which Windows shows as notifications.
+    val trayState = rememberTrayState()
+    val alerts = remember(trayState) { DesktopAlerts(trayState) }
+    Tray(icon = painterResource("bipe-icon-${palette}.png"), state = trayState, tooltip = catalog.text("bipe_app_name"), onAction = alerts::clicked)
     Window(onCloseRequest = { model.closeWindow(::exitApplication) }, title = "Bipe",
            icon = painterResource("bipe-icon-${palette}.png"), state = rememberWindowState(width = 1180.dp, height = 800.dp)) {
         LaunchedEffect(Unit) { window.minimumSize = Dimension(900, 600) }
+        LaunchedEffect(alerts.raise) {
+            if (alerts.raise == 0) return@LaunchedEffect
+            if (window.isMinimized) window.isMinimized = false
+            window.toFront(); window.requestFocus()
+        }
         val dark = when (deviceAppearance.mode) { "dark" -> true; "light" -> false; else -> isSystemInDarkTheme() }
         val highContrast = windowsHighContrast()
         val colors = remember(catalog, palette, dark, highContrast) { DesktopColors(catalog, palette, dark, highContrast) }
@@ -41,7 +52,11 @@ fun main() = application {
             background = colors["surface.base"], onBackground = colors["ink.primary"],
             surfaceVariant = colors["surface.raised"], onSurfaceVariant = colors["ink.secondary"],
             outline = colors["line.strong"], error = colors["trust.danger.ink"],
-        ), typography = BipeTypography) { DesktopApp(model, phase, colors, onClose = { model.closeWindow(::exitApplication) }) }
+        ), typography = BipeTypography) {
+            CompositionLocalProvider(LocalDesktopAlerts provides alerts) {
+                DesktopApp(model, phase, colors, onClose = { model.closeWindow(::exitApplication) })
+            }
+        }
     }
 }
 
