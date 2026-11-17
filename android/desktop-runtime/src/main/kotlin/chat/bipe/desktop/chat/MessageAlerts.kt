@@ -22,7 +22,7 @@ class MessageAlerts(private val startedMs: Long) {
         val alerts = mutableListOf<Alert>()
         for (row in rows) {
             val new = isNew(row.latestIncoming, incoming[row.id], startedMs, row.unread)
-            val newMention = row.mentions > (mentions[row.id] ?: 0)
+            val newMention = row.mentions > (mentions[row.id] ?: 0L)
             row.latestIncoming?.let { incoming[row.id] = it }
             mentions[row.id] = row.mentions
             if (new && !isOpen(row.id)) alerts += Alert(row, newMention)
