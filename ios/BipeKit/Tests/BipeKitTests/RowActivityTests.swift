@@ -27,6 +27,22 @@ struct RowActivityTests {
         #expect(row == .init(timestampMs: 1_700_000_060_000, previewText: "oi", latestIncomingMs: 1_700_000_060_000))
     }
 
+    /// MZ, 17 Nov 2026: the person's first message, then the own join. The row shows the message, not "You joined".
+    @Test func ownJoinAfterAMessageKeepsTheMessage() {
+        let sdk = SDK(timestampMs: 1_700_000_000_000, previewText: "oi", isIncoming: true)
+        let events = [Event(timestampMs: 1_700_000_000_000, kind: .message, previewText: "oi", isOwn: false),
+                      Event(timestampMs: 1_700_000_300_000, kind: .message, previewText: "joined", isOwn: true, isStateLine: true)]
+        let row = BipeRowActivity.resolve(sdk: sdk, localEvents: events, known: nil)
+        #expect(row == .init(timestampMs: 1_700_000_000_000, previewText: "oi", latestIncomingMs: 1_700_000_000_000))
+    }
+
+    /// The own join line still shows in a room with no message.
+    @Test func ownJoinAloneShowsItsLine() {
+        let events = [Event(timestampMs: 1_700_000_300_000, kind: .message, previewText: "joined", isOwn: true, isStateLine: true)]
+        let row = BipeRowActivity.resolve(sdk: nil, localEvents: events, known: nil)
+        #expect(row == .init(timestampMs: 1_700_000_300_000, previewText: "joined", latestIncomingMs: nil))
+    }
+
     /// A newer message that still does not decrypt shows the undecryptable label with its own time.
     @Test func newerUndecryptableLocalMessageShowsItsLabel() {
         let sdk = SDK(timestampMs: 1_700_000_000_000, previewText: "before", isIncoming: true)

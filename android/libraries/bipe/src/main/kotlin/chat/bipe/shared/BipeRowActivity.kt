@@ -20,7 +20,14 @@ object BipeRowActivity {
      * One event of the room's local timeline: its origin_server_ts in milliseconds, its chat-list preview (null when the
      * row shows no text for it) and whether this account sent it.
      */
-    data class LocalEvent(val timestampMs: Long, val kind: Kind, val previewText: String? = null, val isOwn: Boolean = false)
+    data class LocalEvent(
+        val timestampMs: Long,
+        val kind: Kind,
+        val previewText: String? = null,
+        val isOwn: Boolean = false,
+        /** A join, leave or room creation that the row shows as a line. */
+        val isStateLine: Boolean = false,
+    )
 
     /** The SDK latest event of a row: its time, its preview and whether someone else sent it. */
     data class SdkLatest(val timestampMs: Long, val previewText: String?, val isIncoming: Boolean)
@@ -31,7 +38,8 @@ object BipeRowActivity {
     /**
      * The row of a room. Only a local event with a preview can give the row its text (bipe-chat/bipe#592 follow-up: a
      * call, a deleted message or a room change never blanks the text).
-     * 1. A message-like local event with a preview, newer than the SDK latest event: its time and its preview.
+     * 1. A message-like local event with a preview, newer than the SDK latest event: its time and its preview. An own
+     *    join, leave or room creation line counts only when the room has no other local event with a preview.
      * 2. Else the SDK latest event. When it has no preview, the row keeps the newest local preview, else the known one.
      * 3. Without an SDK latest event: the newest message-like local event with a preview, undecryptable ones included.
      *    Else the newest local event of any kind (time only). A time known earlier in this account session is kept when
@@ -39,7 +47,11 @@ object BipeRowActivity {
      *    room is read again.
      */
     fun resolve(sdk: SdkLatest?, localEvents: List<LocalEvent>, known: Row?): Row {
-        val newestMessage = localEvents.filter { it.kind == Kind.MESSAGE && it.previewText != null }.maxByOrNull { it.timestampMs }
+        // An own join, leave or room creation line shows only when no message has a preview (MZ, 17 Nov 2026: the
+        // own join after a person's first message hid that message, "You joined").
+        val candidates = localEvents.filter { it.kind == Kind.MESSAGE && it.previewText != null }
+        val newestMessage = candidates.filter { !(it.isOwn && it.isStateLine) }.maxByOrNull { it.timestampMs }
+            ?: candidates.maxByOrNull { it.timestampMs }
         val text = newestMessage?.let(::row) ?: known
         if (sdk != null) {
             if (newestMessage != null && newestMessage.timestampMs > sdk.timestampMs) return row(newestMessage)

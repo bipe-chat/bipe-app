@@ -62,15 +62,19 @@ public enum BipeRowActivity {
 
     /// The row of a room. Only a local event with a preview can give the row its text (bipe-chat/bipe#592 follow-up: a
     /// call, a deleted message or a room change never blanks the text).
-    /// 1. A message-like local event with a preview, newer than the SDK latest event: its time and its preview.
+    /// 1. A message-like local event with a preview, newer than the SDK latest event: its time and its preview. An own
+    ///    join, leave or room creation line counts only when the room has no other local event with a preview.
     /// 2. Else the SDK latest event. When it has no preview, the row keeps the newest local preview, else the known one.
     /// 3. Without an SDK latest event: the newest message-like local event with a preview, undecryptable ones included.
     ///    Else the newest local event of any kind (time only). A time known earlier in this account session is kept when
     ///    it is newer. Without a local preview the row keeps the known one: the local events are empty while a changed
     ///    room is read again.
     public static func resolve(sdk: SDKLatest?, localEvents: [LocalEvent], known: Row?) -> Row {
-        let newestMessage = localEvents.filter { $0.kind == .message && $0.previewText != nil }
-            .max { $0.timestampMs < $1.timestampMs }
+        // An own join, leave or room creation line shows only when no message has a preview (MZ, 17 Nov 2026: the
+        // own join after a person's first message hid that message, "You joined").
+        let candidates = localEvents.filter { $0.kind == .message && $0.previewText != nil }
+        let newestMessage = (candidates.filter { !($0.isOwn && $0.isStateLine) }.max { $0.timestampMs < $1.timestampMs })
+            ?? candidates.max { $0.timestampMs < $1.timestampMs }
         let text = newestMessage.map(row(from:)) ?? known
         if let sdk {
             if let newestMessage, newestMessage.timestampMs > sdk.timestampMs {

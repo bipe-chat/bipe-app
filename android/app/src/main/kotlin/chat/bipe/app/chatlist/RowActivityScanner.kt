@@ -166,7 +166,8 @@ class RowActivityScanner(
                             if (text == null) BipeRowActivity.Kind.OTHER else BipeRowActivity.Kind.MESSAGE
                         else -> BipeRowActivity.Kind.OTHER
                     }
-                    BipeRowActivity.LocalEvent(event.timestamp.toLong(), kind, text, event.isOwn)
+                    val isStateLine = event.content is TimelineItemContent.RoomMembership || event.content is TimelineItemContent.State
+                    BipeRowActivity.LocalEvent(event.timestamp.toLong(), kind, text, event.isOwn, isStateLine)
                 }
                 // Spec read-receipts: the newest event this device got from the other person in a DM.
                 val dmIncoming = if (!isDm) null else events.lastOrNull { !it.isOwn }?.let { newest ->
