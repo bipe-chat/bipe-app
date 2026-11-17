@@ -1,0 +1,17 @@
+# Windows OAuth delivery
+
+`oauth-client.json` is the one public metadata source for the Windows native client. It contains no client secret. The state is **registered**: the dedicated MAS public client and its device-code/refresh grants were confirmed on 11 November 2026. Native callback ownership, installer association and full phone acceptance stay in [bipe#1456](https://github.com/bipe-chat/bipe/issues/1456).
+
+The own infra source loads MAS client records from the `bipe-mas-clients` Secret, key `clients.yaml`, through `ess/production.yaml`. Under MZ's explicit production authorization, the dedicated public Windows entry was appended there and synchronized with MAS 1.26's operator CLI without pruning or restarting the service. Existing client records and policy were preserved. Only public Windows metadata was exported for verification; no client secret belongs in this app. Do not create a duplicate registration.
+
+The registry has three states. `pending` has no client ID and cannot start a phone link. `registered` has a confirmed public ID and `registeredOn` date and permits the SDK's source-only QR device flow, which does not use a redirect callback. `verified` additionally requires native callback ownership/installer verification and its `verifiedOn` date before distribution. The declared native metadata remains separate from the installed callback association; MAS 1.26 static configuration stores the public name, URI, authentication method and redirects and enables its standard static-client grants. No admin-client policy entry or secret was added for Windows.
+
+The environment `BIPE_WINDOWS_OAUTH_CLIENT_ID`, if supplied, must match the reviewed record. It cannot turn a pending record into a configured client. The known Mac client id is refused. Missing/extra private fields, changed origins, callbacks and grants fail validation. No Mac/web/dynamic-registration fallback is used.
+
+`tools/windows-oauth.mjs --check` validates source metadata. `--release` requires `verified` and is a dependency of every Compose distribution task, including a distributable image/uberjar. A source run can use `registered`; publishing remains blocked until callback/installer verification. These commands do not build, deploy or register anything themselves.
+
+`--kotlin <directory>` generates the SDK's public name, issuer, homeserver and callback constants. `tools/desktop-resources.mjs` packages the reviewed id. The SDK builder and package metadata therefore read one source. Native installation/protocol association, signing/update and Windows11/released-phone acceptance remain open; no installer is delivered by this gate.
+
+11 November 2026: MZ authorized the Windows feature-branch pushes and CI, then explicitly authorized registering the Windows client in production and getting its QR working. The earlier hold is lifted for that scope. Windows stays planned in the parity matrix; Mac feature work remains paused under ADR0288. No installer or completed real-phone acceptance is claimed here.
+
+MZ then authorized continuing Windows feature parity, starting with avatars and reactions. This expands source implementation and Windows CI/device testing; it does not promote the public client registry, authorize a store release or resume Mac features.
