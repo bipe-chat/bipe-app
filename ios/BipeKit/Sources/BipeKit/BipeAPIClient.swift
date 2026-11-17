@@ -681,6 +681,9 @@ public struct BipeAPIClient: Sendable {
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Accept")
+        // ADR 0298: the app's screen language, not the system list that URLSession sends by default. bipe-api sends
+        // news and other server text in it.
+        request.setValue(Self.appLanguage, forHTTPHeaderField: "Accept-Language")
         if let accessToken {
             request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         }
@@ -728,6 +731,9 @@ public struct BipeAPIClient: Sendable {
         }
     }
     
+    /// The language the app's screens show: the first of the app's own localizations for this device (pt-BR or en).
+    static let appLanguage = Bundle.main.preferredLocalizations.first ?? "pt-BR"
+
     private static let encoder: JSONEncoder = {
         let encoder = JSONEncoder()
         encoder.keyEncodingStrategy = .convertToSnakeCase

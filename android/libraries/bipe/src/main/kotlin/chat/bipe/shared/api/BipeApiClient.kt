@@ -340,6 +340,8 @@ class BipeApiClient(baseUrl: String) {
             connection.connectTimeout = TIMEOUT_MS
             connection.readTimeout = TIMEOUT_MS
             connection.setRequestProperty("Accept", "application/json")
+            // ADR 0298: the app's screen language; bipe-api sends news and other server text in it.
+            connection.setRequestProperty("Accept-Language", appLanguage())
             accessToken?.let { connection.setRequestProperty("Authorization", "Bearer $it") }
             serverName?.let { connection.setRequestProperty("X-Matrix-Server-Name", it) }
             if (body != null) {
@@ -385,6 +387,12 @@ class BipeApiClient(baseUrl: String) {
             ignoreUnknownKeys = true
             explicitNulls = false
         }
+
+        /**
+         * The language the app's screens show: English strings for an English locale, else the pt-BR default. Sent as
+         * Accept-Language (ADR 0298).
+         */
+        fun appLanguage(): String = if (Locale.getDefault().language == "en") "en" else "pt-BR"
 
         /** The `lang` for e-mails Bipe sends: English for an English device, else Portuguese. Same rule as iOS. */
         fun emailLanguage(): String = if (Locale.getDefault().language == "en") "en" else "pt"
