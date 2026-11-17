@@ -5997,4 +5997,96 @@ public enum BipeStrings {
     public static var desktopDraftUnsupported: String { NSLocalizedString("bipe_desktop_draft_unsupported", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var desktopMediaShow: String { NSLocalizedString("bipe_desktop_media_show", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var amigoSecretoTitle: String { NSLocalizedString("bipe_amigo_secreto_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var amigoSecretoCreate: String { NSLocalizedString("bipe_amigo_secreto_create", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var amigoSecretoName: String { NSLocalizedString("bipe_amigo_secreto_name", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func amigoSecretoNameDefault(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_amigo_secreto_name_default", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var amigoSecretoDate: String { NSLocalizedString("bipe_amigo_secreto_date", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var amigoSecretoPriceLimit: String { NSLocalizedString("bipe_amigo_secreto_price_limit", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var amigoSecretoPriceLimitNone: String { NSLocalizedString("bipe_amigo_secreto_price_limit_none", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var amigoSecretoParticipants: String { NSLocalizedString("bipe_amigo_secreto_participants", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var amigoSecretoAddInvitee: String { NSLocalizedString("bipe_amigo_secreto_add_invitee", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var amigoSecretoInviteeName: String { NSLocalizedString("bipe_amigo_secreto_invitee_name", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var amigoSecretoExclusions: String { NSLocalizedString("bipe_amigo_secreto_exclusions", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var amigoSecretoExclusionsFooter: String { NSLocalizedString("bipe_amigo_secreto_exclusions_footer", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var amigoSecretoJoinedCount: String { NSLocalizedString("bipe_amigo_secreto_joined_count", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func amigoSecretoMissing(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_amigo_secreto_missing", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var amigoSecretoCall: String { NSLocalizedString("bipe_amigo_secreto_call", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func amigoSecretoCallMessage(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_amigo_secreto_call_message", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func amigoSecretoShareMessage(_ p1: String, _ p2: String, _ p3: String) -> String {
+        String(format: NSLocalizedString("bipe_amigo_secreto_share_message", tableName: "Bipe", bundle: .module, comment: ""), p1, p2, p3)
+    }
+
+    public static var amigoSecretoJoin: String { NSLocalizedString("bipe_amigo_secreto_join", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var amigoSecretoClaimTitle: String { NSLocalizedString("bipe_amigo_secreto_claim_title", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var amigoSecretoClaim: String { NSLocalizedString("bipe_amigo_secreto_claim", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var amigoSecretoDraw: String { NSLocalizedString("bipe_amigo_secreto_draw", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var amigoSecretoDrawWithJoined: String { NSLocalizedString("bipe_amigo_secreto_draw_with_joined", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var amigoSecretoDrawWithJoinedBody: String { NSLocalizedString("bipe_amigo_secreto_draw_with_joined_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var amigoSecretoRedraw: String { NSLocalizedString("bipe_amigo_secreto_redraw", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var amigoSecretoRedrawn: String { NSLocalizedString("bipe_amigo_secreto_redrawn", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func amigoSecretoDrawnStatus(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_amigo_secreto_drawn_status", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var amigoSecretoYouDrew: String { NSLocalizedString("bipe_amigo_secreto_you_drew", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var amigoSecretoSecretFooter: String { NSLocalizedString("bipe_amigo_secreto_secret_footer", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var amigoSecretoWishlist: String { NSLocalizedString("bipe_amigo_secreto_wishlist", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var amigoSecretoWishlistFooter: String { NSLocalizedString("bipe_amigo_secreto_wishlist_footer", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var amigoSecretoWishAdd: String { NSLocalizedString("bipe_amigo_secreto_wish_add", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func amigoSecretoTheirWishlist(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_amigo_secreto_their_wishlist", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var amigoSecretoTheirWishlistEmpty: String { NSLocalizedString("bipe_amigo_secreto_their_wishlist_empty", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var amigoSecretoCancel: String { NSLocalizedString("bipe_amigo_secreto_cancel", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var amigoSecretoCancelled: String { NSLocalizedString("bipe_amigo_secreto_cancelled", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var amigoSecretoErrorTooFew: String { NSLocalizedString("bipe_amigo_secreto_error_too_few", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var amigoSecretoErrorTooMany: String { NSLocalizedString("bipe_amigo_secreto_error_too_many", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var amigoSecretoErrorTooManyExclusions: String { NSLocalizedString("bipe_amigo_secreto_error_too_many_exclusions", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var amigoSecretoErrorImpossible: String { NSLocalizedString("bipe_amigo_secreto_error_impossible", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var amigoSecretoErrorSend: String { NSLocalizedString("bipe_amigo_secreto_error_send", tableName: "Bipe", bundle: .module, comment: "") }
 }

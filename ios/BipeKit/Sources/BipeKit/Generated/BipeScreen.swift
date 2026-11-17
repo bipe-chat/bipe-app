@@ -49,6 +49,12 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Set up the agenda (flow business). Spec: bipe-shared/product/screens/agenda-setup.json
     case agendaSetup = "agenda-setup"
 
+    /// Amigo secreto card (flow groups). Spec: bipe-shared/product/screens/amigo-secreto-card.json
+    case amigoSecretoCard = "amigo-secreto-card"
+
+    /// Set up an amigo secreto (flow groups). Spec: bipe-shared/product/screens/amigo-secreto-setup.json
+    case amigoSecretoSetup = "amigo-secreto-setup"
+
     /// App colours (flow settings). Spec: bipe-shared/product/screens/app-colors.json
     case appColors = "app-colors"
 
