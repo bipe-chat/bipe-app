@@ -204,6 +204,8 @@ struct MacChatView: View {
     @State private var picker: Picker?
     @State private var reportReason = ""
     @State private var reportFailed = false
+    /// Spec chat-timeline jumpToDate: the calendar sheet shows.
+    @State private var pickingDate = false
     let forwardTargets: [MacRoomSummary]
     /// The account's client, for the search in this chat.
     let client: Client?
@@ -374,6 +376,10 @@ struct MacChatView: View {
                     MacNameMarks(isDm: face?.userID != nil, peerID: face?.userID)
                 }
             }
+            // Spec chat-timeline jumpToDate (bipe#828): the toolbar holds the calendar on the Mac.
+            ToolbarItem(placement: .automatic) {
+                Button(BipeStrings.jumpToDateTitle) { pickingDate = true }.help(BipeStrings.jumpToDateTitle)
+            }
             // Spec chat-search with roomId (bipe-chat/bipe#861): search in this chat.
             if client != nil {
                 ToolbarItem(placement: .automatic) {
@@ -438,6 +444,18 @@ struct MacChatView: View {
         .sheet(item: $model.forwarding) { forwarding in
             MacForwardSheet(forwarding: forwarding, targets: forwardTargets) { failed in
                 model.forwardClosed(failed: failed)
+            }
+        }
+        .sheet(isPresented: $pickingDate) {
+            MacJumpToDateSheet(pick: { day in
+                pickingDate = false
+                Task { await model.jumpToDate(day) }
+            }, cancel: { pickingDate = false })
+        }
+        .sheet(item: $model.openDay) { focus in
+            if let client = model.accountClient {
+                MacDayView(room: room, focus: focus, client: client, drafts: model.draftStore, media: media,
+                           isPrivateRoom: model.isPrivateRoom) { model.openDay = nil }
             }
         }
         .task { await model.run(room: room) }
