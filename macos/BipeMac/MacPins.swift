@@ -50,7 +50,7 @@ final class MacPinsModel: ObservableObject {
     }
 
     /// Newest pin first. Deleted and undecryptable events, and events the Mac cannot show, are left out.
-    static func pins(_ items: [TimelineItem], ownUserID: String) -> [Pin] {
+    nonisolated static func pins(_ items: [TimelineItem], ownUserID: String) -> [Pin] {
         items.reversed().compactMap { item in
             guard let event = item.asEvent(), case .eventId(let eventID) = event.eventOrTransactionId,
                   case .msgLike(let content) = event.content,
@@ -62,7 +62,7 @@ final class MacPinsModel: ObservableObject {
     }
 
     /// The body, the media caption or the media kind label, on one line.
-    static func text(_ payload: MacMessagePayload, kind: MsgLikeKind) -> String {
+    nonisolated static func text(_ payload: MacMessagePayload, kind: MsgLikeKind) -> String {
         let caption = payload.body.trimmingCharacters(in: .whitespacesAndNewlines)
         let label: String?
         if case .message(let message) = kind, case .audio = message.msgType { return BipeStrings.appMediaVoice }
