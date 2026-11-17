@@ -98,8 +98,8 @@ class NotificationSettingsModel(
     val state: StateFlow<State> = _state.asStateFlow()
 
     /** The system permission is allowed and push-registration has a pusher. */
-    val phoneEnabled = combine(push.permission, push.registration) { permission, registration ->
-        permission == PushRegistration.Permission.ALLOWED && registration != null
+    val phoneEnabled = combine(push.permission, push.registrations) { permission, registrations ->
+        permission == PushRegistration.Permission.ALLOWED && session.userId in registrations
     }
 
     private var settings: NotificationSettings? = null

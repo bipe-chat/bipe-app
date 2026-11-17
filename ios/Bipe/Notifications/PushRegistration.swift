@@ -9,7 +9,8 @@ import UIKit
 import UserNotifications
 
 /// Spec push-registration (bipe-shared product/screens/push-registration.json). No screen: it registers this
-/// phone with Bipe's Sygnal when the person allows notifications, and removes the pusher at sign-out.
+/// phone with Bipe's Sygnal when the person allows notifications, with one pusher for each session on the phone (every
+/// account and every Interno member session), and removes a session's pusher when that session signs out.
 @MainActor
 final class PushRegistration: ObservableObject {
     enum Permission: Equatable {
@@ -18,73 +19,74 @@ final class PushRegistration: ObservableObject {
         case denied
     }
 
-    /// Type PushRegistration, saved so a new token or language can be compared with it.
+    /// Type PushRegistration, saved per Matrix ID so a new token, language or route can be compared with it.
     struct Registration: Codable, Equatable {
         var userId: String
         var pushkey: String
         var appId: String
         var lang: String
         var registeredAt: Date
-        var ownerVersion: Int? = nil
         var accountRoute: String? = nil
+
+        /// The same pusher on the server: only registeredAt may differ.
+        func isSamePusher(as other: Registration) -> Bool {
+            userId == other.userId && pushkey == other.pushkey && appId == other.appId && lang == other.lang
+                && accountRoute == other.accountRoute
+        }
     }
 
     static let shared = PushRegistration()
 
     @Published private(set) var permission: Permission = .notAsked
-    @Published private(set) var registration: Registration?
+    /// State registrations: the pushers this phone set, by Matrix ID.
+    @Published private(set) var registrations: [String: Registration]
 
-    private var session: AccountSession?
-    /// Spec interno notes, Push: the member session under the current account, with its own pusher (ADR 0284 point 21).
-    private var member: AccountSession?
-    /// The pushkey of the member pusher set in this process. A pusher set with append false for another user removes
-    /// the member pusher on the server, so it is set again after each one.
-    private var memberPushkey: String?
-    /// The pushkey of the account pusher set in this process. The saved registration alone does not prove the pusher is
-    /// on the server: Synapse deletes a pusher when Sygnal rejects its token. So each launch sets it once again.
-    private var accountPushkey: String?
-    private static let registrationKey = "pushRegistration"
+    /// Every session on the phone that gets a pusher, by Matrix ID: the accounts and the Interno member sessions.
+    private var sessions: [String: AccountSession] = [:]
+    /// The pushers set in this process, by Matrix ID. The saved registration alone does not prove the pusher is on the
+    /// server: Synapse deletes a pusher when Sygnal rejects its token. So each launch sets each pusher once again.
+    private var setInProcess: [String: Registration] = [:]
+    /// The newest token while a registration runs; the run takes it next, so two runs never interleave.
+    private var queuedToken: Data?
+    private var registering = false
+    private static let registrationsKey = "pushRegistrations"
+    /// The single registration of builds before bipe-chat/bipe#1519. Read once, then replaced by registrationsKey.
+    private static let legacyRegistrationKey = "pushRegistration"
 
     private init() {
-        registration = Self.loadRegistration()
+        registrations = Self.loadRegistrations()
     }
 
-    /// The account is ready: keep its pusher current.
-    func attach(_ session: AccountSession) {
-        self.session = session
-        member = InternoSessions.shared.session(forWork: session.userId)
-        memberPushkey = nil
+    /// Action sessionAdded: an account or an Interno member session opened, or was built again. It gets its pusher.
+    func add(_ session: AccountSession) {
+        sessions[session.userId] = session
+        setInProcess[session.userId] = nil
         Task { await appBecameActive() }
     }
 
-    /// The account the pusher belongs to now.
-    var attachedUserId: String? { session?.userId }
-
-    /// Spec interno: the member session of the current account came or went.
-    func attachMember(_ member: AccountSession?) {
-        guard self.member !== member else { return }
-        self.member = member
-        memberPushkey = nil
-        Task { await appBecameActive() }
+    /// The pusher of this account on this phone, if it was set.
+    func registration(for userId: String) -> Registration? {
+        registrations[userId]
     }
 
-    /// Removes the member pusher before the member session signs out. A failure does not stop the sign-out.
-    func detachMember(_ member: AccountSession) async {
-        guard self.member === member else { return }
-        let pushkey = memberPushkey
-        self.member = nil
-        memberPushkey = nil
-        if let pushkey {
-            try? await member.client.deletePusher(identifiers: PusherIdentifiers(pushkey: pushkey, appId: AppConfig.pusherAppId))
+    /// Action signOut: deletes the session's pusher before the session ends. The other sessions keep theirs. A failure
+    /// does not stop the sign-out.
+    func remove(userId: String) async {
+        let session = sessions.removeValue(forKey: userId)
+        setInProcess[userId] = nil
+        let saved = registrations[userId]
+        save(nil, for: userId)
+        if let session, let saved {
+            try? await session.client.deletePusher(identifiers: PusherIdentifiers(pushkey: saved.pushkey, appId: saved.appId))
         }
     }
 
     /// Action appBecameActive: reads the permission and asks for a token when allowed. A denied phone keeps
-    /// its pusher, so notifications come back when the person allows them again.
+    /// its pushers, so notifications come back when the person allows them again.
     func appBecameActive() async {
         permission = await Self.systemPermission()
         if permission == .allowed {
-            // iOS hands the token to the app delegate; tokenReceived compares it with the registration.
+            // iOS hands the token to the app delegate; tokenReceived compares it with the registrations.
             UIApplication.shared.registerForRemoteNotifications()
         }
     }
@@ -97,58 +99,59 @@ final class PushRegistration: ObservableObject {
         return granted
     }
 
-    /// Action tokenReceived: sets the HTTP pusher when the token, the account or the language changed.
+    /// Action tokenReceived: sets the pusher of each session whose token, language or route changed, or that this
+    /// process has not set yet.
     func tokenReceived(_ token: Data) async {
-        guard permission == .allowed, let session,
-              let accountRoutes = NotificationKeys.accountRoutes else { return }
-        let route = accountRoutes.route(for: session.userId)
-        let pushkey = token.map { String(format: "%02x", $0) }.joined()
-        let lang = Self.appLanguage
-        if accountPushkey == pushkey, let registration, registration.userId == session.userId, registration.pushkey == pushkey,
-           registration.appId == AppConfig.pusherAppId, registration.lang == lang, registration.ownerVersion == 2, registration.accountRoute == route {
-            await registerMember(pushkey: pushkey, lang: lang, routes: accountRoutes)
-            return
-        }
-        do {
-            try await session.client.setPusher(
-                identifiers: PusherIdentifiers(pushkey: pushkey, appId: AppConfig.pusherAppId),
-                kind: .http(data: Self.pusherData(route: route)),
-                appDisplayName: BipeStrings.appName,
-                deviceDisplayName: UIDevice.current.model,
-                profileTag: nil,
-                lang: lang,
-                append: false
-            )
-            guard self.session === session else { return }
-            // append false removed the member pusher on the server too.
-            memberPushkey = nil
-            accountPushkey = pushkey
-            save(Registration(userId: session.userId, pushkey: pushkey, appId: AppConfig.pusherAppId,
-                              lang: lang, registeredAt: .now, ownerVersion: 2, accountRoute: route))
-            await registerMember(pushkey: pushkey, lang: lang, routes: accountRoutes)
-        } catch {
-            NSLog("Bipe pusher registration failed")
+        queuedToken = token
+        guard !registering else { return }
+        registering = true
+        defer { registering = false }
+        while let next = queuedToken {
+            queuedToken = nil
+            await register(token: next)
         }
     }
 
-    /// Spec interno notes, Push: the member session's own pusher, next to the account's (append true), with its own
-    /// random route. Set once per process and after each account pusher.
-    private func registerMember(pushkey: String, lang: String, routes: BipePushAccountRoutes) async {
-        guard let member, memberPushkey != pushkey,
-              let data = try? Self.pusherData(route: routes.route(for: member.userId)) else { return }
-        do {
-            try await member.client.setPusher(
-                identifiers: PusherIdentifiers(pushkey: pushkey, appId: AppConfig.pusherAppId),
-                kind: .http(data: data),
-                appDisplayName: BipeStrings.appName,
-                deviceDisplayName: UIDevice.current.model,
-                profileTag: nil,
-                lang: lang,
-                append: true
-            )
-            if self.member === member { memberPushkey = pushkey }
-        } catch {
-            NSLog("Bipe member pusher registration failed")
+    private func register(token: Data) async {
+        guard permission == .allowed, let accountRoutes = NotificationKeys.accountRoutes else { return }
+        let pushkey = token.map { String(format: "%02x", $0) }.joined()
+        let appId = AppConfig.pusherAppId
+        let lang = Self.appLanguage
+        // append true keeps the pushers of the other sessions with this token (bipe-chat/bipe#1519). Only the first
+        // pusher on a phone with no saved registration (a new install, or every account signed out) uses append false,
+        // once: it removes pushers that an earlier install left with this token.
+        var replaceOthers = registrations.isEmpty
+        for userId in sessions.keys.sorted() {
+            guard let session = sessions[userId] else { continue }
+            let route = accountRoutes.route(for: userId)
+            guard let data = try? Self.pusherData(route: route) else { continue }
+            let wanted = Registration(userId: userId, pushkey: pushkey, appId: appId, lang: lang, registeredAt: .now,
+                                      accountRoute: route)
+            if let done = setInProcess[userId], done.isSamePusher(as: wanted) { continue }
+            do {
+                try await session.client.setPusher(
+                    identifiers: PusherIdentifiers(pushkey: pushkey, appId: appId),
+                    kind: .http(data: data),
+                    appDisplayName: BipeStrings.appName,
+                    deviceDisplayName: UIDevice.current.model,
+                    profileTag: nil,
+                    lang: lang,
+                    append: !replaceOthers
+                )
+            } catch {
+                NSLog("Bipe pusher registration failed")
+                continue
+            }
+            replaceOthers = false
+            // The session signed out or was built again while the pusher was set.
+            guard sessions[userId] === session else { continue }
+            let old = registrations[userId]
+            setInProcess[userId] = wanted
+            save(wanted, for: userId)
+            // A new token or app ID is a new pusher: the one with the old token goes.
+            if let old, old.pushkey != pushkey || old.appId != appId {
+                try? await session.client.deletePusher(identifiers: PusherIdentifiers(pushkey: old.pushkey, appId: old.appId))
+            }
         }
     }
 
@@ -169,21 +172,6 @@ final class PushRegistration: ObservableObject {
                               defaultPayload: String(decoding: payload, as: UTF8.self))
     }
 
-    /// Action signOut: deletes the pusher of this phone before the session ends. A failure does not stop the sign-out.
-    func signOut() async {
-        let owner = session
-        let saved = registration
-        member = nil
-        memberPushkey = nil
-        accountPushkey = nil
-        session = nil
-        save(nil)
-        if let owner, let saved, saved.userId == owner.userId {
-            try? await owner.client.deletePusher(
-                identifiers: PusherIdentifiers(pushkey: saved.pushkey, appId: saved.appId))
-        }
-    }
-
     /// pt-BR or en, the languages of the generated strings.
     private static var appLanguage: String {
         Bundle.main.preferredLocalizations.first?.hasPrefix("en") == true ? "en" : "pt-BR"
@@ -197,16 +185,23 @@ final class PushRegistration: ObservableObject {
         }
     }
 
-    private static func loadRegistration() -> Registration? {
-        UserDefaults.standard.data(forKey: registrationKey).flatMap { try? JSONDecoder().decode(Registration.self, from: $0) }
+    private static func loadRegistrations() -> [String: Registration] {
+        let defaults = UserDefaults.standard
+        if let data = defaults.data(forKey: registrationsKey),
+           let saved = try? JSONDecoder().decode([String: Registration].self, from: data) {
+            return saved
+        }
+        guard let data = defaults.data(forKey: legacyRegistrationKey),
+              let legacy = try? JSONDecoder().decode(Registration.self, from: data) else { return [:] }
+        return [legacy.userId: legacy]
     }
 
-    private func save(_ registration: Registration?) {
-        self.registration = registration
-        if let registration, let data = try? JSONEncoder().encode(registration) {
-            UserDefaults.standard.set(data, forKey: Self.registrationKey)
-        } else {
-            UserDefaults.standard.removeObject(forKey: Self.registrationKey)
+    private func save(_ registration: Registration?, for userId: String) {
+        registrations[userId] = registration
+        let defaults = UserDefaults.standard
+        if let data = try? JSONEncoder().encode(registrations) {
+            defaults.set(data, forKey: Self.registrationsKey)
         }
+        defaults.removeObject(forKey: Self.legacyRegistrationKey)
     }
 }

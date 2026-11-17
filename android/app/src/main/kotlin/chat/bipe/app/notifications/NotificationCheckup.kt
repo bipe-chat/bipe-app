@@ -108,7 +108,7 @@ object NotificationCheckup {
             Check.PERMISSION to (app.push.permission.value == PushRegistration.Permission.ALLOWED),
             Check.CHANNEL to !app.notifications.messagesChannelBlocked(userId),
             Check.BATTERY to ignoresBatteryOptimizations(context),
-            Check.PUSHER to (app.push.registration.value?.userId == userId),
+            Check.PUSHER to (userId in app.push.registrations.value),
         )
     }
 
@@ -161,9 +161,9 @@ fun NotificationCheckupScreen(userId: String, onBack: () -> Unit) {
     val colors = BipeTheme.colors
     val askPermission = rememberNotificationPermission(app.push)
     val permission by app.push.permission.collectAsState()
-    val registration by app.push.registration.collectAsState()
+    val registrations by app.push.registrations.collectAsState()
     val resumed = rememberResumeCount()
-    val checks = remember(resumed, permission, registration, userId) { NotificationCheckup.run(context, userId) }
+    val checks = remember(resumed, permission, registrations, userId) { NotificationCheckup.run(context, userId) }
     val lastPush = remember(resumed) { NotificationCheckup.lastPush(context) }
 
     fun fix(check: NotificationCheckup.Check) {
