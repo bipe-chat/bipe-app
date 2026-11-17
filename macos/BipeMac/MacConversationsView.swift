@@ -80,9 +80,10 @@ struct MacConversationsView: View {
                 } else {
                     placeholder(BipeStrings.requestsTitle)
                 }
-            } else if let row = list.rows.first(where: { $0.id == selected }) {
-                MacChatView(room: row.room, name: row.name, drafts: account.drafts, media: account.media, face: row.avatar,
-                            forwardTargets: list.rows, opensPhotoPicker: photoPickerRoom == row.id).id(row.id)
+            } else if let row = list.rows.first(where: { $0.id == selected }), let client = account.client {
+                MacChatView(room: row.room, name: row.name, client: client, drafts: account.drafts, media: account.media,
+                            blocked: account.blocked, face: row.avatar, forwardTargets: list.rows,
+                            opensPhotoPicker: photoPickerRoom == row.id, openChat: openChat).id(row.id)
                     .environment(\.bipeHandles, account.handles)
                     .environment(\.bipeCompanySeals, account.seals)
                     // Spec group-link: admins who can change power levels (canOwnUserSendState m.room.power_levels).
