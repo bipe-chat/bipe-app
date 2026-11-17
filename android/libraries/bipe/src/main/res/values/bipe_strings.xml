@@ -1764,6 +1764,7 @@
     <string name="bipe_app_media_file">Arquivo</string>
     <string name="bipe_app_media_sticker">Sticker</string>
     <string name="bipe_app_media_voice">Mensagem de voz</string>
+    <string name="bipe_app_media_voice_on_phone">Para ouvir, abra no celular.</string>
     <string name="bipe_app_voice_play">Tocar</string>
     <string name="bipe_app_voice_pause">Pausar</string>
     <string name="bipe_app_media_share">Compartilhar</string>

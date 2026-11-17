@@ -44,6 +44,9 @@ struct MacMessage: Identifiable {
     var isDeleted = false
     var file: MacFile? = nil
     var video: MacVideo? = nil
+    var voice: MacVoice? = nil
+    /// Spec read-receipts: the tick of a sent own message; nil while it sends or failed, and on other people's messages.
+    var receipt: MacReceipt? = nil
     var isSent: Bool { eventID != nil && !pending && !failed && !isDeleted }
     var hasMediaCaption: Bool { isImage || file != nil || video != nil }
     var composerPreview: String {
@@ -51,6 +54,7 @@ struct MacMessage: Identifiable {
         if photo != nil { return BipeStrings.appMediaImage }
         if file != nil { return BipeStrings.appMediaFile }
         if video != nil { return BipeStrings.appMediaVideo }
+        if let voice { return voice.title }
         return BipeStrings.appMessageReplyUnavailable
     }
 
@@ -97,6 +101,8 @@ final class MacTimeline: ObservableObject {
     @Published private(set) var isPrivateRoom = false
     var readingLatest = true
     @Published private(set) var isDm = false
+    /// Spec read-receipts: a group message is read when every other joined member read it.
+    private var joinedMembers: UInt64 = 2
     @Published var reactionFailed = false
     @Published var editFailed = false
     @Published var deleteFailed = false
@@ -211,6 +217,7 @@ final class MacTimeline: ObservableObject {
     private func readRoomKind(_ room: Room) async {
         guard let info = try? await room.roomInfo() else { return }
         isDm = info.isDm
+        joinedMembers = info.joinedMembersCount
         dmPeerID = info.isDm ? info.heroes.first(where: { $0.userId != room.ownUserId() })?.userId : nil
         isPrivateRoom = info.isDm || info.isPublic == false
         await readSenderFacts(room, info: info)
@@ -646,6 +653,8 @@ final class MacTimeline: ObservableObject {
             if userID == ownUserID { return BipeStrings.appYou }
             return memberNames[userID] ?? BipeChatRowName.person(userID: userID, displayName: nil, handle: nil)
         }
+        let receipts = MacReceipt.ticks(items: items, ownUserID: ownUserID ?? "", isDm: isDm, joinedMembers: joinedMembers,
+                                        showsOthersRead: MacReceiptPolicy.showsOthersRead(isDm: isDm))
         for (index, item) in items.enumerated() {
             let id = item.uniqueId().id
             if let virtual = item.asVirtual() {
@@ -676,7 +685,7 @@ final class MacTimeline: ObservableObject {
                 stateLine = nil
                 continue
             }
-            if let message = messageRow(item) {
+            if let message = messageRow(item, receipt: receipts[index]) {
                 built.append(.message(message))
                 stateLine = nil
             }
@@ -699,7 +708,7 @@ final class MacTimeline: ObservableObject {
         return result
     }
 
-    private func messageRow(_ item: TimelineItem) -> MacMessage? {
+    private func messageRow(_ item: TimelineItem, receipt: MacReceipt?) -> MacMessage? {
         guard let event = item.asEvent(), case .msgLike(let content) = event.content else { return nil }
         let debugInfo = event.lazyProvider.debugInfo()
         guard let payload = MacMessagePayload(kind: content.kind, eventJson: debugInfo.originalJson) else { return nil }
@@ -740,12 +749,13 @@ final class MacTimeline: ObservableObject {
                           eventID: eventID, canReply: decryptable && event.canBeRepliedTo && !pending && !failed,
                           canReact: decryptable && eventID != nil && !pending && !failed,
                           reactions: decryptable ? MacReaction.summaries(content.reactions, ownUserID: room?.ownUserId() ?? "") : [],
-                          canEdit: decryptable && event.isEditable,
+                          canEdit: decryptable && event.isEditable && payload.voice == nil,
                           canDelete: !payload.isDeleted && (event.isOwn ? (canRedactOwn || eventID == nil) : (!isDm && canRedactOther)),
                           isUndecryptable: payload.isUndecryptable,
                           isImage: payload.photo != nil,
                           forwardJson: forwardJson, forwardMessage: forwardMessage, reply: reply, isEdited: payload.isEdited, isDeleted: payload.isDeleted,
-                          file: payload.file, video: payload.video)
+                          file: payload.file, video: payload.video, voice: payload.voice,
+                          receipt: event.isOwn && !pending && !failed && eventID != nil ? receipt : nil)
     }
 }
 
@@ -754,5 +764,47 @@ enum MacReceiptPolicy {
     static func type(isDm: Bool, defaults: UserDefaults = .standard) -> ReceiptType {
         let enabled = defaults.object(forKey: key) as? Bool ?? true
         return isDm && !enabled ? .readPrivate : .read
+    }
+
+    /// Spec read-receipts, ADR 0222: in a DM the read tick is reciprocal. With the own switch off, the other person's read stays hidden.
+    static func showsOthersRead(isDm: Bool, defaults: UserDefaults = .standard) -> Bool {
+        !isDm || (defaults.object(forKey: key) as? Bool ?? true)
+    }
+}
+
+/// Spec read-receipts (ADR 0141, bipe-chat/bipe#1509): the tick of an own sent message, as on iOS and Android.
+struct MacReceipt: Equatable {
+    enum Tick: Equatable {
+        case sent
+        /// DM only: the other person read it, but the own read receipts switch is off, so only "got it" shows.
+        case delivered
+        case read
+    }
+
+    let tick: Tick
+    /// Only the newest own message shows its tick label as text.
+    let showsLabel: Bool
+
+    /// The ticks by item index. A read receipt covers its event and every older one, so the walk runs newest first.
+    static func ticks(items: [TimelineItem], ownUserID: String, isDm: Bool, joinedMembers: UInt64,
+                      showsOthersRead: Bool) -> [Int: MacReceipt] {
+        var readers = Set<String>()
+        var result: [Int: MacReceipt] = [:]
+        let others = max(1, Int(clamping: joinedMembers) - 1)
+        for (index, item) in items.enumerated().reversed() {
+            guard let event = item.asEvent() else { continue }
+            for userID in event.readReceipts.keys where userID != ownUserID { readers.insert(userID) }
+            guard event.isOwn, case .msgLike(let content) = event.content else { continue }
+            if case .redacted = content.kind { continue }
+            let tick: Tick
+            if isDm {
+                let isRead = !readers.isEmpty
+                tick = isRead ? (showsOthersRead ? .read : .delivered) : .sent
+            } else {
+                tick = readers.count >= others ? .read : .sent
+            }
+            result[index] = MacReceipt(tick: tick, showsLabel: result.isEmpty)
+        }
+        return result
     }
 }
