@@ -285,6 +285,7 @@ private struct MacSettingsGroupView: View {
     @ObservedObject var workspace: MacWorkspace
     let group: BipeSettingsGroup
     @AppStorage(MacReceiptPolicy.key) private var readReceipts = true
+    @AppStorage(MacPresence.key) private var sharePresence = true
     @AppStorage(BipeSettingsRow.chatsMediaQuality.rawValue) private var mediaQuality = "standard"
     @AppStorage(BipeSettingsRow.chatsAppearance.rawValue) private var appearance = "system"
     @AppStorage(AppTheme.paletteKey) private var palette = BipePalette.standard.rawValue
@@ -295,7 +296,7 @@ private struct MacSettingsGroupView: View {
     private func hasHandler(_ row: BipeSettingsRow) -> Bool {
         if row.kind == .url { return row.url(language: language) != nil }
         switch row {
-        case .privacyMessaging, .privacyReadReceipts,
+        case .privacyMessaging, .privacyPresence, .privacyReadReceipts,
              .accountWaysBackStatus, .accountEmail, .accountLinkedAccounts, .accountRecoveryKey,
              .accountSignOut,
              .chatsAppearance, .chatsColors, .chatsShowMedia, .chatsMediaQuality: return true
@@ -374,6 +375,10 @@ private struct MacSettingsGroupView: View {
                 Text(BipeStrings.messagingVerified).tag(BipeWhoCanMessage.verified)
                 Text(BipeStrings.messagingContacts).tag(BipeWhoCanMessage.contacts)
             }.disabled(model.whoCanMessage == nil)
+        case .privacyPresence:
+            // Spec typing-indicator sharesTyping: off stops sending and showing typing on this Mac.
+            Toggle(row.title, isOn: $sharePresence)
+            if let footer = row.footer { Text(footer).macFont(.callout).foregroundStyle(BipeColor.inkSecondary) }
         case .privacyReadReceipts:
             Toggle(row.title, isOn: Binding(get: { readReceipts }, set: {
                 readReceipts = $0

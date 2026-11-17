@@ -4,8 +4,6 @@
 
 package chat.bipe.app.business
 
-import android.content.Intent
-import android.net.Uri
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -40,6 +38,7 @@ import chat.bipe.app.common.BipeToasts
 import chat.bipe.app.linkcomputer.LinkComputerModel
 import chat.bipe.app.linkcomputer.LinkComputerScreen
 import chat.bipe.app.settings.SettingsModel
+import chat.bipe.app.settings.openPage
 import chat.bipe.shared.R
 import chat.bipe.shared.api.BipeSeat
 import chat.bipe.shared.api.BipeSeatDevice
@@ -154,7 +153,7 @@ fun CompanyTeamScreen(home: WorkHomeModel, session: AccountSession, run: (suspen
                 }
             }
             TextButton(onClick = {
-                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://bipe.chat/recursos/quem-atende/")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                openPage(context, "https://bipe.chat/recursos/quem-atende/")
             }, modifier = Modifier.padding(horizontal = 8.dp)) { Text(stringResource(R.string.bipe_identity_change_learn_more)) }
         }
     }

@@ -44,6 +44,11 @@ struct MacMessage: Identifiable {
     var isDeleted = false
     var file: MacFile? = nil
     var video: MacVideo? = nil
+    var voice: MacVoice? = nil
+    /// Spec read-receipts: the tick of a sent own message; nil while it sends or failed, and on other people's messages.
+    var receipt: MacReceipt? = nil
+    /// Spec identity-change sendAnyway: the send queue held this own message because of a member's identity.
+    var sendFailure: MacSendFailure? = nil
     var isSent: Bool { eventID != nil && !pending && !failed && !isDeleted }
     var hasMediaCaption: Bool { isImage || file != nil || video != nil }
     var composerPreview: String {
@@ -51,13 +56,27 @@ struct MacMessage: Identifiable {
         if photo != nil { return BipeStrings.appMediaImage }
         if file != nil { return BipeStrings.appMediaFile }
         if video != nil { return BipeStrings.appMediaVideo }
+        if let voice { return voice.title }
         return BipeStrings.appMessageReplyUnavailable
+    }
+
+    /// The menu title of a command. Retry of a message held for an identity change reads "send anyway".
+    func title(of item: BipeMessageMenuItem) -> String {
+        item == .retry && sendFailure != nil ? BipeStrings.identityChangeSendAnyway : item.title
     }
 
     func editedContent(_ text: String) throws -> EditedContent {
         if hasMediaCaption { return .mediaCaption(caption: text, formattedCaption: nil, mentions: nil) }
         return .roomMessage(content: try messageEventContentNew(msgtype: .text(content: TextMessageContent(body: text, formatted: nil))))
     }
+}
+
+/// Spec identity-change sendAnyway: the QueueWedgeError that held an own message.
+enum MacSendFailure: Equatable {
+    /// identityViolations: users that were verified and are not any more.
+    case identity(users: [String])
+    /// insecureDevices: user ID to device IDs.
+    case devices([String: [String]])
 }
 
 struct MacTimelineScroll: Equatable {
@@ -97,6 +116,14 @@ final class MacTimeline: ObservableObject {
     @Published private(set) var isPrivateRoom = false
     var readingLatest = true
     @Published private(set) var isDm = false
+    /// Spec read-receipts: a group message is read when every other joined member read it.
+    private var joinedMembers: UInt64 = 2
+    /// Spec chat-timeline peerAway (ADR 0141).
+    @Published private(set) var peerAway: MacPeerAway = .none
+    @Published private(set) var invitingAgain = false
+    @Published var inviteAgainFailed = false
+    /// The other person of a DM, for the block bar and peerAway.
+    var peerID: String? { dmPeerID }
     @Published var reactionFailed = false
     @Published var editFailed = false
     @Published var deleteFailed = false
@@ -112,6 +139,11 @@ final class MacTimeline: ObservableObject {
     private var canRedactOther = false
     private var draftBeforeEdit = ""
     @Published private(set) var reacting: Set<String> = []
+    /// Spec typing-indicator typingNames: the people typing now, without this account.
+    @Published private(set) var typingNames: [String] = []
+    /// Spec typing-indicator: typing on at most once every 4 seconds.
+    static let typingInterval: TimeInterval = 4
+    private var typingSentAt: Date?
     @Published private(set) var attachmentPhase: MacAttachmentPhase = .idle
     var preparing: Bool { attachmentPhase.preparing }
     var preparedAttachment: MacPreparedAttachment? { attachmentPhase.media }
@@ -136,6 +168,8 @@ final class MacTimeline: ObservableObject {
     private var room: Room?
     private var draftRevision = 0
     private let drafts: MacDrafts
+    private let client: Client?
+    private var accountGoneChecked: (userID: String, gone: Bool)?
     private var lastReadID: String?
     private var dmPeerID: String?
     private var listener: TaskHandle?
@@ -151,7 +185,10 @@ final class MacTimeline: ObservableObject {
     private var openingOriginal = false
     private var highlightTask: Task<Void, Never>?
 
-    init(drafts: MacDrafts) { self.drafts = drafts }
+    init(drafts: MacDrafts, client: Client? = nil) {
+        self.drafts = drafts
+        self.client = client
+    }
 
     func run(room: Room) async {
         replyLoadsTried = []
@@ -190,9 +227,16 @@ final class MacTimeline: ObservableObject {
             self.timeline = timeline
             let stream = TimelineDiffStream()
             listener = await timeline.addListener(listener: stream)
+            let typing = TypingStream()
+            let typingHandle = room.subscribeToTypingNotifications(listener: typing)
+            let typingTask = Task { [weak self] in
+                for await userIDs in typing.updates { await self?.typingChanged(userIDs, room: room) }
+            }
             ready = true
             defer {
+                typingTask.cancel(); typingHandle.cancel()
                 if self.timeline === timeline {
+                    sendTyping(false); typingNames = []
                     listener?.cancel(); listener = nil; self.timeline = nil; self.room = nil; ready = false
                     highlightTask?.cancel(); highlightedRowID = nil; scrollTarget = nil
                 }
@@ -211,9 +255,63 @@ final class MacTimeline: ObservableObject {
     private func readRoomKind(_ room: Room) async {
         guard let info = try? await room.roomInfo() else { return }
         isDm = info.isDm
+        joinedMembers = info.joinedMembersCount
+        // Spec message-pins: Fixar and Desafixar follow pins made on other devices.
+        pinned = Set(info.pinnedEventIds)
         dmPeerID = info.isDm ? info.heroes.first(where: { $0.userId != room.ownUserId() })?.userId : nil
         isPrivateRoom = info.isDm || info.isPublic == false
         await readSenderFacts(room, info: info)
+        await loadPeerAway(room, peer: dmPeerID)
+    }
+
+    // MARK: Spec chat-timeline peerAway
+
+    /// Room.member of the DM's other person: a leave or ban is left, and a profile that is not found (a deactivated
+    /// account) is accountGone. The profile lookup runs once per leave, as on iOS.
+    private func loadPeerAway(_ room: Room, peer: String?) async {
+        guard let peer, let member = try? await room.member(userId: peer) else { peerAway = .none; return }
+        switch member.membership {
+        case .leave, .ban:
+            if accountGoneChecked?.userID != peer, let client {
+                accountGoneChecked = (peer, await Self.accountIsGone(peer, client: client))
+            }
+            peerAway = accountGoneChecked?.gone == true ? .accountGone : .left
+        default:
+            accountGoneChecked = nil
+            peerAway = .none
+        }
+    }
+
+    private static func accountIsGone(_ userID: String, client: Client) async -> Bool {
+        do {
+            _ = try await client.getProfile(userId: userID)
+            return false
+        } catch let error as ClientError {
+            if case .MatrixApi(kind: .notFound, code: _, msg: _, details: _) = error { return true }
+            return false
+        } catch {
+            return false
+        }
+    }
+
+    /// Action inviteAgain: Room.inviteUserById when the user may invite. In a DM made with the DM power levels nobody
+    /// may, so a new DM with the person is made; its room ID comes back for the window to open.
+    func inviteAgain() async -> String? {
+        guard peerAway == .left, !invitingAgain, let room, let peer = dmPeerID else { return nil }
+        invitingAgain = true
+        defer { invitingAgain = false }
+        do {
+            if let levels = try? await room.getPowerLevels(), levels.canOwnUserInvite() {
+                try await room.inviteUserById(userId: peer)
+                await loadPeerAway(room, peer: peer)
+                return nil
+            }
+            guard let client else { throw CancellationError() }
+            return try await NativeDm.create(with: peer, client: client)
+        } catch {
+            inviteAgainFailed = true
+            return nil
+        }
     }
 
     /// The roles (spec chat-timeline senderRole) and the look-alike names (spec timeline-rows nameAmbiguous) of a group.
@@ -322,7 +420,46 @@ final class MacTimeline: ObservableObject {
                 _ = try await timeline.send(msg: messageEventContentFromMarkdown(md: text))
             }
             if draft == text, replyID == reply { draft = ""; replyID = nil }
+            sendTyping(false)
         } catch { failed = true }
+    }
+
+    // MARK: Spec typing-indicator
+
+    /// Action editDraft of chat-timeline, with typing-indicator draftChanged: typing on at most every 4 seconds while
+    /// the draft has text, typing off when it becomes blank. An edit of a sent message sends no typing.
+    func editDraft(_ text: String) {
+        draft = text
+        guard editingID == nil else { return }
+        if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            sendTyping(false)
+        } else if typingSentAt.map({ Date().timeIntervalSince($0) >= Self.typingInterval }) ?? true {
+            sendTyping(true)
+        }
+    }
+
+    private func sendTyping(_ isTyping: Bool) {
+        guard let room, MacPresence.sharesTyping() else { return }
+        if isTyping {
+            typingSentAt = Date()
+        } else {
+            guard typingSentAt != nil else { return }
+            typingSentAt = nil
+        }
+        Task { try? await room.typingNotice(isTyping: isTyping) }
+    }
+
+    private func typingChanged(_ userIDs: [String], room: Room) async {
+        guard MacPresence.sharesTyping() else { typingNames = []; return }
+        let ownUserID = room.ownUserId()
+        var names: [String] = []
+        for userID in userIDs where userID != ownUserID {
+            if let known = memberNames[userID] { names.append(known); continue }
+            let displayName = (try? await room.memberDisplayName(userId: userID)) ?? nil
+            names.append(BipeChatRowName.person(userID: userID, displayName: displayName, handle: nil))
+        }
+        guard self.room === room, !Task.isCancelled else { return }
+        typingNames = names
     }
 
     func startReply(_ message: MacMessage) {
@@ -378,8 +515,16 @@ final class MacTimeline: ObservableObject {
             }
         case .forward: forwarding = message
         case .retry:
+            // Spec chat-timeline retrySend, with identity-change sendAnyway for a message the identity rules held.
             guard let handle = items.first(where: { $0.uniqueId().id == message.id })?.asEvent()?.lazyProvider.getSendHandle() else { return }
-            Task { try? await handle.tryResend() }
+            let room = room
+            Task {
+                switch message.sendFailure {
+                case .identity(let users)?: try? await room?.withdrawVerificationAndResend(userIds: users, sendHandle: handle)
+                case .devices(let devices)?: try? await room?.ignoreDeviceTrustAndResend(devices: devices, sendHandle: handle)
+                case nil: try? await handle.tryResend()
+                }
+            }
         case .delete:
             if message.isOwn, !message.isSent {
                 guard let handle = items.first(where: { $0.uniqueId().id == message.id })?.asEvent()?.lazyProvider.getSendHandle() else { return }
@@ -646,6 +791,8 @@ final class MacTimeline: ObservableObject {
             if userID == ownUserID { return BipeStrings.appYou }
             return memberNames[userID] ?? BipeChatRowName.person(userID: userID, displayName: nil, handle: nil)
         }
+        let receipts = MacReceipt.ticks(items: items, ownUserID: ownUserID ?? "", isDm: isDm, joinedMembers: joinedMembers,
+                                        showsOthersRead: MacReceiptPolicy.showsOthersRead(isDm: isDm))
         for (index, item) in items.enumerated() {
             let id = item.uniqueId().id
             if let virtual = item.asVirtual() {
@@ -676,7 +823,7 @@ final class MacTimeline: ObservableObject {
                 stateLine = nil
                 continue
             }
-            if let message = messageRow(item) {
+            if let message = messageRow(item, receipt: receipts[index]) {
                 built.append(.message(message))
                 stateLine = nil
             }
@@ -699,7 +846,7 @@ final class MacTimeline: ObservableObject {
         return result
     }
 
-    private func messageRow(_ item: TimelineItem) -> MacMessage? {
+    private func messageRow(_ item: TimelineItem, receipt: MacReceipt?) -> MacMessage? {
         guard let event = item.asEvent(), case .msgLike(let content) = event.content else { return nil }
         let debugInfo = event.lazyProvider.debugInfo()
         guard let payload = MacMessagePayload(kind: content.kind, eventJson: debugInfo.originalJson) else { return nil }
@@ -719,9 +866,16 @@ final class MacTimeline: ObservableObject {
         let sender = MacRoomSummary.personName(event.senderProfile, userID: event.sender)
         let pending: Bool
         let failed: Bool
+        var sendFailure: MacSendFailure?
         switch event.localSendState {
         case .notSentYet: pending = true; failed = false
-        case .sendingFailed: pending = false; failed = true
+        case .sendingFailed(let error, _):
+            pending = false; failed = true
+            switch error {
+            case .identityViolations(let users): sendFailure = .identity(users: users)
+            case .insecureDevices(let devices): sendFailure = .devices(devices)
+            default: sendFailure = nil
+            }
         default: pending = false; failed = false
         }
         let eventID: String?
@@ -740,12 +894,13 @@ final class MacTimeline: ObservableObject {
                           eventID: eventID, canReply: decryptable && event.canBeRepliedTo && !pending && !failed,
                           canReact: decryptable && eventID != nil && !pending && !failed,
                           reactions: decryptable ? MacReaction.summaries(content.reactions, ownUserID: room?.ownUserId() ?? "") : [],
-                          canEdit: decryptable && event.isEditable,
+                          canEdit: decryptable && event.isEditable && payload.voice == nil,
                           canDelete: !payload.isDeleted && (event.isOwn ? (canRedactOwn || eventID == nil) : (!isDm && canRedactOther)),
                           isUndecryptable: payload.isUndecryptable,
                           isImage: payload.photo != nil,
                           forwardJson: forwardJson, forwardMessage: forwardMessage, reply: reply, isEdited: payload.isEdited, isDeleted: payload.isDeleted,
-                          file: payload.file, video: payload.video)
+                          file: payload.file, video: payload.video, voice: payload.voice,
+                          receipt: event.isOwn && !pending && !failed && eventID != nil ? receipt : nil, sendFailure: sendFailure)
     }
 }
 
@@ -754,5 +909,47 @@ enum MacReceiptPolicy {
     static func type(isDm: Bool, defaults: UserDefaults = .standard) -> ReceiptType {
         let enabled = defaults.object(forKey: key) as? Bool ?? true
         return isDm && !enabled ? .readPrivate : .read
+    }
+
+    /// Spec read-receipts, ADR 0222: in a DM the read tick is reciprocal. With the own switch off, the other person's read stays hidden.
+    static func showsOthersRead(isDm: Bool, defaults: UserDefaults = .standard) -> Bool {
+        !isDm || (defaults.object(forKey: key) as? Bool ?? true)
+    }
+}
+
+/// Spec read-receipts (ADR 0141, bipe-chat/bipe#1509): the tick of an own sent message, as on iOS and Android.
+struct MacReceipt: Equatable {
+    enum Tick: Equatable {
+        case sent
+        /// DM only: the other person read it, but the own read receipts switch is off, so only "got it" shows.
+        case delivered
+        case read
+    }
+
+    let tick: Tick
+    /// Only the newest own message shows its tick label as text.
+    let showsLabel: Bool
+
+    /// The ticks by item index. A read receipt covers its event and every older one, so the walk runs newest first.
+    static func ticks(items: [TimelineItem], ownUserID: String, isDm: Bool, joinedMembers: UInt64,
+                      showsOthersRead: Bool) -> [Int: MacReceipt] {
+        var readers = Set<String>()
+        var result: [Int: MacReceipt] = [:]
+        let others = max(1, Int(clamping: joinedMembers) - 1)
+        for (index, item) in items.enumerated().reversed() {
+            guard let event = item.asEvent() else { continue }
+            for userID in event.readReceipts.keys where userID != ownUserID { readers.insert(userID) }
+            guard event.isOwn, case .msgLike(let content) = event.content else { continue }
+            if case .redacted = content.kind { continue }
+            let tick: Tick
+            if isDm {
+                let isRead = !readers.isEmpty
+                tick = isRead ? (showsOthersRead ? .read : .delivered) : .sent
+            } else {
+                tick = readers.count >= others ? .read : .sent
+            }
+            result[index] = MacReceipt(tick: tick, showsLabel: result.isEmpty)
+        }
+        return result
     }
 }

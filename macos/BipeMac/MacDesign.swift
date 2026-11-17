@@ -139,6 +139,12 @@ struct MacMessageView: View {
                                      pauseSecondsLeft: pauseSecondsLeft, media: media)
                     } else if let file = message.file {
                         MacFileView(file: file, media: media).disabled(secondsLeft > 0)
+                    } else if let voice = message.voice {
+                        MacVoiceView(voice: voice)
+                    }
+                    if !message.isDeleted, message.voice?.isVoice == true, !message.richText.text.isEmpty {
+                        // ADR 0023: the caption of a voice message is the sender's transcript.
+                        Text(BipeStrings.voiceTranscriptTitle).macFont(.caption).fontWeight(.semibold).foregroundStyle(BipeColor.inkSecondary)
                     }
                     if !message.isDeleted, !message.richText.text.isEmpty {
                         if secondsLeft > 0 { richText } else { richText.textSelection(.enabled) }
@@ -153,6 +159,7 @@ struct MacMessageView: View {
                         if message.isEdited, !message.isDeleted { Text(BipeStrings.appMessageEdited).macFont(.caption2).foregroundStyle(BipeColor.inkSecondary) }
                         if message.pending, !message.isDeleted { Text(BipeStrings.appTimelineSending).macFont(.caption).foregroundStyle(BipeColor.inkSecondary) }
                         if message.failed, !message.isDeleted { Text(BipeStrings.appTimelineFailed).macFont(.caption).foregroundStyle(BipeColor.trustDangerInk) }
+                        if let receipt = message.receipt, !message.isDeleted { MacReceiptTick(receipt: receipt) }
                     }
                 }
                 .padding(.horizontal, 12).padding(.vertical, 8)
@@ -190,7 +197,7 @@ struct MacMessageView: View {
             }
             ForEach(menuItems, id: \.self) { item in
                 Button(role: item.isDestructive ? .destructive : nil) { choose(item) } label: {
-                    Label(item.title, systemImage: item.symbol)
+                    Label(message.title(of: item), systemImage: item.symbol)
                 }.disabled(item == .copy && secondsLeft > 0)
             }
         }
@@ -199,12 +206,38 @@ struct MacMessageView: View {
                 Button(BipeStrings.a11yOpenOriginal) { openOriginal(reply.eventId) }
             }
             if !message.isDeleted, message.canReact { Button(BipeStrings.a11yReact) { showingEmoji = true } }
-            ForEach(menuItems, id: \.self) { item in Button(item.title) { choose(item) }.disabled(item == .copy && pauseSecondsLeft(.now) > 0) }
+            ForEach(menuItems, id: \.self) { item in Button(message.title(of: item)) { choose(item) }.disabled(item == .copy && pauseSecondsLeft(.now) > 0) }
         }
     }
 
     private var richText: some View {
         Text(MacRichText.attributed(message.richText, emoteSender: message.isEmote ? message.sender : nil, bodySize: bodySize))
             .macFont(.body).tint(BipeColor.accentInk).fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+/// Spec read-receipts: the tick of an own message, with the same glyphs, colours and labels as the phones.
+struct MacReceiptTick: View {
+    let receipt: MacReceipt
+
+    private var icon: String { receipt.tick == .sent ? "check" : "checks" }
+    private var tint: Color { receipt.tick == .read ? BipeColor.accentInk : BipeColor.inkSecondary }
+    private var label: String {
+        switch receipt.tick {
+        case .sent: BipeStrings.appReceiptSent
+        case .delivered: BipeStrings.appReceiptDelivered
+        case .read: BipeStrings.appReceiptRead
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(decorative: icon).renderingMode(.template).resizable().scaledToFit().frame(width: 14, height: 14)
+                .foregroundStyle(tint)
+                .accessibilityLabel(label)
+            if receipt.showsLabel {
+                Text(label).macFont(.caption).foregroundStyle(BipeColor.inkSecondary).accessibilityHidden(true)
+            }
+        }
     }
 }

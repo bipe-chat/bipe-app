@@ -65,6 +65,7 @@ import chat.bipe.app.BipeTheme
 import chat.bipe.app.common.AppConfig
 import chat.bipe.app.common.BipeButton
 import chat.bipe.app.linkcomputer.QrScanner
+import chat.bipe.app.settings.openPage
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.BipeInviteLink
 import chat.bipe.shared.BipeLegalLinks
@@ -271,7 +272,7 @@ fun TermsRow(accepted: Boolean, onToggle: () -> Unit) {
                     if (start >= 0) {
                         addLink(
                             LinkAnnotation.Clickable(label, linkStyle) {
-                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                                openPage(context, url)
                             },
                             start,
                             start + label.length,

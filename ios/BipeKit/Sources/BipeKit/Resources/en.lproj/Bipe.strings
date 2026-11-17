@@ -1762,6 +1762,7 @@
 "bipe_app_media_file" = "File";
 "bipe_app_media_sticker" = "Sticker";
 "bipe_app_media_voice" = "Voice message";
+"bipe_app_media_voice_on_phone" = "To listen, open it on your phone.";
 "bipe_app_voice_play" = "Play";
 "bipe_app_voice_pause" = "Pause";
 "bipe_app_media_share" = "Share";
@@ -2581,3 +2582,4 @@
 "bipe_desktop_draft_load_error" = "Could not load this chat's draft. Try again before typing.";
 "bipe_desktop_draft_save_error" = "Could not save this draft on this computer. Keep Bipe open and try again.";
 "bipe_desktop_draft_unsupported" = "This chat has a reply, edit or attachment draft that this version cannot open. It has been kept.";
+"bipe_desktop_media_show" = "Show";

@@ -1762,6 +1762,7 @@
 "bipe_app_media_file" = "Arquivo";
 "bipe_app_media_sticker" = "Sticker";
 "bipe_app_media_voice" = "Mensagem de voz";
+"bipe_app_media_voice_on_phone" = "Para ouvir, abra no celular.";
 "bipe_app_voice_play" = "Tocar";
 "bipe_app_voice_pause" = "Pausar";
 "bipe_app_media_share" = "Compartilhar";
@@ -2581,3 +2582,4 @@
 "bipe_desktop_draft_load_error" = "Não deu para abrir o rascunho desta conversa. Tente de novo antes de escrever.";
 "bipe_desktop_draft_save_error" = "Não deu para salvar este rascunho no computador. Mantenha o Bipe aberto e tente de novo.";
 "bipe_desktop_draft_unsupported" = "Esta conversa tem um rascunho de resposta, edição ou anexo que esta versão ainda não abre. O rascunho foi mantido.";
+"bipe_desktop_media_show" = "Mostrar";
