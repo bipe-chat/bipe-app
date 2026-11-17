@@ -24,6 +24,7 @@ import org.matrix.rustcomponents.sdk.Membership
 import org.matrix.rustcomponents.sdk.MsgLikeKind
 import org.matrix.rustcomponents.sdk.Room
 import org.matrix.rustcomponents.sdk.ComposerDraftType
+import uniffi.matrix_sdk_base.EncryptionState
 import org.matrix.rustcomponents.sdk.RoomListEntriesDynamicFilterKind
 import org.matrix.rustcomponents.sdk.RoomListEntriesListener
 import org.matrix.rustcomponents.sdk.RoomListEntriesUpdate
@@ -158,9 +159,21 @@ class DesktopRoomList private constructor(
             return ChatRow(info.id, name, if (info.isDm) peer?.avatarUrl else info.avatarUrl,
                 heroes.take(3).map { ChatAvatar(realName(it.displayName, it.userId, labels.noName), it.avatarUrl, it.userId) },
                 info.isDm, info.isFavourite, info.isLowPriority, info.numUnreadMessages.toLong(), preview, timestamp, draft, peer?.userId,
-                info.isMarkedUnread, incoming)
+                info.isMarkedUnread, incoming, info.numUnreadMentions.toLong(),
+                info.cachedUserDefinedNotificationMode?.let { NotifyMode.of(it, info.isDm) },
+                info.encryptionState != EncryptionState.NOT_ENCRYPTED)
         } finally { info.destroy() }
     }
+
+    /**
+     * The account default for a room without its own rule. A DM reads its default; a group reads the plain default
+     * (ADR 0254), because the encrypted default of a quiet group stays on all messages for the push.
+     */
+    suspend fun defaultNotifyMode(isDm: Boolean, encrypted: Boolean): NotifyMode = group.async {
+        val settings = runtime.client.getNotificationSettings()
+        try { NotifyMode.of(settings.getDefaultRoomNotificationMode(encrypted && isDm, isDm), isDm) }
+        finally { settings.destroy() }
+    }.await()
 
     private fun preview(content: TimelineItemContent): String? = when (val kind = (content as? TimelineItemContent.MsgLike)?.content?.kind) {
         is MsgLikeKind.Message -> MessageMedia.of(kind.content.msgType)?.summary(labels) ?: kind.content.body
