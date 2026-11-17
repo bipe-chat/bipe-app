@@ -123,7 +123,11 @@ final class ChatListModel: ObservableObject {
         workNotesChanges = WorkNotesStore.shared.$revision.dropFirst().sink { [weak self] _ in
             self?.refreshSummaries()
         }
-        rowActivity = RowActivityScanner(client: session.client, ownUserId: session.userId) { [weak self] in self?.refreshSummaries() }
+        let ownUserId = session.userId
+        rowActivity = RowActivityScanner(client: session.client, preview: { event, roomId, isDm in
+            Self.rowPreview(of: event.content, isOwn: event.isOwn, senderName: event.senderProfile.displayName(or: event.sender),
+                            roomId: roomId, isDm: isDm, ownUserId: ownUserId)
+        }) { [weak self] in self?.refreshSummaries() }
         rowActivity?.onDmIncoming = { [delivered] room, eventId, sender in
             Task { await delivered.send(room: room, eventId: eventId, sender: sender) }
         }
