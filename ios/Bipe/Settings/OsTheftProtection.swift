@@ -50,10 +50,10 @@ struct OsTheftProtectionSection: View {
                 Text(BipeStrings.osTheftRowTitle)
                     .foregroundStyle(BipeColor.inkPrimary)
                 Text(BipeStrings.osTheftRowBody)
-                    .font(.subheadline)
+                    .font(.bipeSubheadline)
                     .foregroundStyle(BipeColor.inkSecondary)
                 Text(OsTheftProtection.pathText)
-                    .font(.subheadline)
+                    .font(.bipeSubheadline)
                     .foregroundStyle(BipeColor.inkSecondary)
             }
             .padding(.vertical, 4)

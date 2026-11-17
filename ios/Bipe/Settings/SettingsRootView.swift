@@ -83,7 +83,7 @@ private struct SettingsRootRow: View {
             }
             if let summary {
                 Text(summary)
-                    .font(.subheadline)
+                    .font(.bipeSubheadline)
                     .foregroundStyle(needsAttention ? BipeColor.trustCautionInk : BipeColor.inkSecondary)
             }
         }

@@ -133,7 +133,7 @@ struct ProblemReportView: View {
         VStack(spacing: 16) {
             PhosphorIconView(icon: .check, size: 48)
             Text(BipeStrings.helpReportSentTitle)
-                .font(.title3.bold())
+                .font(.bipeTitle3.bold())
                 .foregroundStyle(BipeColor.inkPrimary)
                 .multilineTextAlignment(.center)
             Text(BipeStrings.helpReportSentBody)

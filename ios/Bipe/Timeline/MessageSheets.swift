@@ -16,7 +16,7 @@ struct MessageActionsSheet: View {
         VStack(alignment: .leading, spacing: 16) {
             if let message = row.message {
                 Text(message.body ?? message.senderName)
-                    .font(.subheadline)
+                    .font(.bipeSubheadline)
                     .foregroundStyle(BipeColor.inkPrimary)
                     .lineLimit(3)
                     .padding(12)
@@ -30,7 +30,7 @@ struct MessageActionsSheet: View {
                             model.react(rowId: row.id, key: key)
                         } label: {
                             Text(key)
-                                .font(.title2)
+                                .font(.bipeTitle2)
                                 .frame(maxWidth: .infinity)
                         }
                         .accessibilityLabel(key)
@@ -91,7 +91,7 @@ struct EmojiPickerSheet: View {
     var body: some View {
         VStack(spacing: 12) {
             Text(BipeStrings.appMessageActionMoreReactions)
-                .font(.headline)
+                .font(.bipeHeadline)
                 .foregroundStyle(BipeColor.inkPrimary)
             EmojiField(onPick: onPick)
                 .frame(height: 44)
@@ -158,7 +158,7 @@ struct ReactionSendersSheet: View {
                         .foregroundStyle(BipeColor.inkPrimary)
                     Spacer()
                     Text(sender.reactedAt.formatted(date: .abbreviated, time: .shortened))
-                        .font(.caption)
+                        .font(.bipeCaption)
                         .foregroundStyle(BipeColor.inkSecondary)
                 }
             }
@@ -189,7 +189,7 @@ struct ReadersSheet: View {
                     Spacer()
                     if let readAt = reader.readAt {
                         Text(readAt.formatted(date: .abbreviated, time: .shortened))
-                            .font(.caption)
+                            .font(.bipeCaption)
                             .foregroundStyle(BipeColor.inkSecondary)
                     }
                 }

@@ -81,7 +81,7 @@ struct PinReminderView: View {
                         .bipePinHaptics(count: pin.count)
                     if phase == .checking { ProgressView().frame(maxWidth: .infinity) }
                     if phase == .failed {
-                        Text(BipeStrings.errorNetwork).font(.footnote).foregroundStyle(BipeColor.trustDangerInk)
+                        Text(BipeStrings.errorNetwork).font(.bipeFootnote).foregroundStyle(BipeColor.trustDangerInk)
                     }
                 case .right:
                     Text(BipeStrings.pinReminderRight).foregroundStyle(BipeColor.statusSuccess)

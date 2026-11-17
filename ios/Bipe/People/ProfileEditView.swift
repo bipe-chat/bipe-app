@@ -240,7 +240,7 @@ struct ProfileEditView: View {
             if let publicLink {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(BipeStrings.appProfileLink)
-                        .font(.footnote)
+                        .font(.bipeFootnote)
                         .foregroundStyle(BipeColor.inkSecondary)
                     Text(publicLink.absoluteString)
                         .font(.body.monospaced())
@@ -279,7 +279,7 @@ struct ProfileEditView: View {
                     }
                     if let problem = socialProblem(platform) {
                         Text(problem.localizedMessage(network: platform.name))
-                            .font(.footnote)
+                            .font(.bipeFootnote)
                             .foregroundStyle(BipeColor.trustDangerInk)
                             .padding(.leading, socialLabelWidth + 8)
                     }

@@ -91,7 +91,7 @@ struct TrustCardSection: View {
                         if !profile.liveStepsDone {
                             ProgressView(value: profile.progress).tint(BipeColor.accentFill)
                         }
-                        Text(TrustProgress.text(profile)).font(.subheadline).foregroundStyle(BipeColor.inkSecondary)
+                        Text(TrustProgress.text(profile)).font(.bipeSubheadline).foregroundStyle(BipeColor.inkSecondary)
                     }
                     Spacer()
                     PhosphorIcon.caretRight.image.resizable().frame(width: 14, height: 14)
@@ -123,7 +123,7 @@ struct TrustProfileView: View {
             Section {
                 VStack(alignment: .leading, spacing: 8) {
                     ProgressView(value: profile.progress).tint(BipeColor.accentFill)
-                    Text(TrustProgress.text(profile)).font(.subheadline).foregroundStyle(BipeColor.inkSecondary)
+                    Text(TrustProgress.text(profile)).font(.bipeSubheadline).foregroundStyle(BipeColor.inkSecondary)
                 }
                 .padding(.vertical, 4)
             }
@@ -176,9 +176,9 @@ private struct TrustStepRow: View {
                 .frame(width: 24, alignment: .center)
             VStack(alignment: .leading, spacing: 2) {
                 Text(TrustText.title(step.id)).foregroundStyle(BipeColor.inkPrimary)
-                Text(TrustText.body(step.id, isCompany: isCompany)).font(.subheadline).foregroundStyle(BipeColor.inkSecondary)
+                Text(TrustText.body(step.id, isCompany: isCompany)).font(.bipeSubheadline).foregroundStyle(BipeColor.inkSecondary)
                 if step.status == .comingSoon {
-                    Text(BipeStrings.trustComingSoon).font(.footnote).italic().foregroundStyle(BipeColor.inkDisabled)
+                    Text(BipeStrings.trustComingSoon).font(.bipeFootnote).italic().foregroundStyle(BipeColor.inkDisabled)
                 }
             }
             Spacer()

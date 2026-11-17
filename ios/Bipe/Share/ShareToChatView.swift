@@ -113,7 +113,7 @@ private struct ShareToChatView: View {
             List {
                 if share.droppedOverLimit {
                     Text(BipeStrings.shareTooMany)
-                        .font(.footnote)
+                        .font(.bipeFootnote)
                         .foregroundStyle(BipeColor.inkSecondary)
                 }
                 if chats.isEmpty {

@@ -190,7 +190,7 @@ struct RecoveryKeySaveView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text(BipeStrings.accountRecoveryKey)
-                .font(.largeTitle.bold())
+                .font(.bipeLargeTitle.bold())
                 .foregroundStyle(BipeColor.inkPrimary)
             content
         }
@@ -224,12 +224,12 @@ struct RecoveryKeySaveView: View {
             }
         case .intro:
             Text(model.keyExists ? BipeStrings.accountRecoveryKeySaved : BipeStrings.accountRecoveryKeyMissing)
-                .font(.headline)
+                .font(.bipeHeadline)
                 .foregroundStyle(model.keyExists ? BipeColor.trustVerifiedInk : BipeColor.inkSecondary)
             Text(model.keyExists ? BipeStrings.appRecoveryKeyReplaceBody : BipeStrings.fallbackRecoveryKeyBody)
                 .foregroundStyle(BipeColor.inkSecondary)
             Text(BipeStrings.accountRecoveryKeyFooter)
-                .font(.footnote)
+                .font(.bipeFootnote)
                 .foregroundStyle(BipeColor.inkSecondary)
             Spacer()
             filled(model.keyExists ? BipeStrings.appRecoveryKeyReplace : BipeStrings.appRecoveryKeyCreate) {
@@ -247,7 +247,7 @@ struct RecoveryKeySaveView: View {
             Text(BipeStrings.appRecoveryKeyShowBody)
                 .foregroundStyle(BipeColor.inkSecondary)
             Text(BipeStrings.appRecoveryKeyAccount(model.account))
-                .font(.subheadline.weight(.semibold))
+                .font(.bipeSubheadline.weight(.semibold))
                 .foregroundStyle(BipeColor.inkPrimary)
                 .textSelection(.enabled)
             Text(model.groupedKey)

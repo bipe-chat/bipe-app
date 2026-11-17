@@ -44,7 +44,7 @@ struct VoiceRecordingView: View {
             iconButton(.trash, label: BipeStrings.appVoiceDelete, tint: BipeColor.trustDangerInk) { model.delete() }
             VStack(alignment: .leading, spacing: 2) {
                 Text(model.phase == .recording ? BipeStrings.appVoiceRecording : BipeStrings.appVoiceResume)
-                    .font(.caption.weight(.semibold))
+                    .font(.bipeCaption.weight(.semibold))
                     .foregroundStyle(model.phase == .recording ? BipeColor.trustDangerInk : BipeColor.inkSecondary)
                 Text(durationLabel)
                     .font(.subheadline.monospacedDigit())
@@ -107,13 +107,13 @@ struct VoiceRecordingView: View {
             HStack(spacing: 6) {
                 ProgressView()
                 Text(BipeStrings.voiceTranscribing)
-                    .font(.caption)
+                    .font(.bipeCaption)
                     .foregroundStyle(BipeColor.inkSecondary)
             }
         case .ready:
             VStack(alignment: .leading, spacing: 4) {
                 Text(BipeStrings.voiceTranscriptTitle)
-                    .font(.caption.weight(.semibold))
+                    .font(.bipeCaption.weight(.semibold))
                     .foregroundStyle(BipeColor.inkSecondary)
                 TextField(BipeStrings.voiceTranscriptPlaceholder,
                           text: Binding(get: { model.transcriptText }, set: { model.editTranscript($0) }),
@@ -126,7 +126,7 @@ struct VoiceRecordingView: View {
             }
         case .unavailable:
             Text(BipeStrings.voiceTranscriptUnavailable)
-                .font(.caption)
+                .font(.bipeCaption)
                 .foregroundStyle(BipeColor.inkSecondary)
         }
     }
@@ -134,7 +134,7 @@ struct VoiceRecordingView: View {
     private var microphoneDenied: some View {
         HStack(spacing: 10) {
             Text(BipeStrings.microphonePermissionBody)
-                .font(.subheadline)
+                .font(.bipeSubheadline)
                 .foregroundStyle(BipeColor.inkPrimary)
             Spacer()
             Button(BipeStrings.contactsOpenSettings) {
@@ -142,7 +142,7 @@ struct VoiceRecordingView: View {
                     UIApplication.shared.open(url)
                 }
             }
-            .font(.subheadline.weight(.semibold))
+            .font(.bipeSubheadline.weight(.semibold))
             .foregroundStyle(BipeColor.accentInk)
             iconButton(.x, label: BipeStrings.appCancel, tint: BipeColor.glyphSecondary) { model.delete() }
         }

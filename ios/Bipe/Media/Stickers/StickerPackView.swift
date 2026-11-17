@@ -111,7 +111,7 @@ struct StickerPackView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     if let handle = model.authorHandle {
                         Text(BipeStrings.stickerPackBy("@\(handle)"))
-                            .font(.subheadline)
+                            .font(.bipeSubheadline)
                             .foregroundStyle(BipeColor.inkSecondary)
                     }
                     LazyVGrid(columns: columns, spacing: 8) {
@@ -128,7 +128,7 @@ struct StickerPackView: View {
                 Group {
                     if model.phase == .added {
                         Text(BipeStrings.stickerPackAdded)
-                            .font(.subheadline.weight(.semibold))
+                            .font(.bipeSubheadline.weight(.semibold))
                             .foregroundStyle(BipeColor.inkSecondary)
                     } else {
                         Button {

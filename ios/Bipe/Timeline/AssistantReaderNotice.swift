@@ -19,7 +19,7 @@ struct AssistantReaderNotice: View {
                 .foregroundStyle(BipeColor.accentInk)
                 .accessibilityHidden(true)
             Text(BipeStrings.appAssistantReads(name))
-                .font(.footnote)
+                .font(.bipeFootnote)
                 .foregroundStyle(BipeColor.inkSecondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }

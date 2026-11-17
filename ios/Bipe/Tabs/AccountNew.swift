@@ -202,7 +202,7 @@ struct AccountNewView: View {
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title).foregroundStyle(on ? BipeColor.inkPrimary : BipeColor.inkDisabled)
-                    Text(body).font(.subheadline).foregroundStyle(BipeColor.inkSecondary)
+                    Text(body).font(.bipeSubheadline).foregroundStyle(BipeColor.inkSecondary)
                 }
             }
             .padding(.vertical, 4)

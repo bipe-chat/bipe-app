@@ -65,7 +65,7 @@ struct VoceView: View {
                             SettingsIconTile(icon: .notepad)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(BipeStrings.selfChatTitle).foregroundStyle(BipeColor.inkPrimary)
-                                Text(BipeStrings.selfChatSubtitle).font(.subheadline).foregroundStyle(BipeColor.inkSecondary)
+                                Text(BipeStrings.selfChatSubtitle).font(.bipeSubheadline).foregroundStyle(BipeColor.inkSecondary)
                             }
                             Spacer()
                             if openingNotes { ProgressView() }
@@ -223,9 +223,9 @@ private struct VoceProfileRow: View {
             AvatarView(name: account.displayName, mxcUrl: account.avatarUrl, loader: media, size: side,
                        userId: account.userId, isCompany: account.isCompany)
             VStack(alignment: .leading, spacing: 2) {
-                Text(account.displayName).font(.title3.weight(.semibold)).foregroundStyle(BipeColor.inkPrimary)
+                Text(account.displayName).font(.bipeTitle3.weight(.semibold)).foregroundStyle(BipeColor.inkPrimary)
                 if let handle = account.handleLine {
-                    Text(verbatim: handle).font(.subheadline).foregroundStyle(BipeColor.inkSecondary)
+                    Text(verbatim: handle).font(.bipeSubheadline).foregroundStyle(BipeColor.inkSecondary)
                 }
             }
         }

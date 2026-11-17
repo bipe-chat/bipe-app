@@ -188,7 +188,7 @@ struct RecoveryAlertView: View {
                 .foregroundStyle(BipeColor.accentInk)
                 .accessibilityHidden(true)
             Text(BipeStrings.recoveryPinReady)
-                .font(.title2.bold())
+                .font(.bipeTitle2.bold())
                 .foregroundStyle(BipeColor.inkPrimary)
             if !hasEmail {
                 Text(BipeStrings.pinResetAddEmail)
@@ -220,7 +220,7 @@ struct RecoveryAlertView: View {
                 .foregroundStyle(BipeColor.trustCautionInk)
                 .accessibilityHidden(true)
             Text(model.showsDeletion ? BipeStrings.deletionAlertTitle : BipeStrings.recoveryAlertTitle)
-                .font(.largeTitle.bold())
+                .font(.bipeLargeTitle.bold())
                 .foregroundStyle(BipeColor.inkPrimary)
             switch model.phase {
             case .cancelled:
@@ -241,7 +241,7 @@ struct RecoveryAlertView: View {
                 }
                 if model.phase == .failed {
                     Text(BipeStrings.errorNetwork)
-                        .font(.footnote)
+                        .font(.bipeFootnote)
                         .foregroundStyle(BipeColor.trustDangerInk)
                 }
                 Spacer()

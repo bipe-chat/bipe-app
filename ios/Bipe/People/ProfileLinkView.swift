@@ -56,12 +56,12 @@ struct ProfileLinkView: View {
                     Section {
                         VStack(spacing: 12) {
                             Text(BipeStrings.profileQrTitle)
-                                .font(.headline)
+                                .font(.bipeHeadline)
                                 .foregroundStyle(BipeColor.inkPrimary)
                             QRCodeImage(text: link.absoluteString)
                                 .frame(width: 240, height: 240)
                             Text(BipeStrings.profileQrFooter)
-                                .font(.footnote)
+                                .font(.bipeFootnote)
                                 .foregroundStyle(BipeColor.inkSecondary)
                                 .multilineTextAlignment(.center)
                         }

@@ -119,11 +119,11 @@ struct DeviceVerificationView: View {
         if model.placeKnown {
             VStack(spacing: 4) {
                 Text(model.place.map(BipeStrings.linkComputerPlace) ?? BipeStrings.linkComputerPlaceUnknown)
-                    .font(.subheadline.bold())
+                    .font(.bipeSubheadline.bold())
                     .foregroundStyle(BipeColor.inkPrimary)
                     .multilineTextAlignment(.center)
                 Text(BipeStrings.linkComputerPlaceSource)
-                    .font(.caption)
+                    .font(.bipeCaption)
                     .foregroundStyle(BipeColor.inkSecondary)
             }
         } else {
@@ -149,7 +149,7 @@ private struct TitleText: View {
 
     var body: some View {
         Text(text)
-            .font(.title2.bold())
+            .font(.bipeTitle2.bold())
             .foregroundStyle(BipeColor.inkPrimary)
             .multilineTextAlignment(.center)
     }
@@ -160,7 +160,7 @@ private struct BodyText: View {
 
     var body: some View {
         Text(text)
-            .font(.body)
+            .font(.bipeBody)
             .foregroundStyle(BipeColor.inkSecondary)
             .multilineTextAlignment(.center)
     }
@@ -181,7 +181,7 @@ private struct SymbolGrid: View {
                     Text(symbol.symbol)
                         .font(.system(size: symbolSize))
                     Text(symbol.label)
-                        .font(.caption)
+                        .font(.bipeCaption)
                         .foregroundStyle(BipeColor.inkSecondary)
                         .multilineTextAlignment(.center)
                 }
@@ -204,7 +204,7 @@ private struct Outcome: View {
             .foregroundStyle(color)
             .accessibilityHidden(true)
         Text(text)
-            .font(.title3)
+            .font(.bipeTitle3)
             .foregroundStyle(BipeColor.inkPrimary)
             .multilineTextAlignment(.center)
         Spacer()

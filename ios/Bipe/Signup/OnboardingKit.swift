@@ -32,7 +32,7 @@ struct OnboardingFilledButtonStyle: ButtonStyle {
             configuration.label.opacity(busy ? 0 : 1)
             if busy { ProgressView().tint(BipeColor.inkOnAccent) }
         }
-        .font(.headline)
+        .font(.bipeHeadline)
         .frame(maxWidth: .infinity, minHeight: OnboardingMetrics.buttonHeight)
         .padding(.horizontal, 20)
         .foregroundStyle(active ? BipeColor.inkOnAccent : BipeColor.inkDisabled)
@@ -55,7 +55,7 @@ struct OnboardingTonalButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.headline)
+            .font(.bipeHeadline)
             .frame(maxWidth: .infinity, minHeight: OnboardingMetrics.buttonHeight)
             .padding(.horizontal, 16)
             .foregroundStyle(isEnabled ? BipeColor.accentInk : BipeColor.inkDisabled)
@@ -77,7 +77,7 @@ struct OnboardingTextButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.body.weight(.semibold))
+            .font(.bipeBody.weight(.semibold))
             .foregroundStyle(isEnabled ? BipeColor.accentInk : BipeColor.inkDisabled)
             .frame(maxWidth: .infinity, minHeight: 48)
             .contentShape(Rectangle())
@@ -211,13 +211,13 @@ struct OnboardingStepLayout<Content: View, Actions: View>: View {
                     .padding(.bottom, 8)
                 VStack(alignment: .leading, spacing: 10) {
                     Text(title)
-                        .font(.largeTitle.bold())
+                        .font(.bipeLargeTitle.bold())
                         .foregroundStyle(BipeColor.inkPrimary)
                         .fixedSize(horizontal: false, vertical: true)
                         .accessibilityAddTraits(.isHeader)
                     if let message {
                         Text(message)
-                            .font(.body)
+                            .font(.bipeBody)
                             .foregroundStyle(BipeColor.inkSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -271,7 +271,7 @@ struct OnboardingFieldFooter: View {
                     .alignmentGuide(.firstTextBaseline) { $0[.bottom] - 2 }
             }
             Text(text)
-                .font(.footnote)
+                .font(.bipeFootnote)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .foregroundStyle(isError ? BipeColor.trustDangerInk : BipeColor.inkSecondary)

@@ -47,7 +47,7 @@ struct OldPhoneView: View {
                 .multilineTextAlignment(.center)
             if !joining {
                 Text(BipeStrings.appOldPhoneWhere)
-                    .font(.subheadline.bold())
+                    .font(.bipeSubheadline.bold())
                     .foregroundStyle(BipeColor.inkPrimary)
                     .multilineTextAlignment(.center)
             }
@@ -74,7 +74,7 @@ struct OldPhoneView: View {
             // Rule 5, at the moment of the scan.
             if !joining {
                 Text(BipeStrings.recoveryQrNeverFromOthers)
-                    .font(.footnote)
+                    .font(.bipeFootnote)
                     .foregroundStyle(BipeColor.inkSecondary)
                     .multilineTextAlignment(.center)
             }
@@ -117,7 +117,7 @@ struct OldPhoneView: View {
     private var pasteField: some View {
         VStack(spacing: 8) {
             Text(BipeStrings.appOldPhonePaste)
-                .font(.headline)
+                .font(.bipeHeadline)
                 .foregroundStyle(BipeColor.inkPrimary)
                 .frame(maxWidth: .infinity, alignment: .leading)
             TextField(BipeStrings.appOldPhonePasteHint, text: $model.pasted, axis: .vertical)
@@ -140,7 +140,7 @@ struct OldPhoneView: View {
     private func failure(_ error: OldPhoneModel.Failure) -> some View {
         VStack(spacing: 8) {
             Text(BipeStrings.appOldPhoneErrorTitle)
-                .font(.headline)
+                .font(.bipeHeadline)
                 .foregroundStyle(BipeColor.trustDangerInk)
             Text(error.message)
                 .foregroundStyle(BipeColor.inkPrimary)
@@ -156,7 +156,7 @@ struct OldPhoneView: View {
 
     private func title(_ text: String) -> some View {
         Text(text)
-            .font(.title2.bold())
+            .font(.bipeTitle2.bold())
             .foregroundStyle(BipeColor.inkPrimary)
             .multilineTextAlignment(.center)
     }

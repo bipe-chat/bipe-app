@@ -257,7 +257,7 @@ struct WorkNotesSheet: View {
                 List {
                     Section {
                         Text(BipeStrings.chatNotesHint(accountName))
-                            .font(.footnote)
+                            .font(.bipeFootnote)
                             .foregroundStyle(BipeColor.inkSecondary)
                     }
                     if notes.isEmpty {
@@ -268,14 +268,14 @@ struct WorkNotesSheet: View {
                             VStack(alignment: .leading, spacing: 4) {
                                 if let author = WorkQueueStore.shared.seatName(note.seatId) {
                                     Text(author)
-                                        .font(.caption.weight(.semibold))
+                                        .font(.bipeCaption.weight(.semibold))
                                         .foregroundStyle(BipeColor.inkSecondary)
                                 }
                                 Text(note.body)
-                                    .font(.body)
+                                    .font(.bipeBody)
                                     .foregroundStyle(BipeColor.inkPrimary)
                                 Text(note.createdAt, format: .dateTime.day().month(.abbreviated).hour().minute())
-                                    .font(.caption)
+                                    .font(.bipeCaption)
                                     .foregroundStyle(BipeColor.inkSecondary)
                             }
                         }
@@ -284,7 +284,7 @@ struct WorkNotesSheet: View {
                 .listStyle(.insetGrouped)
                 if phase == .failed {
                     Text(BipeStrings.chatNotesError)
-                        .font(.footnote)
+                        .font(.bipeFootnote)
                         .foregroundStyle(BipeColor.trustDangerInk)
                         .padding(.horizontal, 16)
                         .padding(.top, 8)

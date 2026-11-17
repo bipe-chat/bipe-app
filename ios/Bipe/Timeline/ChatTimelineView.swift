@@ -680,7 +680,7 @@ struct ChatTimelineView: View {
                        members: model.avatarMembers)
             VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 8) {
-                    Text(model.roomName).font(.headline).foregroundStyle(BipeColor.inkPrimary).lineLimit(1)
+                    Text(model.roomName).font(.bipeHeadline).foregroundStyle(BipeColor.inkPrimary).lineLimit(1)
                     if model.isNewsRoom || (model.isDm && BipeOfficialAccounts.isOfficial(model.peerUserId)) {
                         OfficialBadge()
                     }
@@ -729,7 +729,7 @@ struct ChatTimelineView: View {
                 Color.clear.frame(height: 1)
             }
         }
-        .font(.footnote)
+        .font(.bipeFootnote)
         .foregroundStyle(BipeColor.inkSecondary)
         .padding(.vertical, 8)
         // Runs while the top of the list is on screen, again after each load and each change of the rows
@@ -750,7 +750,7 @@ private struct TypingLine: View {
             HStack(spacing: 6) {
                 TypingDots()
                 Text(text)
-                    .font(.caption)
+                    .font(.bipeCaption)
                     .foregroundStyle(BipeColor.inkSecondary)
                     .lineLimit(1)
                 Spacer()
@@ -831,7 +831,7 @@ private struct ComposerBar: View {
         VStack(spacing: 0) {
             if !model.canPost {
                 Text(model.publicationClosed ? BipeStrings.groupPublicationOnlyBar : BipeStrings.dmNoPermissionToPost)
-                    .font(.footnote)
+                    .font(.bipeFootnote)
                     .foregroundStyle(BipeColor.inkSecondary)
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity)
@@ -844,7 +844,7 @@ private struct ComposerBar: View {
                 // Spec composer feedHandle (bipe-chat/bipe#1260): a top-level post here also goes to the public page.
                 if let handle = model.feedHandle, model.replyingTo == nil, model.editing == nil {
                     Text(BipeStrings.groupPublicFeedComposer(handle))
-                        .font(.footnote)
+                        .font(.bipeFootnote)
                         .foregroundStyle(BipeColor.inkSecondary)
                         .frame(maxWidth: .infinity)
                         .padding(.horizontal, 16)
@@ -961,7 +961,7 @@ private struct ComposerBar: View {
                                 }
                                 if let handle = suggestion.handle {
                                     Text(handle)
-                                        .font(.caption)
+                                        .font(.bipeCaption)
                                         .foregroundStyle(BipeColor.inkSecondary)
                                 }
                             }
@@ -991,18 +991,18 @@ private struct InviterHintRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(BipeStrings.inviterKnowsYouJoined(inviterName))
-                .font(.footnote)
+                .font(.bipeFootnote)
                 .foregroundStyle(BipeColor.inkSecondary)
             HStack {
                 if let handle = hint.handle {
                     Text(BipeStrings.inviterHint(handle))
-                        .font(.subheadline)
+                        .font(.bipeSubheadline)
                         .foregroundStyle(BipeColor.inkPrimary)
                 }
                 Spacer()
                 Button(action: greet) {
                     Text(BipeStrings.inviterHintAction)
-                        .font(.subheadline.weight(.semibold))
+                        .font(.bipeSubheadline.weight(.semibold))
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
                         .foregroundStyle(BipeColor.inkOnAccent)
@@ -1031,7 +1031,7 @@ private struct CvmStopOrderCard: View {
                     .foregroundStyle(BipeColor.trustDangerInk)
                     .accessibilityHidden(true)
                 Text(BipeStrings.cvmStopOrderCard(date))
-                    .font(.subheadline.bold())
+                    .font(.bipeSubheadline.bold())
                     .foregroundStyle(BipeColor.trustDangerInk)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }

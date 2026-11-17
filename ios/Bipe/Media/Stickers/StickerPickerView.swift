@@ -165,24 +165,24 @@ struct StickerPickerView: View {
                     VStack(spacing: 4) {
                         if model.tagsFailed {
                             Text(BipeStrings.appSaveError)
-                                .font(.footnote)
+                                .font(.bipeFootnote)
                                 .foregroundStyle(BipeColor.trustDangerInk)
                         }
                         if model.sendFailed {
                             Text(BipeStrings.appStickerSendFailed)
-                                .font(.footnote)
+                                .font(.bipeFootnote)
                                 .foregroundStyle(BipeColor.trustDangerInk)
                         }
                         if model.shareFailed {
                             Text(BipeStrings.stickersPackShareFailed)
-                                .font(.footnote)
+                                .font(.bipeFootnote)
                                 .foregroundStyle(BipeColor.trustDangerInk)
                         }
                         HStack(spacing: 12) {
                             Button(BipeStrings.stickersFromPhoto) { showsFromPhoto = true }
                             Button(BipeStrings.stickersImportAction) { showsImport = true }
                         }
-                        .font(.footnote.weight(.semibold))
+                        .font(.bipeFootnote.weight(.semibold))
                         .foregroundStyle(BipeColor.accentInk)
                     }
                     .padding(12)
@@ -229,7 +229,7 @@ struct StickerPickerView: View {
         case .loaded where model.packs.isEmpty:
             VStack(spacing: 8) {
                 Text(BipeStrings.stickersEmptyTitle)
-                    .font(.headline)
+                    .font(.bipeHeadline)
                     .foregroundStyle(BipeColor.inkPrimary)
                 Text(BipeStrings.stickersEmptyBody)
                     .foregroundStyle(BipeColor.inkSecondary)
@@ -276,12 +276,12 @@ struct StickerPickerView: View {
     private func section(_ title: String, _ stickers: [Sticker], share: (() -> Void)? = nil) -> some View {
         HStack {
             Text(title)
-                .font(.subheadline.weight(.semibold))
+                .font(.bipeSubheadline.weight(.semibold))
                 .foregroundStyle(BipeColor.inkSecondary)
             Spacer()
             if let share {
                 Button(BipeStrings.stickersPackShare, action: share)
-                    .font(.footnote.weight(.semibold))
+                    .font(.bipeFootnote.weight(.semibold))
                     .foregroundStyle(BipeColor.accentInk)
                     .disabled(model.isSharing)
             }
@@ -401,7 +401,7 @@ struct StickerImportView: View {
                     Text(BipeStrings.stickersImportHelp)
                         .foregroundStyle(BipeColor.inkPrimary)
                     Text(BipeStrings.stickersImportNote)
-                        .font(.footnote)
+                        .font(.bipeFootnote)
                         .foregroundStyle(BipeColor.inkSecondary)
                     Button(BipeStrings.stickersImportAction) { choosing = true }
                         .buttonStyle(.bipeProminent)

@@ -167,7 +167,7 @@ struct PinForgotView: View {
         default:
             VStack(alignment: .leading, spacing: 16) {
                 Text(BipeStrings.pinForgotTitle)
-                    .font(.title3.bold())
+                    .font(.bipeTitle3.bold())
                     .foregroundStyle(BipeColor.inkPrimary)
                 message
                 Spacer()
@@ -200,7 +200,7 @@ struct PinForgotView: View {
             }
         case .waiting(let readyAt), .cancelling(let readyAt):
             Text(BipeStrings.recoveryWaitingTitle)
-                .font(.headline)
+                .font(.bipeHeadline)
                 .foregroundStyle(BipeColor.inkPrimary)
             line(BipeStrings.recoveryWaitingPinBody(readyAt.formatted(date: .abbreviated, time: .shortened)))
             Button {
@@ -227,14 +227,14 @@ struct PinForgotView: View {
             line(BipeStrings.pinResetExpired)
         case .failed(let text):
             Text(text)
-                .font(.body)
+                .font(.bipeBody)
                 .foregroundStyle(BipeColor.trustDangerInk)
         }
     }
 
     private func line(_ text: String) -> some View {
         Text(text)
-            .font(.body)
+            .font(.bipeBody)
             .foregroundStyle(BipeColor.inkSecondary)
     }
 

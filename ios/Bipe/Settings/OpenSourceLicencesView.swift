@@ -36,7 +36,7 @@ struct OpenSourceLicencesView: View {
                         Text(verbatim: component.name)
                             .foregroundStyle(BipeColor.inkPrimary)
                         Text(verbatim: component.licence)
-                            .font(.subheadline)
+                            .font(.bipeSubheadline)
                             .foregroundStyle(BipeColor.inkSecondary)
                     }
                 }

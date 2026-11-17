@@ -19,11 +19,11 @@ struct DmComposerSlot<Composer: View>: View {
             if people.isBlocked(peerUserId) {
                 VStack(spacing: 8) {
                     Text(BipeStrings.appBlockedBar(name))
-                        .font(.footnote)
+                        .font(.bipeFootnote)
                         .foregroundStyle(BipeColor.inkSecondary)
                         .multilineTextAlignment(.center)
                     Button(BipeStrings.actionUnblockPerson) { unblocking = true }
-                        .font(.subheadline.weight(.semibold))
+                        .font(.bipeSubheadline.weight(.semibold))
                         .tint(BipeColor.accentInk)
                 }
                 .frame(maxWidth: .infinity)
@@ -52,7 +52,7 @@ struct DmLeftBar: View {
     var body: some View {
         HStack(spacing: 12) {
             Text(away == .accountGone ? BipeStrings.dmAccountGone : BipeStrings.dmLeft(name))
-                .font(.footnote)
+                .font(.bipeFootnote)
                 .foregroundStyle(BipeColor.inkSecondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
             if away == .left {
@@ -60,7 +60,7 @@ struct DmLeftBar: View {
                     ProgressView()
                 } else {
                     Button(BipeStrings.actionInviteAgain, action: inviteAgain)
-                        .font(.subheadline.weight(.semibold))
+                        .font(.bipeSubheadline.weight(.semibold))
                         .tint(BipeColor.accentInk)
                 }
             }

@@ -35,7 +35,7 @@ struct QuestionCard: View {
                         .frame(width: 18, height: 18)
                         .foregroundStyle(BipeColor.trustVerifiedInk)
                     Text(BipeStrings.appQuestionFrom(companyName))
-                        .font(.subheadline.weight(.semibold))
+                        .font(.bipeSubheadline.weight(.semibold))
                         .foregroundStyle(BipeColor.inkPrimary)
                         .multilineTextAlignment(.leading)
                 }
@@ -44,7 +44,7 @@ struct QuestionCard: View {
             .accessibilityAddTraits(.isHeader)
 
             Text(poll.question)
-                .font(.title3.weight(.semibold))
+                .font(.bipeTitle3.weight(.semibold))
                 .foregroundStyle(BipeColor.inkPrimary)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -63,13 +63,13 @@ struct QuestionCard: View {
                     Text(BipeStrings.appQuestionHint)
                 }
             }
-            .font(.callout)
+            .font(.bipeCallout)
             .foregroundStyle(BipeColor.inkSecondary)
             .fixedSize(horizontal: false, vertical: true)
 
             if let error {
                 Text(error)
-                    .font(.callout)
+                    .font(.bipeCallout)
                     .foregroundStyle(BipeColor.trustDangerInk)
             }
         }
@@ -86,7 +86,7 @@ struct QuestionCard: View {
         } label: {
             HStack(spacing: 10) {
                 Text(option.text)
-                    .font(.body.weight(isChosen ? .semibold : .regular))
+                    .font(.bipeBody.weight(isChosen ? .semibold : .regular))
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 8)

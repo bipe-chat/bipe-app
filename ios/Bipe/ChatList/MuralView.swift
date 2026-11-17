@@ -55,7 +55,7 @@ struct MuralTileRows<MenuContent: View>: View {
         if !quiet.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
                 Text(BipeStrings.chatMuralNoNews)
-                    .font(.footnote.weight(.semibold))
+                    .font(.bipeFootnote.weight(.semibold))
                     .foregroundStyle(BipeColor.inkSecondary)
                     .accessibilityAddTraits(.isHeader)
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 52), spacing: 8)], alignment: .leading, spacing: 8) {
@@ -208,7 +208,7 @@ private struct MuralTileContent: View {
                 Spacer(minLength: 8)
                 if let lastActivity = chat.lastActivity {
                     Text(lastActivity, format: ChatRow.timeFormat(for: lastActivity))
-                        .font(.caption)
+                        .font(.bipeCaption)
                         .foregroundStyle(BipeColor.inkSecondary)
                         .monospacedDigit()
                         .fixedSize(horizontal: true, vertical: false)
@@ -234,7 +234,7 @@ private struct MuralTileContent: View {
                 name(.subheadline.weight(.semibold), chat.name)
                 if let reason = tile.reason {
                     Text(MuralReason.text(reason))
-                        .font(.caption)
+                        .font(.bipeCaption)
                         .foregroundStyle(BipeColor.accentInk)
                         .lineLimit(1)
                 }
@@ -252,7 +252,7 @@ private struct MuralTileContent: View {
             avatar(44)
             name(.footnote.weight(.semibold), firstWord)
             Text(messages.last ?? "")
-                .font(.caption)
+                .font(.bipeCaption)
                 .foregroundStyle(BipeColor.inkSecondary)
                 .multilineTextAlignment(.center)
                 .lineLimit(BipeHomeScore.tier3TextLines)
@@ -288,7 +288,7 @@ private struct MuralTileContent: View {
 
     private func bubble(_ text: String, lines: Int) -> some View {
         Text(text)
-            .font(.subheadline)
+            .font(.bipeSubheadline)
             .foregroundStyle(BipeColor.inkPrimary)
             .lineLimit(lines)
             .multilineTextAlignment(.leading)
@@ -338,13 +338,13 @@ private struct MuralReplyField: View {
         VStack(alignment: .leading, spacing: 6) {
             if let draft = model.savedDraft, model.replyText == draft {
                 Text(BipeStrings.appChatListDraft(draft))
-                    .font(.footnote)
+                    .font(.bipeFootnote)
                     .foregroundStyle(BipeColor.inkSecondary)
                     .lineLimit(1)
             }
             if model.replyFailed {
                 Text(BipeStrings.errorGeneric)
-                    .font(.footnote)
+                    .font(.bipeFootnote)
                     .foregroundStyle(BipeColor.trustDangerInk)
             }
             HStack(alignment: .bottom, spacing: 8) {

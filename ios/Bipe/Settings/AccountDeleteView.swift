@@ -109,7 +109,7 @@ struct AccountDeleteView: View {
 
     private func point(_ text: String) -> some View {
         Text(text)
-            .font(.subheadline)
+            .font(.bipeSubheadline)
             .foregroundStyle(BipeColor.inkPrimary)
     }
 
@@ -200,7 +200,7 @@ struct DeletionBanner: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(BipeStrings.deletionBanner(DeletionDate.text(deletion.dueAt)))
-                .font(.subheadline)
+                .font(.bipeSubheadline)
                 .foregroundStyle(BipeColor.trustDangerInk)
             Button(action: onCancel) {
                 Text(BipeStrings.deletionCancel)

@@ -21,17 +21,17 @@ struct PollCard: View {
                     .foregroundStyle(BipeColor.accentInk)
                     .accessibilityHidden(true)
                 Text(poll.isEnded ? BipeStrings.appPollEnded : BipeStrings.appPollTitle)
-                    .font(.caption.bold())
+                    .font(.bipeCaption.bold())
                     .foregroundStyle(BipeColor.accentInk)
             }
             Text(poll.question)
-                .font(.headline)
+                .font(.bipeHeadline)
                 .foregroundStyle(BipeColor.inkPrimary)
             ForEach(poll.options) { option in
                 PollOptionLine(option: option, total: poll.totalVotes)
             }
             Text(footer)
-                .font(.caption)
+                .font(.bipeCaption)
                 .foregroundStyle(BipeColor.inkSecondary)
         }
     }
@@ -63,7 +63,7 @@ struct PollOptionLine: View {
                 }
                 if let count = option.voteCount {
                     Text(count.formatted())
-                        .font(.footnote)
+                        .font(.bipeFootnote)
                         .foregroundStyle(BipeColor.inkSecondary)
                 }
             }
@@ -244,7 +244,7 @@ struct PollDetailView: View {
         List {
             Section {
                 Text(poll.question)
-                    .font(.title3.bold())
+                    .font(.bipeTitle3.bold())
                     .foregroundStyle(BipeColor.inkPrimary)
                 if poll.isEnded {
                     Text(BipeStrings.appPollEnded)
@@ -263,17 +263,17 @@ struct PollDetailView: View {
                             PollOptionLine(option: option, total: poll.totalVotes)
                             if option.isYourVote {
                                 Text(BipeStrings.appPollYourVote)
-                                    .font(.caption)
+                                    .font(.bipeCaption)
                                     .foregroundStyle(BipeColor.accentInk)
                             }
                             if option.isWinner {
                                 Text(BipeStrings.appPollMostVotes)
-                                    .font(.caption.bold())
+                                    .font(.bipeCaption.bold())
                                     .foregroundStyle(BipeColor.accentInk)
                             }
                             if !option.voterIds.isEmpty {
                                 Text(option.voterIds.map { names[$0] ?? BipeChatRowName.person(userID: $0, displayName: nil, handle: nil) }.joined(separator: ", "))
-                                    .font(.caption)
+                                    .font(.bipeCaption)
                                     .foregroundStyle(BipeColor.inkSecondary)
                             }
                         }

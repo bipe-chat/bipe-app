@@ -114,12 +114,12 @@ struct GroupDetailsView: View {
             }
             if model.phase == .viewing {
                 Text(model.name)
-                    .font(.title2.bold())
+                    .font(.bipeTitle2.bold())
                     .foregroundStyle(BipeColor.inkPrimary)
                     .multilineTextAlignment(.center)
                 if isNotes == false {
                     Text(BipeStrings.appGroupDetailsPeople(model.memberCount.formatted()))
-                        .font(.subheadline)
+                        .font(.bipeSubheadline)
                         .foregroundStyle(BipeColor.inkSecondary)
                 }
             } else if model.canEditPhoto {

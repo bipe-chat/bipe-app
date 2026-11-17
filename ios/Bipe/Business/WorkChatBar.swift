@@ -21,7 +21,7 @@ struct WorkChatBar: View {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(queue.barLine(roomId: roomId))
-                        .font(.subheadline.weight(.semibold))
+                        .font(.bipeSubheadline.weight(.semibold))
                         .foregroundStyle(BipeColor.inkPrimary)
                     Menu {
                         ForEach(BipeChatAssignmentStatus.allCases, id: \.self) { status in
@@ -29,7 +29,7 @@ struct WorkChatBar: View {
                         }
                     } label: {
                         Text(Self.title(of: queue.status(roomId: roomId)))
-                            .font(.footnote)
+                            .font(.bipeFootnote)
                             .foregroundStyle(BipeColor.accentInk)
                     }
                     .disabled(busy)
@@ -38,11 +38,11 @@ struct WorkChatBar: View {
                 if busy { ProgressView() }
                 if assignee != queue.mySeatId || assignee == nil {
                     Button(BipeStrings.chatTake) { Task { await queue.take(roomId: roomId) } }
-                        .font(.subheadline.weight(.semibold))
+                        .font(.bipeSubheadline.weight(.semibold))
                         .disabled(busy || queue.mySeatId == nil)
                 }
                 Button(BipeStrings.chatNotes, action: openNotes)
-                    .font(.subheadline)
+                    .font(.bipeSubheadline)
                 Menu {
                     if queue.activeSeats.contains(where: { $0.id != assignee }) {
                         Button(BipeStrings.chatGive) { giving = true }
@@ -63,12 +63,12 @@ struct WorkChatBar: View {
             if queue.isTakenByOther(roomId: roomId) || queue.taken.contains(roomId),
                let name = queue.seatName(queue.assignee(roomId: roomId)) {
                 Text(BipeStrings.chatTakenBanner(name))
-                    .font(.footnote)
+                    .font(.bipeFootnote)
                     .foregroundStyle(BipeColor.inkPrimary)
             }
             if queue.failed.contains(roomId) {
                 Text(BipeStrings.chatAssignError)
-                    .font(.footnote)
+                    .font(.bipeFootnote)
                     .foregroundStyle(BipeColor.trustDangerInk)
             }
         }

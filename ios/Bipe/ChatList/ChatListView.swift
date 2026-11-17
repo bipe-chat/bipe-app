@@ -779,14 +779,14 @@ struct ChatListView: View {
     private var emptyState: some View {
         VStack(spacing: 12) {
             if scope == .grupos {
-                Text(BipeStrings.groupsEmptyTitle).font(.headline).foregroundStyle(BipeColor.inkPrimary)
+                Text(BipeStrings.groupsEmptyTitle).font(.bipeHeadline).foregroundStyle(BipeColor.inkPrimary)
                 Text(BipeStrings.groupsEmptyBody).foregroundStyle(BipeColor.inkSecondary)
                 // Spec chat-list-cards createGroup.
                 Button(BipeStrings.groupsEmptyCreate) { creatingGroup = true }
                     .buttonStyle(.bipeProminent)
             } else {
                 Text(BipeStrings.chatsEmptyTitle)
-                    .font(.headline)
+                    .font(.bipeHeadline)
                     .foregroundStyle(BipeColor.inkPrimary)
                 Text(BipeStrings.chatsEmptyBody)
                     .foregroundStyle(BipeColor.inkSecondary)
@@ -913,7 +913,7 @@ struct ChatRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(alignment: .firstTextBaseline) {
                     Text(chat.name)
-                        .font(.headline)
+                        .font(.bipeHeadline)
                         .foregroundStyle(BipeColor.inkPrimary)
                         .lineLimit(1)
                     if chat.isOfficial {
@@ -925,7 +925,7 @@ struct ChatRow: View {
                     Spacer(minLength: 8)
                     if let lastActivity = chat.lastActivity {
                         Text(lastActivity, format: Self.timeFormat(for: lastActivity))
-                            .font(.caption)
+                            .font(.bipeCaption)
                             .foregroundStyle(BipeColor.inkSecondary)
                             .monospacedDigit()
                             .fixedSize(horizontal: true, vertical: false)
@@ -937,13 +937,13 @@ struct ChatRow: View {
                 BrandMarkCaption(userId: chat.peerUserId)
                 if let assigneeLine {
                     Text(assigneeLine)
-                        .font(.caption.weight(.semibold))
+                        .font(.bipeCaption.weight(.semibold))
                         .foregroundStyle(BipeColor.accentInk)
                         .lineLimit(1)
                 }
                 HStack {
                     Text(chat.lastMessage ?? "")
-                        .font(.subheadline)
+                        .font(.bipeSubheadline)
                         .foregroundStyle(BipeColor.inkSecondary)
                         .lineLimit(2)
                     Spacer(minLength: 8)
@@ -981,7 +981,7 @@ struct ChatRowBadges: View {
             if chat.mentionCount > 0 {
                 // A mention has its own mark, not only a colour (bipe#497). The count's label reads it.
                 Text(verbatim: "@")
-                    .font(.caption.bold())
+                    .font(.bipeCaption.bold())
                     .foregroundStyle(BipeColor.inkOnAccent)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
@@ -990,7 +990,7 @@ struct ChatRowBadges: View {
             }
             let count = chat.unreadCount.formatted()
             Text(count)
-                .font(.caption.bold())
+                .font(.bipeCaption.bold())
                 .foregroundStyle(BipeColor.inkOnAccent)
                 .padding(.horizontal, 7)
                 .padding(.vertical, 2)
@@ -1029,11 +1029,11 @@ private struct FavouritesGrid<MenuContent: View>: View {
             if reordering {
                 HStack {
                     Text(BipeStrings.chatFavouritesReorderHint)
-                        .font(.footnote)
+                        .font(.bipeFootnote)
                         .foregroundStyle(BipeColor.inkSecondary)
                     Spacer()
                     Button(BipeStrings.chatFavouritesReorderDone) { reordering = false }
-                        .font(.body.weight(.semibold))
+                        .font(.bipeBody.weight(.semibold))
                         .buttonStyle(.borderless)
                 }
             }
@@ -1106,7 +1106,7 @@ private struct FavouritesGrid<MenuContent: View>: View {
                 }
             HStack(spacing: 4) {
                 Text(chat.name)
-                    .font(.caption)
+                    .font(.bipeCaption)
                     .foregroundStyle(BipeColor.inkPrimary)
                     .lineLimit(1)
                 if chat.isOfficial { OfficialBadge() }

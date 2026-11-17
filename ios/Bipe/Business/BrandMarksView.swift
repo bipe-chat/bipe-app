@@ -156,7 +156,7 @@ struct BrandMarksView: View {
                             .foregroundStyle(BipeColor.inkPrimary)
                             .textSelection(.enabled)
                         Text(BipeStrings.brandMarksCodeReady(Self.days(created.invite).formatted()))
-                            .font(.footnote)
+                            .font(.bipeFootnote)
                             .foregroundStyle(BipeColor.inkSecondary)
                         HStack {
                             Button(BipeStrings.appCopy) {
@@ -191,7 +191,7 @@ struct BrandMarksView: View {
                         Text(Self.line(label: invite.label, brandName: brandName ?? ""))
                             .foregroundStyle(BipeColor.inkPrimary)
                         Text(invite.expiresAt.formatted(date: .abbreviated, time: .omitted))
-                            .font(.caption)
+                            .font(.bipeCaption)
                             .foregroundStyle(BipeColor.inkSecondary)
                     }
                     Spacer()
@@ -214,7 +214,7 @@ struct BrandMarksView: View {
                         Text(resellerNames[mark.reseller] ?? BipeChatRowName.person(userID: mark.reseller, displayName: nil, handle: nil))
                             .foregroundStyle(BipeColor.inkPrimary)
                         Text(Self.line(label: mark.label, brandName: brandName ?? ""))
-                            .font(.caption)
+                            .font(.bipeCaption)
                             .foregroundStyle(BipeColor.inkSecondary)
                     }
                     Spacer()
@@ -232,7 +232,7 @@ struct BrandMarksView: View {
             List {
                 Section {
                     Text(Self.line(label: offer.preview.label, brandName: offer.preview.brandName))
-                        .font(.headline)
+                        .font(.bipeHeadline)
                         .foregroundStyle(BipeColor.inkPrimary)
                     Text(BipeStrings.badgeCompanyCnpj + " " + BipeCNPJ.formatted(offer.preview.cnpj))
                         .foregroundStyle(BipeColor.inkSecondary)

@@ -259,10 +259,10 @@ struct AssistantDraftBanner: View {
                         .accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 4) {
                         Text(BipeStrings.appDraftsBanner(draft.client))
-                            .font(.caption.weight(.semibold))
+                            .font(.bipeCaption.weight(.semibold))
                             .foregroundStyle(BipeColor.accentInk)
                         Text(draft.body)
-                            .font(.subheadline)
+                            .font(.bipeSubheadline)
                             .foregroundStyle(BipeColor.inkPrimary)
                             .lineLimit(6)
                     }
@@ -270,7 +270,7 @@ struct AssistantDraftBanner: View {
                 }
                 HStack(spacing: 16) {
                     Button(BipeStrings.appDraftsSend) { Task { await store.send(draft) } }
-                        .font(.subheadline.weight(.semibold))
+                        .font(.bipeSubheadline.weight(.semibold))
                         .disabled(busy)
                     Button(BipeStrings.appDraftsEdit) {
                         Task {
@@ -278,10 +278,10 @@ struct AssistantDraftBanner: View {
                             await store.discard(draft)
                         }
                     }
-                    .font(.subheadline)
+                    .font(.bipeSubheadline)
                     .disabled(busy)
                     Button(BipeStrings.appDraftsDiscard, role: .destructive) { Task { await store.discard(draft) } }
-                        .font(.subheadline)
+                        .font(.bipeSubheadline)
                         .disabled(busy)
                     if busy {
                         ProgressView()
@@ -290,12 +290,12 @@ struct AssistantDraftBanner: View {
                 .padding(.leading, 28)
                 if store.failedEventId == draft.eventId {
                     Text(BipeStrings.appDraftsSendFailed)
-                        .font(.footnote)
+                        .font(.bipeFootnote)
                         .foregroundStyle(BipeColor.inkPrimary)
                         .padding(.leading, 28)
                 } else if store.showsNothingSent {
                     Text(BipeStrings.appDraftsNothingSent)
-                        .font(.footnote)
+                        .font(.bipeFootnote)
                         .foregroundStyle(BipeColor.inkSecondary)
                         .padding(.leading, 28)
                 }
@@ -336,14 +336,14 @@ struct AssistantDraftsList: View {
                         } label: {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(draft.roomName)
-                                    .font(.headline)
+                                    .font(.bipeHeadline)
                                     .foregroundStyle(BipeColor.inkPrimary)
                                 Text(draft.body)
-                                    .font(.subheadline)
+                                    .font(.bipeSubheadline)
                                     .foregroundStyle(BipeColor.inkPrimary)
                                     .lineLimit(2)
                                 Text(BipeStrings.appDraftsBanner(draft.client))
-                                    .font(.caption)
+                                    .font(.bipeCaption)
                                     .foregroundStyle(BipeColor.inkSecondary)
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)

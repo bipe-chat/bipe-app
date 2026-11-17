@@ -22,10 +22,10 @@ struct RecoveryKeyEnterView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text(BipeStrings.appRecoveryKeyEnterTitle)
-                .font(.title2.bold())
+                .font(.bipeTitle2.bold())
                 .foregroundStyle(BipeColor.inkPrimary)
             Text(BipeStrings.appRecoveryKeyEnterBody)
-                .font(.body)
+                .font(.bipeBody)
                 .foregroundStyle(BipeColor.inkSecondary)
             TextField("", text: Binding(get: { model.key }, set: { model.editKey($0) }), axis: .vertical)
                 .font(.body.monospaced())

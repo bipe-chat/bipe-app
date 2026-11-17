@@ -149,7 +149,7 @@ struct ChatSearchResults: View {
                                 }
                                 // Each result shows whether it is a chat or a group.
                                 Text(chat.isDm ? BipeStrings.tabChats : BipeStrings.tabGroups)
-                                    .font(.caption)
+                                    .font(.bipeCaption)
                                     .foregroundStyle(BipeColor.inkSecondary)
                             }
                         }
@@ -199,7 +199,7 @@ struct ChatSearchResults: View {
                     Text(BipeStrings.searchRecent)
                     Spacer()
                     Button(BipeStrings.searchRecentClear) { search.clearRecent() }
-                        .font(.caption)
+                        .font(.bipeCaption)
                 }
             }
         }

@@ -109,14 +109,14 @@ struct PinnedBanner: View {
                             Text(model.pins.count > 1
                                  ? BipeStrings.pinnedBannerCount(String(model.shownIndex + 1), String(model.pins.count))
                                  : BipeStrings.pinnedBannerTitle)
-                                .font(.caption.weight(.semibold))
+                                .font(.bipeCaption.weight(.semibold))
                                 .foregroundStyle(BipeColor.accentInk)
                             HStack(spacing: 4) {
                                 Text(pin.senderName)
-                                    .font(.subheadline.weight(.medium))
+                                    .font(.bipeSubheadline.weight(.medium))
                                     .foregroundStyle(BipeColor.inkSecondary)
                                 Text(pin.text)
-                                    .font(.subheadline)
+                                    .font(.bipeSubheadline)
                                     .foregroundStyle(BipeColor.inkPrimary)
                             }
                             .lineLimit(1)
@@ -128,7 +128,7 @@ struct PinnedBanner: View {
                 .buttonStyle(.plain)
                 if model.pins.count > 1 {
                     Button(BipeStrings.pinnedViewAll) { model.showsList = true }
-                        .font(.caption.weight(.semibold))
+                        .font(.bipeCaption.weight(.semibold))
                 }
             }
             .padding(.horizontal, 12)
@@ -155,7 +155,7 @@ private struct PinnedList: View {
                 Button { open(pin.eventId) } label: {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(pin.senderName)
-                            .font(.caption.weight(.semibold))
+                            .font(.bipeCaption.weight(.semibold))
                             .foregroundStyle(BipeColor.inkSecondary)
                         Text(pin.text)
                             .foregroundStyle(BipeColor.inkPrimary)

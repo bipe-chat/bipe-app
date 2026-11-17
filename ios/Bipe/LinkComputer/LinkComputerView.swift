@@ -92,7 +92,7 @@ private struct LinkComputerScanView: View {
     @ViewBuilder
     private var scanner: some View {
         Text(BipeStrings.appLinkComputerScanTitle)
-            .font(.title2.bold())
+            .font(.bipeTitle2.bold())
             .foregroundStyle(BipeColor.inkPrimary)
             .multilineTextAlignment(.center)
         if let tabs, model.scanPhase != .connecting, model.scanPhase != .showCheckCode {
@@ -115,7 +115,7 @@ private struct LinkComputerScanView: View {
             .buttonStyle(.bipeProminent)
         case .scanning, .failed:
             Text(BipeStrings.appLinkComputerScanBody)
-                .font(.body)
+                .font(.bipeBody)
                 .foregroundStyle(BipeColor.inkSecondary)
                 .multilineTextAlignment(.center)
             QRScannerView { model.codeRead($0) }
@@ -123,7 +123,7 @@ private struct LinkComputerScanView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 16))
             // Rule 5, at the moment of the scan.
             Text(BipeStrings.recoveryQrNeverFromOthers)
-                .font(.footnote)
+                .font(.bipeFootnote)
                 .foregroundStyle(BipeColor.inkSecondary)
                 .multilineTextAlignment(.center)
             if let error = model.scanError {
@@ -135,7 +135,7 @@ private struct LinkComputerScanView: View {
                 .foregroundStyle(BipeColor.inkSecondary)
         case .showCheckCode:
             Text(BipeStrings.appLinkComputerCheckCodeTitle)
-                .font(.headline)
+                .font(.bipeHeadline)
                 .foregroundStyle(BipeColor.inkPrimary)
             // Large; never read aloud or sent anywhere.
             Text(verbatim: model.checkCode ?? "")
@@ -154,7 +154,7 @@ private struct LinkComputerScanView: View {
     private func failure(_ error: LinkComputerModel.Failure) -> some View {
         VStack(spacing: 8) {
             Text(BipeStrings.linkComputerErrorTitle)
-                .font(.headline)
+                .font(.bipeHeadline)
                 .foregroundStyle(BipeColor.trustDangerInk)
             Text(error.message(model.mode))
                 .foregroundStyle(BipeColor.inkPrimary)
@@ -178,7 +178,7 @@ private struct LinkComputerScanView: View {
 
     private func message(_ text: String) -> some View {
         Text(text)
-            .font(.body)
+            .font(.bipeBody)
             .foregroundStyle(BipeColor.inkPrimary)
             .multilineTextAlignment(.center)
             .frame(maxHeight: .infinity)
@@ -199,15 +199,15 @@ private struct LinkComputerAccountRow: View {
                            userId: account.userId, isCompany: account.isCompany)
                 VStack(alignment: .leading, spacing: 0) {
                     Text(BipeStrings.appLinkComputerAccount)
-                        .font(.footnote)
+                        .font(.bipeFootnote)
                         .foregroundStyle(BipeColor.inkSecondary)
                     Text(account.displayName)
-                        .font(.body.bold())
+                        .font(.bipeBody.bold())
                         .foregroundStyle(BipeColor.inkPrimary)
                         .lineLimit(1)
                     if let handle = account.handleLine {
                         Text(verbatim: handle)
-                            .font(.footnote)
+                            .font(.bipeFootnote)
                             .foregroundStyle(BipeColor.inkSecondary)
                             .lineLimit(1)
                     }
@@ -274,14 +274,14 @@ private struct LinkComputerWarningView: View {
                 .foregroundStyle(BipeColor.trustCautionInk)
                 .accessibilityHidden(true)
             Text(warningTitle)
-                .font(.title2.bold())
+                .font(.bipeTitle2.bold())
                 .foregroundStyle(BipeColor.inkPrimary)
             Text(warningBody)
                 .foregroundStyle(BipeColor.inkPrimary)
             // ADR 0059: the time of the request; the model and the place show on the MAS page.
             if model.mode == .phone, let requestedAt = model.requestedAt {
                 Text(BipeStrings.appLinkPhoneTime(requestedAt.formatted(date: .omitted, time: .shortened)))
-                    .font(.body.bold())
+                    .font(.bipeBody.bold())
                     .foregroundStyle(BipeColor.inkPrimary)
             }
             Text(warningScam)
@@ -344,13 +344,13 @@ private struct LinkComputerApproveView: View {
                     .foregroundStyle(BipeColor.trustVerifiedInk)
                     .accessibilityHidden(true)
                 Text(model.person.map { BipeStrings.teamAddDone($0.name) } ?? (model.mode == .computer ? BipeStrings.linkComputerDone : BipeStrings.appLinkPhoneDone))
-                    .font(.title3.bold())
+                    .font(.bipeTitle3.bold())
                     .foregroundStyle(BipeColor.inkPrimary)
                     .multilineTextAlignment(.center)
                 Spacer()
             case .failed:
                 Text(model.mode == .computer ? BipeStrings.linkComputerErrorTitle : BipeStrings.appLinkPhoneErrorTitle)
-                    .font(.headline)
+                    .font(.bipeHeadline)
                     .foregroundStyle(BipeColor.trustDangerInk)
                 Text(model.approveError?.message(model.mode) ?? BipeStrings.errorGeneric)
                     .foregroundStyle(BipeColor.inkPrimary)
@@ -377,7 +377,7 @@ private struct LinkComputerApproveView: View {
             }
             if model.person == nil {
                 Text(model.mode == .computer ? BipeStrings.linkComputerConsentHint : BipeStrings.appLinkPhoneConsentHint)
-                    .font(.subheadline)
+                    .font(.bipeSubheadline)
                     .foregroundStyle(BipeColor.inkPrimary)
             }
             if model.people.count > 1 {
@@ -389,16 +389,16 @@ private struct LinkComputerApproveView: View {
             }
             VStack(alignment: .leading, spacing: 4) {
                 Text(model.device.map(BipeStrings.linkComputerDevice) ?? BipeStrings.linkComputerDeviceUnknown)
-                    .font(.subheadline.bold())
+                    .font(.bipeSubheadline.bold())
                 if let ip = model.ip {
                     Text(BipeStrings.linkComputerIp(ip))
-                        .font(.subheadline)
+                        .font(.bipeSubheadline)
                 }
                 if model.placeKnown {
                     Text(model.place.map(BipeStrings.linkComputerPlace) ?? BipeStrings.linkComputerPlaceUnknown)
-                        .font(.subheadline.bold())
+                        .font(.bipeSubheadline.bold())
                     Text(BipeStrings.linkComputerPlaceSource)
-                        .font(.caption)
+                        .font(.bipeCaption)
                         .foregroundStyle(BipeColor.inkSecondary)
                 }
             }

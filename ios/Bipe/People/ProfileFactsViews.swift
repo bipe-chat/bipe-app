@@ -20,7 +20,7 @@ struct ProfileFactsLines: View {
         VStack(spacing: 2) {
             ForEach(Array(texts.enumerated()), id: \.offset) { _, text in
                 Text(text)
-                    .font(.footnote)
+                    .font(.bipeFootnote)
                     .foregroundStyle(BipeColor.inkSecondary)
                     .multilineTextAlignment(alignment)
             }
@@ -56,7 +56,7 @@ struct ProfileNoticeBar: View {
                         .foregroundStyle(BipeColor.trustCautionInk)
                         .accessibilityHidden(true)
                     Text(notice)
-                        .font(.footnote)
+                        .font(.bipeFootnote)
                         .foregroundStyle(BipeColor.inkPrimary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }

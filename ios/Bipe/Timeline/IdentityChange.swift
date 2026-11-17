@@ -122,11 +122,11 @@ struct IdentityChangeBar: View {
                         .accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(first.text)
-                            .font(.footnote)
+                            .font(.bipeFootnote)
                             .foregroundStyle(BipeColor.inkPrimary)
                         if model.warnings.count > 1 {
                             Text(BipeStrings.identityChangeMore(String(model.warnings.count - 1)))
-                                .font(.footnote)
+                                .font(.bipeFootnote)
                                 .foregroundStyle(BipeColor.inkSecondary)
                         }
                     }
@@ -134,10 +134,10 @@ struct IdentityChangeBar: View {
                 }
                 HStack(spacing: 16) {
                     Button(BipeStrings.identityChangeOk) { Task { await model.acknowledge() } }
-                        .font(.subheadline.weight(.semibold))
+                        .font(.bipeSubheadline.weight(.semibold))
                         .disabled(model.busy)
                     Button(BipeStrings.identityChangeLearnMore) { model.showsHelp = true }
-                        .font(.subheadline)
+                        .font(.bipeSubheadline)
                 }
                 .padding(.leading, 28)
             }

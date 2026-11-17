@@ -41,7 +41,7 @@ struct GroupMembersView: View {
             if model.customRoles {
                 Section {
                     Text(BipeStrings.appGroupRolesCustom)
-                        .font(.footnote)
+                        .font(.bipeFootnote)
                         .foregroundStyle(BipeColor.inkSecondary)
                 }
             }
@@ -80,7 +80,7 @@ struct GroupMembersView: View {
                 ForEach([BipeStrings.appGroupRoleAdminBody, BipeStrings.appGroupRoleModeratorBody, BipeStrings.appGroupRoleMemberBody],
                         id: \.self) { text in
                     Text(text)
-                        .font(.footnote)
+                        .font(.bipeFootnote)
                         .foregroundStyle(BipeColor.inkSecondary)
                 }
             } header: {
@@ -149,18 +149,18 @@ struct GroupMembersView: View {
                     }
                     if member.person.userId == BipeRegistries.groupsAccountID {
                         Text(BipeStrings.groupsServiceAbout)
-                            .font(.footnote)
+                            .font(.bipeFootnote)
                             .foregroundStyle(BipeColor.inkSecondary)
                     }
                 }
                 Spacer()
                 if member.isYou {
                     Text(BipeStrings.appYou)
-                        .font(.footnote)
+                        .font(.bipeFootnote)
                         .foregroundStyle(BipeColor.inkSecondary)
                 } else if member.role != .member {
                     Text(member.isAdmin ? BipeStrings.appGroupAdmin : BipeStrings.appGroupModerator)
-                        .font(.footnote)
+                        .font(.bipeFootnote)
                         .foregroundStyle(BipeColor.accentInk)
                 }
             }

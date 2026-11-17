@@ -45,7 +45,7 @@ struct StaticMapView: View {
                             .resizable()
                             .frame(width: 22, height: 22)
                         Text(BipeStrings.appMediaFailed)
-                            .font(.caption)
+                            .font(.bipeCaption)
                             .multilineTextAlignment(.center)
                     }
                     .padding(10)

@@ -132,7 +132,7 @@ struct TimelineMediaRow: View {
             switch display {
             case .tapToShow:
                 Text(BipeStrings.appMediaTapToShow)
-                    .font(.footnote.weight(.semibold))
+                    .font(.bipeFootnote.weight(.semibold))
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
                     .mediaScrim(Capsule())
@@ -146,7 +146,7 @@ struct TimelineMediaRow: View {
                         .resizable()
                         .frame(width: 22, height: 22)
                     Text(BipeStrings.appMediaFailed)
-                        .font(.caption)
+                        .font(.bipeCaption)
                         .multilineTextAlignment(.center)
                 }
                 .padding(10)
@@ -234,17 +234,17 @@ struct TimelineMediaRow: View {
                 .frame(width: 40, height: 40)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(media.filename)
-                        .font(.subheadline.weight(.semibold))
+                        .font(.bipeSubheadline.weight(.semibold))
                         .foregroundStyle(BipeColor.inkPrimary)
                         .lineLimit(2)
                         .truncationMode(.middle)
                     if display == .failed {
                         Text(BipeStrings.appMediaFailed)
-                            .font(.caption)
+                            .font(.bipeCaption)
                             .foregroundStyle(BipeColor.trustDangerInk)
                     } else if let size = media.sizeLabel {
                         Text(size)
-                            .font(.caption)
+                            .font(.bipeCaption)
                             .foregroundStyle(BipeColor.inkSecondary)
                     }
                 }

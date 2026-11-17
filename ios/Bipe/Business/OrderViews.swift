@@ -59,7 +59,7 @@ struct OrderCartSections: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(item.name).foregroundStyle(BipeColor.inkPrimary)
                             Text(BipeStrings.orderLine(String(cart.quantity(item.id)), BusinessText.money(item.price.amountCents ?? 0)))
-                                .font(.subheadline)
+                                .font(.bipeSubheadline)
                                 .foregroundStyle(BipeColor.inkSecondary)
                         }
                     }
@@ -77,7 +77,7 @@ struct OrderCartSections: View {
                         HStack(spacing: 8) {
                             CatalogItemRow(item: item)
                             Text(BipeStrings.orderAdd)
-                                .font(.subheadline.weight(.semibold))
+                                .font(.bipeSubheadline.weight(.semibold))
                                 .foregroundStyle(item.soldOutToday ? BipeColor.inkDisabled : BipeColor.accentInk)
                         }
                     }
@@ -123,7 +123,7 @@ struct OrderFulfilmentSections: View {
         }
         Section {
             LabeledContent(BipeStrings.orderTotal, value: BusinessText.money(total))
-                .font(.headline)
+                .font(.bipeHeadline)
         }
     }
 }
@@ -264,11 +264,11 @@ struct OrderCardView: View {
     private var card: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(BipeStrings.orderCardTitle)
-                .font(.caption.bold())
+                .font(.bipeCaption.bold())
                 .foregroundStyle(BipeColor.accentInk)
             if let customerName, !customerName.isEmpty {
                 Text(customerName)
-                    .font(.headline)
+                    .font(.bipeHeadline)
                     .foregroundStyle(BipeColor.inkPrimary)
             }
             OrderSummary(order: order)
@@ -288,7 +288,7 @@ struct OrderSummary: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(BusinessText.when(order.createdAt))
-                .font(.subheadline)
+                .font(.bipeSubheadline)
                 .foregroundStyle(BipeColor.inkSecondary)
             ForEach(Array(order.lines.enumerated()), id: \.offset) { _, line in
                 HStack(alignment: .firstTextBaseline) {
@@ -306,12 +306,12 @@ struct OrderSummary: View {
             }
             .foregroundStyle(BipeColor.inkPrimary)
             Text(order.fulfilment.text + " · " + BipeStrings.orderPayOnSite)
-                .font(.subheadline)
+                .font(.bipeSubheadline)
                 .foregroundStyle(BipeColor.inkSecondary)
             BusinessStatusLine(text: order.status.text, tint: order.status.tint)
             if order.status == .refused, let reason = order.refuseReason {
                 Text(BipeStrings.orderRefuseReasonLabel(reason.text))
-                    .font(.subheadline)
+                    .font(.bipeSubheadline)
                     .foregroundStyle(BipeColor.inkSecondary)
             }
         }
@@ -409,7 +409,7 @@ struct OrderOwnerView: View {
                         VStack(alignment: .leading, spacing: 4) {
                             HStack(alignment: .firstTextBaseline) {
                                 Text(BusinessText.customer(order.customer, names: names))
-                                    .font(.headline)
+                                    .font(.bipeHeadline)
                                     .foregroundStyle(BipeColor.inkPrimary)
                                 Spacer(minLength: 8)
                                 Text(BusinessText.money(order.totalAmountCents))
@@ -417,7 +417,7 @@ struct OrderOwnerView: View {
                                     .foregroundStyle(BipeColor.inkPrimary)
                             }
                             Text(BusinessText.when(order.createdAt) + " · " + order.fulfilment.text)
-                                .font(.subheadline)
+                                .font(.bipeSubheadline)
                                 .foregroundStyle(BipeColor.inkSecondary)
                             BusinessStatusLine(text: order.status.text, tint: order.status.tint)
                         }

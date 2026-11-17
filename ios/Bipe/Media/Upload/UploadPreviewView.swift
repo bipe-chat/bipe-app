@@ -109,7 +109,7 @@ struct UploadPreviewView: View {
 
             if model.isPreparing {
                 Text(BipeStrings.appUploadPreparing)
-                    .font(.caption)
+                    .font(.bipeCaption)
                     .foregroundStyle(BipeColor.inkSecondary)
                     .frame(maxWidth: .infinity)
             }
@@ -226,7 +226,7 @@ private struct ImageDescriptionField: View {
                     .accessibilityLabel(BipeStrings.appUploadDescription)
                     .accessibilityHint(BipeStrings.appUploadDescriptionFooter)
                 Text(BipeStrings.appUploadDescriptionFooter)
-                    .font(.caption)
+                    .font(.bipeCaption)
                     .foregroundStyle(BipeColor.inkSecondary)
                     .padding(.horizontal, 16)
                     .accessibilityHidden(true)
@@ -241,7 +241,7 @@ private struct ImageDescriptionField: View {
                         .resizable()
                         .frame(width: 16, height: 16)
                     Text(BipeStrings.appUploadDescription)
-                        .font(.subheadline.weight(.semibold))
+                        .font(.bipeSubheadline.weight(.semibold))
                 }
                 .foregroundStyle(BipeColor.inkPrimary)
                 .padding(.horizontal, 16)
@@ -289,25 +289,25 @@ private struct PickedMediaPage: View {
                         .frame(width: 56, height: 56)
                         .foregroundStyle(BipeColor.accentInk)
                     Text(item.filename)
-                        .font(.headline)
+                        .font(.bipeHeadline)
                         .foregroundStyle(BipeColor.inkPrimary)
                         .multilineTextAlignment(.center)
                     Text(item.sizeLabel)
-                        .font(.subheadline)
+                        .font(.bipeSubheadline)
                         .foregroundStyle(BipeColor.inkSecondary)
                 }
                 .padding(24)
             }
             if item.isTooLarge, let maxUploadLabel {
                 Text(BipeStrings.appUploadTooLarge(maxUploadLabel))
-                    .font(.subheadline)
+                    .font(.bipeSubheadline)
                     .foregroundStyle(BipeColor.trustDangerInk)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 24)
             }
             if item.sendFailed {
                 Text(BipeStrings.appUploadFailed)
-                    .font(.subheadline)
+                    .font(.bipeSubheadline)
                     .foregroundStyle(BipeColor.trustDangerInk)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 24)

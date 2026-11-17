@@ -77,7 +77,7 @@ private struct PixSendView: View {
                 Section {
                     // The account that sends: confirmed here before any choice.
                     Text(verbatim: BipeAccountLabels.label(for: chatList.session.userId))
-                        .font(.footnote)
+                        .font(.bipeFootnote)
                         .foregroundStyle(BipeColor.inkSecondary)
                     if let imageURL = claimed.imageURL, let image = UIImage(contentsOfFile: imageURL.path) {
                         Image(uiImage: image)

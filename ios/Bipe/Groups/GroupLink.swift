@@ -194,7 +194,7 @@ struct GroupLinkView: View {
                                 QRCodeImage(text: url.absoluteString)
                                     .frame(maxWidth: 240, maxHeight: 240)
                                 Text(BipeStrings.groupLinkQrFooter)
-                                    .font(.footnote)
+                                    .font(.bipeFootnote)
                                     .foregroundStyle(BipeColor.inkSecondary)
                                     .multilineTextAlignment(.center)
                             }
@@ -377,7 +377,7 @@ struct GroupLinkOpenView: View {
                         .foregroundStyle(BipeColor.inkSecondary)
                 case .preview, .joining:
                     Text(model.name)
-                        .font(.title3.weight(.semibold))
+                        .font(.bipeTitle3.weight(.semibold))
                         .foregroundStyle(BipeColor.inkPrimary)
                         .multilineTextAlignment(.center)
                     if let members = model.preview?.members {
@@ -412,7 +412,7 @@ struct GroupLinkOpenView: View {
                         .multilineTextAlignment(.center)
                 case .full:
                     Text(model.name)
-                        .font(.title3.weight(.semibold))
+                        .font(.bipeTitle3.weight(.semibold))
                         .foregroundStyle(BipeColor.inkPrimary)
                         .multilineTextAlignment(.center)
                     Text(BipeStrings.groupLinkFull(String(BipeRegistries.groupMaxMembers)))

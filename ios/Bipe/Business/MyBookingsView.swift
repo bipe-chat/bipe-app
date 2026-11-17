@@ -89,7 +89,7 @@ struct MyBookingsView: View {
                         } label: {
                             HStack {
                                 Text(businessNames[booking.businessId] ?? BipeChatRowName.person(userID: booking.businessId, displayName: nil, handle: nil))
-                                    .font(.headline)
+                                    .font(.bipeHeadline)
                                     .foregroundStyle(BipeColor.inkPrimary)
                                 Spacer()
                                 PhosphorIcon.chatText.image

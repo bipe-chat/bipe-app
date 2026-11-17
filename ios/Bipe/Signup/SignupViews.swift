@@ -191,14 +191,14 @@ struct OnboardingWelcomeView: View {
                         .frame(width: 14, height: 14)
                         .accessibilityHidden(true)
                 }
-                .font(.subheadline.weight(.semibold))
+                .font(.bipeSubheadline.weight(.semibold))
                 .padding(.vertical, 8)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             // The build that runs, small and quiet, for testers (same text as bipe_help_version in Settings).
             Text(AppVersion.display)
-                .font(.caption2)
+                .font(.bipeCaption2)
                 .opacity(0.6)
         }
         .foregroundStyle(BipeColor.inkOnAccent)
@@ -232,7 +232,7 @@ struct OnboardingWelcomeView: View {
                     // App Store opened. The system paste button reads the clipboard only on a tap, with no prompt.
                     HStack(spacing: 12) {
                         Text(BipeStrings.onboardingPasteLink)
-                            .font(.subheadline)
+                            .font(.bipeSubheadline)
                             .foregroundStyle(BipeColor.inkSecondary)
                         PasteButton(payloadType: String.self) { texts in
                             guard let text = texts.first else { return }
@@ -359,7 +359,7 @@ struct InviteScanSheet: View {
         NavigationStack {
             VStack(spacing: 16) {
                 Text(BipeStrings.appInviteScanTitle)
-                    .font(.title2.bold())
+                    .font(.bipeTitle2.bold())
                     .foregroundStyle(BipeColor.inkPrimary)
                     .multilineTextAlignment(.center)
                 switch cameraAllowed {
@@ -420,13 +420,13 @@ struct SignupWaitlistView: View {
                 OnboardingStepHeader(icon: .bell)
                 Button { model.closeWaitlist() } label: {
                     Text(BipeStrings.appClose)
-                        .font(.body.weight(.semibold))
+                        .font(.bipeBody.weight(.semibold))
                         .foregroundStyle(BipeColor.accentInk)
                         .bipeTapTarget()
                 }
             }
             Text(BipeLocalized.string(BipeOnboarding.waitlistBodyKey))
-                .font(.title3.weight(.semibold))
+                .font(.bipeTitle3.weight(.semibold))
                 .foregroundStyle(BipeColor.inkPrimary)
                 .fixedSize(horizontal: false, vertical: true)
             if model.waitlistPhase == .done {
@@ -435,7 +435,7 @@ struct SignupWaitlistView: View {
                         .resizable()
                         .frame(width: 24, height: 24)
                     Text(BipeLocalized.string(BipeOnboarding.waitlistDoneKey))
-                        .font(.headline)
+                        .font(.bipeHeadline)
                 }
                 .foregroundStyle(BipeColor.statusSuccess)
                 .padding(16)
@@ -479,7 +479,7 @@ struct SignupNameView: View {
                         .resizable()
                         .frame(width: 18, height: 18)
                     Text(BipeStrings.signupInvitedBy(handle))
-                        .font(.subheadline.weight(.semibold))
+                        .font(.bipeSubheadline.weight(.semibold))
                 }
                 .foregroundStyle(BipeColor.accentInk)
                 .padding(.horizontal, 14)
@@ -500,7 +500,7 @@ struct SignupNameView: View {
                     .frame(width: 18, height: 18)
                     .foregroundStyle(BipeColor.accentInk)
                 Text(BipeStrings.onboardingPointBrazil)
-                    .font(.footnote)
+                    .font(.bipeFootnote)
                     .foregroundStyle(BipeColor.inkSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -526,7 +526,7 @@ struct SignupNameView: View {
             .accessibilityLabel(BipeStrings.signupTermsAccept(BipeStrings.signupTermsLink, BipeStrings.signupPrivacyLink))
             .accessibilityAddTraits(model.termsAccepted ? .isSelected : [])
             Text(TermsText.attributed)
-                .font(.subheadline)
+                .font(.bipeSubheadline)
                 .foregroundStyle(BipeColor.inkPrimary)
                 .tint(BipeColor.accentInk)
                 .padding(.top, 11)
@@ -574,7 +574,7 @@ struct SignupPinView: View {
                     .frame(width: 18, height: 18)
                     .foregroundStyle(BipeColor.accentInk)
                 Text(BipeStrings.pinNeverAsked)
-                    .font(.footnote)
+                    .font(.bipeFootnote)
                     .foregroundStyle(BipeColor.inkSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -698,7 +698,7 @@ struct SignupCreateView: View {
                     .background(BipeColor.trustDangerWash, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
                     .accessibilityHidden(true)
                 Text(model.createErrorText)
-                    .font(.title3.weight(.semibold))
+                    .font(.bipeTitle3.weight(.semibold))
                     .multilineTextAlignment(.center)
                     .foregroundStyle(BipeColor.inkPrimary)
                 Spacer()
@@ -710,7 +710,7 @@ struct SignupCreateView: View {
             } else {
                 OnboardingBusyMark()
                 Text(BipeStrings.appSignupCreating)
-                    .font(.title3.weight(.semibold))
+                    .font(.bipeTitle3.weight(.semibold))
                     .multilineTextAlignment(.center)
                     .foregroundStyle(BipeColor.inkPrimary)
                 Spacer()

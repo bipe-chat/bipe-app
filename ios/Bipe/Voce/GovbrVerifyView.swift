@@ -99,7 +99,7 @@ struct GovbrVerifyView: View {
                 Section {
                     phaseContent
                     if flow.showsNoOpenVerification {
-                        Text(BipeStrings.govbrNoOpenVerification).font(.subheadline).foregroundStyle(BipeColor.inkSecondary)
+                        Text(BipeStrings.govbrNoOpenVerification).font(.bipeSubheadline).foregroundStyle(BipeColor.inkSecondary)
                     }
                 } footer: {
                     Text(BipeStrings.govbrSafety)

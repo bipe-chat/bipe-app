@@ -42,12 +42,12 @@ struct PinPadView: View {
                 .foregroundStyle(BipeColor.accentInk)
                 .accessibilityHidden(true)
             Text(title)
-                .font(.title3.bold())
+                .font(.bipeTitle3.bold())
                 .foregroundStyle(BipeColor.inkPrimary)
                 .multilineTextAlignment(.center)
             if let message {
                 Text(message)
-                    .font(.subheadline)
+                    .font(.bipeSubheadline)
                     .foregroundStyle(BipeColor.inkSecondary)
                     .multilineTextAlignment(.center)
             }
@@ -66,7 +66,7 @@ struct PinPadView: View {
                     ProgressView()
                 } else if let error {
                     Text(error)
-                        .font(.subheadline)
+                        .font(.bipeSubheadline)
                         .foregroundStyle(BipeColor.trustDangerInk)
                         .multilineTextAlignment(.center)
                 } else {
@@ -81,7 +81,7 @@ struct PinPadView: View {
                     onForgot()
                 } label: {
                     Text(BipeStrings.pinForgot)
-                        .font(.body)
+                        .font(.bipeBody)
                         .foregroundStyle(BipeColor.accentInk)
                 }
                 .disabled(isBusy)
@@ -116,7 +116,7 @@ struct PinPadView: View {
             onDigit(digit)
         } label: {
             Text(verbatim: digit)
-                .font(.title)
+                .font(.bipeTitle)
                 .foregroundStyle(BipeColor.inkPrimary)
                 .frame(width: size, height: size)
                 .background(Circle().fill(BipeColor.surfaceRaised))

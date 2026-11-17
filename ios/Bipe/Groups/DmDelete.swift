@@ -134,7 +134,7 @@ struct DmDeleteView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text(BipeStrings.dmDeleteTitle)
-                .font(.title3.bold())
+                .font(.bipeTitle3.bold())
                 .foregroundStyle(BipeColor.inkPrimary)
             Text(BipeStrings.dmDeleteBody)
                 .foregroundStyle(BipeColor.inkSecondary)

@@ -34,11 +34,11 @@ struct ListEntryRow: View {
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(.headline)
+                    .font(.bipeHeadline)
                     .foregroundStyle(BipeColor.inkPrimary)
                 if let detail {
                     Text(detail)
-                        .font(.subheadline)
+                        .font(.bipeSubheadline)
                         .foregroundStyle(BipeColor.inkSecondary)
                 }
             }
@@ -46,7 +46,7 @@ struct ListEntryRow: View {
             Spacer()
             if let count {
                 Text(count.formatted())
-                    .font(.caption.bold())
+                    .font(.bipeCaption.bold())
                     .foregroundStyle(BipeColor.inkOnAccent)
                     .padding(.horizontal, 7)
                     .padding(.vertical, 2)
@@ -107,7 +107,7 @@ private struct RequestRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(request.name)
-                        .font(.headline)
+                        .font(.bipeHeadline)
                         .foregroundStyle(BipeColor.inkPrimary)
                         .lineLimit(1)
                     if request.isDm, BipeOfficialAccounts.isOfficial(request.inviterId) { OfficialBadge() }
@@ -130,15 +130,15 @@ struct TrustLine: View {
         case .verified:
             // The strongest proof, as the compact mark says it (ADR 0275). A company has no person proof.
             Text(userId.flatMap { seals?.strongestProof(for: $0)?.line } ?? BipeStrings.badgeVerified)
-                .font(.subheadline)
+                .font(.bipeSubheadline)
                 .foregroundStyle(BipeColor.trustVerifiedInk)
         case .unverified:
             Text(BipeStrings.bannerUnverifiedTitle)
-                .font(.subheadline)
+                .font(.bipeSubheadline)
                 .foregroundStyle(BipeColor.trustCautionInk)
         case .external:
             Text(BipeStrings.bannerExternal)
-                .font(.subheadline)
+                .font(.bipeSubheadline)
                 .foregroundStyle(BipeColor.trustNeutralInk)
         }
     }
@@ -161,14 +161,14 @@ struct ChatRequestView: View {
                 AvatarView(name: request.name, mxcUrl: request.avatarUrl, loader: media, size: 72, userId: request.inviterId, showsPhoto: !model.hidePhotos)
                 HStack(spacing: 6) {
                     Text(request.name)
-                        .font(.title2.bold())
+                        .font(.bipeTitle2.bold())
                         .foregroundStyle(BipeColor.inkPrimary)
                         .multilineTextAlignment(.center)
                     if request.isDm, BipeOfficialAccounts.isOfficial(request.inviterId) { OfficialBadge(font: .footnote) }
                 }
                 if let handle = model.people.handles.handle(for: request.inviterId) {
                     Text("@\(handle)")
-                        .font(.subheadline)
+                        .font(.bipeSubheadline)
                         .foregroundStyle(BipeColor.inkSecondary)
                 }
                 // Spec chat-request profileFacts (ADR 0049), under the header. Never blocks accept or decline.
@@ -217,7 +217,7 @@ struct ChatRequestView: View {
                         Text(BipeStrings.appRequestDeclineBlock).frame(maxWidth: .infinity)
                     }
                     Text(BipeStrings.dmDeclineBlockDescription)
-                        .font(.footnote)
+                        .font(.bipeFootnote)
                         .foregroundStyle(BipeColor.inkSecondary)
                         .multilineTextAlignment(.center)
                     // Action report.
@@ -231,7 +231,7 @@ struct ChatRequestView: View {
                         Text(BipeStrings.dmReport).frame(maxWidth: .infinity)
                     }
                     Text(BipeStrings.dmDeclineReportDescription)
-                        .font(.footnote)
+                        .font(.bipeFootnote)
                         .foregroundStyle(BipeColor.inkSecondary)
                         .multilineTextAlignment(.center)
                 }
@@ -276,12 +276,12 @@ struct GroupInviteRow: View {
             AvatarView(name: invite.name, mxcUrl: invite.avatarUrl, loader: media, showsPhoto: !model.hidePhotos)
             VStack(alignment: .leading, spacing: 6) {
                 Text(invite.name)
-                    .font(.headline)
+                    .font(.bipeHeadline)
                     .foregroundStyle(BipeColor.inkPrimary)
                     .lineLimit(1)
                 if let inviter = invite.inviterName {
                     Text(BipeStrings.groupNotificationRoomInviteBodyWithSender(inviter))
-                        .font(.subheadline)
+                        .font(.bipeSubheadline)
                         .foregroundStyle(BipeColor.inkSecondary)
                 }
                 HStack {

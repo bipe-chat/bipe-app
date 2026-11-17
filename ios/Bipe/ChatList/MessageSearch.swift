@@ -145,7 +145,7 @@ struct MessageHitRow: View {
             HStack {
                 if showsChat {
                     Text(hit.chatName)
-                        .font(.subheadline.weight(.semibold))
+                        .font(.bipeSubheadline.weight(.semibold))
                         .foregroundStyle(BipeColor.inkPrimary)
                         .lineLimit(1)
                 } else {
@@ -153,13 +153,13 @@ struct MessageHitRow: View {
                 }
                 Spacer(minLength: 8)
                 Text(hit.sentAt, format: ChatRow.timeFormat(for: hit.sentAt))
-                    .font(.caption)
+                    .font(.bipeCaption)
                     .foregroundStyle(BipeColor.inkSecondary)
                     .monospacedDigit()
             }
             if showsChat { sender }
             Text(hit.body)
-                .font(.subheadline)
+                .font(.bipeSubheadline)
                 .foregroundStyle(BipeColor.inkPrimary)
                 .lineLimit(2)
         }
@@ -168,7 +168,7 @@ struct MessageHitRow: View {
 
     private var sender: some View {
         Text(hit.senderName)
-            .font(.caption.weight(.medium))
+            .font(.bipeCaption.weight(.medium))
             .foregroundStyle(BipeColor.inkSecondary)
             .lineLimit(1)
     }

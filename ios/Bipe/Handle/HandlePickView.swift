@@ -307,16 +307,16 @@ struct HandlePickView: View {
                 .padding(14)
                 .background(RoundedRectangle(cornerRadius: 12).fill(BipeColor.surfaceSunken))
                 Text(model.footer)
-                    .font(.footnote)
+                    .font(.bipeFootnote)
                     .foregroundStyle(model.footerIsProblem ? BipeColor.trustDangerInk : BipeColor.inkSecondary)
                 if model.input.isEmpty, !model.suggestions.isEmpty {
                     // State suggestions (bipe-chat/bipe#200): a tap fills the field.
-                    Text(BipeStrings.handleSuggestions).font(.footnote).foregroundStyle(BipeColor.inkSecondary)
+                    Text(BipeStrings.handleSuggestions).font(.bipeFootnote).foregroundStyle(BipeColor.inkSecondary)
                     HStack(spacing: 8) {
                         ForEach(model.suggestions, id: \.self) { suggestion in
                             Button { model.editHandle(suggestion) } label: {
                                 Text(verbatim: "@\(suggestion)")
-                                    .font(.subheadline)
+                                    .font(.bipeSubheadline)
                                     .lineLimit(1)
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 6)
@@ -328,10 +328,10 @@ struct HandlePickView: View {
                     }
                 }
                 if let error = model.error {
-                    Text(error).font(.footnote).foregroundStyle(BipeColor.trustDangerInk)
+                    Text(error).font(.bipeFootnote).foregroundStyle(BipeColor.trustDangerInk)
                 }
                 if let done = model.doneMessage, model.phase == .saved {
-                    Text(done).font(.footnote).foregroundStyle(BipeColor.statusSuccess)
+                    Text(done).font(.bipeFootnote).foregroundStyle(BipeColor.statusSuccess)
                 }
                 Button {
                     Task {
@@ -340,7 +340,7 @@ struct HandlePickView: View {
                     }
                 } label: {
                     Text(BipeStrings.actionContinue)
-                        .font(.headline)
+                        .font(.bipeHeadline)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
                         .foregroundStyle(model.status == .available ? BipeColor.inkOnAccent : BipeColor.inkDisabled)
@@ -365,7 +365,7 @@ struct HandlePickView: View {
                         Button { confirmsMove = target } label: {
                             VStack(spacing: 2) {
                                 Text(BipeStrings.handleMoveAction)
-                                Text(verbatim: target.name).font(.footnote).foregroundStyle(BipeColor.inkSecondary)
+                                Text(verbatim: target.name).font(.bipeFootnote).foregroundStyle(BipeColor.inkSecondary)
                             }
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 10)

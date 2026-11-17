@@ -319,7 +319,7 @@ struct AgendaOwnerView: View {
                 dateBar
                 agendaChips
                 Text(model.state?.published == true ? BipeStrings.agendaPublished : BipeStrings.agendaNotPublished)
-                    .font(.footnote)
+                    .font(.bipeFootnote)
                     .foregroundStyle(model.state?.published == true ? BipeColor.trustVerifiedInk : BipeColor.trustCautionInk)
             }
             .listRowBackground(Color.clear)
@@ -371,12 +371,12 @@ struct AgendaOwnerView: View {
             .accessibilityLabel(BusinessDay.title(BusinessDay.adding(-1, to: model.day), in: model.timeZone))
             Spacer()
             Text(BusinessDay.title(model.day, in: model.timeZone))
-                .font(.headline)
+                .font(.bipeHeadline)
                 .foregroundStyle(BipeColor.inkPrimary)
             if !model.isToday {
                 Button(BipeStrings.agendaToday) { Task { await model.pick(day: model.today) } }
                     .buttonStyle(.borderless)
-                    .font(.subheadline)
+                    .font(.bipeSubheadline)
             }
             Spacer()
             Button {
@@ -410,7 +410,7 @@ struct AgendaOwnerView: View {
     private func chip(title: String, selected: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title)
-                .font(.subheadline)
+                .font(.bipeSubheadline)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
                 .foregroundStyle(selected ? BipeColor.inkOnAccent : BipeColor.inkPrimary)
@@ -457,10 +457,10 @@ private struct OwnerBookingRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(customer).foregroundStyle(BipeColor.inkPrimary)
                 Text(agenda.map { service + " · " + $0 } ?? service)
-                    .font(.subheadline)
+                    .font(.bipeSubheadline)
                     .foregroundStyle(BipeColor.inkSecondary)
                 Text(booking.status.text)
-                    .font(.caption.weight(.semibold))
+                    .font(.bipeCaption.weight(.semibold))
                     .foregroundStyle(booking.status.tint)
             }
             Spacer(minLength: 0)
@@ -476,7 +476,7 @@ private struct NowLine: View {
     var body: some View {
         HStack(spacing: 8) {
             Text(BipeStrings.agendaNow)
-                .font(.caption.bold())
+                .font(.bipeCaption.bold())
                 .foregroundStyle(BipeColor.trustDangerInk)
             Rectangle()
                 .fill(BipeColor.trustDangerInk)

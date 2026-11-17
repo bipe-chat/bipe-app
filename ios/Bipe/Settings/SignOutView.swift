@@ -26,7 +26,7 @@ struct SignOutView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 Text(BipeStrings.appSignOutTitle)
-                    .font(.title3.bold())
+                    .font(.bipeTitle3.bold())
                     .foregroundStyle(BipeColor.inkPrimary)
                 Text(BipeStrings.appSignOutBody(String(BipeRegistries.pinLength)))
                     .foregroundStyle(BipeColor.inkPrimary)

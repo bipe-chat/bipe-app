@@ -109,7 +109,7 @@ struct RecoveryEmailAddView: View {
                     VStack(spacing: 16) {
                         PhosphorIconView(icon: .check, size: 48)
                         Text(BipeStrings.emailSent(address))
-                            .font(.title3.bold())
+                            .font(.bipeTitle3.bold())
                             .foregroundStyle(BipeColor.inkPrimary)
                             .multilineTextAlignment(.center)
                         Button { dismiss() } label: { Text(BipeStrings.appClose) }
@@ -143,11 +143,11 @@ struct RecoveryEmailAddView: View {
     private var form: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(current ?? BipeStrings.accountEmailNone)
-                .font(.subheadline)
+                .font(.bipeSubheadline)
                 .foregroundStyle(BipeColor.inkSecondary)
             if pending != nil {
                 Text(BipeStrings.emailPending)
-                    .font(.footnote)
+                    .font(.bipeFootnote)
                     .foregroundStyle(BipeColor.inkSecondary)
             }
             TextField(BipeStrings.signupEmail, text: Binding(get: { email }, set: editEmail))
@@ -160,16 +160,16 @@ struct RecoveryEmailAddView: View {
                 .disabled(phase == .sending)
             if emailInvalid {
                 Text(BipeStrings.signupEmailInvalid)
-                    .font(.footnote)
+                    .font(.bipeFootnote)
                     .foregroundStyle(BipeColor.trustDangerInk)
             }
             if case .failed(let message) = phase {
                 Text(message)
-                    .font(.footnote)
+                    .font(.bipeFootnote)
                     .foregroundStyle(BipeColor.trustDangerInk)
             }
             Text(BipeStrings.emailFooter)
-                .font(.footnote)
+                .font(.bipeFootnote)
                 .foregroundStyle(BipeColor.inkSecondary)
             Button {
                 Task { await send() }

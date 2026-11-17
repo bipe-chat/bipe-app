@@ -193,7 +193,7 @@ struct ChatMediaGalleryView: View {
                                 .truncationMode(.middle)
                             if let size = item.media.sizeLabel {
                                 Text(size)
-                                    .font(.caption)
+                                    .font(.bipeCaption)
                                     .foregroundStyle(BipeColor.inkSecondary)
                             }
                         }

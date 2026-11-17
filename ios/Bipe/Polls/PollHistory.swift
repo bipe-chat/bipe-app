@@ -114,21 +114,21 @@ struct PollHistoryView: View {
                         .foregroundStyle(BipeColor.inkPrimary)
                     HStack(spacing: 8) {
                         Text(poll.isEnded ? BipeStrings.pollStateEnded : BipeStrings.pollStateOpen)
-                            .font(.caption.weight(.semibold))
+                            .font(.bipeCaption.weight(.semibold))
                             .foregroundStyle(poll.isEnded ? BipeColor.inkSecondary : BipeColor.accentInk)
                         if let total = poll.totalVotes {
                             Text(BipeStrings.appPollVotes(total.formatted()))
-                                .font(.caption)
+                                .font(.bipeCaption)
                                 .foregroundStyle(BipeColor.inkSecondary)
                         }
                     }
                     if let leader = leader(of: poll) {
                         HStack(spacing: 4) {
                             Text(BipeStrings.appPollMostVotes)
-                                .font(.caption.weight(.semibold))
+                                .font(.bipeCaption.weight(.semibold))
                                 .foregroundStyle(BipeColor.inkSecondary)
                             Text(leader)
-                                .font(.caption)
+                                .font(.bipeCaption)
                                 .foregroundStyle(BipeColor.inkPrimary)
                         }
                     }

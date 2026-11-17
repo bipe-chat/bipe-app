@@ -38,11 +38,11 @@ struct QueueCardView: View {
     private var card: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(BipeStrings.queueTitle)
-                .font(.caption.bold())
+                .font(.bipeCaption.bold())
                 .foregroundStyle(BipeColor.accentInk)
             if let customerName, !customerName.isEmpty {
                 Text(customerName)
-                    .font(.headline)
+                    .font(.bipeHeadline)
                     .foregroundStyle(BipeColor.inkPrimary)
             }
             QueuePositionSummary(position: position)
@@ -63,18 +63,18 @@ struct QueuePositionSummary: View {
         VStack(alignment: .leading, spacing: 4) {
             if position.place.status == .called {
                 Text(BipeStrings.queueCalled)
-                    .font(.title3.bold())
+                    .font(.bipeTitle3.bold())
                     .foregroundStyle(BipeColor.trustVerifiedInk)
             } else if position.place.status == .waiting {
                 Text(BipeStrings.queuePositionNumber(String(position.position)))
-                    .font(.title3.bold())
+                    .font(.bipeTitle3.bold())
                     .foregroundStyle(BipeColor.inkPrimary)
                 Text(BusinessText.wait(position.wait))
-                    .font(.subheadline)
+                    .font(.bipeSubheadline)
                     .foregroundStyle(BipeColor.inkPrimary)
                 if position.wait != nil {
                     Text(BipeStrings.queueEstimateHint)
-                        .font(.footnote)
+                        .font(.bipeFootnote)
                         .foregroundStyle(BipeColor.inkSecondary)
                 }
             } else {
@@ -363,7 +363,7 @@ struct QueueOwnerView: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline) {
                 Text(place.web ? "\(BusinessText.customer(place.customer, names: names)) · \(BipeStrings.webRecordMark)" : BusinessText.customer(place.customer, names: names))
-                    .font(.headline)
+                    .font(.bipeHeadline)
                     .foregroundStyle(BipeColor.inkPrimary)
                 Spacer(minLength: 8)
                 Text(BookingText.time(place.joinedAt))
@@ -667,7 +667,7 @@ private struct QueueQrCard: View {
             QRCodeImage(text: link.absoluteString)
                 .frame(width: 240, height: 240)
             Text(BipeStrings.queueQrBody)
-                .font(.body)
+                .font(.bipeBody)
                 .foregroundStyle(BipeColor.inkPrimary)
                 .multilineTextAlignment(.center)
             Text(link.absoluteString)

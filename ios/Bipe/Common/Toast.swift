@@ -18,7 +18,7 @@ struct ToastModifier: ViewModifier {
         content.overlay(alignment: .bottom) {
             if let message {
                 Text(message)
-                    .font(.subheadline)
+                    .font(.bipeSubheadline)
                     .multilineTextAlignment(.center)
                     .foregroundStyle(BipeColor.inkPrimary)
                     .padding(.horizontal, 16)

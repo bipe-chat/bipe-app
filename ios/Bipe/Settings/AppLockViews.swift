@@ -204,7 +204,7 @@ struct AppLockSetupView: View {
             Spacer()
             PhosphorIconView(icon: .fingerprint, size: 56)
             Text(BipeStrings.appLockBiometricOfferTitle(OwnerCheck.biometricWord))
-                .font(.title3.bold())
+                .font(.bipeTitle3.bold())
                 .foregroundStyle(BipeColor.inkPrimary)
                 .multilineTextAlignment(.center)
             Spacer()

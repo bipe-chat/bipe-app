@@ -31,7 +31,7 @@ struct VoiceMessageRow: View {
         VStack(alignment: .leading, spacing: 6) {
             if !voice.isVoice {
                 Text(voice.filename)
-                    .font(.subheadline.weight(.semibold))
+                    .font(.bipeSubheadline.weight(.semibold))
                     .foregroundStyle(BipeColor.inkPrimary)
                     .lineLimit(1)
                     .truncationMode(.middle)
@@ -39,14 +39,14 @@ struct VoiceMessageRow: View {
             if expiry.isExpired(voice) {
                 // State media expired: no player and no waveform; the transcript stays.
                 Text(BipeStrings.voiceExpired)
-                    .font(.subheadline.weight(.semibold))
+                    .font(.bipeSubheadline.weight(.semibold))
                     .foregroundStyle(BipeColor.inkSecondary)
             } else {
                 playerLine
             }
             if playback == .failed, !expiry.isExpired(voice) {
                 Text(BipeStrings.appMediaFailed)
-                    .font(.caption)
+                    .font(.bipeCaption)
                     .foregroundStyle(BipeColor.trustDangerInk)
             }
             sourceLine
@@ -58,11 +58,11 @@ struct VoiceMessageRow: View {
             switch voiceMedia.kept[voice.source.url] {
             case .kept?:
                 Text(BipeStrings.voiceKept)
-                    .font(.caption)
+                    .font(.bipeCaption)
                     .foregroundStyle(BipeColor.inkSecondary)
             case .scam?:
                 Text(BipeStrings.voiceKeptScam)
-                    .font(.caption)
+                    .font(.bipeCaption)
                     .foregroundStyle(BipeColor.inkSecondary)
             case nil:
                 EmptyView()
@@ -91,7 +91,7 @@ struct VoiceMessageRow: View {
             sourceSheet = true
         } label: {
             Text(Self.text(BipeForwardMark.source(isVoice: voice.isVoice, count: voice.forwardCount)))
-                .font(.caption)
+                .font(.bipeCaption)
                 .foregroundStyle(BipeColor.inkSecondary)
                 .bipeTapTarget()
         }
@@ -166,7 +166,7 @@ struct VoiceMessageRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 if listener.state(of: message.id) == .failed {
                     Text(BipeStrings.voiceTranscribeFailed)
-                        .font(.caption)
+                        .font(.bipeCaption)
                         .foregroundStyle(BipeColor.trustDangerInk)
                 }
                 Button {
@@ -174,7 +174,7 @@ struct VoiceMessageRow: View {
                     Task { await listener.transcribe(id: id) { try await player.playableFile(voice, loader: loader) } }
                 } label: {
                     Text(BipeStrings.voiceTranscribe)
-                        .font(.subheadline.weight(.semibold))
+                        .font(.bipeSubheadline.weight(.semibold))
                         .foregroundStyle(BipeColor.accentInk)
                         .bipeTapTarget()
                 }
@@ -184,7 +184,7 @@ struct VoiceMessageRow: View {
             HStack(spacing: 6) {
                 ProgressView()
                 Text(BipeStrings.voiceTranscribing)
-                    .font(.caption)
+                    .font(.bipeCaption)
                     .foregroundStyle(BipeColor.inkSecondary)
             }
             .accessibilityElement(children: .combine)
@@ -192,16 +192,16 @@ struct VoiceMessageRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 transcriptBlock(text)
                 Text(BipeStrings.voiceTranscribedHere)
-                    .font(.caption)
+                    .font(.bipeCaption)
                     .foregroundStyle(BipeColor.inkSecondary)
             }
         case .unavailable:
             Text(BipeStrings.voiceTranscribeUnavailable)
-                .font(.caption)
+                .font(.bipeCaption)
                 .foregroundStyle(BipeColor.inkSecondary)
         case .denied:
             Text(BipeStrings.voiceTranscribeDenied)
-                .font(.caption)
+                .font(.bipeCaption)
                 .foregroundStyle(BipeColor.inkSecondary)
         }
     }
@@ -211,10 +211,10 @@ struct VoiceMessageRow: View {
         let folds = transcript.count > Self.foldLength
         return VStack(alignment: .leading, spacing: 2) {
             Text(BipeStrings.voiceTranscriptTitle)
-                .font(.caption.weight(.semibold))
+                .font(.bipeCaption.weight(.semibold))
                 .foregroundStyle(BipeColor.inkSecondary)
             Text(transcript)
-                .font(.subheadline)
+                .font(.bipeSubheadline)
                 .foregroundStyle(BipeColor.inkPrimary)
                 .lineLimit(folds && !transcriptExpanded ? 3 : nil)
                 .textSelection(.enabled)
@@ -224,7 +224,7 @@ struct VoiceMessageRow: View {
                     transcriptExpanded.toggle()
                 } label: {
                     Text(transcriptExpanded ? BipeStrings.actionShowLess : BipeStrings.actionShowMore)
-                        .font(.caption.weight(.semibold))
+                        .font(.bipeCaption.weight(.semibold))
                         .foregroundStyle(BipeColor.accentInk)
                 }
                 .buttonStyle(.plain)
@@ -240,10 +240,10 @@ private struct VoiceSourceSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(BipeStrings.voiceSourceTitle)
-                .font(.headline)
+                .font(.bipeHeadline)
                 .foregroundStyle(BipeColor.inkPrimary)
             Text(BipeStrings.voiceSourceBody)
-                .font(.body)
+                .font(.bipeBody)
                 .foregroundStyle(BipeColor.inkPrimary)
                 .fixedSize(horizontal: false, vertical: true)
             Button(BipeStrings.appClose, action: close)

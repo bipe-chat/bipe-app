@@ -97,13 +97,13 @@ struct CompanyTeamView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(list.me.seatId == seat.id ? BipeStrings.teamYou : seat.name).foregroundStyle(BipeColor.inkPrimary)
                     Text(seat.role == "owner" ? BipeStrings.teamRoleOwner : BipeStrings.teamRoleAttendant)
-                        .font(.subheadline)
+                        .font(.bipeSubheadline)
                         .foregroundStyle(BipeColor.inkSecondary)
                     if list.me.seatId == seat.id, seat.role != "owner" {
-                        Text(BipeStrings.teamYouHere).font(.subheadline).foregroundStyle(BipeColor.inkSecondary)
+                        Text(BipeStrings.teamYouHere).font(.bipeSubheadline).foregroundStyle(BipeColor.inkSecondary)
                     }
                     ForEach(seat.devices) { device in
-                        Text(deviceText(device)).font(.footnote).foregroundStyle(BipeColor.inkSecondary)
+                        Text(deviceText(device)).font(.bipeFootnote).foregroundStyle(BipeColor.inkSecondary)
                     }
                     // Action openPerson: the owner row has no remove.
                     if isOwner, seat.role != "owner" {

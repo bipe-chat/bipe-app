@@ -58,7 +58,7 @@ struct SettingsGroupView: View {
             if group == .account, let owner = AccountList.ownerName(of: model.session.userId) {
                 Section {
                     Text(BipeStrings.accountCompanyOwner(owner))
-                        .font(.subheadline)
+                        .font(.bipeSubheadline)
                         .foregroundStyle(BipeColor.inkSecondary)
                 }
             }
@@ -75,7 +75,7 @@ struct SettingsGroupView: View {
                 Section {
                     VStack(alignment: .leading, spacing: 8) {
                         Text(move.text)
-                            .font(.subheadline)
+                            .font(.bipeSubheadline)
                             .foregroundStyle(BipeColor.trustCautionInk)
                         if move.canBlock {
                             Button {
@@ -94,7 +94,7 @@ struct SettingsGroupView: View {
             if group == .account, let warning = model.waysBack?.warning {
                 Section {
                     Text(warning)
-                        .font(.subheadline)
+                        .font(.bipeSubheadline)
                         .foregroundStyle(BipeColor.trustCautionInk)
                         .listRowBackground(BipeColor.trustCautionWash)
                 }
@@ -680,13 +680,13 @@ struct SettingsRowLabel: View {
                             .accessibilityHidden(true)
                     }
                     Text(value)
-                        .font(.subheadline)
+                        .font(.bipeSubheadline)
                         .foregroundStyle(isWarning ? BipeColor.trustCautionInk : BipeColor.inkSecondary)
                 }
             }
             if let footer {
                 Text(footer)
-                    .font(.footnote)
+                    .font(.bipeFootnote)
                     .foregroundStyle(BipeColor.inkSecondary)
             }
         }

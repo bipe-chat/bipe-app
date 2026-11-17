@@ -194,7 +194,7 @@ struct WorkHomeSections: View {
                 Button(action: openSetup) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(WorkText.step(next.id, firstTool: setup.firstTool).title).foregroundStyle(BipeColor.inkPrimary)
-                        Text(WorkText.step(next.id, firstTool: setup.firstTool).body).font(.subheadline).foregroundStyle(BipeColor.inkSecondary)
+                        Text(WorkText.step(next.id, firstTool: setup.firstTool).body).font(.bipeSubheadline).foregroundStyle(BipeColor.inkSecondary)
                     }
                 }
             } header: {
@@ -340,7 +340,7 @@ struct WorkToolLabel: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(WorkText.tool(id)).foregroundStyle(BipeColor.inkPrimary)
                 if let subtitle {
-                    Text(subtitle).font(.subheadline).foregroundStyle(BipeColor.inkSecondary)
+                    Text(subtitle).font(.bipeSubheadline).foregroundStyle(BipeColor.inkSecondary)
                 }
             }
             Spacer()
@@ -367,7 +367,7 @@ struct WorkSetupView: View {
                                     .foregroundStyle(step.done ? BipeColor.accentInk : BipeColor.inkSecondary)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(WorkText.step(step.id, firstTool: setup.firstTool).title).foregroundStyle(BipeColor.inkPrimary)
-                                    Text(WorkText.step(step.id, firstTool: setup.firstTool).body).font(.subheadline).foregroundStyle(BipeColor.inkSecondary)
+                                    Text(WorkText.step(step.id, firstTool: setup.firstTool).body).font(.bipeSubheadline).foregroundStyle(BipeColor.inkSecondary)
                                 }
                             }
                         }
@@ -481,7 +481,7 @@ struct WorkToolStateBar: View {
                                      next[keyPath: key] = on
                                      Task { await model.setWeb(next) }
                                  }))
-                .font(.footnote)
+                .font(.bipeFootnote)
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
                 .background(.bar)
@@ -489,7 +489,7 @@ struct WorkToolStateBar: View {
         if let tool, tool.state != .off {
             HStack {
                 Text(tool.state == .live ? BipeStrings.workToolStateLive : BipeStrings.workToolStateSetup)
-                    .font(.footnote)
+                    .font(.bipeFootnote)
                     .foregroundStyle(BipeColor.inkSecondary)
                 Spacer()
                 if tool.state == .setup {

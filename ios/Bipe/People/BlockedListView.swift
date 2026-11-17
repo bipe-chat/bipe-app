@@ -41,7 +41,7 @@ struct BlockedListView: View {
                                     }
                                     if let handle = person.handle {
                                         Text("@\(handle)")
-                                            .font(.caption)
+                                            .font(.bipeCaption)
                                             .foregroundStyle(BipeColor.inkSecondary)
                                     }
                                 }

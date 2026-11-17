@@ -68,11 +68,11 @@ private struct PixShareCard: View {
                     .frame(width: 20, height: 20)
                     .foregroundStyle(BipeColor.accentInk)
                 Text(BipeStrings.pixCheckTitle)
-                    .font(.headline)
+                    .font(.bipeHeadline)
                     .foregroundStyle(BipeColor.accentInk)
             }
             Text(text)
-                .font(.title3.weight(.semibold))
+                .font(.bipeTitle3.weight(.semibold))
                 .foregroundStyle(BipeColor.inkPrimary)
                 .fixedSize(horizontal: false, vertical: true)
         }

@@ -18,7 +18,7 @@ struct RoomUpgradeBar: View {
     var body: some View {
         VStack(spacing: 10) {
             Text(BipeStrings.roomUpgradeReplaced)
-                .font(.subheadline)
+                .font(.bipeSubheadline)
                 .foregroundStyle(BipeColor.inkPrimary)
                 .multilineTextAlignment(.center)
             Button {
@@ -56,7 +56,7 @@ struct PredecessorLine: View {
                     .foregroundStyle(BipeColor.accentInk)
                     .accessibilityHidden(true)
                 Text(BipeStrings.roomUpgradeContinues(name))
-                    .font(.footnote)
+                    .font(.bipeFootnote)
                     .foregroundStyle(BipeColor.inkSecondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }

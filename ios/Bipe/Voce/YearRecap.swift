@@ -218,7 +218,7 @@ struct YearRecapView: View {
                         ProgressView(value: Double(model.roomsDone), total: Double(max(model.roomsTotal, 1)))
                             .tint(BipeColor.accentFill)
                         Text(BipeStrings.yearRecapReading(model.roomsDone.formatted(), model.roomsTotal.formatted()))
-                            .font(.subheadline)
+                            .font(.bipeSubheadline)
                             .foregroundStyle(BipeColor.inkSecondary)
                     }
                     .padding(.vertical, 8)
@@ -251,7 +251,7 @@ struct YearRecapView: View {
             }
             Section {
                 Text(BipeStrings.yearRecapOnDevice)
-                    .font(.footnote)
+                    .font(.bipeFootnote)
                     .foregroundStyle(BipeColor.inkSecondary)
             }
         }
@@ -279,7 +279,7 @@ struct YearRecapCard: View {
                     .frame(width: 20, height: 20)
                     .foregroundStyle(BipeColor.accentInk)
                 Text(BipeStrings.yearRecapCardTitle(String(recap.year)))
-                    .font(.headline)
+                    .font(.bipeHeadline)
                     .foregroundStyle(BipeColor.accentInk)
             }
             // Grid, not a lazy grid: ImageRenderer does not draw lazy containers.
@@ -300,7 +300,7 @@ struct YearRecapCard: View {
                 tile(chat, BipeStrings.yearRecapTopChat)
             }
             Text(recap.peakPeriod)
-                .font(.headline)
+                .font(.bipeHeadline)
                 .foregroundStyle(BipeColor.inkPrimary)
             ForEach(YearRecapChart.all(recap), id: \.title) { chart in
                 YearRecapBars(chart: chart)
@@ -328,11 +328,11 @@ struct YearRecapCard: View {
     private func tile(_ value: String, _ label: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(value)
-                .font(.title2.weight(.semibold))
+                .font(.bipeTitle2.weight(.semibold))
                 .foregroundStyle(BipeColor.inkPrimary)
                 .lineLimit(2)
             Text(label)
-                .font(.footnote)
+                .font(.bipeFootnote)
                 .foregroundStyle(BipeColor.inkSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -379,7 +379,7 @@ struct YearRecapBars: View {
         let spacing: CGFloat = chart.values.count > 12 ? 2 : 4
         VStack(alignment: .leading, spacing: 6) {
             Text(chart.title)
-                .font(.subheadline.weight(.semibold))
+                .font(.bipeSubheadline.weight(.semibold))
                 .foregroundStyle(BipeColor.inkPrimary)
             HStack(alignment: .bottom, spacing: spacing) {
                 ForEach(chart.values.indices, id: \.self) { index in
@@ -395,14 +395,14 @@ struct YearRecapBars: View {
             HStack(spacing: spacing) {
                 ForEach(Array(stride(from: 0, to: chart.labels.count, by: chart.labelEvery)), id: \.self) { index in
                     Text(chart.labels[index])
-                        .font(.caption2)
+                        .font(.bipeCaption2)
                         .foregroundStyle(BipeColor.inkSecondary)
                         .lineLimit(1)
                         .frame(maxWidth: .infinity, alignment: chart.labelEvery == 1 ? .center : .leading)
                 }
             }
             Text(BipeStrings.yearRecapChartPeak(chart.peak))
-                .font(.footnote)
+                .font(.bipeFootnote)
                 .foregroundStyle(BipeColor.inkSecondary)
         }
         .accessibilityElement(children: .ignore)

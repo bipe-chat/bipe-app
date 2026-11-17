@@ -77,7 +77,7 @@ struct GroupLeaveView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text(BipeStrings.appGroupLeaveTitle)
-                .font(.title3.bold())
+                .font(.bipeTitle3.bold())
                 .foregroundStyle(BipeColor.inkPrimary)
             Text(bodyText)
                 .foregroundStyle(BipeColor.inkSecondary)

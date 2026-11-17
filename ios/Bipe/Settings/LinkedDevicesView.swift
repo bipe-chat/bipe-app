@@ -251,22 +251,22 @@ private struct DeviceRowLabel: View {
             VStack(alignment: .leading, spacing: 2) {
                 if row.isThis {
                     Text(BipeStrings.devicesThisDevice)
-                        .font(.caption.weight(.semibold))
+                        .font(.bipeCaption.weight(.semibold))
                         .foregroundStyle(BipeColor.accentInk)
                 }
                 Text(row.title)
                     .foregroundStyle(BipeColor.inkPrimary)
                 Text(DeviceText.details(row))
-                    .font(.subheadline)
+                    .font(.bipeSubheadline)
                     .foregroundStyle(BipeColor.inkSecondary)
                 if let use = DeviceText.use(row, place: place) {
                     Text(use)
-                        .font(.subheadline)
+                        .font(.bipeSubheadline)
                         .foregroundStyle(BipeColor.inkSecondary)
                 }
                 if row.warning {
                     Text(BipeStrings.devicesUnknownWarning)
-                        .font(.footnote)
+                        .font(.bipeFootnote)
                         .foregroundStyle(BipeColor.trustCautionInk)
                 }
             }
@@ -320,16 +320,16 @@ struct DeviceDetailView: View {
                         .foregroundStyle(row.warning ? BipeColor.trustCautionInk : BipeColor.accentInk)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(row.title)
-                            .font(.headline)
+                            .font(.bipeHeadline)
                             .foregroundStyle(BipeColor.inkPrimary)
                         Text(DeviceText.details(row))
-                            .font(.subheadline)
+                            .font(.bipeSubheadline)
                             .foregroundStyle(BipeColor.inkSecondary)
                     }
                 }
                 if row.warning {
                     Text(BipeStrings.devicesUnknownWarning)
-                        .font(.subheadline)
+                        .font(.bipeSubheadline)
                         .foregroundStyle(BipeColor.trustCautionInk)
                 }
             } footer: {

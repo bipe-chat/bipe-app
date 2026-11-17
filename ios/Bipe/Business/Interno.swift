@@ -658,7 +658,7 @@ private struct InternoPrivateHint: View {
                 .foregroundStyle(BipeColor.accentInk)
                 .accessibilityHidden(true)
             Text(BipeStrings.internoPrivateHint)
-                .font(.footnote)
+                .font(.bipeFootnote)
                 .foregroundStyle(BipeColor.inkPrimary)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }

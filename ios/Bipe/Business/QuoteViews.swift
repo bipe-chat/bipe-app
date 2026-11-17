@@ -31,11 +31,11 @@ struct QuoteCardView: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline) {
                 Text(BipeStrings.quoteCardTitle)
-                    .font(.caption.bold())
+                    .font(.bipeCaption.bold())
                     .foregroundStyle(BipeColor.accentInk)
                 Spacer(minLength: 8)
                 Text(BipeStrings.quoteVersion(String(quote.currentVersion)))
-                    .font(.caption)
+                    .font(.bipeCaption)
                     .foregroundStyle(BipeColor.inkSecondary)
             }
             if let current = quote.current {
@@ -68,7 +68,7 @@ struct QuoteCardView: View {
             }
             if !quote.previous.isEmpty {
                 Button(BipeStrings.quotePreviousVersions, action: showVersions)
-                    .font(.subheadline)
+                    .font(.bipeSubheadline)
             }
         }
         .padding(.top, 2)
@@ -98,11 +98,11 @@ struct QuoteVersionSummary: View {
             }
             .foregroundStyle(BipeColor.inkPrimary)
             Text(BipeStrings.quoteValidUntil(version.validUntil.formatted(date: .abbreviated, time: .omitted)))
-                .font(.subheadline)
+                .font(.bipeSubheadline)
                 .foregroundStyle(BipeColor.inkSecondary)
             if version.visitServiceId != nil {
                 Text([BipeStrings.quoteVisit, visitServiceName].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: ": "))
-                    .font(.subheadline)
+                    .font(.bipeSubheadline)
                     .foregroundStyle(BipeColor.inkSecondary)
             }
         }
@@ -216,10 +216,10 @@ struct QuoteOwnerView: View {
                         ForEach(requests) { request in
                             VStack(alignment: .leading, spacing: 6) {
                                 Text(name(request.customerId))
-                                    .font(.headline)
+                                    .font(.bipeHeadline)
                                     .foregroundStyle(BipeColor.inkPrimary)
                                 Text(BipeStrings.quoteRequestedAt(BusinessText.when(request.createdAt)))
-                                    .font(.subheadline)
+                                    .font(.bipeSubheadline)
                                     .foregroundStyle(BipeColor.inkSecondary)
                                 HStack(spacing: 12) {
                                     Button(BipeStrings.quoteAnswer) {
@@ -256,7 +256,7 @@ struct QuoteOwnerView: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline) {
                 Text(quote.customerName ?? name(quote.customerId))
-                    .font(.headline)
+                    .font(.bipeHeadline)
                     .foregroundStyle(BipeColor.inkPrimary)
                 Spacer(minLength: 8)
                 Text(BusinessText.money(quote.current?.totalAmountCents ?? 0))
@@ -264,7 +264,7 @@ struct QuoteOwnerView: View {
                     .foregroundStyle(BipeColor.inkPrimary)
             }
             Text(BipeStrings.quoteVersion(String(quote.currentVersion)))
-                .font(.subheadline)
+                .font(.bipeSubheadline)
                 .foregroundStyle(BipeColor.inkSecondary)
             BusinessStatusLine(text: quote.status.text, tint: quote.status.tint)
             HStack(spacing: 12) {
@@ -430,7 +430,7 @@ struct QuoteBuilderView: View {
                 }
                 Section {
                     LabeledContent(BipeStrings.quoteTotal, value: BusinessText.money(previewTotal))
-                        .font(.headline)
+                        .font(.bipeHeadline)
                 }
                 Section {
                     Button {
@@ -469,15 +469,15 @@ struct QuoteBuilderView: View {
             if line.wrappedValue.itemId == nil {
                 TextField(BipeStrings.quoteLineName, text: line.name)
             } else {
-                Text(line.wrappedValue.name).font(.headline).foregroundStyle(BipeColor.inkPrimary)
+                Text(line.wrappedValue.name).font(.bipeHeadline).foregroundStyle(BipeColor.inkPrimary)
             }
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(BipeStrings.quoteQuantity).font(.footnote).foregroundStyle(BipeColor.inkSecondary)
+                    Text(BipeStrings.quoteQuantity).font(.bipeFootnote).foregroundStyle(BipeColor.inkSecondary)
                     TextField(BipeStrings.quoteQuantity, text: line.quantity).keyboardType(.decimalPad)
                 }
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(BipeStrings.quoteUnitPrice).font(.footnote).foregroundStyle(BipeColor.inkSecondary)
+                    Text(BipeStrings.quoteUnitPrice).font(.bipeFootnote).foregroundStyle(BipeColor.inkSecondary)
                     TextField(BipeStrings.quoteUnitPrice, text: line.unitPrice).keyboardType(.decimalPad)
                 }
             }

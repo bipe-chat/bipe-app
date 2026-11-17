@@ -25,13 +25,13 @@ struct AccountRows: View {
                     VStack(alignment: .leading, spacing: 0) {
                         Text(account.displayName).foregroundStyle(BipeColor.inkPrimary).lineLimit(1)
                         if account.seatRole == "attendant" {
-                            Text(BipeStrings.teamYouHere).font(.footnote).foregroundStyle(BipeColor.inkSecondary)
+                            Text(BipeStrings.teamYouHere).font(.bipeFootnote).foregroundStyle(BipeColor.inkSecondary)
                                 .lineLimit(1)
                         } else if let handle = account.handleLine {
-                            Text(verbatim: handle).font(.footnote).foregroundStyle(BipeColor.inkSecondary).lineLimit(1)
+                            Text(verbatim: handle).font(.bipeFootnote).foregroundStyle(BipeColor.inkSecondary).lineLimit(1)
                         } else if account.isCompany {
                             // The indent already shows the owner (spec account-switcher, ADR 0287).
-                            Text(BipeStrings.accountWorkLine).font(.footnote).foregroundStyle(BipeColor.inkSecondary)
+                            Text(BipeStrings.accountWorkLine).font(.bipeFootnote).foregroundStyle(BipeColor.inkSecondary)
                                 .lineLimit(1)
                         }
                     }
@@ -91,7 +91,7 @@ struct AccountSwitcherPanel: View {
     private var panel: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(BipeStrings.appAccountSwitcherTitle)
-                .font(.footnote)
+                .font(.bipeFootnote)
                 .foregroundStyle(BipeColor.inkSecondary)
                 .padding(.horizontal, 16)
                 .padding(.top, 12)
@@ -101,7 +101,7 @@ struct AccountSwitcherPanel: View {
             Divider().padding(.leading, 60)
             Button { hide(then: onNewAccount) } label: {
                 HStack(spacing: 12) {
-                    Image(systemName: "plus").font(.body.weight(.medium)).frame(width: 32, height: 32)
+                    Image(systemName: "plus").font(.bipeBody.weight(.medium)).frame(width: 32, height: 32)
                     Text(BipeStrings.appAccountNew)
                     Spacer()
                 }

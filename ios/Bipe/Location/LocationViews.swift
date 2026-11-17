@@ -73,7 +73,7 @@ struct TimelineLocationRow: View {
                 .accessibilityLabel(location.label)
                 .accessibilityAddTraits(.isButton)
             Text(location.label)
-                .font(.footnote.weight(.semibold))
+                .font(.bipeFootnote.weight(.semibold))
                 .foregroundStyle(BipeColor.inkPrimary)
             if let description = location.description {
                 Text(description)
@@ -114,7 +114,7 @@ struct LocationFullView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(live == nil ? location.label : BipeStrings.appLocationLiveTitle)
-                            .font(.headline)
+                            .font(.bipeHeadline)
                             .foregroundStyle(BipeColor.inkPrimary)
                         if let description = location.description {
                             Text(description)
@@ -125,7 +125,7 @@ struct LocationFullView: View {
                                 .lineLimit(1)
                             Text(live?.statusLine() ?? sentAt.formatted(date: .abbreviated, time: .shortened))
                         }
-                        .font(.footnote)
+                        .font(.bipeFootnote)
                         .foregroundStyle(BipeColor.inkSecondary)
                     }
                     Button {

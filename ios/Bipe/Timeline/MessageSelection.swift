@@ -69,7 +69,7 @@ struct MessageSelectionBar: View {
             Button(BipeStrings.appCancel) { model.cancelSelection() }
                 .foregroundStyle(BipeColor.accentInk)
             Text(BipeStrings.selectCount(String(model.selection?.count ?? 0)))
-                .font(.subheadline)
+                .font(.bipeSubheadline)
                 .foregroundStyle(BipeColor.inkSecondary)
                 .lineLimit(1)
                 .frame(maxWidth: .infinity, alignment: .leading)

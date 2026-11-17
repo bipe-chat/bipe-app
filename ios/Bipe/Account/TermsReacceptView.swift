@@ -74,7 +74,7 @@ struct TermsReacceptView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text(BipeStrings.termsReacceptTitle)
-                .font(.largeTitle.bold())
+                .font(.bipeLargeTitle.bold())
                 .foregroundStyle(BipeColor.inkPrimary)
             Text(BipeStrings.termsReacceptBody)
                 .foregroundStyle(BipeColor.inkSecondary)
@@ -93,7 +93,7 @@ struct TermsReacceptView: View {
             }
             if model.phase == .failed {
                 Text(BipeStrings.termsReacceptFailed)
-                    .font(.footnote)
+                    .font(.bipeFootnote)
                     .foregroundStyle(BipeColor.trustDangerInk)
             }
             Spacer()
@@ -101,7 +101,7 @@ struct TermsReacceptView: View {
                 Task { await model.accept() }
             } label: {
                 Text(BipeStrings.actionContinue)
-                    .font(.headline)
+                    .font(.bipeHeadline)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
                     .foregroundStyle(model.accepted ? BipeColor.inkOnAccent : BipeColor.inkDisabled)

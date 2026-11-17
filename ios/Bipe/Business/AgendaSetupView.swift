@@ -440,7 +440,7 @@ struct AgendaSetupView: View {
                             Text(service.name).foregroundStyle(BipeColor.inkPrimary)
                             Text([service.durationMinutes.map { BipeStrings.agendaDuration(String($0)) }, service.price.displayText]
                                 .compactMap { $0 }.joined(separator: " · "))
-                                .font(.subheadline)
+                                .font(.bipeSubheadline)
                                 .foregroundStyle(BipeColor.inkSecondary)
                         }
                     }

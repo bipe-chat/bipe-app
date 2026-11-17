@@ -107,7 +107,7 @@ struct SignupDoneView: View {
             }
             .accessibilityHidden(true)
             Text(BipeLocalized.string(BipeOnboarding.createdKey))
-                .font(.largeTitle.bold())
+                .font(.bipeLargeTitle.bold())
                 .multilineTextAlignment(.center)
                 .foregroundStyle(BipeColor.inkPrimary)
             if model.phase == .openingChat {

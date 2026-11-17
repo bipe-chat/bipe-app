@@ -30,7 +30,7 @@ struct GroupInviteMembersView: View {
             if let notice = model.reachNotice {
                 Section {
                     Text(notice)
-                        .font(.subheadline)
+                        .font(.bipeSubheadline)
                         .foregroundStyle(BipeColor.trustCautionInk)
                 }
             }
@@ -43,7 +43,7 @@ struct GroupInviteMembersView: View {
                     }
                 } else if model.handleNotFound, let handle = GroupInviteLookup.handle(in: model.query) {
                     Text(BipeStrings.startChatHandleNotFound(handle))
-                        .font(.footnote)
+                        .font(.bipeFootnote)
                         .foregroundStyle(BipeColor.inkSecondary)
                 }
                 if model.loading {
@@ -122,11 +122,11 @@ private struct PickRow: View {
                     .lineLimit(1)
                 if let note {
                     Text(note)
-                        .font(.footnote)
+                        .font(.bipeFootnote)
                         .foregroundStyle(isError ? BipeColor.trustDangerInk : BipeColor.inkSecondary)
                 } else if let handle = pick.person.handle {
                     Text("@" + handle)
-                        .font(.footnote)
+                        .font(.bipeFootnote)
                         .foregroundStyle(BipeColor.inkSecondary)
                 }
             }

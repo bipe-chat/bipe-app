@@ -153,10 +153,10 @@ struct DataUseView: View {
             Text(title)
                 .foregroundStyle(BipeColor.inkPrimary)
             Text(BipeStrings.dataUseSent(Self.size(count.sentBytes)))
-                .font(.subheadline)
+                .font(.bipeSubheadline)
                 .foregroundStyle(BipeColor.inkSecondary)
             Text(BipeStrings.dataUseReceived(Self.size(count.receivedBytes)))
-                .font(.subheadline)
+                .font(.bipeSubheadline)
                 .foregroundStyle(BipeColor.inkSecondary)
         }
         .accessibilityElement(children: .combine)

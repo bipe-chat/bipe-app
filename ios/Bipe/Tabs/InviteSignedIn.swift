@@ -115,7 +115,7 @@ struct InviteSignedInView: View {
                     ProgressView().frame(maxWidth: .infinity)
                 case .invited:
                     Text(model.inviterName.map(BipeStrings.inviteSignedInTitle) ?? BipeStrings.inviteSignedInTitleAnonymous)
-                        .font(.title2.bold())
+                        .font(.bipeTitle2.bold())
                         .foregroundStyle(BipeColor.inkPrimary)
                     Text(BipeStrings.inviteSignedInBody)
                         .foregroundStyle(BipeColor.inkSecondary)

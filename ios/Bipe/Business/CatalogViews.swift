@@ -137,7 +137,7 @@ struct CatalogItemRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.name).foregroundStyle(BipeColor.inkPrimary)
                 Text(item.price.displayText)
-                    .font(.subheadline)
+                    .font(.bipeSubheadline)
                     .foregroundStyle(BipeColor.inkSecondary)
                 HStack(spacing: 6) {
                     if item.soldOutToday { CatalogBadge(text: BipeStrings.catalogSoldOutToday, tint: BipeColor.trustCautionInk) }
@@ -156,7 +156,7 @@ private struct CatalogBadge: View {
 
     var body: some View {
         Text(text)
-            .font(.caption.weight(.semibold))
+            .font(.bipeCaption.weight(.semibold))
             .foregroundStyle(tint)
             .padding(.horizontal, 8)
             .padding(.vertical, 2)
@@ -185,16 +185,16 @@ private struct CatalogItemDetail: View {
                     .clipShape(RoundedRectangle(cornerRadius: 14))
                     .accessibilityLabel(BipeStrings.catalogPhotoA11y(item.name))
                 }
-                Text(item.name).font(.title2.bold()).foregroundStyle(BipeColor.inkPrimary)
+                Text(item.name).font(.bipeTitle2.bold()).foregroundStyle(BipeColor.inkPrimary)
                 Text(item.kind == .service ? BipeStrings.catalogKindService : BipeStrings.catalogKindProduct)
-                    .font(.subheadline)
+                    .font(.bipeSubheadline)
                     .foregroundStyle(BipeColor.inkSecondary)
-                Text(item.price.displayText).font(.headline).foregroundStyle(BipeColor.inkPrimary)
+                Text(item.price.displayText).font(.bipeHeadline).foregroundStyle(BipeColor.inkPrimary)
                 if let minutes = item.durationMinutes, item.kind == .service {
                     Text(BipeStrings.agendaDuration(String(minutes))).foregroundStyle(BipeColor.inkSecondary)
                 }
                 if item.soldOutToday {
-                    Text(BipeStrings.catalogSoldOutToday).font(.subheadline.bold()).foregroundStyle(BipeColor.trustCautionInk)
+                    Text(BipeStrings.catalogSoldOutToday).font(.bipeSubheadline.bold()).foregroundStyle(BipeColor.trustCautionInk)
                 }
                 if let description = item.description, !description.isEmpty {
                     Text(verbatim: description).foregroundStyle(BipeColor.inkPrimary)
@@ -322,7 +322,7 @@ struct CatalogOwnerView: View {
                                 Task { await toggleSoldOut(item) }
                             }
                             .buttonStyle(.borderless)
-                            .font(.footnote)
+                            .font(.bipeFootnote)
                         }
                     }
                 }
@@ -651,7 +651,7 @@ struct LabeledField: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(title).font(.footnote).foregroundStyle(BipeColor.inkSecondary)
+            Text(title).font(.bipeFootnote).foregroundStyle(BipeColor.inkSecondary)
             TextField(title, text: $text).keyboardType(.numberPad)
         }
     }

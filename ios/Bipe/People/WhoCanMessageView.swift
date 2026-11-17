@@ -27,7 +27,7 @@ struct WhoCanMessageView: View {
                                 Text(Self.title(value))
                                     .foregroundStyle(BipeColor.inkPrimary)
                                 Text(Self.detail(value))
-                                    .font(.footnote)
+                                    .font(.bipeFootnote)
                                     .foregroundStyle(BipeColor.inkSecondary)
                             }
                             Spacer(minLength: 8)

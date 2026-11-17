@@ -543,28 +543,28 @@ struct BookingCardView: View {
     private var card: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(BipeStrings.agendaCardTitle)
-                .font(.caption.bold())
+                .font(.bipeCaption.bold())
                 .foregroundStyle(BipeColor.accentInk)
             if let serviceName, !serviceName.isEmpty {
                 Text(serviceName)
-                    .font(.headline)
+                    .font(.bipeHeadline)
                     .foregroundStyle(BipeColor.inkPrimary)
             }
             Text(BookingText.when(booking))
-                .font(.subheadline)
+                .font(.bipeSubheadline)
                 .foregroundStyle(BipeColor.inkPrimary)
             if let agendaName, !agendaName.isEmpty {
                 Text(BipeStrings.agendaWith(agendaName))
-                    .font(.subheadline)
+                    .font(.bipeSubheadline)
                     .foregroundStyle(BipeColor.inkSecondary)
             }
             if let customerName, !customerName.isEmpty {
                 Text(customerName)
-                    .font(.subheadline)
+                    .font(.bipeSubheadline)
                     .foregroundStyle(BipeColor.inkSecondary)
             }
             Text(booking.status.text)
-                .font(.footnote.weight(.semibold))
+                .font(.bipeFootnote.weight(.semibold))
                 .foregroundStyle(booking.status.tint)
             if case .customer(let addToCalendar, let reschedule, let cancel) = actions {
                 ViewThatFits(in: .horizontal) {

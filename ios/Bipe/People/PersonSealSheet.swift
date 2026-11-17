@@ -22,7 +22,7 @@ struct PersonSealSheet: View {
                             .foregroundStyle(BipeColor.trustVerifiedInk)
                             .accessibilityHidden(true)
                         Text(proof.line)
-                            .font(.headline)
+                            .font(.bipeHeadline)
                             .foregroundStyle(BipeColor.inkPrimary)
                             .multilineTextAlignment(.center)
                     }
@@ -67,7 +67,7 @@ struct PersonSealSheet: View {
     private func fact(_ label: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(label)
-                .font(.caption)
+                .font(.bipeCaption)
                 .foregroundStyle(BipeColor.inkSecondary)
             Text(value)
                 .foregroundStyle(BipeColor.inkPrimary)

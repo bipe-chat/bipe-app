@@ -44,7 +44,7 @@ struct OngoingCallBar: View {
                 PhosphorIcon.phone.image.resizable().frame(width: 18, height: 18)
                     .foregroundStyle(BipeColor.accentInk)
                 Text(BipeStrings.callOngoing)
-                    .font(.subheadline.weight(.semibold))
+                    .font(.bipeSubheadline.weight(.semibold))
                     .foregroundStyle(BipeColor.inkPrimary)
                 Spacer()
                 Button(inThisCall ? BipeStrings.callReturn : BipeStrings.callJoin) {
@@ -105,7 +105,7 @@ struct IncomingCallView: View {
             Spacer()
             AvatarView(name: call.callerName, mxcUrl: call.callerAvatarUrl, loader: media, size: 120)
             Text(call.video ? BipeStrings.callIncomingVideo(call.callerName) : BipeStrings.callIncomingVoice(call.callerName))
-                .font(.title2.weight(.semibold))
+                .font(.bipeTitle2.weight(.semibold))
                 .foregroundStyle(BipeColor.inkPrimary)
                 .multilineTextAlignment(.center)
             Spacer()
@@ -132,7 +132,7 @@ struct IncomingCallView: View {
             }
             .accessibilityLabel(label)
             Text(label)
-                .font(.subheadline)
+                .font(.bipeSubheadline)
                 .foregroundStyle(BipeColor.inkPrimary)
                 .accessibilityHidden(true)
         }

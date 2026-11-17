@@ -305,8 +305,8 @@ struct BusinessClaimView: View {
 
     private func proofSection(_ challenge: String) -> some View {
         Section {
-            Text(BipeStrings.claimProofEcnpj).font(.headline).foregroundStyle(BipeColor.inkPrimary)
-            Text(BipeStrings.claimProofEcnpjBody).font(.subheadline).foregroundStyle(BipeColor.inkSecondary)
+            Text(BipeStrings.claimProofEcnpj).font(.bipeHeadline).foregroundStyle(BipeColor.inkPrimary)
+            Text(BipeStrings.claimProofEcnpjBody).font(.bipeSubheadline).foregroundStyle(BipeColor.inkSecondary)
             // The exact text to sign: never trimmed or changed.
             Text(verbatim: challenge)
                 .font(.footnote.monospaced())
@@ -337,12 +337,12 @@ struct BusinessClaimView: View {
         Section {
             ForEach(claim.domains, id: \.domain) { domain in
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(domain.domain).font(.headline).foregroundStyle(BipeColor.inkPrimary)
+                    Text(domain.domain).font(.bipeHeadline).foregroundStyle(BipeColor.inkPrimary)
                     if domain.verifiedAt != nil {
                         HStack(spacing: 6) {
                             PhosphorIcon.checkCircle.image.resizable().frame(width: 16, height: 16)
                                 .foregroundStyle(BipeColor.statusSuccess).accessibilityHidden(true)
-                            Text(BipeStrings.claimDomainVerified).font(.subheadline).foregroundStyle(BipeColor.inkPrimary)
+                            Text(BipeStrings.claimDomainVerified).font(.bipeSubheadline).foregroundStyle(BipeColor.inkPrimary)
                         }
                     } else {
                         if let name = domain.txtName { txtRow(BipeStrings.claimDomainTxtName, name, domain: domain.domain) }
@@ -390,7 +390,7 @@ struct BusinessClaimView: View {
                     Text(name.name).foregroundStyle(BipeColor.inkPrimary)
                     Spacer()
                     Text(name.approved ? BipeStrings.claimReservedApproved : BipeStrings.claimReservedPending)
-                        .font(.subheadline).foregroundStyle(BipeColor.inkSecondary)
+                        .font(.bipeSubheadline).foregroundStyle(BipeColor.inkSecondary)
                 }
             }
             if names.contains(where: { !$0.approved }) {
@@ -407,7 +407,7 @@ struct BusinessClaimView: View {
 
     private func fact(_ label: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(label).font(.caption).foregroundStyle(BipeColor.inkSecondary)
+            Text(label).font(.bipeCaption).foregroundStyle(BipeColor.inkSecondary)
             Text(verbatim: value).foregroundStyle(BipeColor.inkPrimary).textSelection(.enabled)
         }
     }
@@ -418,6 +418,6 @@ private struct NoticeText: View {
     let text: String
 
     var body: some View {
-        Text(text).font(.footnote).foregroundStyle(BipeColor.inkSecondary)
+        Text(text).font(.bipeFootnote).foregroundStyle(BipeColor.inkSecondary)
     }
 }

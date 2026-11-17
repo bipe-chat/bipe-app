@@ -278,15 +278,15 @@ struct ContactsView: View {
                 }
                 if let age = match.numberMovedAge {
                     Text(BipeStrings.contactsNumberMoved(age))
-                        .font(.caption)
+                        .font(.bipeCaption)
                         .foregroundStyle(BipeColor.trustCautionInk)
                 } else if match.joinedWithInvite {
                     Text(BipeStrings.contactsJoinedWithInvite)
-                        .font(.caption)
+                        .font(.bipeCaption)
                         .foregroundStyle(BipeColor.accentInk)
                 } else if let handle = match.person.handle {
                     Text("@\(handle)")
-                        .font(.caption)
+                        .font(.bipeCaption)
                         .foregroundStyle(BipeColor.inkSecondary)
                 }
             }

@@ -230,7 +230,7 @@ struct BringPeopleView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     Text(BipeStrings.bringPeopleTitle)
-                        .font(.title2.weight(.semibold))
+                        .font(.bipeTitle2.weight(.semibold))
                         .foregroundStyle(BipeColor.inkPrimary)
                     Text(BipeStrings.bringPeopleBody)
                         .foregroundStyle(BipeColor.inkSecondary)
@@ -243,11 +243,11 @@ struct BringPeopleView: View {
                     // State available 0: the empty slots stay hidden and the sheet says why.
                     if model.available == 0 && model.slots.contains(where: { $0.status == .empty }) {
                         Text(BipeInviteQuota.noneLeft(nextAvailableAt: model.nextAvailableAt))
-                            .font(.footnote)
+                            .font(.bipeFootnote)
                             .foregroundStyle(BipeColor.inkSecondary)
                     }
                     if case .failed(let message) = model.phase {
-                        Text(message).font(.footnote).foregroundStyle(BipeColor.trustDangerInk)
+                        Text(message).font(.bipeFootnote).foregroundStyle(BipeColor.trustDangerInk)
                         Button(BipeStrings.appRetry) { Task { await retry() } }
                     }
                     VStack(spacing: 12) {
@@ -336,10 +336,10 @@ struct BringPeopleView: View {
     private func filledHeader(_ slot: BringPeopleModel.Slot, state: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             if let name = slot.name, !name.isEmpty {
-                Text(name).font(.headline).foregroundStyle(BipeColor.inkPrimary)
+                Text(name).font(.bipeHeadline).foregroundStyle(BipeColor.inkPrimary)
             }
             Text(state)
-                .font(.subheadline)
+                .font(.bipeSubheadline)
                 .foregroundStyle(slot.status == .joined ? BipeColor.statusSuccess : BipeColor.inkSecondary)
         }
         .accessibilityElement(children: .combine)

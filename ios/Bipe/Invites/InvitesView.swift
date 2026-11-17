@@ -123,7 +123,7 @@ private struct PendingInviteRow: View {
                 Text(onThisPhone
                      ? BipeStrings.invitesExpires(invite.expiresAt.formatted(date: .abbreviated, time: .omitted))
                      : BipeStrings.invitesOtherDevice)
-                    .font(.caption).foregroundStyle(BipeColor.inkSecondary)
+                    .font(.bipeCaption).foregroundStyle(BipeColor.inkSecondary)
             }
             Spacer()
             PhosphorIcon.caretRight.image.resizable().frame(width: 16, height: 16).foregroundStyle(BipeColor.inkSecondary)
@@ -155,7 +155,7 @@ private struct JoinedInviteRow: View {
                 VStack(alignment: .leading) {
                     Text(title).foregroundStyle(BipeColor.inkPrimary)
                     if let caption {
-                        Text(caption).font(.caption).foregroundStyle(BipeColor.inkSecondary)
+                        Text(caption).font(.bipeCaption).foregroundStyle(BipeColor.inkSecondary)
                     }
                 }
                 Spacer()
@@ -265,7 +265,7 @@ struct InviteCardView: View {
                         if let code = BipeInviteLink.normalizedCode(url.absoluteString) {
                             VStack(spacing: 4) {
                                 Text(BipeStrings.signupInviteCode)
-                                    .font(.subheadline).foregroundStyle(BipeColor.inkSecondary)
+                                    .font(.bipeSubheadline).foregroundStyle(BipeColor.inkSecondary)
                                 Text(verbatim: code)
                                     .font(.title2.weight(.semibold).monospaced())
                                     .foregroundStyle(BipeColor.inkPrimary)
@@ -273,7 +273,7 @@ struct InviteCardView: View {
                             }
                         }
                         Text(BipeStrings.invitesExpires(card.expiresAt.formatted(date: .abbreviated, time: .omitted)))
-                            .font(.subheadline).foregroundStyle(BipeColor.inkSecondary)
+                            .font(.bipeSubheadline).foregroundStyle(BipeColor.inkSecondary)
                         VStack(spacing: 12) {
                             ShareLink(item: BipeInviteShare(url: url, expiresAt: card.expiresAt).message) {
                                 Label { Text(BipeStrings.appShare) } icon: { PhosphorIcon.shareNetwork.image.resizable().frame(width: 20, height: 20) }
@@ -288,7 +288,7 @@ struct InviteCardView: View {
                         }
                         .controlSize(.large)
                         Text(BipeStrings.invitesQrFooter)
-                            .font(.footnote).multilineTextAlignment(.center).foregroundStyle(BipeColor.inkSecondary)
+                            .font(.bipeFootnote).multilineTextAlignment(.center).foregroundStyle(BipeColor.inkSecondary)
                     } else {
                         Text(BipeStrings.invitesOtherDevice).foregroundStyle(BipeColor.inkSecondary)
                     }

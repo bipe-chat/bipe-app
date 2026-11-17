@@ -132,7 +132,7 @@ struct PersonProfileView: View {
             }
             HStack(spacing: 6) {
                 Text(model.person.displayName)
-                    .font(.title2.bold())
+                    .font(.bipeTitle2.bold())
                     .foregroundStyle(BipeColor.inkPrimary)
                     .multilineTextAlignment(.center)
                 if model.isOfficial {
@@ -161,12 +161,12 @@ struct PersonProfileView: View {
                 .environment(\.bipeCompanySeals, people.seals)
             if let handle = model.person.handle {
                 Text("@\(handle)")
-                    .font(.subheadline)
+                    .font(.bipeSubheadline)
                     .foregroundStyle(BipeColor.inkSecondary)
             }
             if model.userId == BipeRegistries.groupsAccountID {
                 Text(BipeStrings.groupsServiceAbout)
-                    .font(.footnote)
+                    .font(.bipeFootnote)
                     .foregroundStyle(BipeColor.inkSecondary)
                     .multilineTextAlignment(.center)
             }
@@ -204,11 +204,11 @@ struct PersonProfileView: View {
             if let bio = model.bio {
                 VStack(spacing: 4) {
                     Text(bio)
-                        .font(.body)
+                        .font(.bipeBody)
                         .foregroundStyle(BipeColor.inkPrimary)
                         .multilineTextAlignment(.center)
                     Text(BipeStrings.publicProfileNotVerified)
-                        .font(.caption)
+                        .font(.bipeCaption)
                         .foregroundStyle(BipeColor.inkSecondary)
                 }
                 .padding(.top, 4)
@@ -304,7 +304,7 @@ struct PersonProfileView: View {
             VStack(alignment: .leading, spacing: 4) {
                 MarkLine(icon: .warning, text: BipeStrings.bannerSecurityChange, tint: BipeColor.trustCautionInk)
                 Text(BipeStrings.trustChangeConfirmAction)
-                    .font(.footnote)
+                    .font(.bipeFootnote)
                     .foregroundStyle(BipeColor.inkPrimary)
             }
             .padding(10)
@@ -318,7 +318,7 @@ struct PersonProfileView: View {
                 Task { await model.readIdentity() }
             } label: {
                 Text(BipeStrings.trustLifecycleRetryAction)
-                    .font(.footnote.weight(.semibold))
+                    .font(.bipeFootnote.weight(.semibold))
             }
         }
         if facts.identity == "verified" || facts.contact == "confirmed" {
@@ -423,7 +423,7 @@ private struct MarkLine: View {
                 .foregroundStyle(tint)
                 .accessibilityHidden(true)
             Text(text)
-                .font(.footnote)
+                .font(.bipeFootnote)
                 .foregroundStyle(tint)
                 .multilineTextAlignment(.leading)
         }
@@ -436,7 +436,7 @@ private struct FactCaption: View {
 
     var body: some View {
         Text(text)
-            .font(.caption)
+            .font(.bipeCaption)
             .foregroundStyle(BipeColor.inkSecondary)
             .multilineTextAlignment(.center)
     }

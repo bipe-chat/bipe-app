@@ -174,14 +174,14 @@ struct RoomLinkOpenView: View {
                 case .preview, .knockSent, .inviteOnly:
                     AvatarView(name: model.name, mxcUrl: model.avatarUrl, loader: media, size: 72)
                     Text(model.name)
-                        .font(.title3.weight(.semibold))
+                        .font(.bipeTitle3.weight(.semibold))
                         .foregroundStyle(BipeColor.inkPrimary)
                         .multilineTextAlignment(.center)
                     Text(BipeStrings.appRoomLinkMembers(String(model.memberCount)))
                         .foregroundStyle(BipeColor.inkSecondary)
                     if let topic = model.topic {
                         Text(topic)
-                            .font(.subheadline)
+                            .font(.bipeSubheadline)
                             .foregroundStyle(BipeColor.inkSecondary)
                             .multilineTextAlignment(.center)
                             .lineLimit(4)

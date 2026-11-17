@@ -69,11 +69,11 @@ private struct RecoveryStep<Content: View>: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 Text(title)
-                    .font(.largeTitle.bold())
+                    .font(.bipeLargeTitle.bold())
                     .foregroundStyle(BipeColor.inkPrimary)
                 if let message {
                     Text(message)
-                        .font(.body)
+                        .font(.bipeBody)
                         .foregroundStyle(BipeColor.inkSecondary)
                 }
                 content
@@ -107,7 +107,7 @@ private struct Footer: View {
 
     var body: some View {
         Text(text)
-            .font(.footnote)
+            .font(.bipeFootnote)
             .foregroundStyle(isError ? BipeColor.trustDangerInk : BipeColor.inkSecondary)
     }
 }
@@ -124,10 +124,10 @@ private struct RecoveryStartView: View {
                 Button { model.choose(row) } label: {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(BipeLocalized.string(row.titleKey))
-                            .font(.headline)
+                            .font(.bipeHeadline)
                             .foregroundStyle(BipeColor.inkPrimary)
                         Text(rowBody(of: row))
-                            .font(.subheadline)
+                            .font(.bipeSubheadline)
                             .foregroundStyle(BipeColor.inkSecondary)
                             .multilineTextAlignment(.leading)
                     }
@@ -143,10 +143,10 @@ private struct RecoveryStartView: View {
                 Button { model.path.append(.join) } label: {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(BipeStrings.teamJoinRow)
-                            .font(.headline)
+                            .font(.bipeHeadline)
                             .foregroundStyle(BipeColor.inkPrimary)
                         Text(BipeStrings.teamJoinRowBody)
-                            .font(.subheadline)
+                            .font(.bipeSubheadline)
                             .foregroundStyle(BipeColor.inkSecondary)
                             .multilineTextAlignment(.leading)
                     }

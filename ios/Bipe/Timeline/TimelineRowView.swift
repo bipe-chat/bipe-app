@@ -64,7 +64,7 @@ struct TimelineRowView: View {
                     Bubble(isOwn: message.isOwn, trailingLast: true) {
                         if !message.isOwn && message.showsSender {
                             SenderNameText(message: message)
-                                .font(.caption.bold())
+                                .font(.bipeCaption.bold())
                                 .foregroundStyle(BipeColor.accentInk)
                         }
                         PollCard(poll: poll)
@@ -135,7 +135,7 @@ private struct ForwardLine: View {
                 .scaleEffect(x: -1, y: 1)
                 .accessibilityHidden(true)
             Text(source == .forwardedManyTimes ? BipeStrings.forwardLineMany : BipeStrings.forwardLine)
-                .font(.caption.italic())
+                .font(.bipeCaption.italic())
         }
         .foregroundStyle(BipeColor.inkSecondary)
     }
@@ -145,7 +145,7 @@ private struct ForwardLine: View {
 private struct PublicFeedLine: View {
     var body: some View {
         Text(BipeStrings.feedPublicLabel)
-            .font(.caption.bold())
+            .font(.bipeCaption.bold())
             .foregroundStyle(BipeColor.inkSecondary)
     }
 }
@@ -179,7 +179,7 @@ private struct MessageBubbleRow: View {
                        isPlain: message.media?.kind == .sticker) {
                     if !message.isOwn && message.showsSender {
                         SenderNameText(message: message)
-                            .font(.caption.bold())
+                            .font(.bipeCaption.bold())
                             .foregroundStyle(BipeColor.accentInk)
                     }
                     // Spec chat-timeline notes (bipe-chat/bipe#933): voice rows keep their own source line.
@@ -225,13 +225,13 @@ private struct MessageBubbleRow: View {
             // Spec chat-timeline notes (ADR 0210): small text under the bubble of a message an assistant sent.
             if let label = message.assistantLabel {
                 Text(label)
-                    .font(.caption2)
+                    .font(.bipeCaption2)
                     .foregroundStyle(BipeColor.inkSecondary)
             }
             // Spec work-chat-bar notes (ADR 0284 point 19): the seat that sent a reply, inside the work account only.
             if let label = message.replyByLabel {
                 Text(label)
-                    .font(.caption2)
+                    .font(.bipeCaption2)
                     .foregroundStyle(BipeColor.inkSecondary)
             }
             // Spec threads: the count under a root, which opens the thread.
@@ -240,7 +240,7 @@ private struct MessageBubbleRow: View {
                     model.openThreadRoot = eventId
                 } label: {
                     Text(BipeStrings.threadReplies(String(replies)))
-                        .font(.footnote.weight(.semibold))
+                        .font(.bipeFootnote.weight(.semibold))
                         .foregroundStyle(BipeColor.accentInk)
                         .bipeTapTarget()
                 }
@@ -310,7 +310,7 @@ private struct MessageBubbleRow: View {
                 ReceiptTick(receipt: receipt) { model.openActions(rowId: row.id) }
             }
         }
-        .font(.caption2)
+        .font(.bipeCaption2)
         .foregroundStyle(BipeColor.inkSecondary)
     }
 }
@@ -329,10 +329,10 @@ private struct ScamWarningCard: View {
                 .foregroundStyle(BipeColor.trustCautionInk)
             VStack(alignment: .leading, spacing: 2) {
                 Text(BipeStrings.scamWarningTitle)
-                    .font(.caption.bold())
+                    .font(.bipeCaption.bold())
                     .foregroundStyle(BipeColor.trustCautionInk)
                 Text(kind.message)
-                    .font(.caption)
+                    .font(.bipeCaption)
                     .foregroundStyle(BipeColor.inkPrimary)
                     .fixedSize(horizontal: false, vertical: true)
                 if pauseSecondsLeft(.now) > 0 {
@@ -412,7 +412,7 @@ private struct ReaderAvatars: View {
             }
             if readers.count > 3 {
                 Text("+\(readers.count - 3)")
-                    .font(.caption2)
+                    .font(.bipeCaption2)
                     .foregroundStyle(BipeColor.inkSecondary)
                     .padding(.leading, 6)
             }
@@ -435,7 +435,7 @@ private struct ReactionPills: View {
                 HStack(spacing: 4) {
                     Text(reactionKeyText(reaction.key))
                     Text(reaction.count.formatted())
-                        .font(.caption)
+                        .font(.bipeCaption)
                         .foregroundStyle(reaction.includesOwn ? BipeColor.accentInk : BipeColor.inkSecondary)
                 }
                 .padding(.horizontal, 8)
@@ -470,7 +470,7 @@ private struct UndecryptableRow: View {
         Bubble(isOwn: message.isOwn, trailingLast: true) {
             if !message.isOwn {
                 SenderNameText(message: message)
-                    .font(.caption.bold())
+                    .font(.bipeCaption.bold())
                     .foregroundStyle(BipeColor.inkSecondary)
             }
             HStack(alignment: .top, spacing: 6) {
@@ -480,14 +480,14 @@ private struct UndecryptableRow: View {
                     .foregroundStyle(BipeColor.glyphSecondary)
                     .accessibilityHidden(true)
                 Text(text)
-                    .font(.subheadline.italic())
+                    .font(.bipeSubheadline.italic())
                     .foregroundStyle(BipeColor.inkSecondary)
             }
             // Action openHelp: historyNotOnThisPhone, and on an unverified phone also waiting and notShared (bipe#853).
             if showsHelp {
                 Button(action: openHistoryHelp) {
                     Text(BipeStrings.appUtdHelp)
-                        .font(.subheadline)
+                        .font(.bipeSubheadline)
                         .foregroundStyle(BipeColor.accentInk)
                 }
                 .buttonStyle(.plain)
@@ -531,7 +531,7 @@ private struct DeletedRow: View {
         Bubble(isOwn: message.isOwn, trailingLast: true) {
             if !message.isOwn && message.showsSender {
                 SenderNameText(message: message)
-                    .font(.caption.bold())
+                    .font(.bipeCaption.bold())
                     .foregroundStyle(BipeColor.accentInk)
             }
             HStack(spacing: 6) {
@@ -541,7 +541,7 @@ private struct DeletedRow: View {
                     .foregroundStyle(BipeColor.glyphSecondary)
                     .accessibilityHidden(true)
                 Text(message.isOwn ? BipeStrings.appMessageDeletedOwn : BipeStrings.appMessageDeleted)
-                    .font(.subheadline.italic())
+                    .font(.bipeSubheadline.italic())
                     .foregroundStyle(BipeColor.inkSecondary)
             }
             MessageTimestamp(sentAt: message.sentAt)

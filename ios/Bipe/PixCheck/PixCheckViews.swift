@@ -70,7 +70,7 @@ struct PixCheckView: View {
                     .foregroundStyle(BipeColor.accentInk)
             }
             Text(BipeStrings.pixCheckPrivate)
-                .font(.footnote)
+                .font(.bipeFootnote)
                 .foregroundStyle(BipeColor.inkSecondary)
         }
         .padding(24)
@@ -97,11 +97,11 @@ struct PixCheckResultView: View {
                     report(item)
                 }
                 Text(BipeStrings.pixCheckPrivate)
-                    .font(.footnote)
+                    .font(.bipeFootnote)
                     .foregroundStyle(BipeColor.inkSecondary)
                 // Always last, also for bad CRC, malformed and nothing found.
                 Text(BipeStrings.pixCheckBankName)
-                    .font(.subheadline.weight(.semibold))
+                    .font(.bipeSubheadline.weight(.semibold))
                     .foregroundStyle(BipeColor.inkPrimary)
             }
             .padding(16)
@@ -130,7 +130,7 @@ struct PixCheckResultView: View {
                     sharing = PixSharePayload(item: item)
                 } label: {
                     Text(BipeStrings.pixCheckShareResult)
-                        .font(.subheadline.weight(.semibold))
+                        .font(.bipeSubheadline.weight(.semibold))
                         .foregroundStyle(BipeColor.accentInk)
                 }
             }
@@ -139,7 +139,7 @@ struct PixCheckResultView: View {
                     sendToChat(item)
                 } label: {
                     Text(BipeStrings.pixCheckSendToChat)
-                        .font(.subheadline.weight(.semibold))
+                        .font(.bipeSubheadline.weight(.semibold))
                         .foregroundStyle(BipeColor.accentInk)
                 }
             }
@@ -157,7 +157,7 @@ private struct CodeReport: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(BipeStrings.pixCheckCodeTitle)
-                .font(.headline)
+                .font(.bipeHeadline)
                 .foregroundStyle(BipeColor.inkPrimary)
             switch code.status {
             case .badCrc:
@@ -169,13 +169,13 @@ private struct CodeReport: View {
             case .valid:
                 if code.dynamic {
                     Text(BipeStrings.pixCheckCodeDynamic)
-                        .font(.subheadline)
+                        .font(.bipeSubheadline)
                         .foregroundStyle(BipeColor.inkSecondary)
                 }
                 fields
                 if !code.dynamic {
                     Text(BipeStrings.pixCheckNameHint)
-                        .font(.footnote)
+                        .font(.bipeFootnote)
                         .foregroundStyle(BipeColor.inkSecondary)
                 }
             }
@@ -202,7 +202,7 @@ private struct CodeReport: View {
         if let value, !value.isEmpty {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.caption)
+                    .font(.bipeCaption)
                     .foregroundStyle(BipeColor.inkSecondary)
                 Text(verbatim: value)
                     .foregroundStyle(BipeColor.inkPrimary)
@@ -218,7 +218,7 @@ private struct CodeReport: View {
                 .frame(width: 18, height: 18)
                 .accessibilityHidden(true)
             Text(text)
-                .font(.subheadline.weight(.semibold))
+                .font(.bipeSubheadline.weight(.semibold))
         }
         .foregroundStyle(BipeColor.trustDangerInk)
         .padding(10)
@@ -234,12 +234,12 @@ private struct KeysReport: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(BipeStrings.pixCheckKeysTitle)
-                .font(.headline)
+                .font(.bipeHeadline)
                 .foregroundStyle(BipeColor.inkPrimary)
             ForEach(Array(keys.enumerated()), id: \.offset) { _, key in
                 VStack(alignment: .leading, spacing: 2) {
                     Text(PixFormat.types(key.types))
-                        .font(.caption)
+                        .font(.bipeCaption)
                         .foregroundStyle(BipeColor.inkSecondary)
                     Text(verbatim: key.value)
                         .foregroundStyle(BipeColor.inkPrimary)
@@ -263,10 +263,10 @@ private struct WarningCard: View {
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(BipeStrings.scamWarningTitle)
-                    .font(.caption.bold())
+                    .font(.bipeCaption.bold())
                     .foregroundStyle(BipeColor.trustCautionInk)
                 Text(kind.message)
-                    .font(.caption)
+                    .font(.bipeCaption)
                     .foregroundStyle(BipeColor.inkPrimary)
             }
         }

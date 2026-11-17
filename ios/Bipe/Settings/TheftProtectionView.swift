@@ -220,11 +220,11 @@ struct TheftProtectionView: View {
             OsTheftProtectionSection()
             Section {
                 Text(BipeStrings.theftIntro)
-                    .font(.subheadline)
+                    .font(.bipeSubheadline)
                     .foregroundStyle(BipeColor.inkSecondary)
                 if let lastMark = model.lastMark {
                     Text(lastMark)
-                        .font(.subheadline)
+                        .font(.bipeSubheadline)
                         .foregroundStyle(BipeColor.trustDangerInk)
                 }
             }
@@ -303,7 +303,7 @@ struct TheftProtectionView: View {
             }
             if model.isFull {
                 Text(BipeStrings.theftGuardiansFull)
-                    .font(.subheadline)
+                    .font(.bipeSubheadline)
                     .foregroundStyle(BipeColor.inkSecondary)
             } else {
                 Button(BipeStrings.theftAddGuardian) {
@@ -323,7 +323,7 @@ struct TheftProtectionView: View {
         Section {
             if model.guarding.isEmpty {
                 Text(BipeStrings.theftGuardingEmpty)
-                    .font(.subheadline)
+                    .font(.bipeSubheadline)
                     .foregroundStyle(BipeColor.inkSecondary)
             }
             ForEach(model.guarding) { row in
@@ -332,13 +332,13 @@ struct TheftProtectionView: View {
                         .foregroundStyle(BipeColor.inkPrimary)
                     if let markedAt = row.markedAt {
                         Text(BipeStrings.theftMarkedAt(markedAt.formatted(date: .abbreviated, time: .shortened)))
-                            .font(.footnote)
+                            .font(.bipeFootnote)
                             .foregroundStyle(BipeColor.trustDangerInk)
                     }
                     Button(row.markedAt == nil ? BipeStrings.theftMarkAction : BipeStrings.theftClearAction) {
                         model.ask(row)
                     }
-                    .font(.subheadline.weight(.semibold))
+                    .font(.bipeSubheadline.weight(.semibold))
                     .foregroundStyle(row.markedAt == nil ? BipeColor.trustDangerInk : BipeColor.accentInk)
                     .buttonStyle(.borderless)
                     .disabled(model.isBusy)
@@ -355,7 +355,7 @@ struct TheftProtectionView: View {
             List {
                 if let rows = model.picker, rows.isEmpty {
                     Text(BipeStrings.theftPickerEmpty)
-                        .font(.subheadline)
+                        .font(.bipeSubheadline)
                         .foregroundStyle(BipeColor.inkSecondary)
                 }
                 ForEach(model.picker ?? []) { row in

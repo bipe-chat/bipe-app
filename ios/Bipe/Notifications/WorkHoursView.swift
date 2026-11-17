@@ -102,7 +102,7 @@ struct WorkHoursView: View {
                         Text(BipeStrings.workHoursEnabled)
                         if model.hours.enabled {
                             Text(model.openNow ? BipeStrings.workHoursOpenNow : BipeStrings.workHoursClosedNow)
-                                .font(.footnote)
+                                .font(.bipeFootnote)
                                 .foregroundStyle(BipeColor.inkSecondary)
                         }
                     }
@@ -155,7 +155,7 @@ private struct WorkDayRow: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(name)
                     Text(range.map { BipeStrings.workHoursRange($0.start, $0.end) } ?? BipeStrings.workHoursClosed)
-                        .font(.footnote)
+                        .font(.bipeFootnote)
                         .foregroundStyle(BipeColor.inkSecondary)
                 }
             }

@@ -55,11 +55,11 @@ struct CallView: View {
             .accessibilityLabel(BipeStrings.callMinimise)
             VStack(spacing: 4) {
                 Text(call.roomName)
-                    .font(.headline)
+                    .font(.bipeHeadline)
                     .foregroundStyle(BipeColor.inkPrimary)
                     .lineLimit(1)
                 status
-                    .font(.subheadline)
+                    .font(.bipeSubheadline)
                     .foregroundStyle(BipeColor.inkSecondary)
             }
             .frame(maxWidth: .infinity)
@@ -101,7 +101,7 @@ struct CallView: View {
     private var memberList: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(BipeStrings.callMembers)
-                .font(.footnote.weight(.semibold))
+                .font(.bipeFootnote.weight(.semibold))
                 .foregroundStyle(BipeColor.inkSecondary)
             ForEach(call.extraMembers) { tile in
                 HStack(spacing: 8) {
@@ -121,7 +121,7 @@ struct CallView: View {
     private func denied(_ text: String) -> some View {
         VStack(spacing: 12) {
             Text(text)
-                .font(.body.weight(.semibold))
+                .font(.bipeBody.weight(.semibold))
                 .foregroundStyle(BipeColor.inkPrimary)
                 .multilineTextAlignment(.center)
             Button(BipeStrings.contactsOpenSettings) {
@@ -139,7 +139,7 @@ struct CallView: View {
     private var failed: some View {
         VStack(spacing: 12) {
             Text(BipeStrings.callErrorConnect)
-                .font(.body.weight(.semibold))
+                .font(.bipeBody.weight(.semibold))
                 .foregroundStyle(BipeColor.inkPrimary)
                 .multilineTextAlignment(.center)
             Button(BipeStrings.appClose, action: close)
@@ -193,7 +193,7 @@ private struct CallTileView: View {
                 if !tile.microphoneOn {
                     PhosphorIcon.microphoneSlash.labelledImage(BipeStrings.callMuted).resizable().frame(width: 14, height: 14)
                 }
-                Text(tile.name).font(.caption.weight(.semibold)).lineLimit(1)
+                Text(tile.name).font(.bipeCaption.weight(.semibold)).lineLimit(1)
             }
             .foregroundStyle(BipeColor.inkPrimary)
             .padding(.horizontal, 8)

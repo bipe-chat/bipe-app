@@ -344,7 +344,7 @@ struct BusinessStatusLine: View {
 
     var body: some View {
         Text(text)
-            .font(.footnote.weight(.semibold))
+            .font(.bipeFootnote.weight(.semibold))
             .foregroundStyle(tint)
     }
 }

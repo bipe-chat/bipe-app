@@ -55,7 +55,7 @@ private struct AgendaCalendarSection: View {
                         }
                     }
                     if item.failing == true {
-                        Text(BipeStrings.agendaBusyFailing).font(.footnote).foregroundStyle(BipeColor.trustDangerInk)
+                        Text(BipeStrings.agendaBusyFailing).font(.bipeFootnote).foregroundStyle(BipeColor.trustDangerInk)
                     }
                 }
             }
@@ -66,7 +66,7 @@ private struct AgendaCalendarSection: View {
             Button(BipeStrings.agendaBusyAdd) { Task { await add() } }
                 .disabled(address.isEmpty || adding)
             if let error {
-                Text(error).font(.footnote).foregroundStyle(BipeColor.trustDangerInk)
+                Text(error).font(.bipeFootnote).foregroundStyle(BipeColor.trustDangerInk)
             }
         } header: {
             Text(showsName ? "\(BipeStrings.agendaCalendarSection) · \(agenda.name)" : BipeStrings.agendaCalendarSection)

@@ -72,7 +72,7 @@ struct LinkPhoneShowView: View {
                 }
             }
             Text(model.person == nil ? BipeStrings.appLinkPhoneNeverShare : BipeStrings.teamAddCodeNeverShare)
-                .font(.footnote)
+                .font(.bipeFootnote)
                 .foregroundStyle(BipeColor.inkSecondary)
                 .multilineTextAlignment(.center)
         case .enterCheckCode, .checking:
@@ -97,7 +97,7 @@ struct LinkPhoneShowView: View {
             }
         case .failed:
             Text(BipeStrings.appLinkPhoneErrorTitle)
-                .font(.headline)
+                .font(.bipeHeadline)
                 .foregroundStyle(BipeColor.trustDangerInk)
             Text((model.showError ?? .generic).message(model.mode))
                 .foregroundStyle(BipeColor.inkPrimary)
@@ -122,14 +122,14 @@ struct LinkPhoneShowView: View {
 
     private func title(_ text: String) -> some View {
         Text(text)
-            .font(.title2.bold())
+            .font(.bipeTitle2.bold())
             .foregroundStyle(BipeColor.inkPrimary)
             .multilineTextAlignment(.center)
     }
 
     private func message(_ text: String) -> some View {
         Text(text)
-            .font(.body)
+            .font(.bipeBody)
             .foregroundStyle(BipeColor.inkPrimary)
             .multilineTextAlignment(.center)
             .padding(.top, 48)

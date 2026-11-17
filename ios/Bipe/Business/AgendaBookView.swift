@@ -341,7 +341,7 @@ struct AgendaBookView: View {
         Group {
             if let error = model.error {
                 Text(error)
-                    .font(.subheadline)
+                    .font(.bipeSubheadline)
                     .foregroundStyle(BipeColor.trustDangerInk)
             }
         }
@@ -359,13 +359,13 @@ struct AgendaBookView: View {
                                 Text(service.name).foregroundStyle(BipeColor.inkPrimary)
                                 if let minutes = service.durationMinutes {
                                     Text(BipeStrings.agendaDuration(String(minutes)))
-                                        .font(.subheadline)
+                                        .font(.bipeSubheadline)
                                         .foregroundStyle(BipeColor.inkSecondary)
                                 }
                             }
                             Spacer()
                             Text(service.price.displayText)
-                                .font(.subheadline)
+                                .font(.bipeSubheadline)
                                 .foregroundStyle(BipeColor.inkSecondary)
                         }
                     }
@@ -450,8 +450,8 @@ struct AgendaBookView: View {
                     model.selectedDay = day.date
                 } label: {
                     VStack(spacing: 2) {
-                        Text(parts.weekday).font(.caption2)
-                        Text(parts.number).font(.callout.weight(.semibold))
+                        Text(parts.weekday).font(.bipeCaption2)
+                        Text(parts.number).font(.bipeCallout.weight(.semibold))
                     }
                     .frame(maxWidth: .infinity, minHeight: 48)
                     .foregroundStyle(selected ? BipeColor.inkOnAccent : (day.slots.isEmpty ? BipeColor.inkDisabled : BipeColor.inkPrimary))
@@ -476,7 +476,7 @@ struct AgendaBookView: View {
             Section {
                 if let service = model.selectedService {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(service.name).font(.headline).foregroundStyle(BipeColor.inkPrimary)
+                        Text(service.name).font(.bipeHeadline).foregroundStyle(BipeColor.inkPrimary)
                         if let minutes = service.durationMinutes {
                             Text(BipeStrings.agendaDuration(String(minutes))).foregroundStyle(BipeColor.inkSecondary)
                         }

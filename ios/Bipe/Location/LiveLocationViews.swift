@@ -53,7 +53,7 @@ struct TimelineLiveLocationRow: View {
                                 } else {
                                     BipeColor.surfaceSunken
                                     Text(BipeStrings.appLocationLiveWaiting)
-                                        .font(.footnote)
+                                        .font(.bipeFootnote)
                                         .foregroundStyle(BipeColor.inkSecondary)
                                         .multilineTextAlignment(.center)
                                         .padding(12)
@@ -68,10 +68,10 @@ struct TimelineLiveLocationRow: View {
                     .accessibilityLabel(BipeStrings.appLocationLiveTitle)
                     .accessibilityAddTraits(.isButton)
                 Text(BipeStrings.appLocationLiveTitle)
-                    .font(.footnote.weight(.semibold))
+                    .font(.bipeFootnote.weight(.semibold))
                     .foregroundStyle(BipeColor.inkPrimary)
                 Text(live.statusLine(at: context.date))
-                    .font(.footnote)
+                    .font(.bipeFootnote)
                     .foregroundStyle(BipeColor.inkSecondary)
             }
         }
@@ -92,10 +92,10 @@ struct LiveLocationChatBar: View {
                     MapPin().scaleEffect(0.7)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(BipeStrings.appLocationLiveSharing)
-                            .font(.subheadline.weight(.semibold))
+                            .font(.bipeSubheadline.weight(.semibold))
                             .foregroundStyle(BipeColor.inkPrimary)
                         Text(BipeStrings.appLocationLiveUntil(share.endsAt.formatted(date: .omitted, time: .shortened)))
-                            .font(.footnote)
+                            .font(.bipeFootnote)
                             .foregroundStyle(BipeColor.inkSecondary)
                     }
                     Spacer()
@@ -106,14 +106,14 @@ struct LiveLocationChatBar: View {
                 }
                 if center.isForegroundOnly {
                     Text(BipeStrings.appLocationLiveOpenOnly)
-                        .font(.footnote)
+                        .font(.bipeFootnote)
                         .foregroundStyle(BipeColor.trustCautionInk)
                     Button(BipeStrings.contactsOpenSettings) {
                         if let url = URL(string: UIApplication.openSettingsURLString) {
                             UIApplication.shared.open(url)
                         }
                     }
-                    .font(.footnote.weight(.semibold))
+                    .font(.bipeFootnote.weight(.semibold))
                 }
             }
             .padding(.horizontal, 16)
@@ -134,7 +134,7 @@ struct LiveLocationListRow: View {
             HStack(spacing: 8) {
                 MapPin().scaleEffect(0.7)
                 Text(BipeStrings.appLocationLiveSharing)
-                    .font(.subheadline.weight(.semibold))
+                    .font(.bipeSubheadline.weight(.semibold))
                     .foregroundStyle(BipeColor.inkPrimary)
                 Spacer()
                 Button(BipeStrings.appLocationLiveStop) {

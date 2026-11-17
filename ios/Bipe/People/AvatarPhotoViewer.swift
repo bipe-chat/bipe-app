@@ -29,7 +29,7 @@ struct AvatarPhotoViewer: View {
                     .accessibilityLabel(name)
             case .failed:
                 Text(name)
-                    .font(.title2.bold())
+                    .font(.bipeTitle2.bold())
                     .foregroundStyle(BipeColor.inkPrimary)
             }
             VStack {
@@ -43,7 +43,7 @@ struct AvatarPhotoViewer: View {
                     }
                     .accessibilityLabel(BipeStrings.appClose)
                     Text(name)
-                        .font(.subheadline.weight(.semibold))
+                        .font(.bipeSubheadline.weight(.semibold))
                         .lineLimit(1)
                     Spacer()
                 }

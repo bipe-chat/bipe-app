@@ -94,10 +94,10 @@ struct MediaViewer: View {
                 if let current {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(current.senderName)
-                            .font(.subheadline.weight(.semibold))
+                            .font(.bipeSubheadline.weight(.semibold))
                             .lineLimit(1)
                         Text(current.sentAt.formatted(date: .abbreviated, time: .shortened))
-                            .font(.caption)
+                            .font(.bipeCaption)
                             .foregroundStyle(BipeColor.inkSecondary)
                     }
                 }
@@ -219,7 +219,7 @@ struct MediaPage: View {
                 ProgressView()
             } else if failed {
                 Text(BipeStrings.appMediaFailed)
-                    .font(.subheadline)
+                    .font(.bipeSubheadline)
                     .padding(12)
                     .mediaScrim(RoundedRectangle(cornerRadius: 10))
                     .onTapGesture { Task { await load() } }

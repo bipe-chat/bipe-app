@@ -77,7 +77,7 @@ struct ThreadListView: View {
                 } label: {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(thread.rootEvent.senderProfile.displayName(or: thread.rootEvent.sender))
-                            .font(.caption.weight(.semibold))
+                            .font(.bipeCaption.weight(.semibold))
                             .foregroundStyle(BipeColor.inkSecondary)
                         if let preview = preview(of: thread) {
                             Text(preview)
@@ -85,7 +85,7 @@ struct ThreadListView: View {
                                 .foregroundStyle(BipeColor.inkPrimary)
                         }
                         Text(BipeStrings.threadReplies(thread.numReplies.formatted()))
-                            .font(.caption)
+                            .font(.bipeCaption)
                             .foregroundStyle(BipeColor.inkSecondary)
                     }
                     .accessibilityElement(children: .combine)

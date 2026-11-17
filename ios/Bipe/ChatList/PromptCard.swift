@@ -30,11 +30,11 @@ struct PromptCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(verbatim: title)
-                .font(.headline)
+                .font(.bipeHeadline)
                 .foregroundStyle(BipeColor.inkPrimary)
             ForEach([body_, note].compactMap { $0 }, id: \.self) { line in
                 Text(verbatim: line)
-                    .font(.subheadline)
+                    .font(.bipeSubheadline)
                     .foregroundStyle(BipeColor.inkSecondary)
             }
             if primary != nil || !texts.isEmpty {
@@ -42,7 +42,7 @@ struct PromptCard: View {
                     if let primary {
                         Button(action: primary.run) {
                             Text(verbatim: primary.title)
-                                .font(.subheadline.weight(.semibold))
+                                .font(.bipeSubheadline.weight(.semibold))
                                 .padding(.horizontal, 14)
                                 .padding(.vertical, 8)
                                 .foregroundStyle(BipeColor.inkOnAccent)
@@ -52,7 +52,7 @@ struct PromptCard: View {
                     ForEach(texts.indices, id: \.self) { index in
                         Button(action: texts[index].run) {
                             Text(verbatim: texts[index].title)
-                                .font(.subheadline.weight(.semibold))
+                                .font(.bipeSubheadline.weight(.semibold))
                                 .foregroundStyle(BipeColor.accentInk)
                         }
                     }

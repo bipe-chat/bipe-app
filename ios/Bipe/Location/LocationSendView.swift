@@ -134,7 +134,7 @@ struct LocationSendView: View {
     private var statusLine: some View {
         if let text = statusText {
             Text(text)
-                .font(.footnote)
+                .font(.bipeFootnote)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
@@ -173,28 +173,28 @@ struct LocationSendView: View {
             if position.state == .denied {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(BipeStrings.appLocationPermission)
-                        .font(.footnote)
+                        .font(.bipeFootnote)
                         .foregroundStyle(BipeColor.trustCautionInk)
                     Button(BipeStrings.contactsOpenSettings) {
                         if let url = URL(string: UIApplication.openSettingsURLString) {
                             UIApplication.shared.open(url)
                         }
                     }
-                    .font(.footnote.weight(.semibold))
+                    .font(.bipeFootnote.weight(.semibold))
                 }
             }
             if sendFailed {
                 Text(BipeStrings.appLocationSendFailed)
-                    .font(.footnote)
+                    .font(.bipeFootnote)
                     .foregroundStyle(BipeColor.trustDangerInk)
             }
             if liveFailed {
                 Text(BipeStrings.appLocationLiveStartFailed)
-                    .font(.footnote)
+                    .font(.bipeFootnote)
                     .foregroundStyle(BipeColor.trustDangerInk)
             }
             Text(BipeStrings.appLocationDragHint)
-                .font(.footnote)
+                .font(.bipeFootnote)
                 .foregroundStyle(BipeColor.inkSecondary)
             Button {
                 Task { await send() }
@@ -234,7 +234,7 @@ struct LocationSendView: View {
                     Button(BipeStrings.appCancel, role: .cancel) {}
                 }
                 Text(BipeStrings.appLocationLiveFooter)
-                    .font(.footnote)
+                    .font(.bipeFootnote)
                     .foregroundStyle(BipeColor.inkSecondary)
             }
         }

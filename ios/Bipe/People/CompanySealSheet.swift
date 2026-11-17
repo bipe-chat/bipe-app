@@ -56,7 +56,7 @@ struct CompanySealSheet: View {
                             .foregroundStyle(state.isVerified ? BipeColor.trustVerifiedInk : BipeColor.trustCautionInk)
                             .accessibilityHidden(true)
                         Text(state.notice ?? BipeStrings.badgeCompany)
-                            .font(.headline)
+                            .font(.bipeHeadline)
                             .foregroundStyle(BipeColor.inkPrimary)
                     }
                 }
@@ -136,7 +136,7 @@ struct CompanySealSheet: View {
     private func fact(_ label: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(label)
-                .font(.caption)
+                .font(.bipeCaption)
                 .foregroundStyle(BipeColor.inkSecondary)
             Text(value)
                 .foregroundStyle(BipeColor.inkPrimary)

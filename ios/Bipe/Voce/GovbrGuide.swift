@@ -26,7 +26,7 @@ struct GovbrGuide: View {
                             .font(.subheadline.monospacedDigit().bold())
                             .foregroundStyle(BipeColor.inkSecondary)
                         Text(item.caption(fileName: fileName))
-                            .font(.subheadline)
+                            .font(.bipeSubheadline)
                             .foregroundStyle(BipeColor.inkPrimary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -72,7 +72,7 @@ private struct GovbrMockScreen: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(BipeColor.surfaceBase, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(BipeColor.lineStrong, lineWidth: 1))
-        .font(.caption)
+        .font(.bipeCaption)
         .foregroundStyle(BipeColor.inkPrimary)
     }
 
@@ -93,17 +93,17 @@ private struct GovbrMockScreen: View {
             MockRow()
             Highlight {
                 HStack(spacing: 6) {
-                    Text(BipeStrings.govbrMockService).font(.caption2.bold()).lineLimit(2)
+                    Text(BipeStrings.govbrMockService).font(.bipeCaption2.bold()).lineLimit(2)
                     Spacer(minLength: 0)
                     PhosphorIcon.caretRight.image.resizable().frame(width: 10, height: 10)
                 }
             }
             MockRow()
         case .choose:
-            Text(BipeStrings.govbrMockSignFile).font(.caption.bold())
+            Text(BipeStrings.govbrMockSignFile).font(.bipeCaption.bold())
             MockSteps(active: 1)
             Highlight {
-                Text(BipeStrings.govbrMockChoose).font(.caption2.bold()).frame(maxWidth: .infinity)
+                Text(BipeStrings.govbrMockChoose).font(.bipeCaption2.bold()).frame(maxWidth: .infinity)
             }
             MockFile(name: fileName, icon: .file)
         case .sign:
@@ -127,7 +127,7 @@ private struct GovbrMockScreen: View {
         case .authorize:
             MockLine(width: 140)
             MockLine(width: 110)
-            Text(BipeStrings.govbrMockCode).font(.caption2.bold()).padding(.top, 8)
+            Text(BipeStrings.govbrMockCode).font(.bipeCaption2.bold()).padding(.top, 8)
             HStack(spacing: 8) {
                 ForEach(0..<6, id: \.self) { _ in Circle().fill(BipeColor.inkSecondary).frame(width: 6, height: 6) }
             }
@@ -136,7 +136,7 @@ private struct GovbrMockScreen: View {
             .overlay(RoundedRectangle(cornerRadius: 6).stroke(BipeColor.lineStrong, lineWidth: 1))
             MockButton(title: BipeStrings.govbrMockAuthorize)
         case .save:
-            Text(BipeStrings.govbrMockSignFile).font(.caption.bold())
+            Text(BipeStrings.govbrMockSignFile).font(.bipeCaption.bold())
             MockSteps(active: 3)
             MockLine(width: 140)
             MockLine(width: 100)
@@ -144,7 +144,7 @@ private struct GovbrMockScreen: View {
             Highlight {
                 HStack(spacing: 6) {
                     PhosphorIcon.downloadSimple.image.resizable().frame(width: 12, height: 12)
-                    Text(BipeStrings.govbrMockDownload).font(.caption2.bold())
+                    Text(BipeStrings.govbrMockDownload).font(.bipeCaption2.bold())
                 }
                 .foregroundStyle(BipeColor.accentInk)
                 .frame(maxWidth: .infinity)
@@ -195,7 +195,7 @@ private struct MockSteps: View {
                 ZStack {
                     Circle().fill(step == active ? BipeColor.accentFill : BipeColor.surfaceBase)
                     Circle().stroke(step == active ? BipeColor.accentFill : BipeColor.lineStrong, lineWidth: 1)
-                    Text(verbatim: "\(step)").font(.caption2.bold())
+                    Text(verbatim: "\(step)").font(.bipeCaption2.bold())
                         .foregroundStyle(step == active ? BipeColor.inkOnAccent : BipeColor.inkSecondary)
                 }
                 .frame(width: 20, height: 20)
@@ -214,7 +214,7 @@ private struct MockFile: View {
     var body: some View {
         HStack(spacing: 6) {
             icon.image.resizable().frame(width: 14, height: 14).foregroundStyle(BipeColor.trustDangerInk)
-            Text(name).font(.caption2).lineLimit(1).truncationMode(.middle)
+            Text(name).font(.bipeCaption2).lineLimit(1).truncationMode(.middle)
         }
     }
 }
@@ -224,7 +224,7 @@ private struct MockButton: View {
 
     var body: some View {
         Text(title)
-            .font(.caption2.bold())
+            .font(.bipeCaption2.bold())
             .foregroundStyle(BipeColor.inkOnAccent)
             .frame(maxWidth: .infinity, minHeight: 26)
             .background(BipeColor.accentFill, in: Capsule())

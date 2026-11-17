@@ -70,7 +70,7 @@ struct NotificationSettingsView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(BipeStrings.notificationsPreview)
                         Text(BipeStrings.notificationsPreviewFooter)
-                            .font(.footnote)
+                            .font(.bipeFootnote)
                             .foregroundStyle(BipeColor.inkSecondary)
                     }
                 }
@@ -90,7 +90,7 @@ struct NotificationSettingsView: View {
                             Text(BipeStrings.workHoursTitle)
                             if let hours = model.workHours, hours.enabled {
                                 Text(hours.isOpen(at: .now) ? BipeStrings.workHoursOpenNow : BipeStrings.workHoursClosedNow)
-                                    .font(.footnote)
+                                    .font(.bipeFootnote)
                                     .foregroundStyle(BipeColor.inkSecondary)
                             }
                         }
@@ -172,10 +172,10 @@ struct NotificationSettingsView: View {
         Section {
             VStack(alignment: .leading, spacing: 8) {
                 Text(BipeStrings.settingsNotificationsOff)
-                    .font(.headline)
+                    .font(.bipeHeadline)
                     .foregroundStyle(BipeColor.inkPrimary)
                 Text(BipeStrings.notificationsPermissionBody)
-                    .font(.subheadline)
+                    .font(.bipeSubheadline)
                     .foregroundStyle(BipeColor.inkSecondary)
                 Button {
                     Task { await model.enablePhone() }

@@ -57,10 +57,10 @@ struct TheftMarkBanner: View {
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 4) {
                 Text(BipeStrings.theftBannerTitle)
-                    .font(.subheadline.bold())
+                    .font(.bipeSubheadline.bold())
                     .foregroundStyle(BipeColor.trustDangerInk)
                 Text(BipeStrings.theftBannerBody(name))
-                    .font(.footnote)
+                    .font(.bipeFootnote)
                     .foregroundStyle(BipeColor.inkPrimary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -84,7 +84,7 @@ struct TheftMessageMarker: View {
                 .foregroundStyle(BipeColor.trustDangerInk)
                 .accessibilityHidden(true)
             Text(BipeStrings.theftMessageMarker)
-                .font(.caption)
+                .font(.bipeCaption)
                 .foregroundStyle(BipeColor.trustDangerInk)
         }
     }

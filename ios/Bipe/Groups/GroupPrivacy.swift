@@ -257,7 +257,7 @@ struct GroupPrivacyView: View {
                     Text(name).foregroundStyle(BipeColor.inkPrimary)
                     if let reason = request.reason?.nilIfBlank {
                         Text(reason)
-                            .font(.footnote)
+                            .font(.bipeFootnote)
                             .foregroundStyle(BipeColor.inkSecondary)
                     }
                 }

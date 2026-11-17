@@ -48,7 +48,7 @@ struct RequestTrustContent: View {
                     Text(proof.map { BipeStrings.badgeVerifiedNameVia($0.schemeName, name) } ?? BipeStrings.badgeVerifiedName(name))
                         .foregroundStyle(BipeColor.trustVerifiedInk)
                 case .unverified:
-                    Text(BipeStrings.bannerUnverifiedTitle).font(.headline).foregroundStyle(BipeColor.trustCautionInk)
+                    Text(BipeStrings.bannerUnverifiedTitle).font(.bipeHeadline).foregroundStyle(BipeColor.trustCautionInk)
                     Text(BipeStrings.requestUnverifiedBody).foregroundStyle(BipeColor.inkSecondary)
                 case .external:
                     Text(BipeStrings.bannerExternal).foregroundStyle(BipeColor.trustNeutralInk)
@@ -73,7 +73,7 @@ struct RequestTrustContent: View {
                     VStack(spacing: 8) {
                         Text(BipeStrings.warningNameMismatch(name))
                         if warning == "confirm", answer == nil {
-                            Text(BipeStrings.warningNicknameConfirmTitle).font(.headline)
+                            Text(BipeStrings.warningNicknameConfirmTitle).font(.bipeHeadline)
                             Text(BipeStrings.warningNicknameConfirmBody(saved, name))
                             Button(BipeStrings.actionNicknameConfirmYes) { save(true, key: key) }
                             Button(BipeStrings.actionNicknameConfirmUnsure) { save(false, key: key) }

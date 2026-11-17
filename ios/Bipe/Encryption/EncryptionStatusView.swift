@@ -57,10 +57,10 @@ private struct HistorySheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text(BipeStrings.appHistoryTitle)
-                .font(.title2.bold())
+                .font(.bipeTitle2.bold())
                 .foregroundStyle(BipeColor.inkPrimary)
             Text(BipeStrings.recoveryHistoryNote)
-                .font(.body)
+                .font(.bipeBody)
                 .foregroundStyle(BipeColor.inkSecondary)
             if model.hasOtherDevices {
                 HistoryRow(icon: .devices, title: BipeStrings.appHistoryApprove, action: model.approveWithDevice)
@@ -70,7 +70,7 @@ private struct HistorySheet: View {
             }
             if !model.hasOtherDevices && !model.canUseRecoveryKey {
                 Text(BipeStrings.appHistoryNone)
-                    .font(.body)
+                    .font(.bipeBody)
                     .foregroundStyle(BipeColor.inkSecondary)
             }
             Spacer(minLength: 0)
@@ -96,7 +96,7 @@ private struct HistoryRow: View {
                     .foregroundStyle(BipeColor.accentInk)
                     .accessibilityHidden(true)
                 Text(title)
-                    .font(.headline)
+                    .font(.bipeHeadline)
                     .foregroundStyle(BipeColor.inkPrimary)
                 Spacer(minLength: 0)
             }

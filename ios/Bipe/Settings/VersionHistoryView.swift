@@ -53,14 +53,14 @@ struct VersionHistoryView: View {
             case .loaded(let days):
                 if AppVersion.language == "pt" {
                     Text(BipeStrings.versionsNote)
-                        .font(.footnote)
+                        .font(.bipeFootnote)
                         .foregroundStyle(BipeColor.inkSecondary)
                 }
                 ForEach(days, id: \.date) { day in
                     Section {
                         ForEach(day.builds, id: \.build) { build in
                             Text(verbatim: Self.label(build))
-                                .font(.footnote.weight(.semibold))
+                                .font(.bipeFootnote.weight(.semibold))
                                 .foregroundStyle(BipeColor.inkSecondary)
                                 .accessibilityAddTraits(.isHeader)
                             ForEach(build.updates, id: \.id) { update in
@@ -148,12 +148,12 @@ private struct UpdateRow: View {
                 .foregroundStyle(BipeColor.inkPrimary)
             if !update.detail.isEmpty {
                 Text(verbatim: update.detail)
-                    .font(.subheadline)
+                    .font(.bipeSubheadline)
                     .foregroundStyle(BipeColor.inkSecondary)
             }
             if let kind = Self.kind(update.kind) {
                 Text(verbatim: kind)
-                    .font(.footnote)
+                    .font(.bipeFootnote)
                     .foregroundStyle(BipeColor.inkSecondary)
             }
         }

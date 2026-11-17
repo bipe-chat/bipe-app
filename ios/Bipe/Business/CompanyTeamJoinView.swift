@@ -74,9 +74,9 @@ struct CompanyTeamJoinView: View {
     private func welcome(_ session: AccountSession, name: String) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text(BipeStrings.teamWelcomeTitle(name)).font(.title2.bold()).foregroundStyle(BipeColor.inkPrimary)
+                Text(BipeStrings.teamWelcomeTitle(name)).font(.bipeTitle2.bold()).foregroundStyle(BipeColor.inkPrimary)
                 Text(BipeStrings.teamWelcomeBody(name)).foregroundStyle(BipeColor.inkPrimary)
-                Text(BipeStrings.teamSharedTitle).font(.headline).foregroundStyle(BipeColor.inkPrimary)
+                Text(BipeStrings.teamSharedTitle).font(.bipeHeadline).foregroundStyle(BipeColor.inkPrimary)
                 Text(BipeStrings.teamSharedChats).foregroundStyle(BipeColor.inkSecondary)
                 Text(BipeStrings.teamSharedRead).foregroundStyle(BipeColor.inkSecondary)
                 Text(BipeStrings.teamSharedChanges).foregroundStyle(BipeColor.inkSecondary)

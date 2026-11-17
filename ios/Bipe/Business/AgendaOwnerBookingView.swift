@@ -141,7 +141,7 @@ struct AgendaOwnerBookingView: View {
             LabeledContent(BipeStrings.agendaTime, value: BookingText.time(booking.start))
             LabeledContent(BipeStrings.agendaCustomer, value: booking.web ? "\(booking.customer.name ?? "") · \(BipeStrings.webRecordMark)" : booking.customer.name ?? customerName ?? "")
             Text(booking.status.text)
-                .font(.subheadline.weight(.semibold))
+                .font(.bipeSubheadline.weight(.semibold))
                 .foregroundStyle(booking.status.tint)
         }
     }
