@@ -233,6 +233,18 @@ struct KeychainMoveTests {
         #expect(fake.deletes.isEmpty)
     }
 
+    @Test func aLockedPhoneIsNotDoneAndTheNextUnlockedLaunchCopies() {
+        let fake = FakeCredentialKeychain()
+        fake.seed(group: team, service: password, account: user, value: "team fixture")
+        fake.readStatus = errSecInteractionNotAllowed
+        #expect(move(fake).run() == BipeKeychainMove.Result(done: false, copied: 0))
+        #expect(fake.mutations.isEmpty)
+        fake.readStatus = nil
+        #expect(!move(fake).isDone)
+        #expect(move(fake).run() == BipeKeychainMove.Result(done: true, copied: 1))
+        #expect(fake.value(appGroup, password, user) == "team fixture")
+    }
+
     @Test func noTargetGroupMovesNothing() {
         for group in [nil, "", "$(BIPE_APP_GROUP)"] as [String?] {
             let fake = FakeCredentialKeychain()
@@ -251,6 +263,8 @@ private final class FakeCredentialKeychain: CredentialKeychain, @unchecked Senda
     var deletes: [[String: Any]] = []
     var addStatus: OSStatus = errSecSuccess
     var updateStatus: OSStatus? = nil
+    /// When set, every read fails with this status (a locked phone: errSecInteractionNotAllowed).
+    var readStatus: OSStatus? = nil
 
     func seed(group: String, service: String, account: String, value: String, at: TimeInterval = 1, synchronizable: Bool = false) {
         items.append([kSecClass as String: kSecClassGenericPassword, kSecAttrAccessGroup as String: group,
@@ -273,6 +287,7 @@ private final class FakeCredentialKeychain: CredentialKeychain, @unchecked Senda
         return true
     }
     func copyMatching(_ query: [String: Any]) -> (OSStatus, AnyObject?) {
+        if let readStatus { return (readStatus, nil) }
         let found = items.filter { matches($0, query) }
         return found.isEmpty ? (errSecItemNotFound, nil) : (errSecSuccess, found as AnyObject)
     }
