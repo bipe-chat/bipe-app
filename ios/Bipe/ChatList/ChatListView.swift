@@ -1106,7 +1106,7 @@ private struct FavouritesGrid<MenuContent: View>: View {
                 }
             HStack(spacing: 4) {
                 Text(chat.name)
-                    .font(.bipeCaption)
+                    .font(.bipeFootnote)
                     .foregroundStyle(BipeColor.inkPrimary)
                     .lineLimit(1)
                 if chat.isOfficial { OfficialBadge() }
