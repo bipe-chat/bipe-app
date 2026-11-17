@@ -5,17 +5,14 @@
 package chat.bipe.app.business
 
 import android.content.Context
-import android.os.Build
 import android.util.Log
 import chat.bipe.app.BipeApplication
 import chat.bipe.app.account.AccountSession
 import chat.bipe.app.account.AccountStep
 import chat.bipe.app.account.SessionStore
 import chat.bipe.app.common.AppConfig
-import chat.bipe.app.notifications.PushRegistration
-import chat.bipe.shared.BipePushMessage
-import chat.bipe.shared.R
 import chat.bipe.shared.api.BipeApiClient
+import chat.bipe.shared.api.BipeApiErrorCode
 import chat.bipe.shared.api.BipeApiException
 import chat.bipe.shared.api.storeWorkMemberRecovery
 import chat.bipe.shared.api.workMemberSession
@@ -23,21 +20,17 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
-import org.json.JSONObject
 import org.matrix.rustcomponents.sdk.EnableRecoveryProgress
 import org.matrix.rustcomponents.sdk.EnableRecoveryProgressListener
-import org.matrix.rustcomponents.sdk.HttpPusherData
+import org.matrix.rustcomponents.sdk.Encryption
 import org.matrix.rustcomponents.sdk.Membership
-import org.matrix.rustcomponents.sdk.PushFormat
-import org.matrix.rustcomponents.sdk.PusherIdentifiers
-import org.matrix.rustcomponents.sdk.PusherKind
+import org.matrix.rustcomponents.sdk.RecoveryException
 import org.matrix.rustcomponents.sdk.RecoveryState
 import org.matrix.rustcomponents.sdk.VerificationState
 import java.util.Collections
@@ -59,9 +52,6 @@ class InternoSessions(private val app: BipeApplication) {
     private val _sessions = MutableStateFlow<Map<String, AccountSession>>(emptyMap())
     val sessions: StateFlow<Map<String, AccountSession>> = _sessions.asStateFlow()
 
-    /** Member user ID to the registration time of the pusher it got, so each registration sets its pusher once. */
-    private val pushed = mutableMapOf<String, Long>()
-
     /** Member user IDs whose key steps run now, so a second open does not start them again. */
     private val linking = Collections.synchronizedSet(mutableSetOf<String>())
 
@@ -82,17 +72,12 @@ class InternoSessions(private val app: BipeApplication) {
 
     /**
      * Follows the accounts of account-start: a work account that opens restores its member session, and a work account
-     * that leaves this phone takes its member session with it. Also keeps the member pushers next to the pusher of the
-     * current account. Runs once.
+     * that leaves this phone takes its member session with it. Runs once.
      */
     fun watch() {
         if (watching) return
         watching = true
         app.scope.launch { app.accountStart.sessions.collect { accountsChanged(it) } }
-        app.scope.launch {
-            app.push.registration.combine(_sessions) { registration, sessions -> registration to sessions }
-                .collect { (registration, sessions) -> registerPushers(registration, sessions) }
-        }
     }
 
     /** A push or a notification action for a member identity: its session once open. */
@@ -173,6 +158,9 @@ class InternoSessions(private val app: BipeApplication) {
     private fun attach(workUserId: String, member: AccountSession) {
         member.onAuthError = { isSoftLogout -> app.scope.launch { authError(workUserId, member, isSoftLogout) } }
         _sessions.update { it + (workUserId to member) }
+        // Spec interno notes, push: the member session has its own pusher, so Interno rings per person, also when its
+        // work account is not open.
+        app.push.add(member)
     }
 
     /**
@@ -196,7 +184,6 @@ class InternoSessions(private val app: BipeApplication) {
             }
             val fresh = AccountSession.signInAgain(app, member, grant.password, store, homeserver(work))
             app.notifications.detach(member.userId)
-            pushed.remove(member.userId)
             attach(workUserId, fresh)
         } catch (e: CancellationException) {
             throw e
@@ -212,7 +199,7 @@ class InternoSessions(private val app: BipeApplication) {
     /** Removes the member session, its store and its saved session from this phone. Never throws. */
     private suspend fun drop(workUserId: String, member: AccountSession, alreadyLoggedOut: Boolean) {
         _sessions.update { map -> if (map[workUserId] === member) map - workUserId else map }
-        pushed.remove(member.userId)
+        app.push.remove(member.userId)
         app.notifications.detach(member.userId)
         if (app.roomToOpen.value?.accountUserId == member.userId) app.roomToOpen.value = null
         try {
@@ -224,33 +211,6 @@ class InternoSessions(private val app: BipeApplication) {
         }
         prefs.edit().remove(KEY_RECOVERY + member.userId).apply()
         if (memberOf(workUserId) == member.userId) prefs.edit().remove(KEY_MEMBER + workUserId).apply()
-    }
-
-    /**
-     * Spec interno notes, push: each member session has its own pusher, so Interno rings per person. The pusher follows
-     * the work account's: it is set (append, so the account's pusher stays) while the work account holds this phone's
-     * pusher, and set again after each registration of the account's pusher, which removes other users' pushers.
-     */
-    private fun registerPushers(registration: PushRegistration.Registration?, sessions: Map<String, AccountSession>) {
-        if (registration == null) return
-        sessions.forEach { (workUserId, member) ->
-            if (registration.userId != workUserId || pushed[member.userId] == registration.registeredAt) return@forEach
-            pushed[member.userId] = registration.registeredAt
-            val payload = JSONObject().put(BipePushMessage.ACCOUNT_ROUTE, app.notifications.accountRoute(member.userId)).toString()
-            app.scope.launch {
-                runCatching {
-                    member.client.setPusher(
-                        identifiers = PusherIdentifiers(registration.pushkey, registration.appId),
-                        kind = PusherKind.Http(HttpPusherData(AppConfig.PUSH_GATEWAY_URL, PushFormat.EVENT_ID_ONLY, payload)),
-                        appDisplayName = app.getString(R.string.bipe_app_name),
-                        deviceDisplayName = Build.MODEL,
-                        profileTag = null,
-                        lang = registration.lang,
-                        append = true,
-                    )
-                }.onFailure { if (pushed[member.userId] == registration.registeredAt) pushed.remove(member.userId) }
-            }
-        }
     }
 
     /**
@@ -299,8 +259,13 @@ class InternoSessions(private val app: BipeApplication) {
                 RecoveryState.UNKNOWN -> return
             }
             if (!isActive(member)) return
-            BipeApiClient.withTokenRetry({ work.accessToken() }) { app.accountStart.api.storeWorkMemberRecovery(key, it) }
-            keysDone(member)
+            try {
+                BipeApiClient.withTokenRetry({ work.accessToken() }) { app.accountStart.api.storeWorkMemberRecovery(key, recoveryKey, it) }
+                keysDone(member)
+            } catch (e: BipeApiException.Server) {
+                if (e.code != BipeApiErrorCode.RECOVERY_CHANGED) throw e
+                settleKeys(work, member, encryption, key)
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -308,6 +273,37 @@ class InternoSessions(private val app: BipeApplication) {
             Log.w(TAG, "member keys: ${e::class.simpleName}, retried on the next open")
         } finally {
             linking.remove(member.userId)
+        }
+    }
+
+    /**
+     * 409 recovery_changed (bipe#1471): another device of the person stored a key after this device read the session.
+     * The homeserver keeps the key backup that finished last, so either the stored key or [ownKey] opens it. Recover
+     * with the stored key: when it opens, this device uses that backup and gets the earlier history. When the key does
+     * not match, this device's backup is the one on the homeserver: PUT [ownKey] over the stored key. At most three
+     * rounds; another failure goes up to [linkKeys] and waits for the next open.
+     */
+    private suspend fun settleKeys(work: AccountSession, member: AccountSession, encryption: Encryption, ownKey: String) {
+        repeat(3) {
+            val grant = BipeApiClient.withTokenRetry({ work.accessToken() }) { app.accountStart.api.workMemberSession(it) }
+            if (grant.userId != member.userId || !isActive(member)) return
+            val stored = grant.recoveryKey
+            if (stored != null) {
+                try {
+                    encryption.recover(stored)
+                    keysDone(member)
+                    return
+                } catch (e: RecoveryException.SecretStorage) {
+                    // The stored key does not open the backup on the homeserver: this device's key does.
+                }
+            }
+            try {
+                BipeApiClient.withTokenRetry({ work.accessToken() }) { app.accountStart.api.storeWorkMemberRecovery(ownKey, stored, it) }
+                keysDone(member)
+                return
+            } catch (e: BipeApiException.Server) {
+                if (e.code != BipeApiErrorCode.RECOVERY_CHANGED) throw e
+            }
         }
     }
 

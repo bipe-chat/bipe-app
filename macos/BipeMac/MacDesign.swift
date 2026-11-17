@@ -197,7 +197,7 @@ struct MacMessageView: View {
             }
             ForEach(menuItems, id: \.self) { item in
                 Button(role: item.isDestructive ? .destructive : nil) { choose(item) } label: {
-                    Label(item.title, systemImage: item.symbol)
+                    Label(message.title(of: item), systemImage: item.symbol)
                 }.disabled(item == .copy && secondsLeft > 0)
             }
         }
@@ -206,7 +206,7 @@ struct MacMessageView: View {
                 Button(BipeStrings.a11yOpenOriginal) { openOriginal(reply.eventId) }
             }
             if !message.isDeleted, message.canReact { Button(BipeStrings.a11yReact) { showingEmoji = true } }
-            ForEach(menuItems, id: \.self) { item in Button(item.title) { choose(item) }.disabled(item == .copy && pauseSecondsLeft(.now) > 0) }
+            ForEach(menuItems, id: \.self) { item in Button(message.title(of: item)) { choose(item) }.disabled(item == .copy && pauseSecondsLeft(.now) > 0) }
         }
     }
 

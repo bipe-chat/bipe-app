@@ -4,8 +4,11 @@
 
 package chat.bipe.shared.api
 
+import java.security.MessageDigest
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 // The Trabalho tab step by step (ADR 0194). Contract bipe-shared/api/openapi.yaml, /v1/me/business/tools, sector,
 // setup, suggestions and today, and the public /v1/businesses/{business}/tools. Same calls as
@@ -414,10 +417,6 @@ class BipeWorkMemberSession(
     override fun toString() = "BipeWorkMemberSession($userId)"
 }
 
-/** Body of PUT members/recovery. Not a data class, so toString never prints the key. */
-@Serializable
-private class WorkMemberRecovery(@SerialName("recovery_key") val recoveryKey: String)
-
 @Serializable
 private data class WorkGeral(@SerialName("room_id") val roomId: String)
 
@@ -435,17 +434,28 @@ suspend fun BipeApiClient.workMemberSession(accessToken: String): BipeWorkMember
 
 /**
  * `PUT /v1/me/business/members/recovery` (bipe ADR 0284 point 34): stores the member identity's recovery key, so the
- * person's next device verifies itself. 204; 404 not_found when the seat has no member identity; 403 seat_required.
+ * person's next device verifies itself. [seen] is the key that POST members/session gave this device, or null
+ * (bipe#1471): its hash goes as replaces, always, null included, since a body without replaces is the old overwrite.
+ * 204; 409 recovery_changed when another device stored a key after that; 404 not_found when the seat has no member
+ * identity; 403 seat_required. The body is never logged.
  */
-suspend fun BipeApiClient.storeWorkMemberRecovery(recoveryKey: String, accessToken: String) {
+suspend fun BipeApiClient.storeWorkMemberRecovery(recoveryKey: String, seen: String?, accessToken: String) {
+    val body = buildJsonObject {
+        put("recovery_key", recoveryKey)
+        put("replaces", seen?.let(::recoveryKeyHash))
+    }
     send<Unit>(
         "PUT",
         listOf("v1", "me", "business", "members", "recovery"),
-        body = encode(WorkMemberRecovery.serializer(), WorkMemberRecovery(recoveryKey)),
+        body = body.toString(),
         accessToken = accessToken,
         response = null,
     )
 }
+
+/** The SHA-256 (lower-case hex) of a recovery key's UTF-8 bytes: the contract's replaces. */
+fun recoveryKeyHash(recoveryKey: String): String =
+    MessageDigest.getInstance("SHA-256").digest(recoveryKey.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
 
 /** `PUT /v1/me/business/members/geral`. The first claim wins; 409 geral_exists when the account has Geral. */
 suspend fun BipeApiClient.claimWorkGeral(roomId: String, accessToken: String): BipeWorkMembers = send(
