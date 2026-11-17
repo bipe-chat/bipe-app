@@ -178,7 +178,7 @@ class RowActivityScanner(
                 val found = LocalMessages(
                     times = messageLike.map { it.timestamp.toLong() },
                     lastFromOther = messageLike.lastOrNull()?.isOwn == false,
-                    recent = local.filter { it.kind == BipeRowActivity.Kind.MESSAGE }.mapNotNull { it.previewText }.takeLast(BipeHomeScore.FIRST_TILE_MESSAGES),
+                    recent = local.filter { it.kind == BipeRowActivity.Kind.MESSAGE && !it.isStateLine }.mapNotNull { it.previewText }.takeLast(BipeHomeScore.FIRST_TILE_MESSAGES),
                 )
                 Read(local, events.any { (it.content as? TimelineItemContent.MsgLike)?.content?.kind is MsgLikeKind.UnableToDecrypt }, dmIncoming, found)
             }
