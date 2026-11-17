@@ -55,6 +55,12 @@ enum class BipeScreen(val id: String) {
     /** Set up the agenda (flow business). Spec: bipe-shared/product/screens/agenda-setup.json */
     AGENDA_SETUP("agenda-setup"),
 
+    /** Amigo secreto card (flow groups). Spec: bipe-shared/product/screens/amigo-secreto-card.json */
+    AMIGO_SECRETO_CARD("amigo-secreto-card"),
+
+    /** Set up an amigo secreto (flow groups). Spec: bipe-shared/product/screens/amigo-secreto-setup.json */
+    AMIGO_SECRETO_SETUP("amigo-secreto-setup"),
+
     /** App colours (flow settings). Spec: bipe-shared/product/screens/app-colors.json */
     APP_COLORS("app-colors"),
 
