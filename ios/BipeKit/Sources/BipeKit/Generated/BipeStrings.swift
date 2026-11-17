@@ -4118,6 +4118,8 @@ public enum BipeStrings {
 
     public static var appMediaVoice: String { NSLocalizedString("bipe_app_media_voice", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var appMediaVoiceOnPhone: String { NSLocalizedString("bipe_app_media_voice_on_phone", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var appVoicePlay: String { NSLocalizedString("bipe_app_voice_play", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var appVoicePause: String { NSLocalizedString("bipe_app_voice_pause", tableName: "Bipe", bundle: .module, comment: "") }
@@ -5993,4 +5995,6 @@ public enum BipeStrings {
     public static var desktopDraftSaveError: String { NSLocalizedString("bipe_desktop_draft_save_error", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var desktopDraftUnsupported: String { NSLocalizedString("bipe_desktop_draft_unsupported", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var desktopMediaShow: String { NSLocalizedString("bipe_desktop_media_show", tableName: "Bipe", bundle: .module, comment: "") }
 }

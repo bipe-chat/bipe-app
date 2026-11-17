@@ -77,7 +77,55 @@ class AccountMediaTest {
         }
     }
 
-    companion object { private const val URL = "mxc://example.test/synthetic-photo" }
+    @Test fun eventPicturesCacheSmallImagesOnlyAndRefuseOversizedDownloads() = runBlocking {
+        withMediaOwner { owner ->
+            val calls = AtomicInteger()
+            val sizes = mapOf(SMALL to 1_000, LARGE to 3 * 1024 * 1024, HUGE to 16 * 1024 * 1024 + 1)
+            val media = AccountMedia.create(owner, FakeBackend(content = { json -> calls.incrementAndGet(); ByteArray(sizes.getValue(json)) { 1 } }))
+            assertEquals(1_000, media.eventPicture(SMALL)!!.size)
+            assertEquals(1_000, media.eventPicture(SMALL)!!.size)
+            assertEquals(1, calls.get())
+            assertEquals(3 * 1024 * 1024, media.eventPicture(LARGE)!!.size)
+            assertEquals(3 * 1024 * 1024, media.eventPicture(LARGE)!!.size)
+            assertEquals(3, calls.get())
+            assertNull(media.eventPicture(HUGE))
+            assertNull(media.eventPicture(""))
+            assertEquals(4, calls.get())
+        }
+    }
+
+    @Test fun saveSendsTheEventSourceAndRejectsARelativeDestination() = runBlocking {
+        withMediaOwner { owner ->
+            val folder = Files.createTempDirectory("bipe-media-save-")
+            try {
+                val saved = mutableListOf<String>()
+                val media = AccountMedia.create(owner, FakeBackend(save = { json, name, mime, path -> saved += "$json|$name|$mime|${path.fileName}" }))
+                val file = MessageMedia(MessageMedia.Kind.FILE, "nota.pdf", sourceJson = SMALL)
+                media.save(file, folder.resolve("nota.pdf"))
+                assertEquals(listOf("$SMALL|nota.pdf|application/octet-stream|nota.pdf"), saved)
+                assertTrue(runCatching { media.save(file, java.nio.file.Path.of("nota.pdf")) }.isFailure)
+                assertTrue(runCatching { media.save(file, folder.resolve("missing/nota.pdf")) }.isFailure)
+                assertEquals(1, saved.size)
+            } finally { folder.toFile().deleteRecursively() }
+        }
+    }
+
+    private class FakeBackend(
+        private val content: suspend (String) -> ByteArray = { error("unused") },
+        private val save: suspend (String, String, String, java.nio.file.Path) -> Unit = { _, _, _, _ -> error("unused") },
+    ) : MediaBackend {
+        override suspend fun thumbnail(url: String, pixels: Int): ByteArray = error("unused")
+        override suspend fun content(sourceJson: String) = content.invoke(sourceJson)
+        override suspend fun save(sourceJson: String, filename: String, mimeType: String, destination: java.nio.file.Path) =
+            save.invoke(sourceJson, filename, mimeType, destination)
+    }
+
+    companion object {
+        private const val URL = "mxc://example.test/synthetic-photo"
+        private const val SMALL = """{"url":"mxc://example.test/small"}"""
+        private const val LARGE = """{"url":"mxc://example.test/large"}"""
+        private const val HUGE = """{"url":"mxc://example.test/huge"}"""
+    }
 }
 
 internal suspend fun withMediaOwner(block: suspend (AccountLifetime) -> Unit) {

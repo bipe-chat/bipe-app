@@ -6,6 +6,7 @@ package chat.bipe.desktop.ui
 
 import androidx.compose.ui.graphics.Color
 import chat.bipe.desktop.chat.ChatLabels
+import chat.bipe.desktop.chat.MessageMedia
 import chat.bipe.desktop.settings.AppearancePolicy
 import java.util.Locale
 import kotlinx.serialization.json.*
@@ -52,7 +53,17 @@ class DesktopCatalog private constructor(private val root: JsonObject, val build
     }
 
     fun chatLabels() = ChatLabels(text("bipe_dm_no_name"), text("bipe_person_no_name"),
-        text("bipe_web_timeline_undecryptable"), text("bipe_app_timeline_unsupported"), text("bipe_app_message_deleted"), text("bipe_app_you"))
+        text("bipe_web_timeline_undecryptable"), text("bipe_app_timeline_unsupported"), text("bipe_app_message_deleted"), text("bipe_app_you"),
+        MessageMedia.Kind.entries.associateWith { text(mediaKey(it)) })
+
+    /** Spec timeline-media: the kind labels, also the accessibility labels of the rows. Audio files read as files. */
+    fun mediaKey(kind: MessageMedia.Kind): String = when (kind) {
+        MessageMedia.Kind.IMAGE -> "bipe_app_media_image"
+        MessageMedia.Kind.VIDEO -> "bipe_app_media_video"
+        MessageMedia.Kind.STICKER -> "bipe_app_media_sticker"
+        MessageMedia.Kind.VOICE -> "bipe_app_media_voice"
+        MessageMedia.Kind.FILE, MessageMedia.Kind.AUDIO -> "bipe_app_media_file"
+    }
 
     companion object {
         internal fun json(name: String): JsonObject = DesktopCatalog::class.java.getResourceAsStream("/$name")!!.use {
