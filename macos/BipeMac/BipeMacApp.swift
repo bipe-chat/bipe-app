@@ -343,6 +343,7 @@ struct MacChatView: View {
                 HStack(spacing: 8) {
                     if let face { MacAvatar(name: name, media: media, url: face.url, userID: face.userID, members: face.members, size: 28) }
                     Text(name).macFont(.headline).lineLimit(1)
+                    MacNameMarks(isDm: face?.userID != nil, peerID: face?.userID)
                 }
             }
         }
