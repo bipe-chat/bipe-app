@@ -136,6 +136,10 @@ export const BipeScreen = {
   drafts: "drafts",
   /** Messages on this phone (flow encryption). Spec: bipe-shared/product/screens/encryption-status.json */
   encryptionStatus: "encryption-status",
+  /** Game card (flow chat). Spec: bipe-shared/product/screens/game-card.json */
+  gameCard: "game-card",
+  /** Games menu (flow chat). Spec: bipe-shared/product/screens/games-menu.json */
+  gamesMenu: "games-menu",
   /** Verificar com gov.br (trust step 5) (flow voce). Spec: bipe-shared/product/screens/govbr-verify.json */
   govbrVerify: "govbr-verify",
   /** Create a group (flow groups). Spec: bipe-shared/product/screens/group-create.json */

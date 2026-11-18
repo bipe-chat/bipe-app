@@ -6103,4 +6103,114 @@ public enum BipeStrings {
     public static var amigoSecretoErrorImpossible: String { NSLocalizedString("bipe_amigo_secreto_error_impossible", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var amigoSecretoErrorSend: String { NSLocalizedString("bipe_amigo_secreto_error_send", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var gamesMenu: String { NSLocalizedString("bipe_games_menu", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var gamesParOuImpar: String { NSLocalizedString("bipe_games_par_ou_impar", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var gamesJokenpo: String { NSLocalizedString("bipe_games_jokenpo", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var gamesDice: String { NSLocalizedString("bipe_games_dice", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var gamesSoccer: String { NSLocalizedString("bipe_games_soccer", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var gamesBasketball: String { NSLocalizedString("bipe_games_basketball", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var gamesDarts: String { NSLocalizedString("bipe_games_darts", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var gamesPickOpponent: String { NSLocalizedString("bipe_games_pick_opponent", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var gamesReason: String { NSLocalizedString("bipe_games_reason", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var gamesReasonPlaceholder: String { NSLocalizedString("bipe_games_reason_placeholder", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func gamesChallenge(_ p1: String, _ p2: String, _ p3: String) -> String {
+        String(format: NSLocalizedString("bipe_games_challenge", tableName: "Bipe", bundle: .module, comment: ""), p1, p2, p3)
+    }
+
+    public static var gamesAccept: String { NSLocalizedString("bipe_games_accept", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var gamesDecline: String { NSLocalizedString("bipe_games_decline", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func gamesDeclined(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_games_declined", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var gamesExpired: String { NSLocalizedString("bipe_games_expired", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var gamesPickSide: String { NSLocalizedString("bipe_games_pick_side", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var gamesSidePar: String { NSLocalizedString("bipe_games_side_par", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var gamesSideImpar: String { NSLocalizedString("bipe_games_side_impar", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var gamesPickNumber: String { NSLocalizedString("bipe_games_pick_number", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var gamesPickHand: String { NSLocalizedString("bipe_games_pick_hand", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var gamesHandPedra: String { NSLocalizedString("bipe_games_hand_pedra", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var gamesHandPapel: String { NSLocalizedString("bipe_games_hand_papel", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var gamesHandTesoura: String { NSLocalizedString("bipe_games_hand_tesoura", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func gamesWaiting(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_games_waiting", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static func gamesChosen(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_games_chosen", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var gamesSum: String { NSLocalizedString("bipe_games_sum", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var gamesResultPar: String { NSLocalizedString("bipe_games_result_par", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var gamesResultImpar: String { NSLocalizedString("bipe_games_result_impar", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var gamesYouWon: String { NSLocalizedString("bipe_games_you_won", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var gamesYouLost: String { NSLocalizedString("bipe_games_you_lost", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func gamesWinner(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_games_winner", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var gamesDraw: String { NSLocalizedString("bipe_games_draw", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var gamesPlayAgain: String { NSLocalizedString("bipe_games_play_again", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var gamesRoll: String { NSLocalizedString("bipe_games_roll", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var gamesRolling: String { NSLocalizedString("bipe_games_rolling", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var gamesDiceSides: String { NSLocalizedString("bipe_games_dice_sides", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var gamesDiceCount: String { NSLocalizedString("bipe_games_dice_count", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var gamesDiceTotal: String { NSLocalizedString("bipe_games_dice_total", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var gamesCoinHeads: String { NSLocalizedString("bipe_games_coin_heads", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var gamesCoinTails: String { NSLocalizedString("bipe_games_coin_tails", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var gamesOutcomeGoal: String { NSLocalizedString("bipe_games_outcome_goal", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var gamesOutcomeScore: String { NSLocalizedString("bipe_games_outcome_score", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var gamesOutcomeMiss: String { NSLocalizedString("bipe_games_outcome_miss", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var gamesOutcomeOuter: String { NSLocalizedString("bipe_games_outcome_outer", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var gamesOutcomeInner: String { NSLocalizedString("bipe_games_outcome_inner", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var gamesOutcomeBullseye: String { NSLocalizedString("bipe_games_outcome_bullseye", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var gamesNotRevealed: String { NSLocalizedString("bipe_games_not_revealed", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static func gamesNotRevealedFooter(_ p1: String) -> String {
+        String(format: NSLocalizedString("bipe_games_not_revealed_footer", tableName: "Bipe", bundle: .module, comment: ""), p1)
+    }
+
+    public static var gamesVerifyFailed: String { NSLocalizedString("bipe_games_verify_failed", tableName: "Bipe", bundle: .module, comment: "") }
 }

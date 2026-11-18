@@ -2632,4 +2632,53 @@
     <string name="bipe_amigo_secreto_error_too_many_exclusions" formatted="false">Each person can have up to %1$d people they can\'t draw.</string>
     <string name="bipe_amigo_secreto_error_impossible">With these rules no draw works. Remove a rule or add people.</string>
     <string name="bipe_amigo_secreto_error_send">Some results didn\'t arrive. Try again.</string>
+    <string name="bipe_games_menu">Games</string>
+    <string name="bipe_games_par_ou_impar">Odds or evens</string>
+    <string name="bipe_games_jokenpo">Rock, paper, scissors</string>
+    <string name="bipe_games_dice">Dice</string>
+    <string name="bipe_games_soccer">Penalty kick</string>
+    <string name="bipe_games_basketball">Basketball shot</string>
+    <string name="bipe_games_darts">Darts</string>
+    <string name="bipe_games_pick_opponent">Who do you want to play with?</string>
+    <string name="bipe_games_reason">Reason (optional)</string>
+    <string name="bipe_games_reason_placeholder">Who pays for coffee?</string>
+    <string name="bipe_games_challenge">%1$s challenged %2$s: %3$s</string>
+    <string name="bipe_games_accept">Play</string>
+    <string name="bipe_games_decline">Not now</string>
+    <string name="bipe_games_declined">%1$s passed</string>
+    <string name="bipe_games_expired">Nobody played in time</string>
+    <string name="bipe_games_pick_side">Odds or evens?</string>
+    <string name="bipe_games_side_par">Evens</string>
+    <string name="bipe_games_side_impar">Odds</string>
+    <string name="bipe_games_pick_number" formatted="false">Pick a number from %1$d to %2$d</string>
+    <string name="bipe_games_pick_hand">Pick your hand</string>
+    <string name="bipe_games_hand_pedra">Rock</string>
+    <string name="bipe_games_hand_papel">Paper</string>
+    <string name="bipe_games_hand_tesoura">Scissors</string>
+    <string name="bipe_games_waiting">Waiting for %1$s</string>
+    <string name="bipe_games_chosen">You chose. %1$s can\'t see it yet.</string>
+    <string name="bipe_games_sum" formatted="false">%1$d + %2$d = %3$d</string>
+    <string name="bipe_games_result_par">Evens!</string>
+    <string name="bipe_games_result_impar">Odds!</string>
+    <string name="bipe_games_you_won">You won</string>
+    <string name="bipe_games_you_lost">You lost</string>
+    <string name="bipe_games_winner">%1$s won</string>
+    <string name="bipe_games_draw">Tie</string>
+    <string name="bipe_games_play_again">Play again</string>
+    <string name="bipe_games_roll">Roll</string>
+    <string name="bipe_games_rolling">Rolling…</string>
+    <string name="bipe_games_dice_sides">Sides</string>
+    <string name="bipe_games_dice_count">Dice</string>
+    <string name="bipe_games_dice_total" formatted="false">Total: %1$d</string>
+    <string name="bipe_games_coin_heads">Heads</string>
+    <string name="bipe_games_coin_tails">Tails</string>
+    <string name="bipe_games_outcome_goal">Goal!</string>
+    <string name="bipe_games_outcome_score">In!</string>
+    <string name="bipe_games_outcome_miss">Missed</string>
+    <string name="bipe_games_outcome_outer">Outer ring</string>
+    <string name="bipe_games_outcome_inner">Close</string>
+    <string name="bipe_games_outcome_bullseye">Bullseye!</string>
+    <string name="bipe_games_not_revealed">Not revealed</string>
+    <string name="bipe_games_not_revealed_footer">%1$s\'s phone did not show its pick in time.</string>
+    <string name="bipe_games_verify_failed">This result doesn\'t check out. A pick was changed after the fact.</string>
 </resources>
