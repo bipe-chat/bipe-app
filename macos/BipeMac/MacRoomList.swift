@@ -36,6 +36,8 @@ final class MacRoomList: ObservableObject {
     private var orderUnsaved = false
     /// The drafts room (ADR 0210, ADR 0291): it holds drafts and device entries, never a chat.
     private var hiddenRoomIDs: Set<String> = []
+    /// Spec dm-delete: markers this Mac wrote, until the SDK has the account data echo. The marker never moves back.
+    private var clearedHere: [String: UInt64] = [:]
 
     /// Spec chat-archive (archive-sync): the archive markers of this account. A new message from someone else after
     /// the archive brings the chat back, on every device, through the shared rule (BipeChatArchive.reconcile).
@@ -122,7 +124,7 @@ final class MacRoomList: ObservableObject {
         if let delivered { Task { await delivered.stop() } }
         delivered = nil
         archive?.close(); archive = nil; archiveFailure = nil
-        rooms = [[], [], []]; rows = []; known = [:]; pendingFavourite = [:]; hiddenRoomIDs = []
+        rooms = [[], [], []]; rows = []; known = [:]; pendingFavourite = [:]; hiddenRoomIDs = []; clearedHere = [:]
         loaded = false; failed = false; actionFailed = false; busy = []
         favouritesOrder = []; orderUnsaved = false
         onRows?([])
@@ -219,6 +221,12 @@ final class MacRoomList: ObservableObject {
         await task.value
     }
 
+    /// Spec dm-delete: the DM leaves the list at once; a newer message brings it back.
+    func cleared(roomID: String, marker: UInt64) {
+        clearedHere[roomID] = max(clearedHere[roomID] ?? 0, marker)
+        rebuild()
+    }
+
     /// Leaves a room out of every list of this account.
     func hide(roomID: String) {
         guard hiddenRoomIDs.insert(roomID).inserted else { return }
@@ -246,7 +254,7 @@ final class MacRoomList: ObservableObject {
                                            activity: activity, favourite: self.pendingFavourite[room.id()]))
             }
             guard !Task.isCancelled, self.generation == generation, let client = self.client else { return }
-            let visible = await MacDmSelection.visible(rows, client: client)
+            let visible = await MacDmSelection.visible(rows, client: client, clearedHere: self.clearedHere)
             guard !Task.isCancelled, self.generation == generation else { return }
             self.archive?.reconcile(visible)
             self.rows = visible
@@ -259,11 +267,12 @@ final class MacRoomList: ObservableObject {
 /// SDK adapter for the generated ADR 0141 rule: one DM row per person, the newest room. Reads only local state.
 @MainActor
 enum MacDmSelection {
-    static func visible(_ rows: [MacRoomSummary], client: Client) async -> [MacRoomSummary] {
+    /// `clearedHere`: dm-delete markers written on this Mac that the SDK may not have yet.
+    static func visible(_ rows: [MacRoomSummary], client: Client, clearedHere: [String: UInt64] = [:]) async -> [MacRoomSummary] {
         let peers = Set(rows.filter(\.isDm).compactMap(\.avatar.userID))
         guard !peers.isEmpty else { return rows }
         do {
-            let selected = BipeDmSelection.newestRooms(try await candidates(peers: peers, client: client))
+            let selected = BipeDmSelection.newestRooms(try await candidates(peers: peers, client: client, clearedHere: clearedHere))
             return rows.filter { row in
                 guard row.isDm, let peer = row.avatar.userID else { return true }
                 return selected[peer] == row.id
@@ -282,8 +291,10 @@ enum MacDmSelection {
             ?? BipeDmSelection.newestRooms(candidates, includingCleared: true)[peer]
     }
 
-    private static func candidates(peers: Set<String>, client: Client) async throws -> [BipeDmCandidate] {
-        let cleared = ClearedChats(json: try await client.accountData(eventType: ClearedChats.eventType))
-        return try await NativeDm.candidates(peers: peers, client: client, cleared: cleared)
+    private static func candidates(peers: Set<String>, client: Client,
+                                   clearedHere: [String: UInt64] = [:]) async throws -> [BipeDmCandidate] {
+        var markers = ClearedChats(json: try await client.accountData(eventType: ClearedChats.eventType)).markers
+        for (room, marker) in clearedHere { markers[room] = max(markers[room] ?? 0, marker) }
+        return try await NativeDm.candidates(peers: peers, client: client, cleared: ClearedChats(markers: markers))
     }
 }
