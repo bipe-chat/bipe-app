@@ -8,24 +8,6 @@ import Foundation
 import MatrixRustSDK
 import UIKit
 
-/// Type Person of the people specs: the name to show, the photo and the @. Never the Matrix ID (ADR 0013).
-struct Person: Identifiable, Equatable, Hashable {
-    var userId: String
-    /// People names: the saved contact name, else the real profile name, else the @, else bipe_person_no_name.
-    var displayName: String
-    var avatarUrl: String?
-    var handle: String?
-
-    init(userId: String, displayName: String?, avatarUrl: String? = nil, handle: String? = nil) {
-        self.userId = userId
-        self.displayName = BipeChatRowName.person(userID: userId, displayName: displayName, handle: handle)
-        self.avatarUrl = avatarUrl
-        self.handle = handle
-    }
-
-    var id: String { userId }
-}
-
 /// People and profiles for one account (bipe-chat/bipe#568): profiles with their @, the block list,
 /// company accounts and seals, and the DM with a person. Screens share one instance per account.
 @MainActor

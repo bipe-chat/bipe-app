@@ -30,6 +30,8 @@ struct MacConversationsView: View {
     @State private var canMakeGroupLink = false
     /// Spec person-profile: the person whose sheet shows.
     @State private var profile: MacProfileTarget?
+    /// Spec group-details: the group whose details sheet shows.
+    @State private var groupDetailsRoom: String?
     /// The toast of a sent report (spec report-chat sent).
     @State private var reportNotice: String?
     @ObservedObject private var groupLinks = MacGroupLinks.shared
@@ -112,6 +114,15 @@ struct MacConversationsView: View {
                                 .help(BipeStrings.dmDetailsTitle).accessibilityLabel(BipeStrings.dmDetailsTitle)
                             }
                         }
+                        // Spec group-details: the group's info screen.
+                        if !row.isDm {
+                            ToolbarItem(placement: .automatic) {
+                                Button { groupDetailsRoom = row.id } label: {
+                                    Image(decorative: "info").resizable().scaledToFit().frame(width: 18, height: 18)
+                                }
+                                .help(BipeStrings.appGroupDetailsTitle).accessibilityLabel(BipeStrings.appGroupDetailsTitle)
+                            }
+                        }
                         if !row.isDm, canMakeGroupLink {
                             ToolbarItem(placement: .automatic) {
                                 Button(BipeStrings.groupLinkTitle) { groupLinkRoom = row.id }.help(BipeStrings.groupLinkTitle)
@@ -157,6 +168,24 @@ struct MacConversationsView: View {
                                       if selected == room { selectedRoom.wrappedValue = nil }
                                   },
                                   close: { profile = nil })
+        }
+        .sheet(isPresented: Binding(get: { groupDetailsRoom != nil }, set: { if !$0 { groupDetailsRoom = nil } })) {
+            if let id = groupDetailsRoom, let row = list.rows.first(where: { $0.id == id }), let client = account.client {
+                MacGroupDetailsSheet(account: account, room: row.room, client: client, face: row.avatar,
+                                     openProfile: { user in
+                                         groupDetailsRoom = nil
+                                         // The group sheet closes first; then the profile sheet opens.
+                                         Task { try? await Task.sleep(for: .milliseconds(400)); profile = MacProfileTarget(userID: user, dmRoomID: nil) }
+                                     },
+                                     openNotifications: { room in groupDetailsRoom = nil; notificationsRoom = room },
+                                     reported: { reportNotice = $0 },
+                                     left: { room in
+                                         groupDetailsRoom = nil
+                                         if selected == room { selectedRoom.wrappedValue = nil }
+                                     },
+                                     close: { groupDetailsRoom = nil })
+                    .environment(\.bipeHandles, account.handles)
+            }
         }
         .alert(reportNotice ?? "", isPresented: Binding(get: { reportNotice != nil }, set: { if !$0 { reportNotice = nil } })) {
             Button(BipeStrings.appClose, role: .cancel) {}
@@ -350,8 +379,8 @@ struct MacConversationsView: View {
             case .notifications: true
             case .archive: !row.isArchived
             case .unarchive: row.isArchived
-            // Spec chat-row-actions details: a DM opens person-profile; group details remain in bipe#1225.
-            case .details: row.isDm && row.avatar.userID != nil
+            // Spec chat-row-actions details: person-profile for a DM, group-details for a group.
+            case .details: !row.isDm || row.avatar.userID != nil
             case .deleteDm: false
             }
         }
@@ -371,7 +400,8 @@ struct MacConversationsView: View {
         case .archive: Task { await list.setArchived(row, value: true) }
         case .unarchive: Task { await list.setArchived(row, value: false) }
         case .details:
-            if let peer = row.avatar.userID { profile = MacProfileTarget(userID: peer, dmRoomID: row.id) }
+            if !row.isDm { groupDetailsRoom = row.id }
+            else if let peer = row.avatar.userID { profile = MacProfileTarget(userID: peer, dmRoomID: row.id) }
         case .deleteDm: break
         }
     }

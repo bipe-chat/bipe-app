@@ -14,9 +14,11 @@ struct GroupMembersView: View {
     @State private var toast: String?
     @Environment(\.bipeHandles) private var handles
     private let media: MediaLoader
+    private let session: AccountSession
 
     init(session: AccountSession, media: MediaLoader, roomId: String) {
-        _model = StateObject(wrappedValue: GroupMembersModel(session: session, roomId: roomId))
+        self.session = session
+        _model = StateObject(wrappedValue: GroupMembersModel(client: session.client, ownUserId: session.userId, roomId: roomId))
         self.media = media
     }
 
@@ -25,7 +27,7 @@ struct GroupMembersView: View {
             if model.canInvite {
                 Section {
                     NavigationLink {
-                        GroupInviteMembersView(session: model.session, media: media, mode: .invite(roomId: model.roomId)) { _ in
+                        GroupInviteMembersView(session: session, media: media, mode: .invite(roomId: model.roomId)) { _ in
                             toast = BipeStrings.dmInviteToGroupSent
                             Task { await model.appear() }
                         }
