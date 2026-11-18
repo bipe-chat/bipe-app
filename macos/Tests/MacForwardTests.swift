@@ -19,9 +19,9 @@ final class MacForwardTests: XCTestCase {
     }
 
     func testForwardChatLimitFollowsTheMark() {
-        let fresh = message("a", forwardJson: #"{"msgtype":"m.text","body":"Oi","chat.bipe.forward":1}"#)
+        let fresh = message("a", forwardJson: #"{"msgtype":"m.text","body":"Oi","chat.bipe.forward":{"count":1}}"#)
         XCTAssertEqual(MacForwarding(messages: [fresh]).chatLimit, BipeRegistries.forwardChats)
-        let many = message("b", forwardJson: #"{"msgtype":"m.text","body":"Oi","chat.bipe.forward":50}"#)
+        let many = message("b", forwardJson: #"{"msgtype":"m.text","body":"Oi","chat.bipe.forward":{"count":50}}"#)
         XCTAssertEqual(MacForwarding(messages: [fresh, many]).chatLimit, BipeRegistries.forwardChatsManyTimes)
         XCTAssertEqual(MacForwarding(messages: [many]).limitText, BipeStrings.forwardLimitMany)
     }
