@@ -55,6 +55,10 @@ final class MacAccount: ObservableObject {
     let media = MacMedia()
     /// Spec block-person: the account's ignored users, for the DM block bar.
     let blocked = MacBlockedUsers()
+    /// Spec chat-search recent: the last queries that opened a result, per account. Set once the user ID is known.
+    @Published private(set) var recentSearches: RecentSearches?
+    /// Spec chat-search openMessage: the message the chat of that room scrolls to when it opens.
+    @Published var messageFocus: MacMessageFocus?
     private let vault: MacSessionVault
     private var savedUserID: String?
     private var openID: BipeOpenIDTokens?
@@ -252,7 +256,7 @@ final class MacAccount: ObservableObject {
 
     /// Shared Matrix security policy: signed recipients, encrypted stores and local offline readiness.
     nonisolated static func builder(data: URL, cache: URL, key: Data) -> ClientBuilder {
-        ClientBuilder()
+        var builder = ClientBuilder()
             .sqliteStore(config: SqliteStoreBuilder(dataPath: data.path, cachePath: cache.path).key(key: key))
             .slidingSyncVersionBuilder(versionBuilder: .native)
             .autoEnableCrossSigning(autoEnableCrossSigning: true)
@@ -260,6 +264,18 @@ final class MacAccount: ObservableObject {
             .roomKeyRecipientStrategy(strategy: .identityBasedStrategy)
             .decryptionSettings(decryptionSettings: DecryptionSettings(senderDeviceTrustRequirement: .crossSignedOrLegacy))
             .backupDownloadStrategy(backupDownloadStrategy: .afterDecryptionFailure)
+        // Spec chat-search notes (bipe#671): the SDK's local message index in the account's data folder, which stays
+        // out of backups. It has the store key as its password, as on iOS.
+        if let index = searchIndexPath(data: data) {
+            builder = builder.withSearchIndexStore(path: index.path, password: key.base64EncodedString())
+        }
+        return builder
+    }
+
+    /// The folder of the local message search index, inside the account's data folder, made when missing.
+    nonisolated static func searchIndexPath(data: URL) -> URL? {
+        let index = data.appendingPathComponent("SearchIndex", isDirectory: true)
+        return (try? FileManager.default.createDirectory(at: index, withIntermediateDirectories: true)) != nil ? index : nil
     }
 
     nonisolated static func paths(folder: String, restoring: Bool = false, root: URL? = nil) throws -> (data: URL, cache: URL) {
@@ -293,6 +309,7 @@ final class MacAccount: ObservableObject {
         media.attach(client)
         blocked.attach(client)
         userId = try client.userId()
+        recentSearches = RecentSearches(userId: userId)
         displayName = BipeAccountLabels.label(for: userId)
         handle = BipeHandleCache.handle(for: userId)
         isCompany = BipeAccountLabels.isCompany(userId)

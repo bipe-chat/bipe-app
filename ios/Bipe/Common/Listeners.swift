@@ -74,6 +74,20 @@ final class IgnoredUsersStream: IgnoredUsersListener {
     }
 }
 
+/// Feeds the results of the SDK search service (spec chat-search) to an AsyncStream. iOS and the Mac use it.
+final class SearchResultsStream: SearchServiceResultsListener {
+    let updates: AsyncStream<[SearchServiceResultsUpdate]>
+    private let continuation: AsyncStream<[SearchServiceResultsUpdate]>.Continuation
+
+    init() {
+        (updates, continuation) = AsyncStream.makeStream()
+    }
+
+    func onUpdate(updates: [SearchServiceResultsUpdate]) {
+        continuation.yield(updates)
+    }
+}
+
 /// The operations of an SDK vector diff. Room list entries and timeline items use the same shape.
 enum VectorDiff<Element> {
     case append([Element])

@@ -413,6 +413,8 @@ struct MacChatRequestView: View {
 /// Start a DM by @ (spec chat-search notes: on Bipe a person is found by their @). The DM is created when missing.
 struct MacStartChatSheet: View {
     @ObservedObject var account: MacAccount
+    /// The handle the field starts with (chat-search findByHandle).
+    var initial = ""
     let opened: (String) -> Void
     let close: () -> Void
     @State private var input = ""
@@ -437,6 +439,7 @@ struct MacStartChatSheet: View {
                     .disabled(working || handle.isEmpty)
             }
         }.padding(MacDesign.gap * 2).frame(width: 420)
+        .onAppear { if input.isEmpty { input = initial } }
     }
 
     private func start() {
