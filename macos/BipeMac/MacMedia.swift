@@ -142,6 +142,18 @@ final class MacMedia: ObservableObject {
         Task { try? await client.setMediaPreviewDisplayPolicy(policy: value) }
     }
 
+    /// Spec chat-requests hidePhotos, the privacy row privacy.requestPhotos: stored in the account (MSC4278
+    /// invite_avatars), so every device follows it. A failed write puts the switch back.
+    func setHideInvitePhotos(_ hide: Bool) {
+        let before = showsInvitePhotos
+        showsInvitePhotos = !hide
+        guard let client else { return }
+        Task {
+            do { try await client.setInviteAvatarsDisplayPolicy(policy: hide ? .off : .on) }
+            catch { showsInvitePhotos = before }
+        }
+    }
+
     func maxUploadSize() async -> UInt64? { try? await client?.getMaxMediaUploadSize() }
 
     func avatar(url: String?, userID: String?, size: Int) async -> NSImage? {

@@ -296,7 +296,7 @@ private struct MacSettingsGroupView: View {
     private func hasHandler(_ row: BipeSettingsRow) -> Bool {
         if row.kind == .url { return row.url(language: language) != nil }
         switch row {
-        case .privacyMessaging, .privacyPresence, .privacyReadReceipts,
+        case .privacyMessaging, .privacyRequestPhotos, .privacyPresence, .privacyReadReceipts,
              .accountWaysBackStatus, .accountEmail, .accountLinkedAccounts, .accountRecoveryKey,
              .accountSignOut,
              .chatsAppearance, .chatsColors, .chatsShowMedia, .chatsMediaQuality: return true
@@ -375,6 +375,9 @@ private struct MacSettingsGroupView: View {
                 Text(BipeStrings.messagingVerified).tag(BipeWhoCanMessage.verified)
                 Text(BipeStrings.messagingContacts).tag(BipeWhoCanMessage.contacts)
             }.disabled(model.whoCanMessage == nil)
+        case .privacyRequestPhotos:
+            MacRequestPhotosRow(media: model.account.media, title: row.title)
+            if let footer = row.footer { Text(footer).macFont(.callout).foregroundStyle(BipeColor.inkSecondary) }
         case .privacyPresence:
             // Spec typing-indicator sharesTyping: off stops sending and showing typing on this Mac.
             Toggle(row.title, isOn: $sharePresence)
@@ -417,6 +420,16 @@ private struct MacSettingsGroupView: View {
         default:
             if let url = row.url(language: language) { Link(row.title, destination: url) }
         }
+    }
+}
+
+/// Spec chat-requests hidePhotos: the account's invite avatar setting (MSC4278 invite_avatars).
+private struct MacRequestPhotosRow: View {
+    @ObservedObject var media: MacMedia
+    let title: String
+
+    var body: some View {
+        Toggle(title, isOn: Binding(get: { !media.showsInvitePhotos }, set: { media.setHideInvitePhotos($0) }))
     }
 }
 
