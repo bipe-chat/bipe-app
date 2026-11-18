@@ -17,6 +17,7 @@ import {
   matchedTokens,
   parseCsv,
   tokenCounts,
+  isTestSource,
 } from './similarity.mjs';
 
 // The shapes JPlag 6.3.0 writes with -new ours -old theirs and one file per
@@ -85,6 +86,17 @@ test('evaluate fails a copy, warns on a small file, fails closed on a missing co
   assert.deepEqual(result.warnings.map((p) => [p.ours, p.matched]), [['android/Small.kt', 27]]);
   // Only a failed submission is "not compared": with -m most files are in no row.
   assert.deepEqual(result.notCompared, ['android/Broken.kt']);
+});
+
+test('a test source over the average rule warns; app code still fails (bipe-app#671)', () => {
+  for (const path of ['android/desktop-runtime/src/test/kotlin/A.kt', 'android/app/src/androidTest/kotlin/B.kt',
+    'ios/BipeKit/Tests/BipeKitTests/C.swift', 'ios/Bipe/DTests.swift', 'web/src/d.test.ts']) assert.ok(isTestSource(path), path);
+  for (const path of ['android/app/src/main/kotlin/Testing.kt', 'ios/Bipe/Contests/Row.swift', 'web/src/tests.ts', 'android/Copied.kt'])
+    assert.ok(!isTestSource(path), path);
+  const asTest = new Map([...ours].map(([k, v]) => [k, v === 'android/Copied.kt' ? 'android/src/test/kotlin/Copied.kt' : v]));
+  const result = evaluate(parseCsv(CSV), asTest, theirs, 0.5, tokenCounts(INDEX), 100, failedSubmissions(RUN_INFORMATION));
+  assert.deepEqual(result.failures.map((p) => p.ours), ['android/Unindexed.kt']);
+  assert.ok(result.warnings.some((p) => p.ours === 'android/src/test/kotlin/Copied.kt'));
 });
 
 test('checkTokenIndex fails a report with pairs and no counts', () => {

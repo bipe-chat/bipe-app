@@ -241,7 +241,10 @@ struct MacRequestRow: View {
         HStack(spacing: 12) {
             MacRequestAvatar(request: request, media: media, size: 48)
             VStack(alignment: .leading, spacing: 2) {
-                Text(request.name).macFont(.headline).lineLimit(1)
+                HStack(spacing: 4) {
+                    Text(request.name).macFont(.headline).lineLimit(1)
+                    if BipeOfficialAccounts.isOfficial(request.inviterID) { MacOfficialBadge() }
+                }
                 switch MacRequestTrust.of(request, seals: seals) {
                 case .verified:
                     Text(BipeStrings.badgeVerified).macFont(.subheadline).foregroundStyle(isSelected ? BipeColor.inkOnAccent : BipeColor.trustVerifiedInk)

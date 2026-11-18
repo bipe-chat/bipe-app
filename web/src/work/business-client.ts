@@ -67,6 +67,7 @@ import type {
   WorkSetup,
   WorkSuggestions,
 } from '../bipe/generated/business-api';
+import { locale } from '../ui/i18n';
 
 export const API_BASE = 'https://api.bipe.net.br';
 
@@ -113,6 +114,8 @@ export class BusinessClient {
         method,
         headers: {
           Accept: 'application/json',
+          // ADR 0298: the UI language; bipe-api sends news and other server text in it.
+          'Accept-Language': locale,
           Authorization: `Bearer ${token}`,
           ...(body === undefined ? {} : { 'Content-Type': contentType }),
         },
@@ -162,7 +165,7 @@ export class BusinessClient {
     let res: Response;
     try {
       res = await fetch(`${API_BASE}/v1/me/business/catalog/items/${enc(id)}/photo`, {
-        headers: { Accept: 'image/jpeg', Authorization: `Bearer ${token}` },
+        headers: { Accept: 'image/jpeg', 'Accept-Language': locale, Authorization: `Bearer ${token}` },
       });
     } catch {
       throw new WorkError('network', 0);

@@ -9,6 +9,7 @@ import android.content.Context
 import android.os.Build
 import android.view.WindowManager
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -41,6 +43,9 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.DialogWindowProvider
 import chat.bipe.app.BipeTheme
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.R
@@ -111,10 +116,34 @@ fun AppLockGate(content: @Composable () -> Unit) {
             activity.window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
         }
     }
-    Box(Modifier.fillMaxSize()) {
-        content()
-        if (isLocked) {
-            BackHandler {}
+    content()
+    if (isLocked) AppLockWindow(lock, secure = isOn)
+}
+
+/**
+ * The lock in a window of its own (bipe-chat/bipe#1365). A dialog, a bottom sheet or the media viewer is a window above
+ * the activity, so a lock drawn in the activity showed under them and they still took touches. This dialog window is
+ * added after them, full screen and opaque, so it covers them all. Back does nothing.
+ */
+@Composable
+private fun AppLockWindow(lock: AppLockModel, secure: Boolean) {
+    Dialog(
+        onDismissRequest = {},
+        properties = DialogProperties(
+            dismissOnBackPress = false,
+            dismissOnClickOutside = false,
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false,
+        ),
+    ) {
+        val window = (LocalView.current.parent as? DialogWindowProvider)?.window
+        SideEffect {
+            window?.setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT)
+            window?.setDimAmount(0f)
+            // Before API 33 the activity uses FLAG_SECURE for the app switcher; this window needs it as well.
+            if (Build.VERSION.SDK_INT < 33 && secure) window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        }
+        Box(Modifier.fillMaxSize().background(BipeTheme.colors.surfaceBase)) {
             AppLockScreen(lock)
         }
     }

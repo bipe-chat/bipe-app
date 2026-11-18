@@ -218,7 +218,7 @@ export class Interno {
         // A new identity needs no password on upload; a server that asks for one fails here and retries later.
         await (await encryption.resetIdentity())?.reset(undefined);
         step = 'store';
-        return await this.storeRecovery(client, stored);
+        return await this.storeRecovery(client, stored, recoveryKey);
       }
       if (encryption.verificationState() !== VerificationState.Verified) {
         if (!recoveryKey) return;
@@ -232,7 +232,7 @@ export class Interno {
         return;
       }
       step = 'store';
-      await this.storeRecovery(client, stored);
+      await this.storeRecovery(client, stored, recoveryKey);
     } catch (e) {
       keysFailed(step, e);
     }
@@ -257,10 +257,11 @@ export class Interno {
   }
 
   /**
-   * A new recovery key, then PUT to bipe-api: enableRecovery (no wait for the backup upload, no passphrase) when
-   * recovery is disabled, resetRecoveryKey when it is enabled or incomplete. An unknown state waits for the next load.
+   * A new recovery key, then PUT to bipe-api over seen, the key the member session gave (bipe#1471): enableRecovery (no
+   * wait for the backup upload, no passphrase) when recovery is disabled, resetRecoveryKey when it is enabled or
+   * incomplete. An unknown state waits for the next load. 409 recovery_changed goes to settleRecovery.
    */
-  private async storeRecovery(client: Client, stored: string): Promise<void> {
+  private async storeRecovery(client: Client, stored: string, seen: string | undefined): Promise<void> {
     const encryption = client.encryption();
     const state = encryption.recoveryState();
     let key: string;
@@ -271,8 +272,44 @@ export class Interno {
     } else {
       return;
     }
-    await this.api.storeMemberRecovery({ recovery_key: key });
+    try {
+      await this.api.storeMemberRecovery({ recovery_key: key, replaces: await recoveryKeyHash(seen) });
+    } catch (e) {
+      if (!(e instanceof WorkError && e.code === 'recovery_changed')) throw e;
+      return await this.settleRecovery(client, stored, key);
+    }
     writePending(stored, '1');
+  }
+
+  /**
+   * 409 recovery_changed (bipe#1471): another device of the person stored a key after this one read the session. The
+   * homeserver keeps the key backup that finished last, so either the stored key or ownKey opens it. Recover with the
+   * stored key: when it opens, this browser uses that backup and gets the earlier history. When the key does not match,
+   * this browser's backup is the one on the homeserver: PUT ownKey over the stored key. At most three rounds.
+   */
+  private async settleRecovery(client: Client, stored: string, ownKey: string): Promise<void> {
+    for (let round = 0; round < 3; round++) {
+      const session = await this.api.memberSession();
+      if (session.user_id !== client.userId()) return;
+      const current = session.recovery_key;
+      if (current) {
+        try {
+          await client.encryption().recover(current);
+          writePending(stored, '1');
+          return;
+        } catch (e) {
+          // The SDK says a wrong key apart from a network failure only in its message (as in Encryption.tsx).
+          if (/network|connect|fetch/i.test(String((e as { message?: string })?.message ?? e))) throw e;
+        }
+      }
+      try {
+        await this.api.storeMemberRecovery({ recovery_key: ownKey, replaces: await recoveryKeyHash(current) });
+        writePending(stored, '1');
+        return;
+      } catch (e) {
+        if (!(e instanceof WorkError && e.code === 'recovery_changed')) throw e;
+      }
+    }
   }
 
   /** The member session failed on the homeserver (its sync or a call): an ended session is dropped. */
@@ -473,4 +510,11 @@ export function internoRooms(
   const geral = geralRoomId ? chats.find((c) => c.roomId === geralRoomId && c.kind === 'group') : undefined;
   const direct = chats.filter((c) => c.kind === 'dm').sort((a, b) => (b.row.at ?? 0) - (a.row.at ?? 0));
   return { geral, direct };
+}
+
+/** The SHA-256 (lower-case hex) of a recovery key's UTF-8 bytes, the contract's replaces; null for no key. */
+async function recoveryKeyHash(recoveryKey: string | undefined): Promise<string | null> {
+  if (!recoveryKey) return null;
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(recoveryKey));
+  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
 }

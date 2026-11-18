@@ -2584,4 +2584,45 @@
     <string name="bipe_desktop_draft_load_error">Não deu para abrir o rascunho desta conversa. Tente de novo antes de escrever.</string>
     <string name="bipe_desktop_draft_save_error">Não deu para salvar este rascunho no computador. Mantenha o Bipe aberto e tente de novo.</string>
     <string name="bipe_desktop_draft_unsupported">Esta conversa tem um rascunho de resposta, edição ou anexo que esta versão ainda não abre. O rascunho foi mantido.</string>
+    <string name="bipe_desktop_media_show">Mostrar</string>
+    <string name="bipe_amigo_secreto_title">Amigo secreto</string>
+    <string name="bipe_amigo_secreto_create">Criar amigo secreto</string>
+    <string name="bipe_amigo_secreto_name">Nome</string>
+    <string name="bipe_amigo_secreto_name_default">Amigo secreto %1$s</string>
+    <string name="bipe_amigo_secreto_date">Dia da troca</string>
+    <string name="bipe_amigo_secreto_price_limit">Valor máximo</string>
+    <string name="bipe_amigo_secreto_price_limit_none">Sem limite</string>
+    <string name="bipe_amigo_secreto_participants">Quem participa</string>
+    <string name="bipe_amigo_secreto_add_invitee">Adicionar quem ainda não está no Bipe</string>
+    <string name="bipe_amigo_secreto_invitee_name">Nome da pessoa</string>
+    <string name="bipe_amigo_secreto_exclusions">Não podem se tirar</string>
+    <string name="bipe_amigo_secreto_exclusions_footer">Para casais ou para quem já troca presente.</string>
+    <string name="bipe_amigo_secreto_joined_count" formatted="false">%1$d de %2$d entraram</string>
+    <string name="bipe_amigo_secreto_missing">Ainda não entraram: %1$s</string>
+    <string name="bipe_amigo_secreto_call">Chamar</string>
+    <string name="bipe_amigo_secreto_call_message">Entra no nosso amigo secreto no Bipe: %1$s</string>
+    <string name="bipe_amigo_secreto_share_message">%1$s abriu o %2$s no Bipe. Entra pra participar: %3$s</string>
+    <string name="bipe_amigo_secreto_join">Participar</string>
+    <string name="bipe_amigo_secreto_claim_title">Quem é você na lista?</string>
+    <string name="bipe_amigo_secreto_claim">Sou eu</string>
+    <string name="bipe_amigo_secreto_draw">Sortear</string>
+    <string name="bipe_amigo_secreto_draw_with_joined">Sortear com quem entrou</string>
+    <string name="bipe_amigo_secreto_draw_with_joined_body">Quem ainda não entrou fica fora do sorteio.</string>
+    <string name="bipe_amigo_secreto_redraw">Refazer sorteio</string>
+    <string name="bipe_amigo_secreto_redrawn">O sorteio foi refeito. Veja quem você tirou agora.</string>
+    <string name="bipe_amigo_secreto_drawn_status">Sorteio feito · troca em %1$s</string>
+    <string name="bipe_amigo_secreto_you_drew">Você tirou</string>
+    <string name="bipe_amigo_secreto_secret_footer">Nem o Bipe sabe quem tirou quem.</string>
+    <string name="bipe_amigo_secreto_wishlist">Quero ganhar</string>
+    <string name="bipe_amigo_secreto_wishlist_footer">Só quem tirou você vê esta lista.</string>
+    <string name="bipe_amigo_secreto_wish_add">Adicionar ideia</string>
+    <string name="bipe_amigo_secreto_their_wishlist">%1$s quer ganhar</string>
+    <string name="bipe_amigo_secreto_their_wishlist_empty">Nenhuma ideia ainda.</string>
+    <string name="bipe_amigo_secreto_cancel">Cancelar amigo secreto</string>
+    <string name="bipe_amigo_secreto_cancelled">Este amigo secreto foi cancelado.</string>
+    <string name="bipe_amigo_secreto_error_too_few" formatted="false">Precisa de pelo menos %1$d pessoas.</string>
+    <string name="bipe_amigo_secreto_error_too_many" formatted="false">O limite é de %1$d pessoas.</string>
+    <string name="bipe_amigo_secreto_error_too_many_exclusions" formatted="false">Cada pessoa pode ter até %1$d pessoas que não pode tirar.</string>
+    <string name="bipe_amigo_secreto_error_impossible">Com essas regras não dá para sortear. Tire uma regra ou adicione pessoas.</string>
+    <string name="bipe_amigo_secreto_error_send">Alguns resultados não chegaram. Tente de novo.</string>
 </resources>

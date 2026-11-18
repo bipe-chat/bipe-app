@@ -197,6 +197,7 @@ struct MacChatView: View {
     @ObservedObject var blocked: MacBlockedUsers
     /// Opens another chat of this account in the window (inviteAgain makes a new DM).
     let openChat: (String) -> Void
+    @StateObject private var pins = MacPinsModel()
     @Environment(\.scenePhase) private var scenePhase
     @FocusState private var composerFocused: Bool
     private enum Picker { case media, file }
@@ -247,6 +248,7 @@ struct MacChatView: View {
                 Task { if let roomID = await model.inviteAgain() { openChat(roomID) } }
             }
             MacIdentityChangeBar(model: identity)
+            MacTypingLine(names: model.typingNames)
             if model.failed { MacNotice(text: BipeStrings.errorGeneric, danger: true).padding() }
             if let error = model.uploadError, model.preparedAttachment == nil {
                 MacNotice(text: error, danger: true).padding()
@@ -271,7 +273,8 @@ struct MacChatView: View {
                         choose: { choice in
                             picker = choice == .file ? .file : .media
                         }, send: { Task { await model.send() } }) {
-                TextField(BipeStrings.appTimelineComposerPlaceholder, text: $model.draft, axis: .vertical)
+                TextField(BipeStrings.appTimelineComposerPlaceholder,
+                          text: Binding(get: { model.draft }, set: { model.editDraft($0) }), axis: .vertical)
                     .focused($composerFocused)
                     .lineLimit(1...5)
                     .onKeyPress(.return, phases: .down) { press in
@@ -288,6 +291,10 @@ struct MacChatView: View {
     var body: some View {
         VStack(spacing: 0) {
             if !model.isEncrypted { MacNotice(text: BipeStrings.appTimelineNotEncrypted).padding() }
+            // Spec message-pins: groups only (ADR 0141).
+            if !model.isDm {
+                MacPinnedBanner(model: pins) { eventID in Task { await model.openOriginal(eventID: eventID) } }
+            }
             ScrollViewReader { scroll in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: MacDesign.gap) {
@@ -350,6 +357,7 @@ struct MacChatView: View {
                 HStack(spacing: 8) {
                     if let face { MacAvatar(name: name, media: media, url: face.url, userID: face.userID, members: face.members, size: 28) }
                     Text(name).macFont(.headline).lineLimit(1)
+                    MacNameMarks(isDm: face?.userID != nil, peerID: face?.userID)
                 }
             }
             // Spec chat-search with roomId (bipe-chat/bipe#861): search in this chat.
@@ -418,6 +426,7 @@ struct MacChatView: View {
         }
         .task { await model.run(room: room) }
         .task { await identity.observe() }
+        .task { await pins.observe(room: room) }
         .task(id: room.id()) { await media.checkRequestRooms(for: room.id()) }
         .dropDestination(for: URL.self) { urls, _ in
             guard let url = urls.first, url.isFileURL, model.ready, !model.preparing, !model.sending else { return false }

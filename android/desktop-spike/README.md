@@ -14,7 +14,7 @@ Builds run only in GitHub CI. The job `windows-sdk-core-x64` must pass before th
 
 ## Next checkpoints
 
-- Native Windows secure-storage adapter, encrypted-store key lifetime, missing-key refusal and per-account isolation. Never persist the synthetic harness approach in a production client.
+- Native Windows secure-storage adapter, encrypted-store key lifetime, missing-key refusal and per-account isolation: source is being written in [`desktop-runtime`](../desktop-runtime/README.md), with native tests queued. It has not been built or validated; MZ requested a coding-only checkpoint on 10 November. Never persist the synthetic harness approach in a production client.
 - Compose for Desktop packaging, generated Bipe strings/tokens/registries and the same navigation hierarchy as the other clients.
 - Phone-approved QR linking and encrypted sync/history, with released iOS and Android; same-device restart, phone-offline use, revocation and reconnect.
 - Windows on Arm build/runtime proof, native dependencies, signed installer/update path and real Windows 11 device acceptance.

@@ -10,6 +10,7 @@
 // allows the web origin (CORS, bipe-chat/bipe-api#269) the browser refuses every call the same way.
 
 import type { ClientLike as Client } from './generated/matrix_sdk_ffi';
+import { locale } from './ui/i18n';
 
 export const API_BASE = 'https://api.bipe.net.br';
 
@@ -22,7 +23,8 @@ async function call<T>(path: string, init: RequestInit = {}): Promise<T | undefi
   try {
     const res = await fetch(`${API_BASE}${path}`, {
       ...init,
-      headers: { Accept: 'application/json', ...init.headers },
+      // ADR 0298: the UI language; bipe-api sends news and other server text in it.
+      headers: { Accept: 'application/json', 'Accept-Language': locale, ...init.headers },
     });
     if (!res.ok) {
       console.info(`[trace] bipe-api ${path} → ${res.status}`);

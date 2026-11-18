@@ -340,6 +340,8 @@ class BipeApiClient(baseUrl: String) {
             connection.connectTimeout = TIMEOUT_MS
             connection.readTimeout = TIMEOUT_MS
             connection.setRequestProperty("Accept", "application/json")
+            // ADR 0298: the app's screen language; bipe-api sends news and other server text in it.
+            connection.setRequestProperty("Accept-Language", appLanguage())
             accessToken?.let { connection.setRequestProperty("Authorization", "Bearer $it") }
             serverName?.let { connection.setRequestProperty("X-Matrix-Server-Name", it) }
             if (body != null) {
@@ -385,6 +387,12 @@ class BipeApiClient(baseUrl: String) {
             ignoreUnknownKeys = true
             explicitNulls = false
         }
+
+        /**
+         * The language the app's screens show: English strings for an English locale, else the pt-BR default. Sent as
+         * Accept-Language (ADR 0298).
+         */
+        fun appLanguage(): String = if (Locale.getDefault().language == "en") "en" else "pt-BR"
 
         /** The `lang` for e-mails Bipe sends: English for an English device, else Portuguese. Same rule as iOS. */
         fun emailLanguage(): String = if (Locale.getDefault().language == "en") "en" else "pt"
@@ -533,6 +541,9 @@ enum class BipeApiErrorCode(val id: String) {
 
     /** 409. The work account already has a Geral room (ADR 0284). The app leaves its own room and joins that one. */
     GERAL_EXISTS("geral_exists"),
+
+    /** 409. Another device of the person stored a member recovery key first (bipe#1471). The app reads the session again. */
+    RECOVERY_CHANGED("recovery_changed"),
     ;
 
     companion object {
@@ -624,7 +635,7 @@ sealed class BipeApiException(cause: Throwable? = null) : Exception(cause) {
             BipeApiErrorCode.SEAT_LIMIT, BipeApiErrorCode.SEAT_WINDOW_OPEN -> context.getString(R.string.bipe_team_error)
             BipeApiErrorCode.SEAT_WINDOW_CLOSED -> context.getString(R.string.bipe_team_add_expired)
             BipeApiErrorCode.CHAT_TAKEN, BipeApiErrorCode.SEAT_REQUIRED -> context.getString(R.string.bipe_chat_assign_error)
-            BipeApiErrorCode.GERAL_EXISTS -> context.getString(R.string.bipe_interno_error)
+            BipeApiErrorCode.GERAL_EXISTS, BipeApiErrorCode.RECOVERY_CHANGED -> context.getString(R.string.bipe_interno_error)
             BipeApiErrorCode.BAD_REQUEST, BipeApiErrorCode.NOT_FOUND, BipeApiErrorCode.INTERNAL, BipeApiErrorCode.PHOTO_INVALID,
             BipeApiErrorCode.PASSWORD_WEAK, BipeApiErrorCode.SUPPORT_UNAVAILABLE ->
                 context.getString(R.string.bipe_error_generic)

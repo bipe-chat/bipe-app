@@ -4,8 +4,16 @@
   Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
   Copyright 2026 Bipe contributors
 -->
-<!-- Decrypted media in the app cache, shared only when the person opens, shares or saves it (spec media-viewer notes). -->
+<!--
+  Decrypted media in the app cache, shared only when the person opens, shares or saves it (spec media-viewer notes).
+  Only the cache folders that the share callers write (bipe-chat/bipe#1371). No filesDir path, and not the whole cache:
+  the SDK session caches live in cacheDir/sessions. A new caller adds its folder here.
+-->
 <paths>
-    <cache-path name="media" path="." />
-    <files-path name="files" path="." />
+    <cache-path name="media" path="media/" />
+    <cache-path name="uploads" path="uploads/" />
+    <cache-path name="agenda" path="agenda/" />
+    <cache-path name="queue" path="queue/" />
+    <cache-path name="pixcheck" path="pixcheck-share/" />
+    <cache-path name="recap" path="year-recap/" />
 </paths>

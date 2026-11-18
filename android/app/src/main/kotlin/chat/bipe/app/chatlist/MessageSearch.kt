@@ -168,7 +168,7 @@ class MessageSearchModel(
 
 /** State recent of spec chat-search: the last 10 queries that opened a result, on this phone, per account. */
 class RecentSearches(context: Context, userId: String) {
-    private val prefs = context.getSharedPreferences("recent_searches", Context.MODE_PRIVATE)
+    private val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
     private val key = userId
     private val _queries = MutableStateFlow(load())
     val queries: StateFlow<List<String>> = _queries.asStateFlow()
@@ -192,8 +192,14 @@ class RecentSearches(context: Context, userId: String) {
         prefs.edit().putString(key, JSONArray(queries).toString()).apply()
     }
 
-    private companion object {
-        const val LIMIT = 10
+    companion object {
+        private const val LIMIT = 10
+        private const val PREFS = "recent_searches"
+
+        /** Sign-out (bipe-chat/bipe#1370): this account's recent searches leave the phone. */
+        fun forget(context: Context, userId: String) {
+            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(userId).apply()
+        }
     }
 }
 

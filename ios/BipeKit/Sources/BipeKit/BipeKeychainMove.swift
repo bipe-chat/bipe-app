@@ -15,6 +15,8 @@ import Security
 ///   accessibility class and sync attribute.
 /// - Services run in the order given: sign-out markers first, so a signed-out account never comes back.
 /// - `done` is true only when every source item has a target item and every copy reads back with the same value.
+/// - A read error (for example `errSecInteractionNotAllowed` on a PushKit wake while the phone is locked) is not "no
+///   items": the run is not done and leaves no marker, so the next launch tries again (bipe-chat/bipe#1366).
 /// - It logs only the service and the `OSStatus`, never a value.
 public nonisolated struct BipeKeychainMove: Sendable {
     public struct Result: Sendable, Equatable {
@@ -52,7 +54,7 @@ public nonisolated struct BipeKeychainMove: Sendable {
     /// True when a finished move left its marker in the target group.
     public var isDone: Bool {
         guard let target else { return false }
-        return !items(Self.markerService, in: target).isEmpty
+        return !(items(Self.markerService, in: target) ?? []).isEmpty
     }
 
     /// Runs the move once per launch, before any keychain read. Cheap when the marker is there.
@@ -63,10 +65,17 @@ public nonisolated struct BipeKeychainMove: Sendable {
         var copied = 0
         var complete = true
         for service in services {
-            let present = Set(items(service, in: target).compactMap { $0[kSecAttrAccount as String] as? String })
-            var seen = present
+            guard let present = items(service, in: target) else {
+                complete = false
+                continue
+            }
+            var seen = Set(present.compactMap { $0[kSecAttrAccount as String] as? String })
             for source in sources {
-                for item in items(service, in: source) {
+                guard let sourceItems = items(service, in: source) else {
+                    complete = false
+                    continue
+                }
+                for item in sourceItems {
                     guard let account = item[kSecAttrAccount as String] as? String,
                           let data = item[kSecValueData as String] as? Data else { continue }
                     // The first source in order wins, as in BipeCredentialStore: the Team-ID group before the fork.
@@ -93,7 +102,8 @@ public nonisolated struct BipeKeychainMove: Sendable {
 
     // MARK: - Private
 
-    private func items(_ service: String, in group: String) -> [[String: Any]] {
+    /// The items of one service in one group: empty when there are none, nil when the read failed.
+    private func items(_ service: String, in group: String) -> [[String: Any]]? {
         let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
                                     kSecAttrService as String: service,
                                     kSecAttrAccessGroup as String: group,
@@ -102,10 +112,13 @@ public nonisolated struct BipeKeychainMove: Sendable {
                                     kSecReturnAttributes as String: true,
                                     kSecMatchLimit as String: kSecMatchLimitAll]
         let (status, result) = keychain.copyMatching(query)
-        if status != errSecSuccess, status != errSecItemNotFound {
+        switch status {
+        case errSecSuccess: return result as? [[String: Any]] ?? []
+        case errSecItemNotFound: return []
+        default:
             NSLog("Bipe keychain move read failed for \(service): \(status)")
+            return nil
         }
-        return status == errSecSuccess ? result as? [[String: Any]] ?? [] : []
     }
 
     /// Adds one copy and reads it back. A copy that another writer added in between counts when it reads back.
@@ -124,7 +137,7 @@ public nonisolated struct BipeKeychainMove: Sendable {
             NSLog("Bipe keychain move write failed for \(service): \(status)")
             return false
         }
-        let back = items(service, in: target).first { $0[kSecAttrAccount as String] as? String == account }
+        let back = items(service, in: target)?.first { $0[kSecAttrAccount as String] as? String == account }
         guard let copy = back?[kSecValueData as String] as? Data else { return false }
         // A duplicate written by another writer between the read and the add is newer; it stays as it is.
         return status == errSecDuplicateItem || copy == data

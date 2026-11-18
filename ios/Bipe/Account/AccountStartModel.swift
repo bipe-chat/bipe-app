@@ -86,6 +86,9 @@ final class AccountStartModel: ObservableObject {
 
     /// Routes a recovery link to the recovery flow. A signed-in phone ignores it: noAccount alone shows the flow.
     func openLink(_ url: URL) {
+        // No account on screen: no flow reads an opened file, so its copy in Documents/Inbox goes (bipe-chat/bipe#1368).
+        // A signed-in phone sweeps in app-tabs, after the reader.
+        if url.isFileURL, phase != .ready { GovbrInbox.sweepInbox() }
         // A claim link waits for the account, through sign-up (ADR 0195 point 7).
         if ShopClaim.keep(url) { return }
         // Spec group-link-open notes: with no account on screen, a group link waits through sign-up or recovery.
@@ -95,11 +98,10 @@ final class AccountStartModel: ObservableObject {
         recoveryLink = url
         showsRecovery = true
     }
-    /// Spec push-registration: keep this phone's pusher on the current account.
+    /// The services that follow the current account.
     private func attachServices(_ session: AccountSession) {
         guard attachedUserId != session.userId else { return }
         attachedUserId = session.userId
-        PushRegistration.shared.attach(session)
         // Spec timeline-media notes: show-media and invite photos follow the current account (MSC4278).
         MediaPreviewSync.shared.attach(session)
     }
@@ -242,12 +244,17 @@ final class AccountStartModel: ObservableObject {
         await LiveLocationCenter.shared.stopAll(userId: session.userId)
         // Spec interno: the member session of a work account leaves with it, before the account's pusher goes.
         await InternoSessions.shared.signOut(forWork: session.userId, alreadyLoggedOut: alreadyLoggedOut)
-        if attachedUserId == session.userId {
-            // Spec push-registration, action signOut: the pusher goes before the session ends.
-            attachedUserId = nil
-            await PushRegistration.shared.signOut()
-        }
+        if attachedUserId == session.userId { attachedUserId = nil }
+        // Spec push-registration, action signOut: this account's pusher goes before the session ends; the other
+        // accounts keep theirs.
+        await PushRegistration.shared.remove(userId: session.userId)
         await session.signOut(alreadyLoggedOut: alreadyLoggedOut)
+        // bipe-chat/bipe#1370: no decrypted media and no recent searches of this account stay. The media folders are
+        // one for all accounts; another account on the phone downloads its media again. Here, not in AccountSession:
+        // the notification service extension builds AccountSession without the media code.
+        await MediaLoader.forgetAll()
+        await StorageMeter.deleteAppMedia()
+        RecentSearches.forget(userId: session.userId)
         AccountList.remove(session.userId)
         CompanyRole.remember(nil, userId: session.userId)
         guard userId == session.userId else { return }
@@ -273,6 +280,8 @@ final class AccountStartModel: ObservableObject {
         let order = AccountList.order
         watchAuthErrors(session)
         NotificationActions.shared.attach(session)
+        // Spec push-registration sessionAdded: every account on the phone has its own pusher, open or not.
+        PushRegistration.shared.add(session)
         Task { await KeychainMove.report(session, api: api) }
         Task { await PhoneReport.report(session, api: api) }
         Task { await LiveLocationCenter.shared.cleanUp(session) }
@@ -391,6 +400,7 @@ final class AccountStartModel: ObservableObject {
         NotificationActions.shared.detach(userId: old.userId)
         watchAuthErrors(fresh)
         NotificationActions.shared.attach(fresh)
+        PushRegistration.shared.add(fresh)
         sessions[index] = fresh
         if attachedUserId == fresh.userId {
             attachedUserId = nil

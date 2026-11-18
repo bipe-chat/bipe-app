@@ -681,6 +681,9 @@ public struct BipeAPIClient: Sendable {
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Accept")
+        // ADR 0298: the app's screen language, not the system list that URLSession sends by default. bipe-api sends
+        // news and other server text in it.
+        request.setValue(Self.appLanguage, forHTTPHeaderField: "Accept-Language")
         if let accessToken {
             request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         }
@@ -728,6 +731,9 @@ public struct BipeAPIClient: Sendable {
         }
     }
     
+    /// The language the app's screens show: the first of the app's own localizations for this device (pt-BR or en).
+    static let appLanguage = Bundle.main.preferredLocalizations.first ?? "pt-BR"
+
     private static let encoder: JSONEncoder = {
         let encoder = JSONEncoder()
         encoder.keyEncodingStrategy = .convertToSnakeCase
@@ -1290,6 +1296,8 @@ public enum BipeAPIErrorCode: String, Sendable {
     case seatRequired = "seat_required"
     /// 409. The work account already has a Geral room (ADR 0284); the app joins that one.
     case geralExists = "geral_exists"
+    /// 409. Another device of the person stored a member recovery key first (bipe#1471); the app reads the session again.
+    case recoveryChanged = "recovery_changed"
 }
 
 public enum BipeAPIError: Error, Sendable, Equatable {
@@ -1368,7 +1376,7 @@ public enum BipeAPIError: Error, Sendable, Equatable {
             case .seatLimit, .seatWindowOpen: BipeStrings.teamError
             case .seatWindowClosed: BipeStrings.teamAddExpired
             case .chatTaken, .seatRequired: BipeStrings.chatAssignError
-            case .geralExists: BipeStrings.internoError
+            case .geralExists, .recoveryChanged: BipeStrings.internoError
             case .badRequest, .notFound, .internal: BipeStrings.errorGeneric
             }
         case .network:

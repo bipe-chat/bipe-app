@@ -15,7 +15,7 @@ final class RecentSearches: ObservableObject {
     private let key: String
 
     init(userId: String) {
-        key = "recentSearches.\(userId)"
+        key = Self.key(userId)
         queries = UserDefaults.standard.stringArray(forKey: key) ?? []
     }
 
@@ -31,4 +31,11 @@ final class RecentSearches: ObservableObject {
         queries = []
         UserDefaults.standard.removeObject(forKey: key)
     }
+
+    /// Sign-out (bipe-chat/bipe#1370): this account's recent searches leave the device.
+    static func forget(userId: String) {
+        UserDefaults.standard.removeObject(forKey: key(userId))
+    }
+
+    private static func key(_ userId: String) -> String { "recentSearches.\(userId)" }
 }

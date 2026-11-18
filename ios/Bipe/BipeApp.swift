@@ -24,6 +24,8 @@ struct BipeApp: App {
                           useLightweightTokioRuntime: false)
         // Before any keychain read: the items move into the app-group group (bipe-chat/bipe#531).
         KeychainMove.run()
+        // A file opened with Bipe that no flow read in an earlier run (bipe-chat/bipe#1368).
+        GovbrInbox.sweepInbox()
         // Spec app-colors: the stored palette before the first view.
         AppTheme.load()
         RoundedType.applyToBars()

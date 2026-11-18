@@ -8,6 +8,20 @@ on:
   pull_request:
     paths:
       - "android/desktop-spike/**"
+      - "android/desktop-runtime/**"
+      - "android/desktop-app/**"
+      - "tools/desktop-resources*"
+      - "tools/windows-oauth*"
+      - "windows/oauth-client.json"
+      - "android/app/src/main/kotlin/chat/bipe/app/BipeType.kt"
+      - "android/app/src/main/kotlin/chat/bipe/app/common/VectorDiff.kt"
+      - "android/libraries/bipe/src/main/kotlin/chat/bipe/shared/BipeFavouritesOrder.kt"
+      - "android/libraries/bipe/src/main/kotlin/chat/bipe/shared/BipeSyncedSettings.kt"
+      - "android/libraries/bipe/src/main/kotlin/chat/bipe/shared/BipeOfficialAccounts.kt"
+      - "android/libraries/bipe/src/main/kotlin/chat/bipe/shared/generated/BipeRegistries.kt"
+      - "android/libraries/bipe/src/main/kotlin/chat/bipe/shared/generated/BipeReactions.kt"
+      - "android/libraries/bipe/src/main/kotlin/chat/bipe/shared/generated/BipeChatArchive.kt"
+      - "ios/Phosphor/Sources/Phosphor/Resources/Phosphor.xcassets/**/*.svg"
       - "android/gradle/libs.versions.toml"
       - "core/**"
       - "sdk-version"
@@ -16,6 +30,20 @@ on:
     branches: [main]
     paths:
       - "android/desktop-spike/**"
+      - "android/desktop-runtime/**"
+      - "android/desktop-app/**"
+      - "tools/desktop-resources*"
+      - "tools/windows-oauth*"
+      - "windows/oauth-client.json"
+      - "android/app/src/main/kotlin/chat/bipe/app/BipeType.kt"
+      - "android/app/src/main/kotlin/chat/bipe/app/common/VectorDiff.kt"
+      - "android/libraries/bipe/src/main/kotlin/chat/bipe/shared/BipeFavouritesOrder.kt"
+      - "android/libraries/bipe/src/main/kotlin/chat/bipe/shared/BipeSyncedSettings.kt"
+      - "android/libraries/bipe/src/main/kotlin/chat/bipe/shared/BipeOfficialAccounts.kt"
+      - "android/libraries/bipe/src/main/kotlin/chat/bipe/shared/generated/BipeRegistries.kt"
+      - "android/libraries/bipe/src/main/kotlin/chat/bipe/shared/generated/BipeReactions.kt"
+      - "android/libraries/bipe/src/main/kotlin/chat/bipe/shared/generated/BipeChatArchive.kt"
+      - "ios/Phosphor/Sources/Phosphor/Resources/Phosphor.xcassets/**/*.svg"
       - "android/gradle/libs.versions.toml"
       - "core/**"
       - "sdk-version"
@@ -24,6 +52,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: windows-spike-${{ github.event.pull_request.number || github.ref }}
@@ -55,16 +84,28 @@ jobs:
           version=$(tr -d '[:space:]' < sdk-version)
           gh release view "$version" --repo matrix-org/matrix-rust-components-swift --json body --jq .body | grep -Fq "$rev"
           echo "rev=$rev" >> "$GITHUB_OUTPUT"
+          echo "core=$(git rev-parse HEAD:core)" >> "$GITHUB_OUTPUT"
           echo "BIPE_SDK_REV=$rev" >> "$GITHUB_ENV"
       - uses: actions/checkout@v4
         with:
           repository: matrix-org/matrix-rust-sdk
           ref: ${{ steps.sdk.outputs.rev }}
           path: sdk-source
+      - name: Select the matching shared branch
+        id: shared
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          branch="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+          if gh api "repos/bipe-chat/bipe-shared/git/ref/heads/$branch" --silent 2>/dev/null; then
+            echo "ref=$branch" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=main" >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/checkout@v4
         with:
           repository: bipe-chat/bipe-shared
-          ref: main
+          ref: ${{ steps.shared.outputs.ref }}
           path: bipe-shared
       - uses: dtolnay/rust-toolchain@master
         with:
@@ -81,14 +122,44 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
       - uses: gradle/actions/setup-gradle@v4
       - uses: actions/cache/restore@v4
         id: sdk-native
         with:
           path: sdk-source/target/x86_64-pc-windows-msvc/release/matrix_sdk_ffi.dll
           key: windows2025-sdk-x64-msvc-rust${{ env.RUST_VERSION }}-release-${{ steps.sdk.outputs.rev }}-v1
-      - name: Build the unmodified SDK DLL
+      - name: Restore SDK from the verified Windows checkpoint
+        id: sdk-checkpoint
         if: steps.sdk-native.outputs.cache-hit != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # This successful checkpoint used Rust 1.95.0 and the same Windows x64 MSVC release command.
+          # A changed source/compiler always falls back to a source build.
+          if [ "$BIPE_SDK_REV" != '15a3ce2369a1e96fcad02cb2b1da3198ef23348a' ] || [ "$RUST_VERSION" != '1.95.0' ]; then
+            echo 'restored=false' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          checkpoint="$RUNNER_TEMP/sdk-checkpoint"
+          if ! gh run download 42892990419 --repo bipe-chat/bipe-app --name bipe-windows-sdk-spike-x64 --dir "$checkpoint"; then
+            echo 'restored=false' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          test "$(tr -d '\r\n' < "$checkpoint/app-source.txt")" = 'e914895b2462d81ed49999501fb2806abb475356'
+          test "$(tr -d '\r\n' < "$checkpoint/sdk-source.txt")" = "$BIPE_SDK_REV"
+          (
+            cd "$checkpoint/natives"
+            printf '%s *matrix_sdk_ffi.dll\n' '7524cb8ef99d4bba3c206717eb6c9b794c12169e5db66cc120a71b1598025f14' | sha256sum -c -
+          )
+          mkdir -p sdk-source/target/x86_64-pc-windows-msvc/release
+          cp "$checkpoint/natives/matrix_sdk_ffi.dll" sdk-source/target/x86_64-pc-windows-msvc/release/
+          echo 'restored=true' >> "$GITHUB_OUTPUT"
+      - name: Build the unmodified SDK DLL
+        if: steps.sdk-native.outputs.cache-hit != 'true' && steps.sdk-checkpoint.outputs.restored != 'true'
         working-directory: sdk-source
         run: cargo build --locked --release -p matrix-sdk-ffi --target x86_64-pc-windows-msvc
       # Save after the native build, so a later binding/JVM failure does not discard an unchanged SDK DLL.
@@ -97,7 +168,15 @@ jobs:
         with:
           path: sdk-source/target/x86_64-pc-windows-msvc/release/matrix_sdk_ffi.dll
           key: windows2025-sdk-x64-msvc-rust${{ env.RUST_VERSION }}-release-${{ steps.sdk.outputs.rev }}-v1
+      - uses: actions/cache/restore@v4
+        id: native-bindings
+        with:
+          path: |
+            ${{ runner.temp }}/windows-spike/natives
+            android/desktop-runtime/generated
+          key: windows2025-native-bindings-x64-rust${{ env.RUST_VERSION }}-${{ steps.sdk.outputs.rev }}-${{ steps.sdk.outputs.core }}-${{ hashFiles('.github/workflows/windows-spike.yml') }}-v1
       - name: Build core and generate both Kotlin bindings
+        if: steps.native-bindings.outputs.cache-hit != 'true'
         run: |
           set -euo pipefail
           cargo build --locked --release --manifest-path core/Cargo.toml -p bipe-core --target x86_64-pc-windows-msvc
@@ -107,7 +186,7 @@ jobs:
           # --library runs `cargo metadata` in the working directory, so each generate runs in its crate's workspace.
           cargo build --locked --release --manifest-path core/tools/uniffi-bindgen/Cargo.toml
           bindgen="$PWD/core/tools/uniffi-bindgen/target/release/uniffi-bindgen.exe"
-          out="$PWD/android/desktop-spike/generated"
+          out="$PWD/android/desktop-runtime/generated"
           # Keep each upstream component's namespace/library settings; change only its platform cleanup choice.
           # A CLI --config applies to every component and collapses their namespaces. Rust source/DLL stay unchanged.
           python - <<'PY'
@@ -131,7 +210,7 @@ jobs:
           # One generated component per package; support types such as RustBuffer must not collide.
           node --input-type=module <<'JS'
           import { readdirSync, readFileSync } from 'node:fs';
-          const root = 'android/desktop-spike/generated';
+          const root = 'android/desktop-runtime/generated';
           const packages = new Set();
           for (const path of readdirSync(root, { recursive: true }).filter(path => path.endsWith('.kt'))) {
             const source = readFileSync(`${root}/${path}`, 'utf8');
@@ -145,15 +224,43 @@ jobs:
           }
           console.log(`Verified ${packages.size} distinct generated Kotlin component packages.`);
           JS
-          echo "BIPE_NATIVE_DIR=$(cygpath -m "$RUNNER_TEMP/windows-spike/natives")" >> "$GITHUB_ENV"
-      - name: Load both DLLs and test the encrypted store through Kotlin/JVM
-        env:
-          BIPE_VECTORS: ${{ github.workspace }}/bipe-shared/test-vectors/badges.json
+      - uses: actions/cache/save@v4
+        if: steps.native-bindings.outputs.cache-hit != 'true'
+        with:
+          path: |
+            ${{ runner.temp }}/windows-spike/natives
+            android/desktop-runtime/generated
+          key: windows2025-native-bindings-x64-rust${{ env.RUST_VERSION }}-${{ steps.sdk.outputs.rev }}-${{ steps.sdk.outputs.core }}-${{ hashFiles('.github/workflows/windows-spike.yml') }}-v1
+      - name: Configure the verified native build inputs
         run: |
           set -euo pipefail
-          android/gradlew -p android/desktop-spike --no-daemon run 2>&1 | tee "$RUNNER_TEMP/windows-spike/jvm.log"
+          test -s "$RUNNER_TEMP/windows-spike/natives/matrix_sdk_ffi.dll"
+          test -s "$RUNNER_TEMP/windows-spike/natives/bipe_core.dll"
+          test -d android/desktop-runtime/generated
+          echo "BIPE_NATIVE_DIR=$(cygpath -m "$RUNNER_TEMP/windows-spike/natives")" >> "$GITHUB_ENV"
+      - name: Test native credential storage, account isolation and SDK/core coexistence
+        env:
+          BIPE_VECTORS: ${{ github.workspace }}/bipe-shared/test-vectors/badges.json
+          BIPE_SHARED: ${{ github.workspace }}/bipe-shared
+        run: |
+          set -euo pipefail
+          android/gradlew -p android/desktop-spike --no-daemon :desktop-runtime:test run 2>&1 | tee "$RUNNER_TEMP/windows-spike/jvm.log"
           grep '^BIPE_WINDOWS_SPIKE ' "$RUNNER_TEMP/windows-spike/jvm.log" > "$RUNNER_TEMP/windows-spike/result.txt"
           test -s "$RUNNER_TEMP/windows-spike/result.txt"
+      - name: Compile the native Compose window source
+        env:
+          BIPE_SHARED: ${{ github.workspace }}/bipe-shared
+        run: android/gradlew -p android/desktop-app --no-daemon compileKotlin
+      - name: Prepare source build inputs for the Windows VM
+        env:
+          BIPE_SHARED: ${{ github.workspace }}/bipe-shared
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/windows-spike"
+          cp -R android/desktop-runtime/generated "$out/kotlin-bindings"
+          node tools/desktop-resources.mjs "$out/desktop-resources"
+          git archive --format=zip --output="$out/bipe-app-source.zip" HEAD
+          git -C bipe-shared archive --format=zip --output="$out/bipe-shared-source.zip" HEAD
       - name: Record source and limits
         if: always()
         run: |
@@ -168,7 +275,7 @@ jobs:
           cp android/desktop-spike/README.md "$RUNNER_TEMP/windows-spike/README.md"
           {
             echo '### Windows SDK/core feasibility — x64 only'
-            echo 'CI harness only. No Compose app, phone linking, real-account sync, DPAPI/Credential Manager, installer or Windows on Arm acceptance.'
+            echo 'CI diagnostic only. Native storage tests use synthetic sessions. Compose source compilation is not real phone linking/sync, installer or Windows on Arm acceptance.'
             if [ -f "$RUNNER_TEMP/windows-spike/result.txt" ]; then cat "$RUNNER_TEMP/windows-spike/result.txt"; fi
           } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
@@ -177,3 +284,9 @@ jobs:
           name: bipe-windows-sdk-spike-x64
           path: ${{ runner.temp }}/windows-spike
           if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bipe-windows-storage-tests-x64
+          path: android/desktop-runtime/build/reports/tests/test
+          if-no-files-found: warn
