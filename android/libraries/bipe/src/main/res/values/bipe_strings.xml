@@ -2632,4 +2632,53 @@
     <string name="bipe_amigo_secreto_error_too_many_exclusions" formatted="false">Cada pessoa pode ter até %1$d pessoas que não pode tirar.</string>
     <string name="bipe_amigo_secreto_error_impossible">Com essas regras não dá para sortear. Tire uma regra ou adicione pessoas.</string>
     <string name="bipe_amigo_secreto_error_send">Alguns resultados não chegaram. Tente de novo.</string>
+    <string name="bipe_games_menu">Jogos</string>
+    <string name="bipe_games_par_ou_impar">Par ou ímpar</string>
+    <string name="bipe_games_jokenpo">Pedra, papel e tesoura</string>
+    <string name="bipe_games_dice">Dados</string>
+    <string name="bipe_games_soccer">Pênalti</string>
+    <string name="bipe_games_basketball">Arremesso</string>
+    <string name="bipe_games_darts">Dardo</string>
+    <string name="bipe_games_pick_opponent">Jogar com quem?</string>
+    <string name="bipe_games_reason">Motivo (opcional)</string>
+    <string name="bipe_games_reason_placeholder">Quem paga o café?</string>
+    <string name="bipe_games_challenge">%1$s desafiou %2$s: %3$s</string>
+    <string name="bipe_games_accept">Jogar</string>
+    <string name="bipe_games_decline">Agora não</string>
+    <string name="bipe_games_declined">%1$s não quis jogar</string>
+    <string name="bipe_games_expired">Ninguém jogou a tempo</string>
+    <string name="bipe_games_pick_side">Você é par ou ímpar?</string>
+    <string name="bipe_games_side_par">Par</string>
+    <string name="bipe_games_side_impar">Ímpar</string>
+    <string name="bipe_games_pick_number" formatted="false">Escolha um número de %1$d a %2$d</string>
+    <string name="bipe_games_pick_hand">Escolha a sua mão</string>
+    <string name="bipe_games_hand_pedra">Pedra</string>
+    <string name="bipe_games_hand_papel">Papel</string>
+    <string name="bipe_games_hand_tesoura">Tesoura</string>
+    <string name="bipe_games_waiting">Esperando %1$s</string>
+    <string name="bipe_games_chosen">Você já escolheu. %1$s ainda não vê.</string>
+    <string name="bipe_games_sum" formatted="false">%1$d + %2$d = %3$d</string>
+    <string name="bipe_games_result_par">Deu par!</string>
+    <string name="bipe_games_result_impar">Deu ímpar!</string>
+    <string name="bipe_games_you_won">Você ganhou</string>
+    <string name="bipe_games_you_lost">Você perdeu</string>
+    <string name="bipe_games_winner">%1$s ganhou</string>
+    <string name="bipe_games_draw">Empate</string>
+    <string name="bipe_games_play_again">Jogar de novo</string>
+    <string name="bipe_games_roll">Rolar</string>
+    <string name="bipe_games_rolling">Rolando…</string>
+    <string name="bipe_games_dice_sides">Lados</string>
+    <string name="bipe_games_dice_count">Quantos dados</string>
+    <string name="bipe_games_dice_total" formatted="false">Total: %1$d</string>
+    <string name="bipe_games_coin_heads">Cara</string>
+    <string name="bipe_games_coin_tails">Coroa</string>
+    <string name="bipe_games_outcome_goal">Gol!</string>
+    <string name="bipe_games_outcome_score">Cesta!</string>
+    <string name="bipe_games_outcome_miss">Fora</string>
+    <string name="bipe_games_outcome_outer">Na borda</string>
+    <string name="bipe_games_outcome_inner">Perto do centro</string>
+    <string name="bipe_games_outcome_bullseye">Na mosca!</string>
+    <string name="bipe_games_not_revealed">Não revelado</string>
+    <string name="bipe_games_not_revealed_footer">O celular de %1$s não mostrou a jogada a tempo.</string>
+    <string name="bipe_games_verify_failed">Este resultado não confere. Alguém mudou a jogada depois.</string>
 </resources>

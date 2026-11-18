@@ -202,6 +202,12 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Messages on this phone (flow encryption). Spec: bipe-shared/product/screens/encryption-status.json
     case encryptionStatus = "encryption-status"
 
+    /// Game card (flow chat). Spec: bipe-shared/product/screens/game-card.json
+    case gameCard = "game-card"
+
+    /// Games menu (flow chat). Spec: bipe-shared/product/screens/games-menu.json
+    case gamesMenu = "games-menu"
+
     /// Verificar com gov.br (trust step 5) (flow voce). Spec: bipe-shared/product/screens/govbr-verify.json
     case govbrVerify = "govbr-verify"
 
