@@ -8,6 +8,8 @@ import Security
 /// Keychain storage for a device-first account (ADR 0057, ADR 0059). Nothing here is ever shown to the user or logged.
 ///
 /// - The hidden MAS password stays on this device: `AfterFirstUnlockThisDeviceOnly`, never synced, not in backups.
+///   It stays only until the device key is registered (ADR 0283). Then `forgetPassword` empties the item and keeps it as
+///   the account record: an empty secret means "no password", and the item's creation date still orders the accounts.
 /// - The recovery token syncs through iCloud Keychain (`kSecAttrSynchronizable`). On a new phone the token and the PIN
 ///   get a new password from the API (`POST /v1/recovery/token`). The token alone gives no access.
 /// - A pending email recovery (its claim secret) stays on this device.
@@ -87,13 +89,23 @@ public nonisolated struct BipeCredentialStore: Sendable {
         write(.recoveryToken, account: userID, value: Data(token.utf8), synchronizable: true)
     }
     
-    /// The newest password stored on this device, if any.
+    /// The newest password stored on this device, if any. An emptied account record is no password.
     public func password() -> Item? {
-        read(.password).flatMap(Self.item)
+        readAll(.password).compactMap(Self.item).first { !$0.secret.isEmpty }
     }
     
+    /// `nil` also for an emptied account record (ADR 0283).
     public func password(for userID: String) -> Item? {
-        read(.password, account: userID).flatMap(Self.item)
+        read(.password, account: userID).flatMap(Self.item).flatMap { $0.secret.isEmpty ? nil : $0 }
+    }
+
+    /// ADR 0283: the device key is registered, so this phone keeps no hidden password. Empties the secret in place and
+    /// keeps the item, so the account stays on the phone with its creation date. Does nothing when no password is
+    /// stored, so a signed-out account never comes back. `false` when the write failed: the next launch tries again.
+    @discardableResult
+    public func forgetPassword(for userID: String) -> Bool {
+        guard password(for: userID) != nil else { return true }
+        return write(.password, account: userID, value: Data(), synchronizable: false)
     }
     
     /// The newest recovery token, from this device or synced from another device of the same Apple account.
@@ -354,6 +366,7 @@ public nonisolated struct BipeCredentialStore: Sendable {
     }
 
     /// Discovery keeps the creation date for the oldest-account default, while preferring the own-group value.
+    /// Emptied account records (ADR 0283) are in the list with an empty secret.
     public func passwordsWithCreationDates() -> [(item: Item, created: Date)] {
         records(.password).compactMap { record in
             Self.item((record.account, record.data)).map { ($0, record.created) }

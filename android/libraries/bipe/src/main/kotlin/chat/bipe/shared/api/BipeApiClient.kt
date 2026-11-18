@@ -192,6 +192,42 @@ class BipeApiClient(baseUrl: String) {
         )
 
     /**
+     * `POST /v1/me/device-key` (ADR 0283): this phone's device key for the device of the token. 204; 409
+     * `device_key_exists` when the device already has another key.
+     */
+    suspend fun registerDeviceKey(publicKey: String, accessToken: String) {
+        send<Unit>(
+            "POST",
+            listOf("v1", "me", "device-key"),
+            body = encode(BipeDeviceKeyRequest.serializer(), BipeDeviceKeyRequest(publicKey)),
+            accessToken = accessToken,
+            response = null,
+        )
+    }
+
+    /** `POST /v1/me/password-once/challenge` (ADR 0283). Valid 5 minutes, single use. No body. */
+    suspend fun passwordOnceChallenge(accessToken: String): String =
+        send(
+            "POST",
+            listOf("v1", "me", "password-once", "challenge"),
+            accessToken = accessToken,
+            response = BipeAttestChallengeResponse.serializer(),
+        ).challenge
+
+    /**
+     * `POST /v1/me/password-once` (ADR 0283): a new hidden password, returned once. The caller keeps it in memory only.
+     * Never logged.
+     */
+    suspend fun passwordOnce(deviceId: String, challenge: String, signature: String, accessToken: String): String =
+        send(
+            "POST",
+            listOf("v1", "me", "password-once"),
+            body = encode(BipePasswordOnceRequest.serializer(), BipePasswordOnceRequest(deviceId, challenge, signature)),
+            accessToken = accessToken,
+            response = BipePasswordOnceResponse.serializer(),
+        ).password
+
+    /**
      * `POST /v1/me/approval-nudge` (bipe-chat/bipe#628): a push to the other devices of the account while this device
      * waits for approval. The server takes the device from the token.
      */
@@ -474,6 +510,15 @@ enum class BipeApiErrorCode(val id: String) {
     /** 409. A PIN reset already waits on the account (POST /v1/me/pin/reset, ADR 0283 rule 13). */
     PIN_RESET_PENDING("pin_reset_pending"),
 
+    /** 409. This device already registered another device key (POST /v1/me/device-key, ADR 0283). */
+    DEVICE_KEY_EXISTS("device_key_exists"),
+
+    /** 409. This device has no device key (POST /v1/me/password-once, ADR 0283). The phone recovers. */
+    DEVICE_KEY_MISSING("device_key_missing"),
+
+    /** 409. A beta account keeps its own password (POST /v1/me/password-once, ADR 0283 decision 9). */
+    DEVICE_FIRST_REQUIRED("device_first_required"),
+
     /** A JPEG the server cannot take (profile or catalogue photo). */
     PHOTO_INVALID("photo_invalid"),
 
@@ -591,7 +636,8 @@ sealed class BipeApiException(cause: Throwable? = null) : Exception(cause) {
             BipeApiErrorCode.PIN_WRONG -> context.getString(R.string.bipe_pin_wrong, (triesLeft ?: 0).toString())
             BipeApiErrorCode.PIN_BLOCKED -> context.getString(R.string.bipe_pin_blocked_body, BipeRegistries.PIN_MAX_WRONG_TRIES.toString())
             BipeApiErrorCode.PIN_NOT_SET -> context.getString(R.string.bipe_deletion_pin_not_set)
-            BipeApiErrorCode.ALREADY_DEVICE_FIRST -> context.getString(R.string.bipe_error_generic)
+            BipeApiErrorCode.ALREADY_DEVICE_FIRST, BipeApiErrorCode.DEVICE_KEY_EXISTS, BipeApiErrorCode.DEVICE_KEY_MISSING,
+            BipeApiErrorCode.DEVICE_FIRST_REQUIRED -> context.getString(R.string.bipe_error_generic)
             BipeApiErrorCode.DELETION_PENDING -> context.getString(R.string.bipe_deletion_error)
             BipeApiErrorCode.PIN_RESET_PENDING -> context.getString(R.string.bipe_pin_reset_pending)
             BipeApiErrorCode.RECOVERY_INVALID -> context.getString(R.string.bipe_error_recovery_invalid)

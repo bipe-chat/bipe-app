@@ -117,6 +117,33 @@ public struct BipeAPIClient: Sendable {
         let _: NoContent = try await send(method: "POST", path: ["v1", "me", "keychain-move"], body: Empty?.none, accessToken: accessToken)
     }
 
+    // MARK: - Device key (ADR 0283)
+
+    /// `POST /v1/me/device-key`: the public key of this phone's device key, base64 SubjectPublicKeyInfo DER. The server
+    /// takes the device from the token. 204 also for the same key again; 409 `device_key_exists` for another key.
+    public func registerDeviceKey(publicKey: String, accessToken: String) async throws(BipeAPIError) {
+        let _: NoContent = try await send(method: "POST", path: ["v1", "me", "device-key"],
+                                          body: DeviceKeyRequest(publicKey: publicKey), accessToken: accessToken)
+    }
+
+    /// `POST /v1/me/password-once/challenge`: a single-use challenge, valid 5 minutes.
+    public func passwordOnceChallenge(accessToken: String) async throws(BipeAPIError) -> String {
+        let response: AttestChallengeResponse = try await send(method: "POST", path: ["v1", "me", "password-once", "challenge"],
+                                                               body: Empty?.none, accessToken: accessToken)
+        return response.challenge
+    }
+
+    /// `POST /v1/me/password-once`: a new hidden password, returned once. The caller keeps it in memory only and never
+    /// logs it. `signature` is base64 DER over ``BipeDeviceKey/passwordOnceMessage(userId:deviceId:challenge:)``.
+    public func passwordOnce(deviceId: String, challenge: String, signature: String,
+                             accessToken: String) async throws(BipeAPIError) -> String {
+        let response: PasswordOnceResponse = try await send(method: "POST", path: ["v1", "me", "password-once"],
+                                                            body: PasswordOnceRequest(deviceId: deviceId, challenge: challenge,
+                                                                                      signature: signature),
+                                                            accessToken: accessToken)
+        return response.password
+    }
+
     /// `POST /v1/me/approval-nudge` (bipe-chat/bipe#628): a push to the other devices of the account while this device
     /// waits for approval. The server takes the device from the token.
     public func sendApprovalNudge(accessToken: String) async throws(BipeAPIError) {
@@ -487,6 +514,22 @@ public struct BipeAPIClient: Sendable {
         let challenge: String
     }
     
+    private struct DeviceKeyRequest: Encodable {
+        let publicKey: String
+    }
+
+    private struct PasswordOnceRequest: Encodable {
+        let deviceId: String
+        let challenge: String
+        let signature: String
+    }
+
+    /// Never printed: the password is a secret.
+    private struct PasswordOnceResponse: Decodable, CustomStringConvertible {
+        let password: String
+        var description: String { "PasswordOnceResponse" }
+    }
+
     private struct ResolveRequest: Encodable {
         let userIds: [String]
     }
@@ -1246,6 +1289,12 @@ public enum BipeAPIErrorCode: String, Sendable {
     case deletionPending = "deletion_pending"
     /// 409. A PIN reset already waits on the account (POST /v1/me/pin/reset, ADR 0283 rule 13).
     case pinResetPending = "pin_reset_pending"
+    /// 409. This device already registered another device key (POST /v1/me/device-key, ADR 0283).
+    case deviceKeyExists = "device_key_exists"
+    /// 409. This device has no device key (POST /v1/me/password-once, ADR 0283). The phone recovers.
+    case deviceKeyMissing = "device_key_missing"
+    /// 409. A beta account keeps its own password (POST /v1/me/password-once, ADR 0283 decision 9).
+    case deviceFirstRequired = "device_first_required"
     // Business tools (api/business-schemas.json AgendaError). Texts: BipeAPIError.agendaMessage.
     case slotTaken = "slot_taken"
     case holdExpired = "hold_expired"
@@ -1348,7 +1397,7 @@ public enum BipeAPIError: Error, Sendable, Equatable {
             case .pinWrong: BipeStrings.pinWrong(reason ?? "0")
             case .pinBlocked: BipeStrings.pinBlockedBody(String(BipeRegistries.pinMaxWrongTries))
             case .pinNotSet: BipeStrings.pinCreateBody(String(BipeRegistries.pinLength))
-            case .alreadyDeviceFirst: BipeStrings.errorGeneric
+            case .alreadyDeviceFirst, .deviceKeyExists, .deviceKeyMissing, .deviceFirstRequired: BipeStrings.errorGeneric
             case .recoveryInvalid: BipeStrings.errorRecoveryInvalid
             case .emailUnavailable: BipeStrings.errorEmailUnavailable
             case .termsRequired: BipeStrings.signupTermsRequired

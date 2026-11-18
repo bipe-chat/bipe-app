@@ -13,7 +13,7 @@ import chat.bipe.app.settings.PinAccount
 import chat.bipe.app.settings.SettingsModel
 import chat.bipe.app.settings.pinAccount
 import chat.bipe.shared.R
-import chat.bipe.shared.account.BipeAccountVault
+import chat.bipe.shared.account.BipeDeviceKey
 import chat.bipe.shared.api.BipeApiException
 import chat.bipe.shared.api.BipeSeat
 import chat.bipe.shared.api.seats
@@ -72,9 +72,19 @@ class LinkComputerModel(
     private val session get() = settings.session
     private val matrix get() = BipeMatrixAccountApi(session.client.homeserver())
 
-    /** The hidden MAS password of the account on this phone (ADR 0057). Read only after the owner check. */
-    private suspend fun hiddenPassword(userId: String): String? =
-        runCatching { BipeAccountVault(context).read().accounts[userId]?.password }.getOrNull()
+    private val deviceKey = BipeDeviceKey(context)
+
+    /** The Matrix device of this phone's session, for the device key. */
+    private fun deviceId(): String? = runCatching { session.client.deviceId() }.getOrNull()
+
+    /**
+     * A one-time hidden MAS password (ADR 0283), asked for with the device key only after the owner check. Held in
+     * memory only. Throws [chat.bipe.shared.api.BipeApiException] or [BipeDeviceKey.KeyFailure].
+     */
+    private suspend fun oneTimePassword(): String {
+        val deviceId = deviceId() ?: throw BipeDeviceKey.KeyFailure()
+        return deviceKey.oneTimePassword(settings.api, session.userId, deviceId) { session.accessToken() }
+    }
 
     /** Type LinkComputerSupport. */
     enum class Support { CHECKING, SUPPORTED, NEEDS_PIN, NOT_SUPPORTED }
@@ -166,11 +176,15 @@ class LinkComputerModel(
     fun open(cameraAllowed: Boolean) {
         scope.launch {
             val serverSupports = matrix.supportsQrLogin()
-            val hasPassword = hiddenPassword(session.userId) != null
+            // Spec link-computer-scan support gate (ADR 0283): a device-first account and a registered device key.
+            val deviceFirst = if (serverSupports) runCatching { settings.authorized { settings.api.account(it) } }.getOrNull()?.deviceFirst else null
+            val hasKey = serverSupports && deviceId()?.let { deviceKey.isRegistered(session.userId, it) } == true
             val support = when {
-                serverSupports && hasPassword -> Support.SUPPORTED
-                // A beta account without a hidden password on this phone needs the PIN first (ADR 0057).
-                serverSupports -> Support.NEEDS_PIN
+                !serverSupports -> Support.NOT_SUPPORTED
+                // A beta account needs the PIN first (ADR 0057).
+                deviceFirst == false -> Support.NEEDS_PIN
+                // An unknown device_first (offline) with a registered key: password-once answers for a beta account.
+                hasKey -> Support.SUPPORTED
                 else -> Support.NOT_SUPPORTED
             }
             _state.update { it.copy(support = support, scanPhase = if (cameraAllowed) ScanPhase.SCANNING else ScanPhase.CAMERA_DENIED) }
@@ -433,14 +447,32 @@ class LinkComputerModel(
 
     /** Action confirmIdentity, after the owner check of the screen. A fail goes back to the warning. */
     fun identityChecked(passed: Boolean) {
+        if (!passed) {
+            _state.update { it.copy(step = Step.WARNING) }
+            return
+        }
+        if (_state.value.approvePhase != ApprovePhase.CONFIRM_IDENTITY) return
+        _state.update { it.copy(approvePhase = ApprovePhase.LOADING) }
         scope.launch {
-            val secret = if (passed) hiddenPassword(session.userId) else null
-            if (secret == null) {
-                _state.update { it.copy(step = Step.WARNING) }
+            // Spec link-computer-approve confirmIdentity: challenge, signature, POST /v1/me/password-once.
+            val secret = try {
+                oneTimePassword()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: BipeApiException) {
+                val code = (error as? BipeApiException.Server)?.code?.id
+                Log.e(TAG, "link failed (password-once" + (code?.let { ": $it" }.orEmpty()) + ")")
+                _state.update { it.copy(errorCode = code ?: "password-once") }
+                fail(if (error is BipeApiException.Network) Failure.NETWORK else Failure.GENERIC)
+                return@launch
+            } catch (error: Exception) {
+                Log.e(TAG, "link failed (device-key)")
+                _state.update { it.copy(errorCode = "device-key") }
+                fail(Failure.GENERIC)
                 return@launch
             }
+            if (_state.value.approvePhase != ApprovePhase.LOADING) return@launch
             password = secret
-            _state.update { it.copy(approvePhase = ApprovePhase.LOADING) }
             openConsent()
         }
     }

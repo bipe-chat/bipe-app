@@ -9,6 +9,7 @@ import android.util.Base64
 import android.util.Log
 import chat.bipe.app.common.AppConfig
 import chat.bipe.shared.account.BipeAccountVault
+import chat.bipe.shared.account.BipeDeviceKey
 import chat.bipe.shared.account.BipeStoreKey
 import chat.bipe.shared.BipeRoomSubscriptions
 import chat.bipe.shared.api.BipeOpenIdTokens
@@ -98,7 +99,10 @@ class AccountSession(val client: Client, val syncService: SyncService, val userI
     /** The Matrix OpenID token for the core bipe-api routes (bipe-chat/bipe#646). Memory only. */
     val openId = BipeOpenIdTokens(client.homeserver(), userId, accessToken = { accessToken() })
 
-    /** Signs out on the server and removes this account's session, store and hidden password from this phone. */
+    /**
+     * Signs out on the server and removes this account's session, store, hidden password and device key (ADR 0283, spec
+     * sign-out) from this phone.
+     */
     suspend fun signOut(context: Context, sessionStore: SessionStore, vault: BipeAccountVault, alreadyLoggedOut: Boolean = false) {
         if (deliveredAcks.isInitialized()) delivered.stop()
         roomSubscriptions.close()
@@ -111,6 +115,8 @@ class AccountSession(val client: Client, val syncService: SyncService, val userI
             val kept = data.accounts[userId]?.copy(password = null)?.takeIf { it.token != null }
             data.copy(accounts = if (kept != null) data.accounts + (userId to kept) else data.accounts - userId)
         }
+        // Spec sign-out: the device key and its mark go too. A failure is not fatal: a later sign-in makes a new mark.
+        runCatching { BipeDeviceKey(context).delete(userId) }
         deleteStore(context, userId)
         // bipe-chat/bipe#1370: no decrypted media and no recent searches of this account stay. The media folder is one
         // for all accounts; another account on the phone downloads its media again.

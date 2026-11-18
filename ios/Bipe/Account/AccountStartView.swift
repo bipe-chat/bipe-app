@@ -33,7 +33,7 @@ struct AccountStartView: View {
                         SignedInView(session: session, tabs: tabs, api: model.api, initialRoomId: model.initialRoomId) {
                             Task { await model.signOut() }
                         }
-                        // A quiet sign-in after soft-logout replaces the session: build the tabs again too.
+                        // A PIN recovery after soft-logout replaces the session: build the tabs again too.
                         .id(ObjectIdentifier(session))
                     }
                 }
