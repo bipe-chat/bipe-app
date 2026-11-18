@@ -25,19 +25,19 @@ nonisolated enum NewsRoomMark {
 /// At each start and return to the foreground: the news room ID comes from GET /v1/me/news (room_id) and goes to
 /// NewsRoomMark. Once per account on this phone, after the first sync, the app takes that room out of m.direct when
 /// it is there. A failure tries again at the next start or return to the foreground.
+/// Also compiled into the Mac app (macos/project.yml): keep it free of app-only types.
 @MainActor
 enum NewsRoomCleanup {
     private static func doneKey(_ userId: String) -> String { "bipe.newsRoomNotDm.\(userId)" }
     private static var running: Set<String> = []
 
-    static func applyOnce(session: AccountSession, api: BipeAPIClient) async {
+    static func applyOnce(client: Client, userId: String, api: BipeAPIClient, accessToken: @MainActor () -> String?) async {
         let defaults = UserDefaults.standard
-        let userId = session.userId
         guard running.insert(userId).inserted else { return }
         defer { running.remove(userId) }
         let state: BipeNewsState
         do {
-            state = try await BipeAPIClient.withTokenRetry(accessToken: { session.accessToken() }) { (token: String) async throws(BipeAPIError) -> BipeNewsState in
+            state = try await BipeAPIClient.withTokenRetry(accessToken: accessToken) { (token: String) async throws(BipeAPIError) -> BipeNewsState in
                 try await api.newsState(accessToken: token)
             }
         } catch {
@@ -54,7 +54,7 @@ enum NewsRoomCleanup {
         // to m.direct, so the cleanup runs only on a joined room.
         var joined = false
         for _ in 0..<10 {
-            if (try? session.client.getRoom(roomId: roomId))?.membership() == .joined {
+            if (try? client.getRoom(roomId: roomId))?.membership() == .joined {
                 joined = true
                 break
             }
@@ -63,9 +63,9 @@ enum NewsRoomCleanup {
         }
         guard joined else { return }
         do {
-            let current = try await ServerAccountData.json(client: session.client, eventType: BipeNewsDirectCleanup.directEventType)
+            let current = try await ServerAccountData.json(client: client, eventType: BipeNewsDirectCleanup.directEventType)
             if let content = BipeNewsDirectCleanup.json(removing: roomId, from: current) {
-                try await session.client.setAccountData(eventType: BipeNewsDirectCleanup.directEventType, content: content)
+                try await client.setAccountData(eventType: BipeNewsDirectCleanup.directEventType, content: content)
             }
             defaults.set(true, forKey: doneKey(userId))
         } catch {

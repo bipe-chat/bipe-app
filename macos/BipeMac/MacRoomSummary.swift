@@ -16,6 +16,8 @@ struct MacAvatarDescriptor {
     let url: String?
     let userID: String?
     let members: [MacAvatarPerson]
+    /// The Bipe mark (ADR 0117): the account's news room.
+    var official = false
 
     static func room(isDm: Bool, photo: String?, heroes: [MacAvatarPerson], ownUserID: String) -> Self {
         let others = heroes.filter { $0.id != ownUserID }
@@ -63,6 +65,8 @@ struct MacRoomSummary: Identifiable {
     let isEncrypted: Bool
     let avatar: MacAvatarDescriptor
     let activity: BipeRowActivity.Row
+    /// The account's news room (NewsRoomMark, bipe-chat/bipe#978): bipe_news_room_name, the Bipe mark and badge.
+    let isNewsRoom: Bool
     var id: String { room.id() }
     var attention: MacRoomAttention { MacRoomAttention(isDm: isDm, unread: unread, markedUnread: markedUnread, mentions: mentions) }
     var date: Date? { activity.timestampMs.map { Date(timeIntervalSince1970: Double($0) / 1000) } }
@@ -80,12 +84,14 @@ struct MacRoomSummary: Identifiable {
         let peer = info.isDm ? info.heroes.first { $0.userId != ownUserID } : nil
         let heroes: [(userID: String, displayName: String?)]? = !info.isDm && info.rawName == nil
             ? info.heroes.filter { $0.userId != ownUserID }.map { ($0.userId, $0.displayName) } : nil
-        name = BipeChatRowName.resolve(roomID: info.id, sdkName: info.displayName, peerName: peer?.displayName,
+        isNewsRoom = NewsRoomMark.roomId(for: ownUserID) == info.id
+        name = isNewsRoom ? BipeStrings.newsRoomName : BipeChatRowName.resolve(roomID: info.id, sdkName: info.displayName, peerName: peer?.displayName,
                                       peerID: peer?.userId, unnamed: BipeStrings.dmNoName,
                                       dmRoomName: info.isDm ? info.rawName : nil, groupHeroes: heroes)
-        avatar = .room(isDm: info.isDm, photo: info.avatarUrl, heroes: info.heroes.map {
+        let face = MacAvatarDescriptor.room(isDm: info.isDm, photo: info.avatarUrl, heroes: info.heroes.map {
             MacAvatarPerson(id: $0.userId, name: BipeChatRowName.person(userID: $0.userId, displayName: $0.displayName, handle: nil), avatarURL: $0.avatarUrl)
         }, ownUserID: ownUserID)
+        avatar = isNewsRoom ? MacAvatarDescriptor(url: nil, userID: nil, members: [], official: true) : face
     }
 
     static func personName(_ profile: ProfileDetails, userID: String) -> String {

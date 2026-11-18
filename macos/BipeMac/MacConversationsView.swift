@@ -400,11 +400,12 @@ private struct MacChatRow: View {
     private var secondaryInk: Color { isSelected ? BipeColor.inkOnAccent : BipeColor.inkSecondary }
     var body: some View {
         HStack(spacing: 12) {
-            MacAvatar(name: row.name, media: media, url: row.avatar.url, userID: row.avatar.userID, members: row.avatar.members)
+            MacAvatar(name: row.name, media: media, url: row.avatar.url, userID: row.avatar.userID, members: row.avatar.members,
+                      official: row.avatar.official)
             VStack(alignment: .leading, spacing: 4) {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text(row.name).macFont(.headline).lineLimit(1)
-                    MacNameMarks(isDm: row.isDm, peerID: row.avatar.userID)
+                    MacNameMarks(isDm: row.isDm, peerID: row.avatar.userID, official: row.isNewsRoom)
                     Spacer(minLength: 0)
                     if let date = row.date {
                         Text(time(date)).macFont(.caption).monospacedDigit().foregroundStyle(secondaryInk)
@@ -496,7 +497,8 @@ private struct MacFavouritesGrid<MenuContent: View>: View {
     private func cell(_ row: MacRoomSummary) -> some View {
         let isSelected = selected == row.id
         return VStack(spacing: 6) {
-            MacAvatar(name: row.name, media: media, url: row.avatar.url, userID: row.avatar.userID, members: row.avatar.members, size: 72)
+            MacAvatar(name: row.name, media: media, url: row.avatar.url, userID: row.avatar.userID, members: row.avatar.members, size: 72,
+                      official: row.avatar.official)
                 .overlay(alignment: .topTrailing) {
                     if row.attention.isUnread {
                         Circle().fill(BipeColor.accentFill).frame(width: 12, height: 12)

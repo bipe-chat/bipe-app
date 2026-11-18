@@ -49,13 +49,18 @@ struct MacOfficialBadge: View {
     }
 }
 
-/// The marks after a chat's name: the official badge of a DM with an official account, and the seal of a DM peer.
+/// The marks after a chat's name: the official badge of a DM with an official account or of the news room, and the
+/// seal of a DM peer.
 struct MacNameMarks: View {
     let isDm: Bool
     let peerID: String?
+    /// The account's news room counts as official (spec chat-list notes, bipe-chat/bipe#978).
+    var official = false
 
     var body: some View {
-        if isDm, let peerID {
+        if official {
+            MacOfficialBadge()
+        } else if isDm, let peerID {
             if BipeOfficialAccounts.isOfficial(peerID) { MacOfficialBadge() }
             MacSealMark(userID: peerID)
         }

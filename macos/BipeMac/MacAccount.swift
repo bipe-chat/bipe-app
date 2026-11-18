@@ -358,10 +358,21 @@ final class MacAccount: ObservableObject {
             guard self?.attempt == current else { return }
             await MacDeviceEntries.writeSelf(client: client, userId: ownUserID)
         }
+        Task { await self.refreshNews() }
         try await requests.attach(client: client, service: sync.roomListService(), userID: userId,
                                   subscriptions: roomList.subscriptions) { [weak self] in
             try? self?.client?.session().accessToken
         }
+    }
+
+    /// Spec chat-list news room mark (bipe-chat/bipe#978): GET /v1/me/news names the account's news room, and the
+    /// shared NewsRoomCleanup takes it out of m.direct once. At connect and when the app comes to the front.
+    func refreshNews() async {
+        guard let client, !userId.isEmpty else { return }
+        let before = NewsRoomMark.roomId(for: userId)
+        await NewsRoomCleanup.applyOnce(client: client, userId: userId, api: api,
+                                        accessToken: { [weak self] in try? self?.client?.session().accessToken })
+        if NewsRoomMark.roomId(for: userId) != before { roomList.refresh() }
     }
 
     enum StartChatError: Error { case notFound }
