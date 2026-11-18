@@ -272,9 +272,18 @@ final class MacTimeline: ObservableObject {
             let typingTask = Task { [weak self] in
                 for await userIDs in typing.updates { await self?.typingChanged(userIDs, room: room) }
             }
+            // Spec read-receipts: a new delivered ack for this room rebuilds the ticks.
+            let roomID = room.id()
+            let deliveredTask = Task { [weak self] in
+                for await note in NotificationCenter.default.notifications(named: DeliveredLog.changed) {
+                    guard note.userInfo?["roomId"] as? String == roomID else { continue }
+                    guard let self, self.timeline === timeline else { return }
+                    self.rebuild()
+                }
+            }
             ready = true
             defer {
-                typingTask.cancel(); typingHandle.cancel()
+                typingTask.cancel(); typingHandle.cancel(); deliveredTask.cancel()
                 if self.timeline === timeline {
                     sendTyping(false); typingNames = []
                     listener?.cancel(); listener = nil; self.timeline = nil; self.room = nil; ready = false
@@ -990,8 +999,11 @@ final class MacTimeline: ObservableObject {
             if userID == ownUserID { return BipeStrings.appYou }
             return memberNames[userID] ?? BipeChatRowName.person(userID: userID, displayName: nil, handle: nil)
         }
+        // Spec read-receipts: delivered acks count in a DM only.
+        let delivered: Set<String> = isDm ? Set(DeliveredLog.eventIds(userId: ownUserID ?? "", roomId: room?.id() ?? "")) : []
         let receipts = MacReceipt.ticks(items: items, ownUserID: ownUserID ?? "", isDm: isDm, joinedMembers: joinedMembers,
-                                        showsOthersRead: MacReceiptPolicy.showsOthersRead(isDm: isDm))
+                                        showsOthersRead: MacReceiptPolicy.showsOthersRead(isDm: isDm),
+                                        deliveredEventIDs: delivered)
         for (index, item) in items.enumerated() {
             let id = item.uniqueId().id
             if let virtual = item.asVirtual() {
@@ -1132,20 +1144,28 @@ struct MacReceipt: Equatable {
     let showsLabel: Bool
 
     /// The ticks by item index. A read receipt covers its event and every older one, so the walk runs newest first.
+    /// `deliveredEventIDs`: DM only, the events a device of the other person acked (DeliveredLog, ADR 0222). An ack
+    /// covers its event and every older one, as a read receipt does.
     static func ticks(items: [TimelineItem], ownUserID: String, isDm: Bool, joinedMembers: UInt64,
-                      showsOthersRead: Bool) -> [Int: MacReceipt] {
+                      showsOthersRead: Bool, deliveredEventIDs: Set<String> = []) -> [Int: MacReceipt] {
         var readers = Set<String>()
+        var deliveredUpToHere = false
         var result: [Int: MacReceipt] = [:]
         let others = max(1, Int(clamping: joinedMembers) - 1)
         for (index, item) in items.enumerated().reversed() {
             guard let event = item.asEvent() else { continue }
             for userID in event.readReceipts.keys where userID != ownUserID { readers.insert(userID) }
+            if !deliveredUpToHere, case .eventId(let eventID) = event.eventOrTransactionId,
+               deliveredEventIDs.contains(eventID) {
+                deliveredUpToHere = true
+            }
             guard event.isOwn, case .msgLike(let content) = event.content else { continue }
             if case .redacted = content.kind { continue }
             let tick: Tick
             if isDm {
                 let isRead = !readers.isEmpty
-                tick = isRead ? (showsOthersRead ? .read : .delivered) : .sent
+                // Read wins over delivered; a hidden read still means the other device got it.
+                tick = isRead && showsOthersRead ? .read : (isRead || deliveredUpToHere ? .delivered : .sent)
             } else {
                 tick = readers.count >= others ? .read : .sent
             }
