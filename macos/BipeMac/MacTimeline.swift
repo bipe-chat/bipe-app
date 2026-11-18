@@ -83,6 +83,13 @@ enum MacSendFailure: Equatable {
     case devices([String: [String]])
 }
 
+/// Spec chat-timeline dayFocus (bipe-chat/bipe#828): the event the day view opens on, and the start of the picked day.
+struct MacDayFocus: Identifiable, Equatable {
+    let eventID: String
+    let day: Date
+    var id: String { eventID }
+}
+
 struct MacTimelineScroll: Equatable {
     let id = UUID()
     let rowID: String
@@ -181,7 +188,16 @@ final class MacTimeline: ObservableObject {
     private var room: Room?
     private var draftRevision = 0
     private let drafts: MacDrafts
+    /// Spec chat-timeline dayFocus: the read-only day view's event and day; nil for the live timeline.
+    let dayFocus: MacDayFocus?
+    /// Spec chat-timeline jumpToDate: the day view to open over the chat.
+    @Published var openDay: MacDayFocus?
+    private var dayScrolled = false
     private let client: Client?
+    /// The account's client, for the day view of jumpToDate.
+    var accountClient: Client? { client }
+    /// The account's draft store, which the day view shares (it writes nothing).
+    var draftStore: MacDrafts { drafts }
     private var accountGoneChecked: (userID: String, gone: Bool)?
     private var lastReadID: String?
     private var dmPeerID: String?
@@ -198,9 +214,10 @@ final class MacTimeline: ObservableObject {
     private var openingOriginal = false
     private var highlightTask: Task<Void, Never>?
 
-    init(drafts: MacDrafts, client: Client? = nil) {
+    init(drafts: MacDrafts, client: Client? = nil, dayFocus: MacDayFocus? = nil) {
         self.drafts = drafts
         self.client = client
+        self.dayFocus = dayFocus
     }
 
     func run(room: Room) async {
@@ -212,7 +229,9 @@ final class MacTimeline: ObservableObject {
         highlightTask?.cancel()
         do {
             let revision = draftRevision
-            let saved = try await drafts.load(room: room)
+            // The day view is read-only: it has no draft.
+            var saved: ComposerDraft?
+            if dayFocus == nil { saved = try await drafts.load(room: room) }
             try Task.checkCancellation()
             let editedWhileLoading = revision != draftRevision
             if !editedWhileLoading, let saved {
@@ -233,7 +252,11 @@ final class MacTimeline: ObservableObject {
                 canRedactOther = levels.canOwnUserRedactOther()
                 canPin = !isDm && levels.canOwnUserPinUnpin()
             }
-            let configuration = TimelineConfiguration(focus: .live(hideThreadedEvents: !isDm), filter: .all,
+            let focus: TimelineFocus = dayFocus.map {
+                // Spec chat-timeline dayFocus: a focused timeline on the first event of the picked day.
+                .event(eventId: $0.eventID, numContextEvents: 40, threadMode: .automatic(hideThreadedEvents: !isDm))
+            } ?? .live(hideThreadedEvents: !isDm)
+            let configuration = TimelineConfiguration(focus: focus, filter: .all,
                                                        internalIdPrefix: nil, dateDividerMode: .daily,
                                                        trackReadReceipts: .messageLikeEvents, reportUtds: true)
             let timeline = try await room.timelineWithConfiguration(configuration: configuration)
@@ -551,6 +574,62 @@ final class MacTimeline: ObservableObject {
         case .report: reporting = message
         default: break
         }
+    }
+
+    // MARK: Spec chat-timeline jumpToDate (bipe#828)
+
+    /// The first event of the picked day from the server (MSC3030). An empty day shows the notice. A day the loaded rows
+    /// reach scrolls there; an older day opens the read-only day view.
+    func jumpToDate(_ day: Date) async {
+        guard let client, let room else { return }
+        let calendar = Calendar.current
+        let start = calendar.startOfDay(for: day)
+        guard let next = calendar.date(byAdding: .day, value: 1, to: start) else { return }
+        let found: (eventId: String, sentAt: Date)?
+        do {
+            found = try await TimestampToEvent.first(client: client, roomId: room.id(), onOrAfter: start)
+        } catch {
+            show(BipeStrings.errorGeneric)
+            return
+        }
+        guard let found, found.sentAt < next else {
+            show(BipeStrings.jumpToDateEmpty)
+            return
+        }
+        if Self.reaches(start, rows: rows, reachedStart: reachedStart), let target = Self.firstRow(onOrAfter: start, rows: rows) {
+            readingLatest = false
+            scrollTarget = MacTimelineScroll(rowID: target)
+            return
+        }
+        openDay = MacDayFocus(eventID: found.eventId, day: start)
+    }
+
+    /// Day view: once the first rows are in, the list goes to the first row of the picked day.
+    private func scrollToFocusedDay() {
+        guard let dayFocus, !dayScrolled, let target = Self.firstRow(onOrAfter: dayFocus.day, rows: rows) else { return }
+        dayScrolled = true
+        scrollTarget = MacTimelineScroll(rowID: target)
+    }
+
+    /// The date of a row: the separator's day or the message's time.
+    nonisolated static func date(of row: MacTimelineRow) -> Date? {
+        switch row {
+        case .day(_, let date): date
+        case .message(let message): message.timestamp
+        default: nil
+        }
+    }
+
+    /// The first row on or after the start of a day.
+    nonisolated static func firstRow(onOrAfter dayStart: Date, rows: [MacTimelineRow]) -> String? {
+        rows.first { row in date(of: row).map { Calendar.current.startOfDay(for: $0) >= dayStart } ?? false }?.id
+    }
+
+    /// true when the loaded rows reach back before the start of the day, so the day is on screen already.
+    nonisolated static func reaches(_ dayStart: Date, rows: [MacTimelineRow], reachedStart: Bool) -> Bool {
+        if reachedStart { return true }
+        guard let oldest = rows.lazy.compactMap(date(of:)).first else { return false }
+        return oldest < dayStart
     }
 
     // MARK: Spec message-forward selection (bipe-chat/bipe#860)
@@ -876,13 +955,13 @@ final class MacTimeline: ObservableObject {
 
     private func persistDraft() {
         draftRevision += 1
-        guard let room else { return }
+        guard let room, dayFocus == nil else { return }
         drafts.save(room: room, text: draft, reply: replyID) { [weak self] in self?.failed = true }
     }
 
     func markRead() async {
         // The latest message is on screen: the window has focus and the person is at the bottom of the chat.
-        guard NSApplication.shared.isActive, NSApplication.shared.keyWindow != nil, readingLatest, let room, let timeline,
+        guard dayFocus == nil, NSApplication.shared.isActive, NSApplication.shared.keyWindow != nil, readingLatest, let room, let timeline,
               let latest = messages.last?.id, latest != lastReadID else { return }
         let isDm = (try? await room.roomInfo())?.isDm ?? true
         guard NSApplication.shared.isActive else { return }
@@ -938,6 +1017,7 @@ final class MacTimeline: ObservableObject {
             }
         }
         rows = Self.withoutEmptyDays(built)
+        scrollToFocusedDay()
         messages = rows.compactMap { row in
             if case .message(let message) = row { return message }
             return nil
