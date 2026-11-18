@@ -208,6 +208,12 @@ enum class BipeScreen(val id: String) {
     /** Messages on this phone (flow encryption). Spec: bipe-shared/product/screens/encryption-status.json */
     ENCRYPTION_STATUS("encryption-status"),
 
+    /** Game card (flow chat). Spec: bipe-shared/product/screens/game-card.json */
+    GAME_CARD("game-card"),
+
+    /** Games menu (flow chat). Spec: bipe-shared/product/screens/games-menu.json */
+    GAMES_MENU("games-menu"),
+
     /** Verificar com gov.br (trust step 5) (flow voce). Spec: bipe-shared/product/screens/govbr-verify.json */
     GOVBR_VERIFY("govbr-verify"),
 
