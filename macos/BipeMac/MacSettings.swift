@@ -290,6 +290,10 @@ private struct MacSettingsGroupView: View {
     @AppStorage(BipeSettingsRow.chatsAppearance.rawValue) private var appearance = "system"
     @AppStorage(AppTheme.paletteKey) private var palette = BipePalette.standard.rawValue
     @State private var showsSignOut = false
+    /// Spec app-lock: the setup or the PIN check of the appLock switch.
+    private enum LockSheet: Identifiable { case setup, pinCheck; var id: Self { self } }
+    @State private var lockSheet: LockSheet?
+    @ObservedObject private var lock = MacAppLock.shared
     @State private var failed = false
     private var language: String { Locale.current.language.languageCode?.identifier == "pt" ? "pt" : "en" }
 
@@ -298,8 +302,10 @@ private struct MacSettingsGroupView: View {
         switch row {
         case .privacyMessaging, .privacyRequestPhotos, .privacyPresence, .privacyReadReceipts,
              .accountWaysBackStatus, .accountEmail, .accountLinkedAccounts, .accountRecoveryKey,
-             .accountSignOut,
+             .accountSignOut, .accountAppLock,
              .chatsAppearance, .chatsColors, .chatsShowMedia, .chatsMediaQuality: return true
+        // Spec app-lock: Touch ID unlock while the lock is on and the Mac has Touch ID.
+        case .accountBiometricUnlock: return lock.isOn && OwnerCheck.biometricKind != .none
         default: return false
         }
     }
@@ -335,6 +341,12 @@ private struct MacSettingsGroupView: View {
         .accessibilityIdentifier(BipeScreen.settingsGroup.rawValue)
         .task { await model.load() }
         .sheet(isPresented: $showsSignOut) { MacSignOutView(model: model, workspace: workspace) }
+        .sheet(item: $lockSheet) { sheet in
+            switch sheet {
+            case .setup: MacAppLockSetupSheet(lock: lock) { lockSheet = nil }
+            case .pinCheck: MacAppLockPinCheckSheet(lock: lock, onPass: { lockSheet = nil; lock.remove() }, close: { lockSheet = nil })
+            }
+        }
         .alert(BipeStrings.errorGeneric, isPresented: $failed) {}
     }
 
@@ -348,6 +360,16 @@ private struct MacSettingsGroupView: View {
             Text(BipeStrings.macAccountChangeOnPhone)
         } else if let footer = section.footer {
             Text(footer)
+        }
+    }
+
+    /// Spec app-lock turnOff: the Mac's owner check (Touch ID or the login password), or the app lock PIN on a Mac
+    /// with no owner check. On a pass, the PIN and Touch ID unlock go.
+    private func turnLockOff() async {
+        if OwnerCheck.canCheckOwner {
+            if await OwnerCheck.owner(reason: BipeStrings.accountAppLockOffReason) { lock.remove() }
+        } else {
+            lockSheet = .pinCheck
         }
     }
 
@@ -400,6 +422,18 @@ private struct MacSettingsGroupView: View {
             Button(role: .destructive) { showsSignOut = true } label: {
                 Text(row.title).foregroundStyle(BipeColor.trustDangerInk)
             }.buttonStyle(.plain)
+        case .accountAppLock:
+            Toggle(row.title, isOn: Binding(get: { lock.isOn }, set: { isOn in
+                if isOn { lockSheet = .setup } else { Task { await turnLockOff() } }
+            }))
+        case .accountBiometricUnlock:
+            Toggle(BipeStrings.accountBiometricUnlock(OwnerCheck.biometricWord), isOn: Binding(get: { lock.biometricOn }, set: { isOn in
+                Task {
+                    // Turning it on asks for Touch ID once.
+                    if isOn, !(await OwnerCheck.biometrics(reason: BipeStrings.appLockBiometric(OwnerCheck.biometricWord))) { return }
+                    lock.setBiometricUnlock(isOn)
+                }
+            }))
         case .chatsAppearance:
             Picker(row.title, selection: $appearance) {
                 Text(BipeStrings.chatsAppearanceSystem).tag("system")

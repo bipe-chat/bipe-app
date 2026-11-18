@@ -43,6 +43,8 @@ targets:
       - path: ../ios/Bipe/Notifications/NotificationRules.swift
       - path: ../ios/Bipe/Notifications/NewsRoomCleanup.swift
       - path: ../ios/Bipe/Common/Listeners.swift
+      - path: ../ios/Bipe/Settings/OwnerCheck.swift
+      - path: ../ios/Bipe/Settings/PinSetupModel.swift
       - path: ../ios/Bipe/Common/AppConfig.swift
       - path: ../ios/Bipe/Calls/CallWidget.swift
       - path: ../ios/Bipe/Timeline/DeliveredAcks.swift

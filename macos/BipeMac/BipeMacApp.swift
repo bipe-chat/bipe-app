@@ -63,11 +63,15 @@ struct BipeMacApp: App {
 
 struct MacRootView: View {
     @ObservedObject var workspace: MacWorkspace
+    /// Spec app-lock: while locked, the lock screen takes the window's place.
+    @ObservedObject private var lock = MacAppLock.shared
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         Group {
-            if workspace.failed {
+            if lock.isLocked {
+                MacAppLockScreen(lock: lock)
+            } else if workspace.failed {
                 VStack(spacing: MacDesign.gap) {
                     MacNotice(text: BipeStrings.errorGeneric, danger: true)
                     Button(BipeStrings.appRetry) { workspace.restore() }.buttonStyle(.bipeProminent)
