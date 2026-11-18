@@ -7,6 +7,7 @@ package chat.bipe.app
 import chat.bipe.app.common.BipeToastHost
 import chat.bipe.app.common.BipeToasts
 import chat.bipe.app.business.ShopClaims
+import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.os.Build
@@ -35,10 +36,16 @@ import chat.bipe.shared.BipeNotificationOpen
 import chat.bipe.shared.BipeNotificationTarget
 import chat.bipe.app.settings.AppLockGate
 import chat.bipe.app.settings.AppLockModel
+import chat.bipe.app.settings.AppLanguage
 
 class MainActivity : ComponentActivity() {
     private val accountStart: AccountStartModel
         get() = (application as BipeApplication).accountStart
+
+    /** Spec language-region: on Android 8 to 12 the app applies its stored language itself. */
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(AppLanguage.wrap(newBase))
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // The manifest theme is the launch screen (spec account-start); the app itself draws on the plain theme.

@@ -256,6 +256,9 @@ public enum BipeScreen: String, CaseIterable, Sendable {
     /// Invite people to Bipe (flow invites). Spec: bipe-shared/product/screens/invites.json
     case invites = "invites"
 
+    /// Language and region (flow settings). Spec: bipe-shared/product/screens/language-region.json
+    case languageRegion = "language-region"
+
     /// Link a computer: approve natively (flow devices). Spec: bipe-shared/product/screens/link-computer-approve.json
     case linkComputerApprove = "link-computer-approve"
 

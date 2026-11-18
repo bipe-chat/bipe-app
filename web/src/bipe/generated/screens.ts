@@ -172,6 +172,8 @@ export const BipeScreen = {
   inviteSignedIn: "invite-signed-in",
   /** Invite people to Bipe (flow invites). Spec: bipe-shared/product/screens/invites.json */
   invites: "invites",
+  /** Language and region (flow settings). Spec: bipe-shared/product/screens/language-region.json */
+  languageRegion: "language-region",
   /** Link a computer: approve natively (flow devices). Spec: bipe-shared/product/screens/link-computer-approve.json */
   linkComputerApprove: "link-computer-approve",
   /** Link a computer: scan the code (flow devices). Spec: bipe-shared/product/screens/link-computer-scan.json */

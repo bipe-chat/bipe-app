@@ -140,6 +140,7 @@ sealed interface SettingsRoute {
     data object Versions : SettingsRoute
     data object ShowMediaChoice : SettingsRoute
     data object AppearanceChoice : SettingsRoute
+    data object LanguageRegion : SettingsRoute
     data object MediaQualityChoice : SettingsRoute
     data object AppColors : SettingsRoute
     data object Accessibility : SettingsRoute
@@ -258,6 +259,7 @@ fun SettingsHost(
         // Spec year-recap: opens from the last row of Conversas e mídia (MZ, 3 Nov 2026).
         SettingsRoute.YearRecap -> yearRecap?.invoke(pop)
         SettingsRoute.AppColors -> AppColorsScreen(onBack = pop)
+        SettingsRoute.LanguageRegion -> LanguageRegionScreen(onBack = pop)
         SettingsRoute.Accessibility -> AccessibilitySettingsScreen(onBack = pop)
         // bipe-chat/bipe#676: appearance and media quality, kept on the phone.
         SettingsRoute.AppearanceChoice -> ChoiceListScreen(
@@ -441,6 +443,8 @@ fun SettingsGroupScreen(
             BipeSettingsRow.ACCOUNT_EMAIL -> onOpen(SettingsRoute.RecoveryEmail)
             BipeSettingsRow.CHATS_SHOW_MEDIA -> onOpen(SettingsRoute.ShowMediaChoice)
             BipeSettingsRow.CHATS_APPEARANCE -> onOpen(SettingsRoute.AppearanceChoice)
+            // Spec language-region: both rows open the same screen.
+            BipeSettingsRow.CHATS_LANGUAGE, BipeSettingsRow.ACCOUNT_REGION -> onOpen(SettingsRoute.LanguageRegion)
             BipeSettingsRow.CHATS_MEDIA_QUALITY -> onOpen(SettingsRoute.MediaQualityChoice)
             BipeSettingsRow.CHATS_COLORS -> onOpen(SettingsRoute.AppColors)
             BipeSettingsRow.CHATS_ACCESSIBILITY -> onOpen(SettingsRoute.Accessibility)
@@ -661,6 +665,8 @@ private fun rowValue(context: Context, state: SettingsModel.State, row: BipeSett
     BipeSettingsRow.CHATS_LIVE_LOCATION -> context.getString(R.string.bipe_chats_live_location_distance, "${LiveLocationRule.distance(context)} m")
     BipeSettingsRow.CHATS_COLORS -> context.getString(chat.bipe.app.common.AppTheme.palette.title)
     BipeSettingsRow.CHATS_APPEARANCE -> context.getString(chat.bipe.app.common.AppTheme.appearance.title)
+    BipeSettingsRow.CHATS_LANGUAGE -> context.getString(AppLanguage.current(context).title)
+    BipeSettingsRow.ACCOUNT_REGION -> AppRegion.title(context, AppRegion.current)
     BipeSettingsRow.CHATS_MEDIA_QUALITY -> context.getString(MediaQuality.current(context).title)
     else -> null
 }

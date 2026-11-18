@@ -102,11 +102,19 @@ private typealias BipeTextField = OnboardingTextField
 
 // MARK: - onboarding-welcome
 
+private enum WelcomeSheet: String, Identifiable {
+    case site
+    case languageRegion
+
+    var id: String { rawValue }
+}
+
 struct OnboardingWelcomeView: View {
     @ObservedObject var model: SignupFlowModel
     /// How far the button sheet reaches over the cover.
     private static let sheetOverlap: CGFloat = 28
-    @State private var showsSite = false
+    /// One sheet at a time: the site (learnMore) or language-region (openLanguageRegion).
+    @State private var sheet: WelcomeSheet?
     /// Action pasteLink: the clipboard holds a URL. Read with detectPatterns, which shows no paste prompt.
     @State private var clipboardHasLink = false
     /// The wordmark follows the system text size.
@@ -156,10 +164,15 @@ struct OnboardingWelcomeView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
             Task { await checkClipboard() }
         }
-        // Action learnMore: the site in the in-app browser, so sign-up stays where it was.
-        .sheet(isPresented: $showsSite) {
-            SafariPage(url: BipeLegalLinks.homeURL(site: AppConfig.publicSite))
-                .ignoresSafeArea()
+        .sheet(item: $sheet) { sheet in
+            switch sheet {
+            // Action learnMore: the site in the in-app browser, so sign-up stays where it was.
+            case .site:
+                SafariPage(url: BipeLegalLinks.homeURL(site: AppConfig.publicSite))
+                    .ignoresSafeArea()
+            case .languageRegion:
+                NavigationStack { LanguageRegionView() }
+            }
         }
     }
 
@@ -183,7 +196,7 @@ struct OnboardingWelcomeView: View {
                 .font(.system(.largeTitle, design: .rounded).weight(.bold))
                 .minimumScaleFactor(0.7)
                 .fixedSize(horizontal: false, vertical: true)
-            Button { showsSite = true } label: {
+            Button { sheet = .site } label: {
                 HStack(spacing: 4) {
                     Text(BipeStrings.onboardingLearnMore)
                     PhosphorIcon.caretRight.image
@@ -196,6 +209,16 @@ struct OnboardingWelcomeView: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            // Action openLanguageRegion: the app language and the region, for example "Português · Brasil".
+            Button { sheet = .languageRegion } label: {
+                Text([AppLanguageChoice.shownTitle, AppRegion.title(AppRegion.current)].joined(separator: " · "))
+                    .font(.subheadline)
+                    .padding(.vertical, 8)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(BipeStrings.settingsLanguageRegion)
+            .accessibilityValue([AppLanguageChoice.shownTitle, AppRegion.title(AppRegion.current)].joined(separator: ", "))
             // The build that runs, small and quiet, for testers (same text as bipe_help_version in Settings).
             Text(AppVersion.display)
                 .font(.caption2)

@@ -1176,6 +1176,8 @@ object BipeRegistries {
     const val MAPS_LIVE_DEFAULT_DISTANCE_METRES = 50
     const val MAPS_LIVE_MIN_INTERVAL_SECONDS = 10
     const val MAPS_LIVE_MAX_INTERVAL_SECONDS = 120
+    /** Region ids (registries/regions.json, ADR 0197), in order. Each has the string bipe_region_<id>. */
+    val REGION_IDS: List<String> = listOf("br")
 
     /** Verificar com gov.br (bipe-chat/bipe#544; registries/govbr.json). Rules: BipeGovbrFlow, test-vectors/govbr-verify.json. */
     const val GOVBR_FILE_NAME = "bipe_verificacao.pdf"
