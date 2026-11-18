@@ -40,7 +40,7 @@ final class ChatArchiveModel: ObservableObject {
     private var closed = false
 
     /// The phone keeps the markers in Application Support/ChatArchives; the Mac in the account's own data folder.
-    static var defaultDirectory: URL { URL.applicationSupportDirectory.appendingPathComponent("ChatArchives", isDirectory: true) }
+    nonisolated static var defaultDirectory: URL { URL.applicationSupportDirectory.appendingPathComponent("ChatArchives", isDirectory: true) }
 
     init(client: Client, userId: String, directory: URL = ChatArchiveModel.defaultDirectory) {
         self.client = client
