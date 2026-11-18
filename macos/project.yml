@@ -41,6 +41,7 @@ targets:
       - path: ../ios/Bipe/ChatList/RecentSearches.swift
       - path: ../ios/Bipe/Encryption/UtdCounter.swift
       - path: ../ios/Bipe/Notifications/NotificationRules.swift
+      - path: ../ios/Bipe/Notifications/NewsRoomCleanup.swift
       - path: ../ios/Bipe/Common/Listeners.swift
       - path: ../ios/Bipe/Common/AppConfig.swift
       - path: ../ios/Bipe/Calls/CallWidget.swift

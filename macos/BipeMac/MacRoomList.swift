@@ -227,6 +227,9 @@ final class MacRoomList: ObservableObject {
         rebuild()
     }
 
+    /// Rebuilds the rows, for example after the news room mark changed.
+    func refresh() { rebuild() }
+
     /// Leaves a room out of every list of this account.
     func hide(roomID: String) {
         guard hiddenRoomIDs.insert(roomID).inserted else { return }

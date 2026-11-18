@@ -42,6 +42,8 @@ struct BipeMacApp: App {
                     SyncedSettings.refresh()
                     // The signed lists (bipe-chat/bipe#645): fetch from the core when the last fetch is old.
                     SignedLists.shared.appBecameActive()
+                    // Spec chat-list news room mark: read again when the app comes to the front.
+                    Task { for account in workspace.accounts { await account.refreshNews() } }
                 }
                 .macFont(.body)
                 .tint(BipeColor.accentFill)
@@ -379,9 +381,9 @@ struct MacChatView: View {
         .toolbar {
             ToolbarItem(placement: .navigation) {
                 HStack(spacing: 8) {
-                    if let face { MacAvatar(name: name, media: media, url: face.url, userID: face.userID, members: face.members, size: 28) }
+                    if let face { MacAvatar(name: name, media: media, url: face.url, userID: face.userID, members: face.members, size: 28, official: face.official) }
                     Text(name).macFont(.headline).lineLimit(1)
-                    MacNameMarks(isDm: face?.userID != nil, peerID: face?.userID)
+                    MacNameMarks(isDm: face?.userID != nil, peerID: face?.userID, official: face?.official == true)
                 }
             }
             // Spec chat-timeline jumpToDate (bipe#828): the toolbar holds the calendar on the Mac.

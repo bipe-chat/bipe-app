@@ -41,7 +41,7 @@ private struct GroupHostModifier: ViewModifier {
             }
             .toast($toast)
             .task { await QuietGroups.applyOnce(session: session) }
-            .task { await NewsRoomCleanup.applyOnce(session: session, api: api) }
+            .task { await NewsRoomCleanup.applyOnce(client: session.client, userId: session.userId, api: api, accessToken: { session.accessToken() }) }
             .task { await cleared.refresh(client: session.client) }
             // Spec drafts appear: the drafts room of the account, at start and on each return to the foreground.
             .task { await assistantDrafts.refresh(session: session) }
@@ -52,7 +52,7 @@ private struct GroupHostModifier: ViewModifier {
                     Task { await cleared.refresh(client: session.client) }
                     Task { await assistantDrafts.refresh(session: session) }
                     Task { await DeviceEntries.writeSelf(session: session) }
-                    Task { await NewsRoomCleanup.applyOnce(session: session, api: api) }
+                    Task { await NewsRoomCleanup.applyOnce(client: session.client, userId: session.userId, api: api, accessToken: { session.accessToken() }) }
                 }
             }
             // Last, so the sheets above get them too.
