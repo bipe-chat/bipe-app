@@ -29,6 +29,7 @@ struct GroupMember: Identifiable, Equatable {
 }
 
 /// Spec group-members (bipe-shared product/screens/group-members.json).
+/// Also compiled into the Mac app (macos/project.yml): keep it free of app-only types.
 @MainActor
 final class GroupMembersModel: ObservableObject {
     /// The rows of the action sheet (group-members notes).
@@ -59,17 +60,19 @@ final class GroupMembersModel: ObservableObject {
     @Published var showsError = false
 
     let roomId: String
-    let session: AccountSession
+    let client: Client
+    let ownUserId: String
     private var all: [GroupMember] = []
     private var ownLevel: Int64 = 0
     private var customLevels = false
 
-    init(session: AccountSession, roomId: String) {
-        self.session = session
+    init(client: Client, ownUserId: String, roomId: String) {
+        self.client = client
+        self.ownUserId = ownUserId
         self.roomId = roomId
     }
 
-    private var room: Room? { try? session.client.getRoom(roomId: roomId) }
+    private var room: Room? { try? client.getRoom(roomId: roomId) }
 
     /// Action appear: the cached list at once, then the list from the server.
     func appear() async {
@@ -157,7 +160,7 @@ final class GroupMembersModel: ObservableObject {
     }
 
     private func apply(_ members: [RoomMember]) {
-        if let own = members.first(where: { $0.userId == session.userId }) {
+        if let own = members.first(where: { $0.userId == ownUserId }) {
             ownLevel = GroupPeople.level(own.powerLevel)
         }
         let flagged = Set(members.filter(\.isNameAmbiguous).map(\.userId))
@@ -172,7 +175,7 @@ final class GroupMembersModel: ObservableObject {
             return GroupMember(person: Person(member: member),
                                membership: membership,
                                role: GroupPeople.role(member),
-                               isYou: member.userId == session.userId,
+                               isYou: member.userId == ownUserId,
                                isCreator: member.suggestedRoleForPowerLevel == .creator,
                                level: GroupPeople.level(member.powerLevel))
         }

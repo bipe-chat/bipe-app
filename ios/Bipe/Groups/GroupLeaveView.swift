@@ -6,62 +6,6 @@ import BipeKit
 import MatrixRustSDK
 import SwiftUI
 
-/// Spec group-leave (bipe-shared product/screens/group-leave.json).
-@MainActor
-final class GroupLeaveModel: ObservableObject {
-    enum Warning: Equatable {
-        case none
-        case alone
-        case lastAdmin
-    }
-
-    enum Phase: Equatable {
-        case confirm
-        case leaving
-        case failed
-    }
-
-    @Published private(set) var warning = Warning.none
-    @Published private(set) var phase = Phase.confirm
-
-    let roomId: String
-    private let session: AccountSession
-
-    init(session: AccountSession, roomId: String) {
-        self.session = session
-        self.roomId = roomId
-    }
-
-    private var room: Room? { try? session.client.getRoom(roomId: roomId) }
-
-    /// Action appear: reads RoomInfo and the members' roles to set warning.
-    func appear() async {
-        guard let room, let info = try? await room.roomInfo() else { return }
-        if info.joinedMembersCount <= 1 {
-            warning = .alone
-            return
-        }
-        guard let members = await GroupPeople.members(of: room, cachedOnly: true) else { return }
-        let admins = members.filter { $0.membership == .join && GroupPeople.isAdmin($0) }
-        if admins.count == 1, admins.first?.userId == session.userId {
-            warning = .lastAdmin
-        }
-    }
-
-    /// Action leave. Returns true when the user left.
-    func leave() async -> Bool {
-        guard let room, phase != .leaving else { return false }
-        phase = .leaving
-        do {
-            try await room.leave()
-            return true
-        } catch {
-            phase = .failed
-            return false
-        }
-    }
-}
-
 /// Spec group-leave: a confirm sheet. onChooseAdmin opens group-members.
 struct GroupLeaveView: View {
     @StateObject private var model: GroupLeaveModel
@@ -70,7 +14,7 @@ struct GroupLeaveView: View {
     private let onChooseAdmin: () -> Void
 
     init(session: AccountSession, roomId: String, onChooseAdmin: @escaping () -> Void) {
-        _model = StateObject(wrappedValue: GroupLeaveModel(session: session, roomId: roomId))
+        _model = StateObject(wrappedValue: GroupLeaveModel(client: session.client, ownUserId: session.userId, roomId: roomId))
         self.onChooseAdmin = onChooseAdmin
     }
 

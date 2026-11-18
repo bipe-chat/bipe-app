@@ -37,6 +37,10 @@ targets:
       - path: ../ios/Bipe/ChatList/ChatArchiveModel.swift
       - path: ../ios/Bipe/Groups/DmClear.swift
       - path: ../ios/Bipe/People/PersonTrust.swift
+      - path: ../ios/Bipe/People/Person.swift
+      - path: ../ios/Bipe/Groups/GroupPeople.swift
+      - path: ../ios/Bipe/Groups/GroupMembersModel.swift
+      - path: ../ios/Bipe/Groups/GroupLeaveModel.swift
       - path: ../ios/Bipe/ChatList/RowActivityScanner.swift
       - path: ../ios/Bipe/ChatList/RecentSearches.swift
       - path: ../ios/Bipe/Encryption/UtdCounter.swift
