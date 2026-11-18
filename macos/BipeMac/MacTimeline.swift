@@ -120,6 +120,9 @@ final class MacTimeline: ObservableObject {
     @Published private(set) var isPrivateRoom = false
     var readingLatest = true
     @Published private(set) var isDm = false
+    /// Spec composer canPost: the power levels let this account send messages. A DM made with the DM power levels can
+    /// leave a person without the right to post (ADR 0141).
+    @Published private(set) var canPost = true
     /// Spec read-receipts: a group message is read when every other joined member read it.
     private var joinedMembers: UInt64 = 2
     /// Spec chat-timeline peerAway (ADR 0141).
@@ -232,6 +235,7 @@ final class MacTimeline: ObservableObject {
                 canRedactOwn = levels.canOwnUserRedactOwn()
                 canRedactOther = levels.canOwnUserRedactOther()
                 canPin = !isDm && levels.canOwnUserPinUnpin()
+                canPost = levels.canOwnUserSendMessage(message: .roomMessage)
             }
             let configuration = TimelineConfiguration(focus: .live(hideThreadedEvents: !isDm), filter: .all,
                                                        internalIdPrefix: nil, dateDividerMode: .daily,
@@ -516,9 +520,16 @@ final class MacTimeline: ObservableObject {
         case .copy:
             guard pauseSecondsLeft(message.id) == 0 else { return }
             copy(message.body)
+            show(BipeStrings.appCopied)
         case .copyLink:
+            // Spec message-actions copyLink (bipe-chat/bipe#666): a link the SDK cannot make shows nothing.
             guard let room, let eventID = message.eventID else { return }
-            Task { if let link = try? await room.matrixToEventPermalink(eventId: eventID) { copy(link) } }
+            Task {
+                if let link = try? await room.matrixToEventPermalink(eventId: eventID) {
+                    copy(link)
+                    show(BipeStrings.appCopied)
+                }
+            }
         case .pin, .unpin:
             guard let timeline, let eventID = message.eventID else { return }
             Task {

@@ -237,6 +237,10 @@ struct MacChatView: View {
     @ViewBuilder private var composer: some View {
         if let peer = blockedPeer {
             MacBlockedBar(blocked: blocked, userID: peer, name: name)
+        } else if !model.canPost {
+            // Spec composer canPost false: the bar replaces the composer.
+            Text(BipeStrings.dmNoPermissionToPost).macFont(.footnote).foregroundStyle(BipeColor.inkSecondary)
+                .multilineTextAlignment(.center).frame(maxWidth: .infinity).padding(16).background(BipeColor.surfaceRaised)
         } else {
             openComposer
         }
