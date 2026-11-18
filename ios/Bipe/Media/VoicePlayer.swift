@@ -27,36 +27,8 @@ final class VoicePlayer: NSObject, ObservableObject {
     /// speed of spec voice-message: one speed for every row on this phone (bipe#824).
     @Published private(set) var speed = Speed(rawValue: UserDefaults.standard.string(forKey: Speed.key) ?? "") ?? .normal
 
-    /// State speed of spec voice-message.
-    enum Speed: String, CaseIterable {
-        case normal
-        case oneAndHalf
-        case double
-
-        static let key = "voicePlaybackSpeed"
-
-        var rate: Float {
-            switch self {
-            case .normal: 1
-            case .oneAndHalf: 1.5
-            case .double: 2
-            }
-        }
-
-        /// Action cycleSpeed: normal, oneAndHalf, double, then normal again.
-        var next: Speed {
-            let all = Self.allCases
-            return all[(all.firstIndex(of: self)! + 1) % all.count]
-        }
-
-        /// The number with the phone's decimal sign ("1,5" in pt-BR), for bipe_voice_speed.
-        var label: String {
-            let formatter = NumberFormatter()
-            formatter.minimumFractionDigits = 0
-            formatter.maximumFractionDigits = 1
-            return formatter.string(from: NSNumber(value: rate)) ?? String(rate)
-        }
-    }
+    /// State speed of spec voice-message (VoicePlaybackSpeed, shared with the Mac).
+    typealias Speed = VoicePlaybackSpeed
 
     private var player: AVAudioPlayer?
     private var ticker: AnyCancellable?

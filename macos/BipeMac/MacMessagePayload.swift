@@ -45,7 +45,8 @@ struct MacMessagePayload {
             let isVoice = content.voice != nil
             self.init(body: content.caption ?? "", formatted: content.formattedCaption)
             voice = MacVoice(isVoice: isVoice, filename: content.filename,
-                             duration: content.audio?.duration ?? content.info?.duration)
+                             duration: content.audio?.duration ?? content.info?.duration,
+                             source: content.source, mimeType: content.info?.mimetype)
         default: self.init(body: fallback)
         }
     }
