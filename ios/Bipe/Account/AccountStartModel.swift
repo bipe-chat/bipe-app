@@ -52,12 +52,11 @@ final class AccountStartModel: ObservableObject {
         }
     }
 
-    /// Spec soft-logout needsPin: the account whose token the server refused and that the hidden password cannot
-    /// bring back. The app shows recovery-pin for it.
+    /// Spec soft-logout needsPin: the account whose token the server refused. The phone keeps no hidden password
+    /// (ADR 0283), so the app shows recovery-pin for it.
     @Published var needsPin: String?
     /// Spec soft-logout removed: shown once.
     @Published var notice: String?
-    private var signingInAgain: Set<String> = []
 
     /// The current account.
     var session: AccountSession? {
@@ -129,8 +128,27 @@ final class AccountStartModel: ObservableObject {
         }
         // Spec interno notes: a member identity's session is a second session under its work account, never an account
         // of its own (ADR 0284 point 5). InternoSessions restores it.
-        let saved = snapshot.saved.filter { !BipeMemberIdentity.isMember($0.key) }
-        let credentials = snapshot.credentials
+        var saved = snapshot.saved.filter { !BipeMemberIdentity.isMember($0.key) }
+        // ADR 0283: the phone keeps no hidden password, so an account opens only from a saved session with its store,
+        // or with a password that a sign-up or recovery just stored. An account with neither needs recovery:
+        // recovery-pin (needsPin) when its store is still here (soft logout), else recovery-start (a reinstall).
+        let records = snapshot.credentials
+        let passwordless = Set(records.filter { $0.password == nil }.map(\.userId))
+        let lost = Set(saved.keys).union(passwordless).filter { id in
+            !records.contains { $0.userId == id && $0.password != nil } && !(saved[id] != nil && AccountSession.hasStore(userId: id))
+        }
+        for id in lost where saved[id] != nil {
+            // A saved session without its store cannot restore (the keychain outlives a deleted app).
+            SessionStore.delete(userId: id)
+            saved[id] = nil
+        }
+        let credentials = records.filter { !lost.contains($0.userId) }
+        let stranded = lost.sorted().first { AccountSession.hasStore(userId: $0) }
+        defer {
+            if !Task.isCancelled, needsPin == nil, !lost.isEmpty {
+                if let stranded { needsPin = stranded } else if phase == .noAccount { showsRecovery = true }
+            }
+        }
         let found = credentials.map(\.userId) + saved.keys.sorted().filter { id in !credentials.contains { $0.userId == id } }
         let accounts = AccountList.merge(found: found)
 
@@ -175,13 +193,9 @@ final class AccountStartModel: ObservableObject {
 
     /// Starts the sync again when the app comes back to the foreground.
     func resume() async {
-        for session in sessions {
-            if pendingAuthErrors.remove(session.userId) != nil {
-                await authError(session, isSoftLogout: true)
-            } else {
-                await session.syncService.start()
-                await session.resumeSending()
-            }
+        for session in sessions where session.userId != needsPin {
+            await session.syncService.start()
+            await session.resumeSending()
         }
         await InternoSessions.shared.resume()
         await PushRegistration.shared.appBecameActive()
@@ -283,6 +297,8 @@ final class AccountStartModel: ObservableObject {
         // Spec push-registration sessionAdded: every account on the phone has its own pusher, open or not.
         PushRegistration.shared.add(session)
         Task { await KeychainMove.report(session, api: api) }
+        // Spec account-start deviceKey (ADR 0283).
+        Task { await DeviceKeyRegistration.run(session, api: api) }
         Task { await PhoneReport.report(session, api: api) }
         Task { await LiveLocationCenter.shared.cleanUp(session) }
         // Spec interno: a work account's member session restores like other sessions. Until this phone has stored a
@@ -303,7 +319,7 @@ final class AccountStartModel: ObservableObject {
 
     /// Action authError of spec soft-logout.
     func authError(_ session: AccountSession, isSoftLogout: Bool) async {
-        guard sessions.contains(where: { $0 === session }), !signingInAgain.contains(session.userId) else { return }
+        guard sessions.contains(where: { $0 === session }), needsPin != session.userId else { return }
         let name = Self.name(of: session.userId)
         // Spec account-delete notes: the session ended after the due time of a deletion, so the server deleted the
         // account. Remove it from this phone like a sign-out and say so.
@@ -328,37 +344,19 @@ final class AccountStartModel: ObservableObject {
             notice = BipeStrings.softLogoutRemoved(name)
             return
         }
-        signingInAgain.insert(session.userId)
-        defer { signingInAgain.remove(session.userId) }
-        guard let password = DeviceCredential.all().first(where: { $0.userId == session.userId })?.password else {
-            await askForPin(session)
-            return
-        }
-        AccountStep.log.notice("soft-logout: signing in again")
-        await session.pause()
-        do {
-            let fresh = try await AccountSession.signInAgain(after: session, password: password)
-            replace(session, with: fresh)
-        } catch {
-            if AccountSession.isRefused(error) {
-                await askForPin(session)
-            } else {
-                // Offline or a local failure: keep everything and try again on the next foreground.
-                AccountStep.log.error("soft-logout: sign-in failed, kept for later")
-                pendingAuthErrors.insert(session.userId)
-                await session.syncService.start()
-            }
-        }
+        // ADR 0283 decision 5: the phone keeps no hidden password and never signs in again by itself, also when a
+        // password from before ADR 0283 is still stored. Somebody ended the session: recovery.
+        await askForPin(session)
     }
 
-    /// Accounts whose quiet sign-in failed for a reason other than a refused password.
-    private var pendingAuthErrors: Set<String> = []
-
-    /// Spec soft-logout needsPin. Only the refused saved session goes, so recovery-start offers the synced token.
+    /// Spec soft-logout needsPin. Only the refused saved session goes, so recovery-start offers the synced token. The
+    /// store stays, so the next launch asks for the PIN again.
     private func askForPin(_ session: AccountSession) async {
         AccountStep.log.notice("soft-logout: PIN needed")
         await session.pause()
         SessionStore.delete(userId: session.userId)
+        // A password from before ADR 0283 must not sign the account in again at the next launch. The record stays.
+        BipeCredentialStore().forgetPassword(for: session.userId)
         needsPin = session.userId
     }
 
@@ -401,6 +399,8 @@ final class AccountStartModel: ObservableObject {
         watchAuthErrors(fresh)
         NotificationActions.shared.attach(fresh)
         PushRegistration.shared.add(fresh)
+        // Spec account-start deviceKey: a recovery from needsPin gives a new session.
+        Task { await DeviceKeyRegistration.run(fresh, api: api) }
         sessions[index] = fresh
         if attachedUserId == fresh.userId {
             attachedUserId = nil
@@ -414,8 +414,9 @@ final class AccountStartModel: ObservableObject {
         return label == userId ? BipeStrings.tabYou : label
     }
 
-    /// Restores the account's saved session; when there is none, or it no longer works, signs in with the device
-    /// credential. `nil` when neither works now.
+    /// Restores the account's saved session; when there is none, signs in with the device credential. That password
+    /// is there only between a sign-up or recovery and its device key registration (ADR 0283). `nil` when neither
+    /// works now.
     private func open(_ userId: String, saved: Session?, credential: DeviceCredential?) async -> AccountSession? {
         let log = AccountStep.log
         if let saved {
@@ -438,12 +439,12 @@ final class AccountStartModel: ObservableObject {
                 return nil
             }
         }
-        guard let credential else {
+        guard let credential, let password = credential.password else {
             log.notice("no device credential for this account")
             return nil
         }
         do {
-            return try await AccountSession.signIn(userId: credential.userId, password: credential.password)
+            return try await AccountSession.signIn(userId: credential.userId, password: password)
         } catch {
             log.error("sign-in failed")
             return nil

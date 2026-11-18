@@ -34,6 +34,29 @@ struct CredentialStoreTests {
         #expect(subject.password(for: other)?.secret == "other fixture")
     }
 
+    /// ADR 0283: after the device key is registered the secret goes and the account record stays, with its date.
+    @Test func forgetPasswordKeepsTheAccountRecord() {
+        let fake = FakeCredentialKeychain()
+        fake.seed(group: own, service: password, account: user, value: "own fixture", at: 1)
+        fake.seed(group: legacy, service: password, account: other, value: "other fixture", at: 2)
+        let subject = store(fake)
+        #expect(subject.forgetPassword(for: user))
+        #expect(subject.forgetPassword(for: other))
+        #expect(subject.password(for: user) == nil)
+        #expect(subject.password(for: other) == nil)
+        #expect(subject.password() == nil)
+        let discovered = subject.passwordsWithCreationDates()
+        #expect(Set(discovered.map(\.item.userID)) == [user, other])
+        #expect(discovered.allSatisfy { $0.item.secret.isEmpty })
+        #expect(discovered.first { $0.item.userID == user }?.created == Date(timeIntervalSince1970: 1))
+        #expect(fake.value(legacy, password, other) == "other fixture")
+        #expect(fake.mutations.allSatisfy { $0[kSecAttrAccessGroup as String] as? String == own })
+        // Nothing stored: no record is made, so a signed-out account never comes back.
+        subject.deletePassword(for: user)
+        #expect(subject.forgetPassword(for: user))
+        #expect(!subject.passwordsWithCreationDates().contains { $0.item.userID == user })
+    }
+
     @Test func replacementUpdatesOnlyOwnItemsAndKeepsProtection() {
         let fake = FakeCredentialKeychain()
         fake.seed(group: own, service: password, account: user, value: "old fixture")

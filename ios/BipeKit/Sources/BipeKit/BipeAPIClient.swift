@@ -117,6 +117,33 @@ public struct BipeAPIClient: Sendable {
         let _: NoContent = try await send(method: "POST", path: ["v1", "me", "keychain-move"], body: Empty?.none, accessToken: accessToken)
     }
 
+    // MARK: - Device key (ADR 0283)
+
+    /// `POST /v1/me/device-key`: the public key of this phone's device key, base64 SubjectPublicKeyInfo DER. The server
+    /// takes the device from the token. 204 also for the same key again; 409 `device_key_exists` for another key.
+    public func registerDeviceKey(publicKey: String, accessToken: String) async throws(BipeAPIError) {
+        let _: NoContent = try await send(method: "POST", path: ["v1", "me", "device-key"],
+                                          body: DeviceKeyRequest(publicKey: publicKey), accessToken: accessToken)
+    }
+
+    /// `POST /v1/me/password-once/challenge`: a single-use challenge, valid 5 minutes.
+    public func passwordOnceChallenge(accessToken: String) async throws(BipeAPIError) -> String {
+        let response: AttestChallengeResponse = try await send(method: "POST", path: ["v1", "me", "password-once", "challenge"],
+                                                               body: Empty?.none, accessToken: accessToken)
+        return response.challenge
+    }
+
+    /// `POST /v1/me/password-once`: a new hidden password, returned once. The caller keeps it in memory only and never
+    /// logs it. `signature` is base64 DER over ``BipeDeviceKey/passwordOnceMessage(userId:deviceId:challenge:)``.
+    public func passwordOnce(deviceId: String, challenge: String, signature: String,
+                             accessToken: String) async throws(BipeAPIError) -> String {
+        let response: PasswordOnceResponse = try await send(method: "POST", path: ["v1", "me", "password-once"],
+                                                            body: PasswordOnceRequest(deviceId: deviceId, challenge: challenge,
+                                                                                      signature: signature),
+                                                            accessToken: accessToken)
+        return response.password
+    }
+
     /// `POST /v1/me/approval-nudge` (bipe-chat/bipe#628): a push to the other devices of the account while this device
     /// waits for approval. The server takes the device from the token.
     public func sendApprovalNudge(accessToken: String) async throws(BipeAPIError) {
@@ -487,6 +514,22 @@ public struct BipeAPIClient: Sendable {
         let challenge: String
     }
     
+    private struct DeviceKeyRequest: Encodable {
+        let publicKey: String
+    }
+
+    private struct PasswordOnceRequest: Encodable {
+        let deviceId: String
+        let challenge: String
+        let signature: String
+    }
+
+    /// Never printed: the password is a secret.
+    private struct PasswordOnceResponse: Decodable, CustomStringConvertible {
+        let password: String
+        var description: String { "PasswordOnceResponse" }
+    }
+
     private struct ResolveRequest: Encodable {
         let userIds: [String]
     }

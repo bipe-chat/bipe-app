@@ -55,6 +55,26 @@ data class BipeAttestation(
 @Serializable
 internal data class BipeAttestChallengeResponse(@SerialName("challenge") val challenge: String)
 
+/** Body of `POST /v1/me/device-key` (ADR 0283). [publicKey]: base64 SubjectPublicKeyInfo DER of a P-256 key. */
+@Serializable
+internal data class BipeDeviceKeyRequest(@SerialName("public_key") val publicKey: String)
+
+/** Body of `POST /v1/me/password-once` (ADR 0283). [signature]: base64 DER ECDSA P-256 SHA-256. */
+@Serializable
+internal data class BipePasswordOnceRequest(
+    @SerialName("device_id") val deviceId: String,
+    @SerialName("challenge") val challenge: String,
+    @SerialName("signature") val signature: String,
+) {
+    override fun toString(): String = "BipePasswordOnceRequest"
+}
+
+/** Answer of `POST /v1/me/password-once`. Never logged. */
+@Serializable
+internal data class BipePasswordOnceResponse(@SerialName("password") val password: String) {
+    override fun toString(): String = "BipePasswordOnceResponse"
+}
+
 /** `SignupConfig`. An app that cannot read it assumes [inviteRequired] is `true`. */
 @Serializable
 data class BipeSignupConfig(

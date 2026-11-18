@@ -183,7 +183,7 @@ fun SignOutSheet(model: SettingsModel, onDismiss: () -> Unit, onSignedOut: () ->
             }
             // Action signOut: a company account first signs out the web sessions this phone approved (bipe#398); a
             // failure is logged and does not stop the sign-out. Then Client.logout, then the account's password,
-            // session and SDK store leave this phone.
+            // session, device key (ADR 0283) and SDK store leave this phone (AccountSession.signOut).
             BipeOutlinedButton(
                 onClick = {
                     signingOut = true

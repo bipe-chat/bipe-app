@@ -192,6 +192,42 @@ class BipeApiClient(baseUrl: String) {
         )
 
     /**
+     * `POST /v1/me/device-key` (ADR 0283): this phone's device key for the device of the token. 204; 409
+     * `device_key_exists` when the device already has another key.
+     */
+    suspend fun registerDeviceKey(publicKey: String, accessToken: String) {
+        send<Unit>(
+            "POST",
+            listOf("v1", "me", "device-key"),
+            body = encode(BipeDeviceKeyRequest.serializer(), BipeDeviceKeyRequest(publicKey)),
+            accessToken = accessToken,
+            response = null,
+        )
+    }
+
+    /** `POST /v1/me/password-once/challenge` (ADR 0283). Valid 5 minutes, single use. No body. */
+    suspend fun passwordOnceChallenge(accessToken: String): String =
+        send(
+            "POST",
+            listOf("v1", "me", "password-once", "challenge"),
+            accessToken = accessToken,
+            response = BipeAttestChallengeResponse.serializer(),
+        ).challenge
+
+    /**
+     * `POST /v1/me/password-once` (ADR 0283): a new hidden password, returned once. The caller keeps it in memory only.
+     * Never logged.
+     */
+    suspend fun passwordOnce(deviceId: String, challenge: String, signature: String, accessToken: String): String =
+        send(
+            "POST",
+            listOf("v1", "me", "password-once"),
+            body = encode(BipePasswordOnceRequest.serializer(), BipePasswordOnceRequest(deviceId, challenge, signature)),
+            accessToken = accessToken,
+            response = BipePasswordOnceResponse.serializer(),
+        ).password
+
+    /**
      * `POST /v1/me/approval-nudge` (bipe-chat/bipe#628): a push to the other devices of the account while this device
      * waits for approval. The server takes the device from the token.
      */

@@ -15,6 +15,7 @@ import chat.bipe.app.common.InviterGreetings
 import chat.bipe.shared.onboarding.BipeBringPeopleMemory
 import chat.bipe.app.recovery.RecoveryTokenSyncs
 import chat.bipe.shared.account.BipeAccountVault
+import chat.bipe.shared.account.BipeDeviceKey
 import chat.bipe.shared.account.BipeRecoveryTokens
 import chat.bipe.app.notifications.WorkHoursSync
 import chat.bipe.shared.api.BipeApiClient
@@ -53,6 +54,7 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
 
     val api = BipeApiClient(AppConfig.API_BASE_URL)
     val vault = BipeAccountVault(context)
+    private val deviceKey = BipeDeviceKey(context)
 
     /** The recovery token in the synced store (Block Store in the Play build, ADR 0150). */
     val recoveryTokens = BipeRecoveryTokens(vault, RecoveryTokenSyncs.create(context), scope)
@@ -114,8 +116,8 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
     val recoveryLink: StateFlow<android.net.Uri?> = _recoveryLink.asStateFlow()
 
     /**
-     * Spec soft-logout needsPin: the account whose token the server refused and that the hidden password cannot bring
-     * back. The app shows recovery-pin for it.
+     * Spec soft-logout needsPin: the account whose token the server refused. No phone signs in again by itself
+     * (ADR 0283 decision 5). The app shows recovery-pin for it.
      */
     private val _needsPin = MutableStateFlow<String?>(null)
     val needsPin: StateFlow<String?> = _needsPin.asStateFlow()
@@ -125,8 +127,7 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
     val notice: StateFlow<String?> = _notice.asStateFlow()
     fun noticeShown() { _notice.value = null }
 
-    private val signingInAgain = mutableSetOf<String>()
-    /** Accounts whose quiet sign-in failed for a reason other than a refused password. */
+    /** Accounts whose PIN prompt was put off (action later): the next foreground asks again. */
     private val pendingAuthErrors = mutableSetOf<String>()
 
     fun showRecovery(show: Boolean) {
@@ -190,7 +191,8 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
 
     /**
      * Action start: open every account on this phone, from its saved session or else its device credential (the hidden
-     * password this phone keeps, or a dev test account in a debug build); with no account, finish a pending sign-up
+     * password that sign-up or a recovery just stored, before deviceKey deleted it (ADR 0283), or a dev test account in a
+     * debug build); with no account, finish a pending sign-up
      * (POST /v1/signup/resume, ADR 0094); else noAccount. Recovery is bipe-chat/bipe#556.
      */
     fun start() {
@@ -277,7 +279,7 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
 
     /** Action authError of spec soft-logout. Runs on the model's scope (main thread). */
     private suspend fun authError(session: AccountSession, isSoftLogout: Boolean) {
-        if (_sessions.value.none { it === session } || session.userId in signingInAgain) return
+        if (_sessions.value.none { it === session }) return
         val name = accountList.name(session.userId) ?: context.getString(chat.bipe.shared.R.string.bipe_tab_you)
         // Spec account-delete notes: the session ended after the due time of a deletion, so the server deleted the
         // account. Remove it from this phone like a sign-out and say so.
@@ -302,32 +304,9 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
             _notice.value = context.getString(chat.bipe.shared.R.string.bipe_soft_logout_removed, name)
             return
         }
-        signingInAgain += session.userId
-        try {
-            val password = vault.read().accounts[session.userId]?.password
-            if (password == null) {
-                askForPin(session)
-                return
-            }
-            Log.i(AccountStep.TAG, "soft-logout: signing in again")
-            session.pause()
-            try {
-                replace(session, AccountSession.signInAgain(context, session, password, sessionStore))
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                if (AccountSession.isRefused(e)) {
-                    askForPin(session)
-                } else {
-                    // Offline or a local failure: keep everything and try again on the next foreground.
-                    Log.w(AccountStep.TAG, "soft-logout: sign-in failed, kept for later")
-                    pendingAuthErrors += session.userId
-                    session.syncService.start()
-                }
-            }
-        } finally {
-            signingInAgain -= session.userId
-        }
+        // ADR 0283 decision 5: a refused token means somebody ended the session. Never sign in again by itself, also
+        // when a hidden password from before ADR 0283 is still stored. A recovery is the only way to a new session.
+        askForPin(session)
     }
 
     /** Spec soft-logout needsPin. Only the refused saved session goes, so recovery-start offers the synced token. */
@@ -401,6 +380,7 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
         val app = context.applicationContext as BipeApplication
         app.notifications.detach(old.userId)
         watchAuthErrors(fresh)
+        registerDeviceKey(fresh)
         _sessions.value = _sessions.value.map { if (it === old) fresh else it }
         app.push.add(fresh)
         if (_userId.value == fresh.userId) {
@@ -502,10 +482,12 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
         } catch (e: Exception) {
             Log.w(AccountStep.TAG, "earlier app's vault not imported now")
         }
-        val (saved, passwords) = AccountStep.run("read saved accounts") {
-            sessionStore.loadAll() to vault.read().accounts.filterValues { it.password != null }.mapValues { it.value.password!! }
-        }
-        val found = passwords.keys.toList() + saved.keys.sorted().filterNot(passwords::containsKey)
+        val (saved, stored) = AccountStep.run("read saved accounts") { sessionStore.loadAll() to vault.read().accounts }
+        // Since ADR 0283 a password is here only between a sign-up or recovery and its deviceKey run.
+        val passwords = stored.filterValues { it.password != null }.mapValues { it.value.password!! }
+        // Vault order first (the credential stored first is the oldest account), also for an entry whose password
+        // deviceKey deleted; then saved sessions the vault does not know.
+        val found = stored.keys.filter { it in passwords || it in saved } + saved.keys.sorted().filterNot(stored::containsKey)
         val accounts = accountList.merge(found)
 
         // The current account first, so the app shows it as soon as it runs; the others open after it.
@@ -564,12 +546,33 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
         uri?.let { chat.bipe.shared.BipeInviteLink.code(it) }?.let { _inviteTap.value = it }
     }
 
+    /**
+     * Spec account-start deviceKey (ADR 0283): makes the account's device key when missing and registers it. On success
+     * the stored hidden password goes; the account entry, its token and its place stay. 409 device_key_exists: no new
+     * key, the password goes too (spec: keep nothing else), links need a recovery. A failure tries again on the next launch or session. No UI.
+     */
+    private fun registerDeviceKey(session: AccountSession) {
+        scope.launch {
+            val deviceId = runCatching { session.client.deviceId() }.getOrNull() ?: return@launch
+            val result = deviceKey.register(api, session.userId, deviceId) { session.accessToken() }
+            when (result) {
+                BipeDeviceKey.Registration.REGISTERED -> Unit
+                BipeDeviceKey.Registration.EXISTS -> Log.w(AccountStep.TAG, "device key: this device has another key")
+                BipeDeviceKey.Registration.FAILED -> Log.i(AccountStep.TAG, "device key: not registered now")
+            }
+            if (result != BipeDeviceKey.Registration.FAILED) {
+                runCatching { vault.deletePassword(session.userId) }.onFailure { Log.w(AccountStep.TAG, "device key: password not deleted now") }
+            }
+        }
+    }
+
     private fun add(session: AccountSession) {
         if (_sessions.value.any { it.userId == session.userId }) return
         // Spec interno: the member sessions follow the work accounts on this phone.
         (context.applicationContext as BipeApplication).interno.watch()
         val order = accountList.order
         watchAuthErrors(session)
+        registerDeviceKey(session)
         // Spec push-registration sessionAdded: every account on the phone has its own pusher, open or not.
         (context.applicationContext as BipeApplication).push.add(session)
         scope.launch { PhoneReport.report(context, session, api) }
@@ -579,8 +582,8 @@ class AccountStartModel(private val context: Context, private val scope: Corouti
     }
 
     /**
-     * Restores the account's saved session; when there is none, or it no longer works, signs in with the hidden
-     * password. `null` when neither works now.
+     * Restores the account's saved session; when there is none, signs in with the hidden password that sign-up or a
+     * recovery stored and deviceKey has not deleted yet (a crash between the two). `null` when neither works now.
      */
     private suspend fun open(userId: String, saved: Session?, password: String?): AccountSession? {
         if (saved != null) {

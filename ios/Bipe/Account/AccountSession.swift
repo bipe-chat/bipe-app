@@ -127,19 +127,6 @@ final class AccountSession {
         return session
     }
 
-    /// Spec soft-logout authError: signs in again with the hidden password on the same store and device ID, so keys
-    /// and history stay. The caller stops this session first.
-    static func signInAgain(after expired: AccountSession, password: String) async throws -> AccountSession {
-        let deviceId = try expired.client.deviceId()
-        let userId = expired.userId
-        let client = try await AccountStep.run("build client") { try await makeClient(userId: userId) }
-        try await AccountStep.run("login") {
-            try await client.login(username: userId, password: password, initialDeviceName: AppConfig.deviceName, deviceId: deviceId)
-        }
-        SessionStore.save(try client.session())
-        return try await start(client)
-    }
-
     /// Switches every room's send queue on again, for a queue the SDK left off after a failed send (bipe-chat/bipe#947).
     func resumeSending() async {
         await client.enableAllSendQueues(enable: true)
@@ -149,12 +136,6 @@ final class AccountSession {
     func pause() async {
         await roomSubscriptions.close()
         await syncService.stop()
-    }
-
-    /// true when the server refused the hidden password (M_FORBIDDEN), not a network or local failure.
-    static func isRefused(_ error: Error) -> Bool {
-        guard let error = error as? ClientError, case .MatrixApi(_, let code, _, _) = error else { return false }
-        return code == "M_FORBIDDEN"
     }
 
     /// true when the account's SDK store folder exists and holds files.
@@ -170,13 +151,15 @@ final class AccountSession {
         try? client.session().accessToken
     }
 
-    /// Signs out on the server and removes this account's session, store and hidden password from this phone.
+    /// Signs out on the server and removes this account's session, store, hidden password record and device key
+    /// (spec sign-out, ADR 0283) from this phone.
     func signOut(alreadyLoggedOut: Bool = false) async {
         await roomSubscriptions.close()
         if !alreadyLoggedOut { try? await client.logout() }
         await syncService.stop()
         SessionStore.delete(userId: userId)
         BipeCredentialStore().deletePassword(for: userId)
+        BipeDeviceKey.delete(userId: userId)
         Self.deleteStore(userId: userId)
     }
 

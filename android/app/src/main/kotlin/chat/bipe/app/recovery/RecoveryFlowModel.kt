@@ -635,7 +635,10 @@ class RecoveryFlowModel(
         CompanyTeamJoinScreen(api, sessionStore, onClose = { _route.value = Route.START }, onDone = onSignedIn)
     }
 
-    /** Stores the password (this phone only) and the token, signs in, then opens chat-list and encryption-status. */
+    /**
+     * Stores the password and the token, signs in, then opens chat-list and encryption-status. account-start deviceKey
+     * then deletes the password (ADR 0283).
+     */
     private suspend fun signIn(credentials: BipeCredentials) {
         vault.store(credentials.userId, credentials.password, credentials.recoveryToken)
         val session = AccountSession.signIn(context, credentials.userId, credentials.password, sessionStore)

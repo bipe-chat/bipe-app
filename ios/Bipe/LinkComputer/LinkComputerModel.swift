@@ -229,25 +229,27 @@ final class LinkComputerModel: ObservableObject {
         URL(string: session.client.homeserver()).map { BipeMatrixAccountAPI(homeserver: $0) }
     }
 
-    /// The hidden password of the account on this phone (ADR 0057). Read only after the owner check.
-    private var hiddenPassword: String? {
-        BipeCredentialStore().password(for: session.userId)?.secret
-    }
-
     var canContinue: Bool { secondsLeft == 0 }
 
     // MARK: link-computer-scan
 
     /// Action open: the Bipe support gate (never Client.isLoginWithQrCodeSupported, ADR 0118), then the camera.
+    /// Supported: the server advertises MSC4108, the account is device-first and this phone registered its device key
+    /// (ADR 0283). A beta account (device_first false) needs the PIN first (ADR 0057).
     func open() async {
         support = .checking
         let serverSupports = await matrix?.supportsQRLogin() ?? false
-        // Only whether an item exists: the value is read after the owner check.
-        let hasPassword = BipeCredentialStore().password(for: session.userId) != nil
-        switch (serverSupports, hasPassword) {
-        case (true, true): support = .supported
-        // A beta account without a hidden password on this phone needs the PIN first (ADR 0057).
-        case (true, false): support = .needsPin
+        guard serverSupports else {
+            support = .notSupported
+            return
+        }
+        let api = settings.api
+        let account = try? await settings.authorized { (token: String) async throws(BipeAPIError) -> BipeAccountStatus in
+            try await api.account(accessToken: token)
+        }
+        switch account?.deviceFirst {
+        case false?: support = .needsPin
+        case true? where DeviceKeyRegistration.isRegistered(session): support = .supported
         default: support = .notSupported
         }
         guard support == .supported else { return }
@@ -527,7 +529,8 @@ final class LinkComputerModel: ObservableObject {
     // MARK: link-computer-approve
 
     /// Action confirmIdentity: the owner check (ApprovalCheck: biometrics, else the Bipe PIN; never the passcode,
-    /// rule 14 tier 3), then the hidden password. A fail, or a phone with no screen lock, goes back to the warning.
+    /// rule 14 tier 3), then a one-time hidden password asked for with the device key (POST /v1/me/password-once,
+    /// ADR 0283). A fail, or a phone with no screen lock, goes back to the warning.
     func confirmIdentity() async {
         let reason = mode == .computer ? BipeStrings.linkComputerBiometric : BipeStrings.appLinkPhoneBiometric
         let api = settings.api
@@ -539,17 +542,33 @@ final class LinkComputerModel: ObservableObject {
                 try await api.checkPIN(pin, accessToken: token)
             }
         }
-        guard check == .passed, let secret = hiddenPassword else {
+        guard check == .passed else {
             step = .warning
             warningAppeared()
             return
         }
-        password = secret
         approvePhase = .loading
         // Phase loading removes the view whose .task runs this method, and SwiftUI cancels that task. A cancelled
         // task cancels the auth metadata request (-999), and the flow then cancels the new device's login.
-        // The consent load therefore runs in its own task.
-        Task { await openConsent() }
+        // The password request and the consent load therefore run in their own task.
+        Task { await askPasswordOnce() }
+    }
+
+    /// Spec link-computer-approve confirmIdentity: challenge, signature, one-time password. Memory only; never logged.
+    private func askPasswordOnce() async {
+        let secret: String
+        do throws(BipeAPIError) {
+            secret = try await DeviceKeyRegistration.passwordOnce(session, api: settings.api)
+        } catch {
+            guard approvePhase == .loading else { return }
+            errorCode = Self.passwordOnceCode(error)
+            Self.log.error("link failed (password-once): \(self.errorCode ?? "", privacy: .public)")
+            fail(error == .network ? .network : .generic)
+            return
+        }
+        guard approvePhase == .loading else { return }
+        password = secret
+        await openConsent()
     }
 
     /// Action open: the MAS host from the auth metadata; the verification page must be on it. Then the MAS pages
@@ -616,6 +635,15 @@ final class LinkComputerModel: ObservableObject {
             await approval.reject(consent)
             try? await sender?.cancel()
             await finish()
+        }
+    }
+
+    /// State errorCode of a password-once failure: the API error id, never a secret.
+    private static func passwordOnceCode(_ error: BipeAPIError) -> String {
+        switch error {
+        case .server(let code, _, _): code.rawValue
+        case .network: "network"
+        default: "password-once"
         }
     }
 

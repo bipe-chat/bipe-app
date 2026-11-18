@@ -40,7 +40,10 @@ data class BipePendingSignup(
 /** The device-only secrets of one account. */
 @Serializable
 data class BipeVaultAccount(
-    /** The hidden MAS password (ADR 0059: this device only). */
+    /**
+     * The hidden MAS password, only from sign-up, a recovery or the beta move until the device key is registered
+     * (ADR 0283). `null` after that; the entry stays, so the account keeps its token and its place.
+     */
     @SerialName("password") val password: String? = null,
     /**
      * The recovery token. Kept here too, so recovery-start finds it after a sign-out even without the synced store.
@@ -76,6 +79,15 @@ data class BipeVaultData(
     /** New credentials under their Matrix ID; the account becomes the newest. The token is not synced yet. */
     fun withCredentials(userId: String, password: String, token: String): BipeVaultData =
         copy(accounts = accounts - userId + (userId to BipeVaultAccount(password, token)))
+
+    /**
+     * ADR 0283: the device key is registered, so the hidden password leaves the phone. The entry, its token and its place
+     * in the order stay.
+     */
+    fun withoutPassword(userId: String): BipeVaultData {
+        val account = accounts[userId]?.takeIf { it.password != null } ?: return this
+        return copy(accounts = accounts + (userId to account.copy(password = null)))
+    }
 
     /** Marks the token synced, only when the account still has this token. */
     fun withTokenSynced(userId: String, token: String): BipeVaultData {
@@ -139,6 +151,9 @@ class BipeAccountVault(context: Context) : BipeVaultStore {
      * writes the token to the synced store.
      */
     suspend fun store(userId: String, password: String, token: String) = update { it.withCredentials(userId, password, token) }
+
+    /** ADR 0283: drops the hidden password of [userId] after its device key is registered. */
+    suspend fun deletePassword(userId: String) = update { it.withoutPassword(userId) }
 
     suspend fun savePendingRecovery(recovery: BipeRecoveryStarted) = update { it.copy(pendingRecovery = recovery) }
 
