@@ -1,7 +1,7 @@
 ---
 id: 2026-11-18-device-key
 date: 2026-11-18
-kind: fix
+kind: fixed
 platforms: [ios, android]
 refs: [bipe#1351]
 ---
