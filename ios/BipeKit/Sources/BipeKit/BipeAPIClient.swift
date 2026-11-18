@@ -1246,6 +1246,12 @@ public enum BipeAPIErrorCode: String, Sendable {
     case deletionPending = "deletion_pending"
     /// 409. A PIN reset already waits on the account (POST /v1/me/pin/reset, ADR 0283 rule 13).
     case pinResetPending = "pin_reset_pending"
+    /// 409. This device already registered another device key (POST /v1/me/device-key, ADR 0283).
+    case deviceKeyExists = "device_key_exists"
+    /// 409. This device has no device key (POST /v1/me/password-once, ADR 0283). The phone recovers.
+    case deviceKeyMissing = "device_key_missing"
+    /// 409. A beta account keeps its own password (POST /v1/me/password-once, ADR 0283 decision 9).
+    case deviceFirstRequired = "device_first_required"
     // Business tools (api/business-schemas.json AgendaError). Texts: BipeAPIError.agendaMessage.
     case slotTaken = "slot_taken"
     case holdExpired = "hold_expired"
@@ -1348,7 +1354,7 @@ public enum BipeAPIError: Error, Sendable, Equatable {
             case .pinWrong: BipeStrings.pinWrong(reason ?? "0")
             case .pinBlocked: BipeStrings.pinBlockedBody(String(BipeRegistries.pinMaxWrongTries))
             case .pinNotSet: BipeStrings.pinCreateBody(String(BipeRegistries.pinLength))
-            case .alreadyDeviceFirst: BipeStrings.errorGeneric
+            case .alreadyDeviceFirst, .deviceKeyExists, .deviceKeyMissing, .deviceFirstRequired: BipeStrings.errorGeneric
             case .recoveryInvalid: BipeStrings.errorRecoveryInvalid
             case .emailUnavailable: BipeStrings.errorEmailUnavailable
             case .termsRequired: BipeStrings.signupTermsRequired
