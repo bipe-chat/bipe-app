@@ -285,9 +285,7 @@ final class PeopleService: ObservableObject {
 
     /// The person's cross-signing identity for the trust facts (ADR 0074). nil: the SDK could not read it.
     func trustIdentity(_ userId: String) async -> BipeTrustSources.Identity? {
-        guard let identity = try? await session.client.encryption().userIdentity(userId: userId, fallbackToServer: true) else { return nil }
-        return BipeTrustSources.Identity(masterKey: identity.masterKey(), isVerified: identity.isVerified(),
-                                         hasVerificationViolation: identity.hasVerificationViolation())
+        await PersonTrust.identity(client: session.client, userId: userId)
     }
 
     // MARK: - DMs (ADR 0141)
@@ -331,23 +329,12 @@ final class PeopleService: ObservableObject {
 
     /// reachNotice for a screen that holds a session and the API client but no PeopleService (group screens, #1299).
     static func reachNotice(session: AccountSession, api: BipeAPIClient) async -> String {
-        guard let status = try? await BipeAPIClient.withTokenRetry(accessToken: { session.accessToken() },
-                                                                   { (token: String) async throws(BipeAPIError) -> BipeReachStatus in
-            try await api.reach(accessToken: token)
-        }), status.isSpent else { return BipeStrings.errorGeneric }
-        return reachNotice(status)
+        await ReachNotice.load(api: api, accessToken: { session.accessToken() })
     }
 
     /// bipe_reach_limit_body with resets_at as a local date and time, then the step of raise_by.
     static func reachNotice(_ status: BipeReachStatus) -> String {
-        var text = status.resetsAt.map { BipeStrings.reachLimitBody($0.formatted(date: .abbreviated, time: .shortened)) }
-            ?? BipeStrings.reachLimitBodyNone
-        switch status.raiseBy {
-        case .verify: text += " " + BipeStrings.accountStatusRaiseVerify
-        case .wait: text += " " + BipeStrings.accountStatusRaiseWait
-        case nil: break
-        }
-        return text
+        ReachNotice.text(status)
     }
 }
 

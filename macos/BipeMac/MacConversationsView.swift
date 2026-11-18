@@ -28,6 +28,10 @@ struct MacConversationsView: View {
     /// Spec group-link: the group whose link sheet shows, and whether this account may make its link.
     @State private var groupLinkRoom: String?
     @State private var canMakeGroupLink = false
+    /// Spec person-profile: the person whose sheet shows.
+    @State private var profile: MacProfileTarget?
+    /// The toast of a sent report (spec report-chat sent).
+    @State private var reportNotice: String?
     @ObservedObject private var groupLinks = MacGroupLinks.shared
     @ObservedObject private var matrixLinks = MacMatrixLinks.shared
 
@@ -99,6 +103,15 @@ struct MacConversationsView: View {
                         canMakeGroupLink = levels.canOwnUserSendState(stateEvent: .roomPowerLevels)
                     }
                     .toolbar {
+                        // Spec person-profile fromDm: the DM's info screen (ADR 0141).
+                        if row.isDm, let peer = row.avatar.userID {
+                            ToolbarItem(placement: .automatic) {
+                                Button { profile = MacProfileTarget(userID: peer, dmRoomID: row.id) } label: {
+                                    Image(decorative: "info").resizable().scaledToFit().frame(width: 18, height: 18)
+                                }
+                                .help(BipeStrings.dmDetailsTitle).accessibilityLabel(BipeStrings.dmDetailsTitle)
+                            }
+                        }
                         if !row.isDm, canMakeGroupLink {
                             ToolbarItem(placement: .automatic) {
                                 Button(BipeStrings.groupLinkTitle) { groupLinkRoom = row.id }.help(BipeStrings.groupLinkTitle)
@@ -133,6 +146,21 @@ struct MacConversationsView: View {
         }
         .onChange(of: favourites.count) { _, count in if count < 2 { reordering = false } }
         .onDisappear { reordering = false }
+        .sheet(item: $profile) { target in
+            MacPersonProfileSheet(account: account, target: target,
+                                  openChat: { room in profile = nil; openChat(room) },
+                                  openNotifications: { room in profile = nil; notificationsRoom = room },
+                                  reported: { reportNotice = $0 },
+                                  cleared: { room, marker in
+                                      profile = nil
+                                      list.cleared(roomID: room, marker: marker)
+                                      if selected == room { selectedRoom.wrappedValue = nil }
+                                  },
+                                  close: { profile = nil })
+        }
+        .alert(reportNotice ?? "", isPresented: Binding(get: { reportNotice != nil }, set: { if !$0 { reportNotice = nil } })) {
+            Button(BipeStrings.appClose, role: .cancel) {}
+        }
         .sheet(isPresented: $startingChat) {
             MacStartChatSheet(account: account, initial: startHandle, opened: { room in startingChat = false; openChat(room) },
                               close: { startingChat = false })
@@ -322,7 +350,9 @@ struct MacConversationsView: View {
             case .notifications: true
             case .archive: !row.isArchived
             case .unarchive: row.isArchived
-            case .details, .deleteDm: false
+            // Spec chat-row-actions details: a DM opens person-profile; group details remain in bipe#1225.
+            case .details: row.isDm && row.avatar.userID != nil
+            case .deleteDm: false
             }
         }
     }
@@ -340,7 +370,9 @@ struct MacConversationsView: View {
         case .notifications: notificationsRoom = row.id
         case .archive: Task { await list.setArchived(row, value: true) }
         case .unarchive: Task { await list.setArchived(row, value: false) }
-        case .details, .deleteDm: break
+        case .details:
+            if let peer = row.avatar.userID { profile = MacProfileTarget(userID: peer, dmRoomID: row.id) }
+        case .deleteDm: break
         }
     }
 

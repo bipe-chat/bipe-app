@@ -6,53 +6,6 @@ import BipeKit
 import Foundation
 import MatrixRustSDK
 
-/// Type TrustMark of spec person-profile.
-struct TrustMark: Identifiable, Equatable {
-    enum Kind: Equatable {
-        case verifiedName
-        case company
-        case companyRevoked
-        case companySuspended
-        case confirmedInPerson
-        case nameSuspended
-    }
-
-    var kind: Kind
-    var text: String
-
-    var id: String { "\(kind)" }
-}
-
-/// Type SocialLink of spec person-profile (ADR 0228).
-struct SocialLink: Identifiable, Equatable {
-    var platform: SocialPlatform
-    /// PublicProfile.socials[platform], without @.
-    var handle: String
-    /// socialUrl, built on the device. The server sends no URL.
-    var url: URL
-
-    var id: String { platform.id }
-
-    /// The links of PublicProfile.socials in registry order. Unknown ids and handles that make no URL are skipped.
-    static func links(_ socials: [String: String]?) -> [SocialLink] {
-        guard let socials else { return [] }
-        return BipeRegistries.profileSocials.compactMap { platform in
-            guard let raw = socials[platform.id] else { return nil }
-            let handle = BipeSocialHandles.clean(raw)
-            guard !handle.isEmpty, let url = URL(string: BipeSocialHandles.url(platform, input: handle)) else { return nil }
-            return SocialLink(platform: platform, handle: handle, url: url)
-        }
-    }
-}
-
-/// A group where the user may invite (action addToGroup).
-struct InviteTarget: Identifiable, Equatable {
-    var roomId: String
-    var name: String
-
-    var id: String { roomId }
-}
-
 /// Spec person-profile (bipe-shared product/screens/person-profile.json).
 @MainActor
 final class PersonProfileModel: ObservableObject {
@@ -137,20 +90,20 @@ final class PersonProfileModel: ObservableObject {
         return nil
     }
 
-    /// isCompany of the spec: GET /v1/accounts/{userId}/type through the seal store (ADR 0132).
-    var isCompany: Bool {
-        people.seals.isCompany(userId)
+    /// The trust logic of the spec, shared with the Mac (PersonTrust).
+    private var trust: PersonTrust {
+        PersonTrust(userId: userId, ownUserId: people.session.userId, displayName: person.displayName, seals: people.seals,
+                    identity: trustIdentity, identityRead: identityRead, loadedProofs: loadedProofs)
     }
+
+    /// isCompany of the spec: GET /v1/accounts/{userId}/type through the seal store (ADR 0132).
+    var isCompany: Bool { trust.isCompany }
 
     /// The seal state from the seal store, verified on the device. Fail closed.
-    var seal: BipeCompanySealState {
-        people.seals.state(for: userId)
-    }
+    var seal: BipeCompanySealState { trust.seal }
 
     /// The person seal from the seal store (bipe#596). Fail closed.
-    var personSeal: BipePersonSealState {
-        people.seals.personState(for: userId)
-    }
+    var personSeal: BipePersonSealState { trust.personSeal }
 
     /// Action retryFacts (and part of appear): reads the person's identity again.
     func readIdentity() async {
@@ -159,68 +112,25 @@ final class PersonProfileModel: ObservableObject {
     }
 
     /// facts of the spec: identity proof, personal confirmation and changes, apart (ADR 0074, BipeTrustSources).
-    var facts: BipeTrustFacts {
-        let sealSource: BipeTrustSources.Seal = switch (personSeal, seal) {
-        case (.verified(let payload), _), (_, .verified(let payload)): .verified(name: payload.name)
-        case (.suspended, _), (_, .suspended): .suspended
-        default: .none
-        }
-        return BipeTrustSources.profileFacts(userId: userId, identity: trustIdentity, seal: sealSource)
-    }
+    var facts: BipeTrustFacts { trust.facts }
 
     /// The identity read ran and gave nothing: bipe_trust_lifecycle_unknown with bipe_trust_lifecycle_retry_action.
-    var lifecycleUnknown: Bool {
-        identityRead && facts.change == "unknown"
-    }
+    var lifecycleUnknown: Bool { trust.lifecycleUnknown }
 
-    /// proofs of the spec, strongest first. A failed proofs call falls back on the compact seal. A suspended or a
-    /// missing seal gives none (ADR 0275 points 2 and 14).
-    var proofLines: [BipePersonProof] {
-        guard facts.identity == "verified", let strongest = people.seals.strongestProof(for: userId) else { return [] }
-        return loadedProofs.isEmpty ? [strongest] : loadedProofs
-    }
+    /// proofs of the spec, strongest first.
+    var proofLines: [BipePersonProof] { trust.proofLines }
 
-    /// bipe_banner_unverified_title: no proof and no company mark, once the store answered. An official account has
-    /// its own badge, and the own profile shows no facts.
-    var showsUnverifiedLine: Bool {
-        people.seals.hasAnswer(for: userId) && userId != people.session.userId && !isOfficial
-            && proofLines.isEmpty && !marks.contains { $0.kind != .confirmedInPerson }
-    }
+    /// bipe_banner_unverified_title: no proof and no company mark, once the store answered.
+    var showsUnverifiedLine: Bool { trust.showsUnverifiedLine }
 
     /// marks of the spec: only marks that verify on this device.
-    var marks: [TrustMark] {
-        var marks: [TrustMark] = []
-        let facts = facts
-        if case .verified = personSeal {
-            // Only when the badge name differs from the display name: else the header already shows it (spec notes).
-            if let name = facts.verifiedName, let strongest = proofLines.first,
-               NameNormalizer.normalize(name) != NameNormalizer.normalize(person.displayName) {
-                marks.append(TrustMark(kind: .verifiedName, text: BipeStrings.badgeVerifiedNameVia(strongest.schemeName, name)))
-            }
-        } else if case .suspended = personSeal {
-            marks.append(TrustMark(kind: .nameSuspended, text: BipeStrings.badgeSuspended))
-        } else if case .revoked = seal {
-            marks.append(TrustMark(kind: .companyRevoked, text: seal.notice ?? BipeStrings.badgeCompanyRevoked))
-        } else if facts.identity == "verified" {
-            marks.append(TrustMark(kind: .company, text: BipeStrings.badgeCompany))
-        } else if facts.identity == "suspended" || seal == .suspended {
-            marks.append(TrustMark(kind: .companySuspended, text: BipeStrings.badgeCompanySuspended))
-        }
-        if facts.contact == "confirmed" {
-            marks.append(TrustMark(kind: .confirmedInPerson, text: BipeStrings.badgeVerifiedContact))
-        }
-        return marks
-    }
+    var marks: [TrustMark] { trust.marks }
 
     /// isOfficial of the spec: the exact user ID is an official Bipe account (ADR 0117).
-    var isOfficial: Bool {
-        BipeOfficialAccounts.isOfficial(userId)
-    }
+    var isOfficial: Bool { trust.isOfficial }
 
-    /// reservedNameWarning of the spec. An official account, or a company whose verified seal names it, does not get the warning.
-    var reservedNameWarning: Bool {
-        NameNormalizer.reservedCategory(for: person.displayName) != nil && !isOfficial && !seal.isVerified
-    }
+    /// reservedNameWarning of the spec.
+    var reservedNameWarning: Bool { trust.reservedNameWarning }
 
     /// The profile link (action share), only when the person has an @.
     var shareLink: URL? {
@@ -229,38 +139,17 @@ final class PersonProfileModel: ObservableObject {
 
     /// Action addToGroup, step 1: the user's groups where RoomPowerLevels.canOwnUserInvite.
     func inviteTargets() async -> [InviteTarget] {
-        var targets: [InviteTarget] = []
-        for room in people.session.client.rooms() where room.membership() == .joined {
-            guard let info = try? await room.roomInfo(), !info.isDm, !info.isDirect, !info.isSpace else { continue }
-            guard let powerLevels = try? await room.getPowerLevels(), powerLevels.canOwnUserInvite() else { continue }
-            targets.append(InviteTarget(roomId: info.id, name: info.displayName ?? ""))
-        }
-        return targets.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        await InviteTarget.all(client: people.session.client)
     }
 
     /// Action addToGroup, step 2: invites the person to the chosen group.
     func invite(to target: InviteTarget) async {
-        guard let room = try? people.session.client.getRoom(roomId: target.roomId) else {
-            notice = BipeStrings.errorGeneric
-            return
-        }
-        if let member = try? await room.member(userId: userId), member.membership == .join || member.membership == .invite {
-            notice = BipeStrings.dmInviteToGroupAlreadyMember
-            return
-        }
-        do {
-            try await room.inviteUserById(userId: userId)
-            notice = BipeStrings.dmInviteToGroupSent
-        } catch let error as ClientError {
-            if case .MatrixApi(kind: .forbidden, code: _, msg: _, details: _) = error {
-                notice = BipeStrings.appGroupInviteRefused(person.displayName)
-            } else if case .MatrixApi(kind: .limitExceeded(retryAfterMs: _), code: _, msg: _, details: _) = error {
-                notice = await people.reachNotice()
-            } else {
-                notice = BipeStrings.errorGeneric
-            }
-        } catch {
-            notice = BipeStrings.errorGeneric
+        switch await target.invite(userId, client: people.session.client) {
+        case .sent: notice = BipeStrings.dmInviteToGroupSent
+        case .alreadyMember: notice = BipeStrings.dmInviteToGroupAlreadyMember
+        case .refused: notice = BipeStrings.appGroupInviteRefused(person.displayName)
+        case .limitExceeded: notice = await people.reachNotice()
+        case .failed: notice = BipeStrings.errorGeneric
         }
     }
 }

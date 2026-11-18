@@ -84,39 +84,18 @@ final class DmDeleteModel: ObservableObject {
         self.roomId = roomId
     }
 
-    /// Action delete: read-merge-write of the server copy of chat.bipe.cleared_chats. Returns true on success.
+    /// Action delete: read-merge-write of the server copy of chat.bipe.cleared_chats (DmClear). Returns true on success.
     func delete() async -> Bool {
         guard phase != .deleting, let room = try? session.client.getRoom(roomId: roomId) else { return false }
         phase = .deleting
         do {
-            let info = try await room.roomInfo()
-            guard info.isDm, info.membership == .joined else { phase = .failed; return false }
-            let ts = await Self.latestTs(room)
-            let content = ClearedChats.content(clearing: try await serverContent(), roomID: roomId, at: ts)
-            let data = try JSONSerialization.data(withJSONObject: content)
-            try await session.client.setAccountData(eventType: ClearedChats.eventType, content: String(decoding: data, as: UTF8.self))
+            let ts = try await DmClear.clear(client: session.client, room: room)
             ClearedChatsStore.shared.set(userId: session.userId, roomId: roomId, marker: ts)
             return true
         } catch {
             phase = .failed
             return false
         }
-    }
-
-    /// The origin_server_ts of the latest remote event (Room.latestEvent).
-    private static func latestTs(_ room: Room) async -> UInt64 {
-        switch await room.latestEvent() {
-        case .remote(let timestamp, _, _, _, _), .local(let timestamp, _, _, _, _), .remoteInvite(let timestamp, _, _):
-            return timestamp
-        case .none:
-            return UInt64(Date().timeIntervalSince1970 * 1000)
-        }
-    }
-
-    /// The server copy of chat.bipe.cleared_chats (ServerAccountData, bipe-chat/bipe#479).
-    private func serverContent() async throws -> [String: Any]? {
-        guard let json = try await ServerAccountData.json(client: session.client, eventType: ClearedChats.eventType) else { return nil }
-        return (try? JSONSerialization.jsonObject(with: Data(json.utf8))) as? [String: Any]
     }
 }
 

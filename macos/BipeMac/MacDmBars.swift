@@ -41,6 +41,55 @@ final class MacBlockedUsers: ObservableObject {
         try await client.unignoreUser(userId: userID)
         ignored.remove(userID)
     }
+
+    /// Spec block-person confirm in block mode: Client.ignoreUser. The DM stays, with the block bar (ADR 0141).
+    func block(_ userID: String) async throws {
+        guard let client else { throw CancellationError() }
+        try await client.ignoreUser(userId: userID)
+        ignored.insert(userID)
+    }
+}
+
+/// Spec block-person: the confirm sheet, in block mode or in unblock mode. `close` runs after a success or a cancel.
+struct MacBlockConfirm: View {
+    @ObservedObject var blocked: MacBlockedUsers
+    let userID: String
+    let name: String
+    /// true: unblock mode.
+    let unblocking: Bool
+    let close: () -> Void
+    @State private var phase: Phase = .confirm
+
+    /// Spec block-person phase.
+    private enum Phase: Equatable { case confirm, working, failed }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: MacDesign.gap) {
+            Text(unblocking ? BipeStrings.appUnblockTitle(name) : BipeStrings.appBlockTitle(name)).macFont(.headline)
+            Text(unblocking ? BipeStrings.appUnblockBody : BipeStrings.dmDeclineBlockDescription)
+                .macFont(.body).fixedSize(horizontal: false, vertical: true)
+            if phase == .failed {
+                MacNotice(text: unblocking ? BipeStrings.appUnblockError : BipeStrings.appBlockError, danger: true)
+            }
+            HStack {
+                Spacer()
+                if phase == .working { ProgressView() }
+                Button(BipeStrings.appCancel, action: close).keyboardShortcut(.cancelAction).disabled(phase == .working)
+                Button(role: unblocking ? nil : .destructive) {
+                    phase = .working
+                    Task {
+                        do {
+                            if unblocking { try await blocked.unblock(userID) } else { try await blocked.block(userID) }
+                            close()
+                        } catch { phase = .failed }
+                    }
+                } label: { Text(unblocking ? BipeStrings.appUnblockConfirm : BipeStrings.appBlockConfirm) }
+                .keyboardShortcut(.defaultAction).disabled(phase == .working)
+            }
+        }
+        .padding(MacDesign.gap * 2).frame(width: 420)
+        .interactiveDismissDisabled(phase == .working)
+    }
 }
 
 /// Spec chat-timeline peerAway (ADR 0141): the other person of a DM left, or the account is gone.
@@ -54,41 +103,21 @@ struct MacBlockedBar: View {
     @ObservedObject var blocked: MacBlockedUsers
     let userID: String
     let name: String
-    @State private var phase: Phase?
-
-    /// Spec block-person phase.
-    private enum Phase: Equatable { case confirm, working, failed }
+    @State private var confirming = false
 
     var body: some View {
         VStack(spacing: 8) {
             Text(BipeStrings.appBlockedBar(name)).macFont(.footnote).foregroundStyle(BipeColor.inkSecondary)
                 .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
-            Button(BipeStrings.actionUnblockPerson) { phase = .confirm }
+            Button(BipeStrings.actionUnblockPerson) { confirming = true }
                 .buttonStyle(.link).macFont(.subheadline)
         }
         .frame(maxWidth: .infinity)
         .padding(16)
         .background(BipeColor.surfaceRaised)
         .accessibilityElement(children: .contain)
-        .sheet(isPresented: Binding(get: { phase != nil }, set: { if !$0, phase != .working { phase = nil } })) {
-            VStack(alignment: .leading, spacing: MacDesign.gap) {
-                Text(BipeStrings.appUnblockTitle(name)).macFont(.headline)
-                Text(BipeStrings.appUnblockBody).macFont(.body).fixedSize(horizontal: false, vertical: true)
-                if phase == .failed { MacNotice(text: BipeStrings.appUnblockError, danger: true) }
-                HStack {
-                    Spacer()
-                    if phase == .working { ProgressView() }
-                    Button(BipeStrings.appCancel) { phase = nil }.keyboardShortcut(.cancelAction).disabled(phase == .working)
-                    Button(BipeStrings.appUnblockConfirm) {
-                        phase = .working
-                        Task {
-                            do { try await blocked.unblock(userID); phase = nil } catch { phase = .failed }
-                        }
-                    }
-                    .keyboardShortcut(.defaultAction).disabled(phase == .working)
-                }
-            }
-            .padding(MacDesign.gap * 2).frame(width: 420)
+        .sheet(isPresented: $confirming) {
+            MacBlockConfirm(blocked: blocked, userID: userID, name: name, unblocking: true) { confirming = false }
         }
     }
 }

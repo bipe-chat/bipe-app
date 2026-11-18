@@ -35,6 +35,8 @@ targets:
       - path: ../ios/Bipe/Groups/RoomLinkOpenModel.swift
       - path: ../ios/Bipe/ChatList/NativeDm.swift
       - path: ../ios/Bipe/ChatList/ChatArchiveModel.swift
+      - path: ../ios/Bipe/Groups/DmClear.swift
+      - path: ../ios/Bipe/People/PersonTrust.swift
       - path: ../ios/Bipe/ChatList/RowActivityScanner.swift
       - path: ../ios/Bipe/ChatList/RecentSearches.swift
       - path: ../ios/Bipe/Encryption/UtdCounter.swift

@@ -7,20 +7,6 @@ import Phosphor
 import SwiftUI
 
 extension BipeCompanySealState {
-    /// The notice for a seal that is no longer valid, else `nil` (spec company-seal).
-    var notice: String? {
-        switch self {
-        case .revoked(.notActive), .revoked(.notFound): BipeStrings.badgeCompanyRevokedNotActive
-        case .revoked: BipeStrings.badgeCompanyRevoked
-        case .suspended: BipeStrings.badgeCompanySuspended
-        case .verified, .none: nil
-        }
-    }
-
-    var isVerified: Bool {
-        if case .verified = self { true } else { false }
-    }
-
     /// Spec company-seal cvmLines: the CVM line of a verified seal (ADR 0077), from the signed badge only.
     var cvm: BipeCvmLines.Result {
         if case .verified(let payload) = self { BipeCvmLines.lines(payload.cvm) } else { BipeCvmLines.lines(nil) }

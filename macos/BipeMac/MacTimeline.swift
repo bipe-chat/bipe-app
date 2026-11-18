@@ -216,6 +216,8 @@ final class MacTimeline: ObservableObject {
     private var replyLoadsTried: Set<String> = []
     private var openingOriginal = false
     private var highlightTask: Task<Void, Never>?
+    /// Spec dm-delete: the cleared marker of this DM. Events at or below it do not show (clearedChatKeepsEvent).
+    private var clearedMarker: UInt64?
 
     init(drafts: MacDrafts, client: Client? = nil, dayFocus: MacDayFocus? = nil) {
         self.drafts = drafts
@@ -246,6 +248,9 @@ final class MacTimeline: ObservableObject {
             }
             self.room = room
             if editedWhileLoading { persistDraft() }
+            if let client, let json = try? await client.accountData(eventType: ClearedChats.eventType) {
+                clearedMarker = ClearedChats(json: json).marker(for: room.id())
+            }
             isEncrypted = await room.isEncrypted()
             await readRoomKind(room)
             let info = try? await room.roomInfo()
@@ -1016,6 +1021,8 @@ final class MacTimeline: ObservableObject {
                 continue
             }
             guard let event = item.asEvent() else { continue }
+            // Spec dm-delete: a cleared DM shows only what came after the clear.
+            if isDm, !ClearedChats.keepsEvent(marker: clearedMarker, eventTs: event.timestamp) { continue }
             // Spec timeline-rows stateLine: group lines only; consecutive membership lines fold into one row.
             if !isDm, let line = StateLines.line(event) {
                 if let previous = stateLine, let folded = StateLines.folded(line, into: previous), case .line(let rowID, _, _)? = built.last {
