@@ -7,15 +7,26 @@ import Foundation
 import Combine
 import MatrixRustSDK
 
+/// A chat row the archive reconciles: ChatSummary on iOS, MacRoomSummary on the Mac.
+protocol ArchivableChat {
+    var roomId: String { get }
+    var lastActivity: Date? { get }
+    /// RoomInfo.isLowPriority: the m.lowpriority tag on the server.
+    var isLowPriority: Bool { get }
+    /// The time of the newest message from someone else, in ms.
+    var latestIncomingMs: Int64? { get }
+}
+
 /// One instance per account. Uses SDK low-priority semantics (including removing favourites) and local baselines.
+/// Also compiled into the Mac app (macos/project.yml): keep it free of app-only types.
 @MainActor
 final class ChatArchiveModel: ObservableObject {
     @Published private(set) var markers: [String: Int64] = [:]
     @Published private(set) var failed = false
     private let store: BipeChatArchiveStore
-    private let session: AccountSession
+    private let client: Client
     private var syncedRooms: Set<String> = []
-    private var latestChats: [ChatSummary] = []
+    private var latestChats: [any ArchivableChat] = []
     private struct Action { let roomId: String; let archived: Bool; let marker: Int64? }
     private struct Echo { let id: UUID; let archived: Bool }
     private enum Failure: Error { case invalidTimestamp, unavailable }
@@ -28,16 +39,18 @@ final class ChatArchiveModel: ObservableObject {
     private var tasks: [UUID: Task<Void, Never>] = [:]
     private var closed = false
 
-    init(session: AccountSession) {
-        self.session = session
-        let directory = URL.applicationSupportDirectory.appendingPathComponent("ChatArchives", isDirectory: true)
-        store = BipeChatArchiveStore(directory: directory, accountId: session.userId)
+    /// The phone keeps the markers in Application Support/ChatArchives; the Mac in the account's own data folder.
+    nonisolated static var defaultDirectory: URL { URL.applicationSupportDirectory.appendingPathComponent("ChatArchives", isDirectory: true) }
+
+    init(client: Client, userId: String, directory: URL = ChatArchiveModel.defaultDirectory) {
+        self.client = client
+        store = BipeChatArchiveStore(directory: directory, accountId: userId)
         reload()
     }
 
-    func contains(_ chat: ChatSummary) -> Bool { markers[chat.roomId] != nil }
+    func contains(_ chat: any ArchivableChat) -> Bool { markers[chat.roomId] != nil }
 
-    func set(_ chat: ChatSummary, archived: Bool) {
+    func set(_ chat: any ArchivableChat, archived: Bool) {
         let raw = max(0, (chat.lastActivity?.timeIntervalSince1970 ?? 0) * 1000).rounded()
         let marker = raw.isFinite && raw <= 9_007_199_254_740_991 ? Int64(raw) : nil
         let action = Action(roomId: chat.roomId, archived: archived, marker: archived ? marker : nil)
@@ -46,7 +59,7 @@ final class ChatArchiveModel: ObservableObject {
         else { enqueue(action) }
     }
 
-    func reconcile(_ chats: [ChatSummary]) {
+    func reconcile(_ chats: [any ArchivableChat]) {
         guard !closed else { return }
         latestChats = chats
         guard !failed else { return }
@@ -77,7 +90,7 @@ final class ChatArchiveModel: ObservableObject {
         } catch { storageFailed = true; failed = true }
     }
 
-    func retry(_ chats: [ChatSummary]) {
+    func retry(_ chats: [any ArchivableChat]) {
         reload()
         guard !storageFailed else { return }
         let actions = Array(failedActions.values)
@@ -99,7 +112,7 @@ final class ChatArchiveModel: ObservableObject {
             do {
                 _ = try store.loadState() // A failed read must never overwrite another marker.
                 if action.archived && action.marker == nil { throw Failure.invalidTimestamp }
-                guard let room = try? session.client.getRoom(roomId: action.roomId) else { throw Failure.unavailable }
+                guard let room = try? client.getRoom(roomId: action.roomId) else { throw Failure.unavailable }
                 let info = try await room.roomInfo()
                 guard info.membership == .joined, !info.isSpace else { throw Failure.unavailable }
                 try await room.setIsLowPriority(isLowPriority: action.archived, tagOrder: nil)
