@@ -262,6 +262,9 @@ enum class BipeScreen(val id: String) {
     /** Invite people to Bipe (flow invites). Spec: bipe-shared/product/screens/invites.json */
     INVITES("invites"),
 
+    /** Language and region (flow settings). Spec: bipe-shared/product/screens/language-region.json */
+    LANGUAGE_REGION("language-region"),
+
     /** Link a computer: approve natively (flow devices). Spec: bipe-shared/product/screens/link-computer-approve.json */
     LINK_COMPUTER_APPROVE("link-computer-approve"),
 

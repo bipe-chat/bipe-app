@@ -200,7 +200,14 @@
     <string name="bipe_charge_status_paid">Paid</string>
     <string name="bipe_charge_status_pending">Pending</string>
     <string name="bipe_settings_language">Language</string>
-    <string name="bipe_settings_language_footer">Choose Portuguese or English in Bipe\'s settings on this phone.</string>
+    <string name="bipe_settings_language_footer">News and notices from Bipe arrive in this language.</string>
+    <string name="bipe_settings_language_ios_footer">On iPhone, each app\'s language is in Settings. Tap a language to open Bipe\'s Settings.</string>
+    <string name="bipe_settings_language_region">Language and region</string>
+    <string name="bipe_settings_region">Region</string>
+    <string name="bipe_settings_region_footer">Your account and your data stay in Brazil, under Brazilian law. More regions come later.</string>
+    <string name="bipe_language_pt">Português (Brasil)</string>
+    <string name="bipe_language_en">English</string>
+    <string name="bipe_region_br">Brazil</string>
     <string name="bipe_settings_share_presence_footer">If you turn this off, nobody sees you typing and you don\'t see others typing. Read receipts always stay on.</string>
     <string name="bipe_about_steward">Data and servers stay in Brazil. Bipe is an experiment by Envisioning, a research institute.</string>
     <string name="bipe_signup_title">Create account</string>

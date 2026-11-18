@@ -1207,6 +1207,10 @@ public enum BipeRegistries {
     public static let mapsLiveDefaultDistanceMetres = 50
     public static let mapsLiveMinIntervalSeconds = 10
     public static let mapsLiveMaxIntervalSeconds = 120
+    /// Region ids (registries/regions.json, ADR 0197), in order. Each has the string bipe_region_<id>.
+    public static let regionIds: [String] = [
+        "br",
+    ]
 
     /// Verificar com gov.br (bipe-chat/bipe#544; registries/govbr.json). Rules: BipeGovbrFlow, test-vectors/govbr-verify.json.
     public static let govbrFileName = "bipe_verificacao.pdf"

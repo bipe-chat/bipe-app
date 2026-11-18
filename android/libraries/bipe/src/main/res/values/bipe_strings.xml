@@ -200,7 +200,14 @@
     <string name="bipe_charge_status_paid">Pago</string>
     <string name="bipe_charge_status_pending">Pendente</string>
     <string name="bipe_settings_language">Idioma</string>
-    <string name="bipe_settings_language_footer">Escolha entre português e inglês nas configurações do Bipe neste celular.</string>
+    <string name="bipe_settings_language_footer">Notícias e avisos do Bipe chegam neste idioma.</string>
+    <string name="bipe_settings_language_ios_footer">No iPhone, o idioma de cada app fica nos Ajustes. Toque em um idioma para abrir os Ajustes do Bipe.</string>
+    <string name="bipe_settings_language_region">Idioma e região</string>
+    <string name="bipe_settings_region">Região</string>
+    <string name="bipe_settings_region_footer">Sua conta e seus dados ficam no Brasil, sob a lei brasileira. Outras regiões chegam depois.</string>
+    <string name="bipe_language_pt">Português (Brasil)</string>
+    <string name="bipe_language_en">English</string>
+    <string name="bipe_region_br">Brasil</string>
     <string name="bipe_settings_share_presence_footer">Se desligar, ninguém te vê digitando e você não vê os outros digitando. A confirmação de leitura fica sempre ligada.</string>
     <string name="bipe_about_steward">Os dados e os servidores ficam no Brasil. O Bipe é um experimento da Envisioning, um instituto de pesquisa.</string>
     <string name="bipe_signup_title">Criar conta</string>
