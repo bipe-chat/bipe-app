@@ -33,6 +33,10 @@ struct BipeMacApp: App {
         WindowGroup(id: MacAppDelegate.mainWindowID) {
             MacRootView(workspace: workspace)
                 .frame(minWidth: 820, minHeight: 600)
+                // Spec room-link-open: a matrix: link from another app opens in this window. It waits in MacMatrixLinks
+                // until the chat list of the account shows.
+                .onOpenURL { url in _ = MacMatrixLinks.shared.offer(url) }
+                .handlesExternalEvents(preferring: ["*"], allowing: ["*"])
                 .preferredColorScheme(appearance == "light" ? .light : appearance == "dark" ? .dark : nil)
                 .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
                     SyncedSettings.refresh()

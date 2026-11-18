@@ -73,6 +73,10 @@ targets:
         CFBundleLocalizations: [pt-BR, en]
         LSApplicationCategoryType: public.app-category.social-networking
         NSHumanReadableCopyright: Copyright 2026 Bipe contributors
+        # Spec room-link-open: matrix: links from other apps open in Bipe.
+        CFBundleURLTypes:
+          - CFBundleURLName: chat.bipe.matrix
+            CFBundleURLSchemes: [matrix]
     settings:
       base:
         PRODUCT_NAME: Bipe
