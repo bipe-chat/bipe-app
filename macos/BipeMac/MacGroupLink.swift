@@ -282,3 +282,92 @@ struct MacGroupLinkOpenSheet: View {
         }
     }
 }
+
+/// Spec room-link-open: a matrix.to or matrix: link tapped in a message opens in the app. User links fall through to
+/// the system, because the Mac has no person profile yet (bipe-chat/bipe#1225).
+@MainActor
+final class MacMatrixLinks: ObservableObject {
+    static let shared = MacMatrixLinks()
+    @Published var pending: RoomLink?
+
+    /// `true` when `url` is a room, alias or event link, which then opens in the app.
+    func offer(_ url: URL) -> Bool {
+        guard let link = RoomLink(url: url) else { return false }
+        pending = link
+        return true
+    }
+}
+
+/// Spec room-link-open: the group of a link, from the shared RoomLinkOpenModel. A group the person is in opens at once.
+struct MacRoomLinkOpenSheet: View {
+    @StateObject private var model: RoomLinkOpenModel
+    @ObservedObject var media: MacMedia
+    private let eventID: String?
+    /// Opens the chat of the room, at the event of an event link.
+    let opened: (_ roomID: String, _ eventID: String?) -> Void
+    let close: () -> Void
+
+    init(client: Client, link: RoomLink, media: MacMedia, opened: @escaping (_ roomID: String, _ eventID: String?) -> Void,
+         close: @escaping () -> Void) {
+        _model = StateObject(wrappedValue: RoomLinkOpenModel(client: client, link: link))
+        self.media = media
+        eventID = link.eventId
+        self.opened = opened
+        self.close = close
+    }
+
+    var body: some View {
+        VStack(spacing: MacDesign.gap) {
+            switch model.phase {
+            case .loading:
+                ProgressView()
+                Text(BipeStrings.appRoomLinkOpening).macFont(.body).foregroundStyle(BipeColor.inkSecondary)
+            case .preview, .knockSent, .inviteOnly:
+                MacAvatar(name: model.name, media: media, url: model.avatarUrl, userID: nil, members: [], size: 72)
+                Text(model.name).macFont(.title2).fontWeight(.semibold).multilineTextAlignment(.center)
+                Text(BipeStrings.appRoomLinkMembers(String(model.memberCount))).macFont(.body).foregroundStyle(BipeColor.inkSecondary)
+                if let topic = model.topic {
+                    Text(topic).macFont(.subheadline).foregroundStyle(BipeColor.inkSecondary)
+                        .multilineTextAlignment(.center).lineLimit(4)
+                }
+                status
+            case .notFound:
+                Text(BipeStrings.appRoomLinkNotFound).macFont(.body).multilineTextAlignment(.center)
+            case .failed:
+                Text(BipeStrings.errorNetwork).macFont(.body).multilineTextAlignment(.center)
+                Button(BipeStrings.appRetry) { Task { await open() } }.buttonStyle(.bipeProminent)
+            }
+            HStack {
+                Spacer()
+                Button(BipeStrings.appClose, action: close).keyboardShortcut(.cancelAction)
+            }
+        }
+        .padding(MacDesign.gap * 2)
+        .frame(width: 400)
+        .accessibilityIdentifier(BipeScreen.roomLinkOpen.rawValue)
+        .task { await open() }
+    }
+
+    @ViewBuilder private var status: some View {
+        switch model.phase {
+        case .knockSent:
+            Text(BipeStrings.appRoomLinkKnockSent).macFont(.body).multilineTextAlignment(.center)
+        case .inviteOnly:
+            Text(BipeStrings.appRoomLinkInviteOnly).macFont(.body).multilineTextAlignment(.center)
+        default:
+            if model.canKnock {
+                Button(BipeStrings.appRoomLinkKnock) { Task { await model.knock() } }
+                    .buttonStyle(.bipeProminent).disabled(model.busy)
+            } else {
+                Button(BipeStrings.appRoomLinkJoin) {
+                    Task { if let roomID = await model.join() { opened(roomID, eventID) } }
+                }
+                .buttonStyle(.bipeProminent).disabled(model.busy)
+            }
+        }
+    }
+
+    private func open() async {
+        if let roomID = await model.open() { opened(roomID, eventID) }
+    }
+}

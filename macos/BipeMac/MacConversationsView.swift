@@ -29,6 +29,7 @@ struct MacConversationsView: View {
     @State private var groupLinkRoom: String?
     @State private var canMakeGroupLink = false
     @ObservedObject private var groupLinks = MacGroupLinks.shared
+    @ObservedObject private var matrixLinks = MacMatrixLinks.shared
 
     /// The account keeps the open chat of each destination, so switching destinations comes back to it.
     private var selectedRoom: Binding<String?> {
@@ -154,6 +155,24 @@ struct MacConversationsView: View {
                     account.destination = .groups
                 }
             }, close: { groupLinks.pending = nil })
+        }
+        // Spec room-link-open: a matrix.to or matrix: link tapped in a message, in the destination on screen.
+        .sheet(item: Binding(get: { account.destination == scope ? matrixLinks.pending : nil },
+                             set: { if $0 == nil { matrixLinks.pending = nil } })) { link in
+            if let client = account.client {
+                MacRoomLinkOpenSheet(client: client, link: link, media: account.media, opened: { room, eventID in
+                    matrixLinks.pending = nil
+                    // Spec room-link-open notes: an event link opens the chat at the message, as chat-search openMessage.
+                    account.messageFocus = eventID.map { MacMessageFocus(roomID: room, eventID: $0) }
+                    let isGroup = list.rows.first(where: { $0.id == room })?.isDm == false
+                    if account.isCompany || scope == .groups || !isGroup {
+                        openChat(room)
+                    } else {
+                        account.selectedRooms[.groups] = room
+                        account.destination = .groups
+                    }
+                }, close: { matrixLinks.pending = nil })
+            }
         }
         .sheet(isPresented: Binding(get: { notificationsRoom != nil }, set: { if !$0 { notificationsRoom = nil } })) {
             if let row = list.rows.first(where: { $0.id == notificationsRoom }) {
