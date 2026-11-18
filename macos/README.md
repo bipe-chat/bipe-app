@@ -33,17 +33,19 @@ The conversation sidebar keeps a 300 to 440 pt width, with 360 pt preferred. Sea
 
 ## Remaining parity gaps
 
-The Mac is still a preview. The 177-capability ledger includes partial implementations as planned until their full behavior and evidence exist.
+The Mac is still a preview. The 183-capability ledger includes partial implementations as planned until their full behavior and evidence exist.
 
 | Area | Still missing or incomplete | Tracking |
 | --- | --- | --- |
 | Desktop and account lifecycle | App lock and PIN, theft protection, changing recovery email, linked accounts or recovery key, signing out another device, old messages, the remaining rows of Privacy, Chats and Help, updater and notarized distribution; cross-device/offline/revocation acceptance | #1161, #1165 |
-| Conversations | Full search, receipts/ticks, chat/person details, profile/invite/Matrix routing, Mural and assistant drafts; remaining cross-device messaging/request acceptance | #1162 |
+| Conversations | Delivered ticks, chat/person details, profile and invite routing, DM delete, archive restore on new messages, Mural and assistant drafts; remaining cross-device messaging/request acceptance | #1162 |
 | Groups | Creation/details/membership, roles/moderation, group links/privacy, threads, polls and communities | #1163 |
-| Media | Video device acceptance, voice, gallery, full media settings/invite photos, stickers, location, bulk attachments, share integrations and cross-client file acceptance | #1164 |
-| Identity and safety | Complete profiles, verification/attestation/marks, invites/contacts, account/device/privacy settings, support/report/export/delete flows and all safety surfaces | #1165 |
+| Media | Video device acceptance, voice recording and playback, gallery, storage and data use, stickers, location, bulk attachments, share integrations and cross-client file acceptance | #1164 |
+| Identity and safety | Complete profiles and the person-seal sheet, company marks, invites/contacts, handle changes, account/device/privacy settings, support/report/export/delete flows, theft protection and photo match | #1165 |
 | Work | The current screen is a read-only overview; operational tool screens/actions, roles/people/devices, catalog/order/quote/agenda/queue/payment editors remain. The inbox/key-model merge retains #1066 as its own prerequisite | #1166 |
 | Desktop attention | Audio/video/group calls, screen sharing, notification actions, full sender-photo parity and lifecycle acceptance, the sound, preview and work hours rows of Notifications, and work focus/time behavior | #1167 |
+
+Since 17 November 2026 (MZ lifted the ADR 0288 pause for parity work) the Mac also has: the typing line and the presence switch; pinned messages; message search through the SDK index, in every chat and in one chat, with recent queries; jump to a date with a read-only day view; forward with the chat limit and the forward line, and selection mode for forward and delete; the identity change bar with send anyway; the blocked and left bars of a DM and invite again; the copied notice and the no-permission bar; official badges and seal levels next to names; matrix.to and matrix: links to rooms and messages; and the request photos switch. The ledger in bipe-shared `product/parity.json` holds the status and evidence of each.
 
 The timeline shows the date separators, the chat start, call lines and group state lines in the two pill styles of spec timeline-rows, from the same `TimelinePill`, `CallLines` and `StateLines` as iOS. The SDK's unread marker, quote states and timestamp views come from the shared Apple `TimelineDetails`. Handle-change lines remain in #1165. Mac CI checks that both workflow filters cover every Swift file the Mac project compiles from the iOS app.
 
