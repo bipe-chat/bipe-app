@@ -30,6 +30,8 @@ final class MacRoomList: ObservableObject {
     private var known: [String: BipeRowActivity.Row] = [:]
     /// The local timeline events of each row (spec chat-list, row text; shared with iOS).
     private var rowActivity: RowActivityScanner?
+    /// Spec read-receipts (ADR 0222): the delivered acks of this account, sent and received while the list runs.
+    private var delivered: DeliveredAcks?
     private var pendingFavourite: [String: Bool] = [:]
     private var orderUnsaved = false
     /// The drafts room (ADR 0210, ADR 0291): it holds drafts and device entries, never a chat.
@@ -42,6 +44,11 @@ final class MacRoomList: ObservableObject {
         rowActivity = RowActivityScanner(client: client, preview: { event, _, isDm in
             MacRoomSummary.rowPreview(event, isDm: isDm)
         }) { [weak self] in self?.rebuild() }
+        let delivered = DeliveredAcks(client: client, ownUserId: ownUserID)
+        self.delivered = delivered
+        rowActivity?.onDmIncoming = { room, eventID, sender in
+            Task { await delivered.send(room: room, eventId: eventID, sender: sender) }
+        }
         let generation = generation
         subscriptions = BipeRoomSubscriptions { try await service.subscribeToRooms(roomIds: $0) }
         let list = try await service.allRooms()
@@ -68,7 +75,11 @@ final class MacRoomList: ObservableObject {
                         }
                         self.rooms[index].apply(update.vectorDiff)
                     }
-                    if index == 0 { self.loaded = true }
+                    if index == 0 {
+                        self.loaded = true
+                        // A first DM can come after attach: the ack receiver binds to it (no work while one runs).
+                        Task { await delivered.start() }
+                    }
                     self.rebuild()
                     if index == 1 {
                         self.orderReadTask?.cancel()
@@ -95,6 +106,8 @@ final class MacRoomList: ObservableObject {
         subscriptions = nil
         client = nil
         rowActivity = nil
+        if let delivered { Task { await delivered.stop() } }
+        delivered = nil
         rooms = [[], [], []]; rows = []; known = [:]; pendingFavourite = [:]; hiddenRoomIDs = []
         loaded = false; failed = false; actionFailed = false; busy = []
         favouritesOrder = []; orderUnsaved = false
