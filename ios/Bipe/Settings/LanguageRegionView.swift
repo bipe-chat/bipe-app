@@ -3,6 +3,7 @@
 // Copyright 2026 Bipe contributors
 
 import BipeKit
+import Phosphor
 import SwiftUI
 import UIKit
 
@@ -36,6 +37,7 @@ enum AppLanguageChoice: String, CaseIterable {
     }
 
     /// Action selectLanguage: iOS restarts the app after a change in Settings.
+    @MainActor
     static func select(_ choice: AppLanguageChoice) {
         guard choice != current, let url = URL(string: UIApplication.openSettingsURLString) else { return }
         BipeHaptics.play(.tick)

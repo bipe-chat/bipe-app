@@ -482,7 +482,8 @@ function GroupScreen({ group, onBack }: { group: Group; onBack: () => void }) {
 function footerOf(section: ReturnType<typeof webSections>[number]): string | undefined {
   if ('footer' in section && section.footer) return s(key(section.footer));
   const row = section.rows.length === 1 ? section.rows[0] : undefined;
-  return row && 'footer' in row && row.footer ? s(key(row.footer)) : undefined;
+  // The JSON import types footer as {} once a single-row section has one; it is a string key.
+  return row && 'footer' in row && row.footer ? s(key(String(row.footer))) : undefined;
 }
 
 /**
