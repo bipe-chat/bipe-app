@@ -37,10 +37,23 @@ final class MacRoomList: ObservableObject {
     /// The drafts room (ADR 0210, ADR 0291): it holds drafts and device entries, never a chat.
     private var hiddenRoomIDs: Set<String> = []
 
-    func attach(client: Client, service: RoomListService, ownUserID: String) async throws {
+    /// Spec chat-archive (archive-sync): the archive markers of this account. A new message from someone else after
+    /// the archive brings the chat back, on every device, through the shared rule (BipeChatArchive.reconcile).
+    private(set) var archive: ChatArchiveModel?
+    private var archiveFailure: AnyCancellable?
+
+    /// `archiveDirectory`: the folder of the account's archive markers; nil keeps the archive without markers.
+    func attach(client: Client, service: RoomListService, ownUserID: String, archiveDirectory: URL? = nil) async throws {
         reset()
         self.client = client
         self.ownUserID = ownUserID
+        if let archiveDirectory {
+            let archive = ChatArchiveModel(client: client, userId: ownUserID, directory: archiveDirectory)
+            self.archive = archive
+            archiveFailure = archive.$failed.removeDuplicates().sink { [weak self] failed in
+                if failed { self?.actionFailed = true }
+            }
+        }
         rowActivity = RowActivityScanner(client: client, preview: { event, _, isDm in
             MacRoomSummary.rowPreview(event, isDm: isDm)
         }) { [weak self] in self?.rebuild() }
@@ -108,6 +121,7 @@ final class MacRoomList: ObservableObject {
         rowActivity = nil
         if let delivered { Task { await delivered.stop() } }
         delivered = nil
+        archive?.close(); archive = nil; archiveFailure = nil
         rooms = [[], [], []]; rows = []; known = [:]; pendingFavourite = [:]; hiddenRoomIDs = []
         loaded = false; failed = false; actionFailed = false; busy = []
         favouritesOrder = []; orderUnsaved = false
@@ -154,9 +168,15 @@ final class MacRoomList: ObservableObject {
         } catch { actionFailed = true }
     }
 
-    /// Spec chat-row-actions archive. The SDK tag is the archive on every client.
+    /// Spec chat-row-actions archive. The SDK tag is the archive on every client; the shared archive model writes it
+    /// with the row's marker, so a later message from someone else brings the chat back.
     func setArchived(_ row: MacRoomSummary, value: Bool) async {
-        busy.insert(row.id); actionFailed = false
+        actionFailed = false
+        if let archive {
+            archive.set(row, archived: value)
+            return
+        }
+        busy.insert(row.id)
         defer { busy.remove(row.id) }
         do { try await row.room.setIsLowPriority(isLowPriority: value, tagOrder: nil) }
         catch { actionFailed = true }
@@ -228,6 +248,7 @@ final class MacRoomList: ObservableObject {
             guard !Task.isCancelled, self.generation == generation, let client = self.client else { return }
             let visible = await MacDmSelection.visible(rows, client: client)
             guard !Task.isCancelled, self.generation == generation else { return }
+            self.archive?.reconcile(visible)
             self.rows = visible
             self.onRows?(visible)
             await self.subscriptions?.update(owner: "lists", roomIDs: combined.map { $0.id() })

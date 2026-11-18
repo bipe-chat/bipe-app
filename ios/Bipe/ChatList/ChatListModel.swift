@@ -8,7 +8,7 @@ import Foundation
 import MatrixRustSDK
 
 /// Type ChatSummary of spec chat-list.
-struct ChatSummary: Identifiable, Equatable {
+struct ChatSummary: Identifiable, Equatable, ArchivableChat {
     var roomId: String
     var name: String
     var avatarUrl: String?
@@ -108,7 +108,7 @@ final class ChatListModel: ObservableObject {
 
     init(session: AccountSession) {
         self.session = session
-        archive = ChatArchiveModel(session: session)
+        archive = ChatArchiveModel(client: session.client, userId: session.userId)
         media = MediaLoader(client: session.client)
         notes = NotesRoom(session: session)
         delivered = DeliveredAcks(client: session.client, ownUserId: session.userId)

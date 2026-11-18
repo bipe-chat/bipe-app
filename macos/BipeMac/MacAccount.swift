@@ -341,7 +341,12 @@ final class MacAccount: ObservableObject {
         phase = .signedIn
         onReady?()
         Task { await refreshProfile() }
-        try await roomList.attach(client: client, service: sync.roomListService(), ownUserID: userId)
+        // Spec chat-archive: the archive markers live in the account's data folder, which sign-out removes.
+        let archiveDirectory = (try? vault.load(userID: userId))
+            .flatMap { try? Self.paths(folder: $0.folder) }
+            .map { $0.data.appendingPathComponent("ChatArchives", isDirectory: true) }
+        try await roomList.attach(client: client, service: sync.roomListService(), ownUserID: userId,
+                                  archiveDirectory: archiveDirectory)
         guard attempt == current else { return }
         // ADR 0291: this Mac's device entry, on link and on each start when a field changed. The drafts room that
         // holds it stays out of the chat list.

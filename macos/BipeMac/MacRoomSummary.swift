@@ -145,3 +145,11 @@ struct MacRoomSummary: Identifiable {
         }
     }
 }
+
+/// Spec chat-archive (archive-sync, bipe#662): the row facts the shared ChatArchiveModel reconciles.
+extension MacRoomSummary: ArchivableChat {
+    var roomId: String { id }
+    var lastActivity: Date? { date }
+    var isLowPriority: Bool { isArchived }
+    var latestIncomingMs: Int64? { activity.latestIncomingMs.map { Int64(clamping: $0) } }
+}
