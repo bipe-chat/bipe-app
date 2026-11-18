@@ -5,7 +5,7 @@
 // The parts of bipe-shared registries.json that the web reads. Vite imports each top-level key on its
 // own, so the bundle holds only these.
 
-import { homeScore, officialAccounts, settings } from './bipe/generated/registries.json';
+import { homeScore, officialAccounts, regions, settings } from './bipe/generated/registries.json';
 
 /** registries/official-accounts.json: the full Matrix user ID is the only proof (ADR 0117). */
 export function isOfficial(userId: string | undefined): boolean {
@@ -18,3 +18,6 @@ export function isGroupsAccount(userId: string | undefined): boolean {
 }
 
 export { homeScore, settings };
+
+/** Region ids of registries/regions.json (ADR 0197), in order. Each has the string bipe_region_<id>. */
+export const REGION_IDS: string[] = regions.regions.map((r) => r.id);

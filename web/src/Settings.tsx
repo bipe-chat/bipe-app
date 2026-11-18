@@ -20,14 +20,14 @@ import { useDeviceList } from './devices';
 import { DeviceDetail, DeviceSections, devicesSummary } from './DevicesSettings';
 import type { DeviceRow } from './shared-rules';
 import { Spinner } from './ui/Spinner';
-import { settings } from './registries';
+import { REGION_IDS, settings } from './registries';
 import { useAccounts } from './accounts-context';
 import { Alert } from './ui/Alert';
 import { RecoveryState, VerificationState } from './generated/matrix_sdk_ffi';
 import { EncryptionSheet, useEncryptionState } from './Encryption';
 import type { StringKey } from './bipe/generated/strings';
 import { Avatar } from './ui/Avatar';
-import { locale, s } from './ui/i18n';
+import { languageChoice, locale, s, selectLanguage, type LanguageChoice } from './ui/i18n';
 import { Icon } from './ui/Icon';
 import { NavBar, Row, Section } from './ui/List';
 
@@ -53,8 +53,8 @@ const LOCAL_SWITCHES: Record<string, string> = {
   sound: 'bipe.web.notifications.sound',
   preview: 'bipe.web.notifications.preview',
 };
-// Rows the web draws itself: Nome e foto, Tema (choice), Cores (link).
-const WEB_ROWS = new Set(['namePhoto', 'appearance', 'colors', 'mural']);
+// Rows the web draws itself: Nome e foto, Tema (choice), Cores, Idioma and Região (links).
+const WEB_ROWS = new Set(['namePhoto', 'appearance', 'colors', 'mural', 'language', 'region']);
 
 function webRow(row: SettingsRow): boolean {
   // A planned: gate hides a row until the apps ship its handler (chats.mural, bipe-chat/bipe#1044).
@@ -350,7 +350,7 @@ function GroupScreen({ group, onBack }: { group: Group; onBack: () => void }) {
   const [signingOut, setSigningOut] = useState<'one' | 'all'>();
   const accountCount = useAccounts().accounts.list.length;
   const [showsEncryption, setShowsEncryption] = useState(false);
-  const [sub, setSub] = useState<'profile' | 'colors' | { device: DeviceRow }>();
+  const [sub, setSub] = useState<'profile' | 'colors' | 'languageRegion' | { device: DeviceRow }>();
   const client = useClient();
   const encryption = useEncryptionState(client);
   const isDevices = group.key === 'devices';
@@ -358,6 +358,7 @@ function GroupScreen({ group, onBack }: { group: Group; onBack: () => void }) {
   if (showsEncryption) return <EncryptionSheet state={encryption} onClose={() => setShowsEncryption(false)} />;
   if (sub === 'profile') return <ProfileEdit onBack={() => setSub(undefined)} />;
   if (sub === 'colors') return <ColorsScreen onBack={() => setSub(undefined)} />;
+  if (sub === 'languageRegion') return <LanguageRegionScreen onBack={() => setSub(undefined)} />;
   if (typeof sub === 'object') {
     const rows = deviceList.list.phase === 'loaded' ? deviceList.list.rows : [];
     // A device that left the list keeps the row it was opened with.
@@ -389,6 +390,21 @@ function GroupScreen({ group, onBack }: { group: Group; onBack: () => void }) {
                     onClick={() => setSub(row.key === 'namePhoto' ? 'profile' : 'colors')}
                   >
                     <span className="min-w-0 flex-1 text-body text-ink-primary">{s(key(row.title))}</span>
+                    <Icon path={caretRight} size={16} className="text-glyph-secondary" />
+                  </button>
+                </li>
+              ) : row.key === 'language' || row.key === 'region' ? (
+                // Spec language-region: both rows open the same screen.
+                <li key={row.key}>
+                  <button
+                    type="button"
+                    className="flex min-h-11 w-full items-center gap-2 px-4 text-left hover:bg-surface-sunken"
+                    onClick={() => setSub('languageRegion')}
+                  >
+                    <span className="min-w-0 flex-1 text-body text-ink-primary">{s(key(row.title))}</span>
+                    <span className="text-body text-ink-secondary">
+                      {row.key === 'language' ? languageTitle(languageChoice()) : s(key(`bipe_region_${REGION_IDS[0]}`))}
+                    </span>
                     <Icon path={caretRight} size={16} className="text-glyph-secondary" />
                   </button>
                 </li>
@@ -466,7 +482,8 @@ function GroupScreen({ group, onBack }: { group: Group; onBack: () => void }) {
 function footerOf(section: ReturnType<typeof webSections>[number]): string | undefined {
   if ('footer' in section && section.footer) return s(key(section.footer));
   const row = section.rows.length === 1 ? section.rows[0] : undefined;
-  return row && 'footer' in row && row.footer ? s(key(row.footer)) : undefined;
+  // The JSON import types footer as {} once a single-row section has one; it is a string key.
+  return row && 'footer' in row && row.footer ? s(key(String(row.footer))) : undefined;
 }
 
 /**
@@ -542,6 +559,50 @@ function AppearanceRows() {
         </Row>
       ))}
     </>
+  );
+}
+
+function languageTitle(choice: LanguageChoice): string {
+  return choice === 'pt' ? s('bipe_language_pt') : choice === 'en' ? s('bipe_language_en') : s('bipe_web_appearance_system');
+}
+
+// Spec language-region (ADR 0197, ADR 0298): the language of this browser and the account region. With one region in
+// registries/regions.json every account is in it, and the row is not a button.
+function LanguageRegionScreen({ onBack }: { onBack: () => void }) {
+  const current = languageChoice();
+  const choices: LanguageChoice[] = ['system', 'pt', 'en'];
+  return (
+    <div className="flex h-full min-h-0 flex-col bg-grouped-screen">
+      <NavBar title={s('bipe_settings_language_region')} onBack={onBack} />
+      <div className="mx-auto flex w-full max-w-[640px] min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-4 pt-2 pb-6">
+        <Section header={s('bipe_settings_language')} footer={s('bipe_settings_language_footer')}>
+          {choices.map((choice) => (
+            <Row key={choice}>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={current === choice}
+                className="flex min-w-0 flex-1 items-center gap-2 py-1 text-left"
+                onClick={() => selectLanguage(choice)}
+              >
+                <span className="flex-1 text-body text-ink-primary">{languageTitle(choice)}</span>
+                {current === choice && <Icon path={check} size={18} className="text-accent-ink" />}
+              </button>
+            </Row>
+          ))}
+        </Section>
+        <Section header={s('bipe_settings_region')} footer={s('bipe_settings_region_footer')}>
+          {REGION_IDS.map((id, i) => (
+            <Row key={id}>
+              <span className="flex min-w-0 flex-1 items-center gap-2 py-1">
+                <span className="flex-1 text-body text-ink-primary">{s(key(`bipe_region_${id}`))}</span>
+                {i === 0 && <Icon path={check} size={18} className="text-accent-ink" />}
+              </span>
+            </Row>
+          ))}
+        </Section>
+      </div>
+    </div>
   );
 }
 

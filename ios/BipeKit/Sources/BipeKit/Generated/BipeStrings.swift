@@ -504,6 +504,20 @@ public enum BipeStrings {
 
     public static var settingsLanguageFooter: String { NSLocalizedString("bipe_settings_language_footer", tableName: "Bipe", bundle: .module, comment: "") }
 
+    public static var settingsLanguageIosFooter: String { NSLocalizedString("bipe_settings_language_ios_footer", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var settingsLanguageRegion: String { NSLocalizedString("bipe_settings_language_region", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var settingsRegion: String { NSLocalizedString("bipe_settings_region", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var settingsRegionFooter: String { NSLocalizedString("bipe_settings_region_footer", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var languagePt: String { NSLocalizedString("bipe_language_pt", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var languageEn: String { NSLocalizedString("bipe_language_en", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var regionBr: String { NSLocalizedString("bipe_region_br", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var settingsSharePresenceFooter: String { NSLocalizedString("bipe_settings_share_presence_footer", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var aboutSteward: String { NSLocalizedString("bipe_about_steward", tableName: "Bipe", bundle: .module, comment: "") }

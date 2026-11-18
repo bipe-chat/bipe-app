@@ -307,6 +307,19 @@ struct SettingsGroupView: View {
             } label: {
                 SettingsRowLabel(title: row.title)
             }
+        // Spec language-region: both rows open the same screen.
+        case .chatsLanguage:
+            NavigationLink {
+                LanguageRegionView()
+            } label: {
+                SettingsRowLabel(title: row.title, value: AppLanguageChoice.current.title, footer: row.footer)
+            }
+        case .accountRegion:
+            NavigationLink {
+                LanguageRegionView()
+            } label: {
+                SettingsRowLabel(title: row.title, value: AppRegion.title(AppRegion.current), footer: row.footer)
+            }
         // bipe#676: appearance and media quality, kept on the phone.
         case .chatsAppearance:
             NavigationLink {
@@ -455,10 +468,6 @@ struct SettingsGroupView: View {
             showsEmail = true
         case .privacyExport:
             Task { await export.start() }
-        case .chatsLanguage:
-            if let url = URL(string: UIApplication.openSettingsURLString) {
-                UIApplication.shared.open(url)
-            }
         default:
             // The screens of the other rows come with their own specs (see settings-group notes).
             break

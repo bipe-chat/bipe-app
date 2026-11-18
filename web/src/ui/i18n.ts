@@ -2,13 +2,39 @@
 // Additional permission: APP-STORE-PERMISSION.md (AGPL section 7)
 // Copyright 2026 Bipe contributors
 
-// UI text and dates. The apps follow the system language; the web follows the browser's.
-// pt-BR is the default, English only when the browser asks for it first.
+// UI text and dates. The language is the choice of spec language-region (Idioma) in this browser, else the
+// browser's: pt-BR is the default, English only when the browser asks for it first.
 
 import { t, type Locale, type StringKey } from '../bipe/generated/strings';
 
+export type LanguageChoice = 'system' | 'pt' | 'en';
+const LANGUAGE_KEY = 'bipe.settings.language';
+
+/** The stored choice of spec language-region; system when there is none. */
+export function languageChoice(): LanguageChoice {
+  try {
+    const value = localStorage.getItem(LANGUAGE_KEY);
+    return value === 'pt' || value === 'en' ? value : 'system';
+  } catch {
+    return 'system';
+  }
+}
+
+/** Action selectLanguage: stores the choice and reloads the page, which reads it at start. */
+export function selectLanguage(choice: LanguageChoice) {
+  if (choice === languageChoice()) return;
+  try {
+    if (choice === 'system') localStorage.removeItem(LANGUAGE_KEY);
+    else localStorage.setItem(LANGUAGE_KEY, choice);
+  } catch {
+    return;
+  }
+  location.reload();
+}
+
 const first = (navigator.languages?.[0] ?? navigator.language ?? '').toLowerCase();
-export const locale: Locale = first.startsWith('en') ? 'en' : 'pt-BR';
+const chosen = languageChoice();
+export const locale: Locale = chosen === 'en' || (chosen === 'system' && first.startsWith('en')) ? 'en' : 'pt-BR';
 document.documentElement.lang = locale;
 
 /** The string of key, with %1$s, %2$s, ... replaced by args. */

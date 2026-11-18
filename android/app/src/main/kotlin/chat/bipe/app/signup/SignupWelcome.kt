@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
@@ -39,6 +40,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -64,7 +68,12 @@ import chat.bipe.app.BipeTheme
 import chat.bipe.app.common.AppConfig
 import chat.bipe.app.common.BipeMarkShape
 import chat.bipe.app.common.appVersionDisplay
+import chat.bipe.app.settings.AppLanguage
+import chat.bipe.app.settings.AppRegion
+import chat.bipe.app.settings.LanguageRegionScreen
 import chat.bipe.app.settings.openPage
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import chat.bipe.phosphor.PhosphorIcon
 import chat.bipe.shared.BipeLegalLinks
 import chat.bipe.shared.R
@@ -193,6 +202,26 @@ private fun WelcomeCover(
             ) {
                 Text(stringResource(R.string.bipe_onboarding_learn_more), style = MaterialTheme.typography.titleSmall, color = colors.inkOnAccent)
                 Icon(painterResource(PhosphorIcon.CARET_RIGHT.drawable), contentDescription = null, tint = colors.inkOnAccent, modifier = Modifier.size(14.dp))
+            }
+            // Action openLanguageRegion: the app language and the region, for example "Português · Brasil".
+            var showsLanguageRegion by remember { mutableStateOf(false) }
+            val languageRegionLabel = stringResource(R.string.bipe_settings_language_region)
+            Text(
+                stringResource(AppLanguage.shownTitle(context)) + " · " + AppRegion.title(context, AppRegion.current),
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.inkOnAccent,
+                modifier = Modifier
+                    .heightIn(min = 48.dp)
+                    .clickable(role = Role.Button, onClickLabel = languageRegionLabel) { showsLanguageRegion = true }
+                    .wrapContentHeight(Alignment.CenterVertically),
+            )
+            if (showsLanguageRegion) {
+                Dialog(
+                    onDismissRequest = { showsLanguageRegion = false },
+                    properties = DialogProperties(usePlatformDefaultWidth = false),
+                ) {
+                    LanguageRegionScreen(onBack = { showsLanguageRegion = false })
+                }
             }
             // The build that runs, small and quiet, for testers (same text as bipe_help_version in Settings).
             Text(appVersionDisplay(context), style = MaterialTheme.typography.labelSmall, color = colors.inkOnAccent.copy(alpha = 0.6f))
