@@ -28,6 +28,7 @@ import chat.bipe.desktop.chat.*
 import chat.bipe.shared.generated.BipeReactions
 import java.text.NumberFormat
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 
 private data class MessageCommand(val label: String, val enabled: Boolean, val icon: String,
                                   val danger: Boolean = false, val run: () -> Unit)
@@ -36,9 +37,10 @@ private data class MessageCommand(val label: String, val enabled: Boolean, val i
 @OptIn(ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class)
 @Composable internal fun MessageSurface(model: DesktopTimeline, row: MessageRow, seconds: Int, highlighted: Boolean,
                                        popup: TimelinePopup?, show: (TimelinePopup?) -> Unit, s: DesktopCatalog,
-                                       colors: DesktopColors, replyEnabled: Boolean, focusComposer: () -> Unit, copied: () -> Unit,
+                                       colors: DesktopColors, replyEnabled: Boolean, isGroup: Boolean, focusComposer: () -> Unit, copied: () -> Unit,
                                        content: @Composable () -> Unit) {
     val clipboard = LocalClipboardManager.current
+    val scope = rememberCoroutineScope()
     val focus = remember { FocusRequester() }
     val deletePermission by model.deletion.permission.collectAsState()
     val deletePhase by model.deletion.phase.collectAsState()
@@ -59,6 +61,16 @@ private data class MessageCommand(val label: String, val enabled: Boolean, val i
             s.text("bipe_pause_countdown", NumberFormat.getIntegerInstance().format(seconds)) else s.text("bipe_app_copy"), seconds == 0, "copy") {
             model.copyText(row.id)?.let { clipboard.setText(AnnotatedString(it)); copied() }
         })
+        if (isGroup) row.linkEventId?.let { eventId ->
+            add(MessageCommand(s.text("bipe_app_message_action_copy_link"), true, "link") {
+                scope.launch {
+                    model.messageLink(row.id, eventId)?.let { link ->
+                        clipboard.setText(AnnotatedString(link))
+                        copied()
+                    }
+                }
+            })
+        }
         if (deletePermission is DeletePermission.Ready && deletePhase !is DeletePhase.Deleting && editing !is EditPhase.Saving) {
             model.deletion.candidate(row.id)?.let { intent ->
                 add(MessageCommand(s.text("bipe_app_message_action_delete"), true, "trash", danger = true) { show(TimelinePopup.DeleteConfirm(intent)) })

@@ -155,6 +155,25 @@ class DesktopTimeline private constructor(
         return result
     }
 
+    /** The Matrix SDK supplies the permalink, including its routing information. */
+    suspend fun messageLink(rowId: String, eventId: String): String? = try {
+        group.async {
+            if (currentRow(rowId)?.linkEventId != eventId) return@async null
+            val info = room.roomInfo()
+            val joinedGroup = try { info.membership == Membership.JOINED && !info.isDm && !info.isSpace }
+                finally { info.destroy() }
+            if (!joinedGroup) return@async null
+            group.requireCurrent()
+            val link = room.matrixToEventPermalink(eventId)
+            group.requireCurrent()
+            link.takeIf { currentRow(rowId)?.linkEventId == eventId }
+        }.await()
+    } catch (cancelled: CancellationException) {
+        throw cancelled
+    } catch (_: Exception) {
+        null
+    }
+
     suspend fun replyDetails(eventId: String): MessageQuote = group.async {
         val details = timeline.loadReplyDetails(eventId)
         try { quote(details) } finally { details.destroy() }

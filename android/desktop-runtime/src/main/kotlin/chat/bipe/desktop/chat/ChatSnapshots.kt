@@ -47,6 +47,9 @@ data class MessageRow(
     /** Kind MEDIA only: the photo, video, sticker, file or voice message. */
     val media: MessageMedia? = null,
 ) {
+    val linkEventId: String?
+        get() = eventId?.takeIf { delivery == Delivery.SENT && (kind == Kind.TEXT || kind == Kind.MEDIA) }
+
     enum class Kind { TEXT, MEDIA, UNDECRYPTABLE, DELETED, UNSUPPORTED }
     enum class Delivery { SENT, SENDING, FAILED }
 }

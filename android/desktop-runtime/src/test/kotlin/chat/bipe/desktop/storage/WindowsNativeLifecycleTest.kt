@@ -169,6 +169,10 @@ class WindowsNativeLifecycleTest {
                 val original = (timeline.rows.value as LoadPhase.Ready).value.single { it.body == "Synthetic lifecycle message" }
                 assertTrue(original.canReply)
                 assertEquals("@peer:example.test", original.senderId)
+                val messageLink = checkNotNull(timeline.messageLink(original.id, "\$message"))
+                val decodedLink = java.net.URLDecoder.decode(messageLink, Charsets.UTF_8)
+                assertTrue(decodedLink.startsWith("https://matrix.to/#/$room/\$message"))
+                assertNull(timeline.messageLink(original.id, "\$edit-own"))
                 assertTrue((timeline.rows.value as LoadPhase.Ready).value.any { it.dayBefore != null })
                 timeline.composer.edit("Kept when Escape cancels a reply")
                 assertTrue(timeline.replies.start(original.id))

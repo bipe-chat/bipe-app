@@ -515,7 +515,7 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
                             Column(verticalArrangement = Arrangement.spacedBy(4.dp),
                                 horizontalAlignment = if (message.own) Alignment.End else Alignment.Start) {
                                 MessageSurface(model, message, seconds, (original as? OriginalNavigation.Found)?.rowId == message.id,
-                                    popup, { popup = it }, s, colors, inputEnabled, { composerFocus.requestFocus() }, {
+                                    popup, { popup = it }, s, colors, inputEnabled, room?.isDm == false, { composerFocus.requestFocus() }, {
                                         scope.launch { notices.showSnackbar(s.text("bipe_app_copied")) }
                                     }) {
                                     Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
