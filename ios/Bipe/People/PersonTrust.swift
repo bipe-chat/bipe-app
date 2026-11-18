@@ -209,3 +209,19 @@ enum ReachNotice {
         return text
     }
 }
+
+extension BipeCompanySealState {
+    /// The notice for a seal that is no longer valid, else `nil` (spec company-seal).
+    var notice: String? {
+        switch self {
+        case .revoked(.notActive), .revoked(.notFound): BipeStrings.badgeCompanyRevokedNotActive
+        case .revoked: BipeStrings.badgeCompanyRevoked
+        case .suspended: BipeStrings.badgeCompanySuspended
+        case .verified, .none: nil
+        }
+    }
+
+    var isVerified: Bool {
+        if case .verified = self { true } else { false }
+    }
+}
