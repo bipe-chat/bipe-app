@@ -27,7 +27,8 @@ struct DeviceKeyTests {
         let prefix = try #require(file["spki_prefix_hex"] as? String)
         #expect(BipeDeviceKey.spkiPrefix.map { String(format: "%02x", $0) }.joined() == prefix)
         for key in try SharedVectors.array("device-keys.json", key: "keys") {
-            let point = try #require(Data(base64Encoded: try #require(key["x963_base64"] as? String)))
+            let pointText = try #require(key["x963_base64"] as? String)
+            let point = try #require(Data(base64Encoded: pointText))
             #expect(BipeDeviceKey.spki(x963: point)?.base64EncodedString() == key["spki_base64"] as? String)
         }
         #expect(BipeDeviceKey.spki(x963: Data(repeating: 4, count: 64)) == nil)
@@ -46,12 +47,13 @@ struct DeviceKeyTests {
             let attributes: [String: Any] = [kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
                                              kSecAttrKeyClass as String: kSecAttrKeyClassPublic,
                                              kSecAttrKeySizeInBits as String: 256]
-            let publicKey = try #require(SecKeyCreateWithData(try #require(Data(base64Encoded: x963)) as CFData,
-                                                              attributes as CFDictionary, nil))
+            let x963Data = try #require(Data(base64Encoded: x963))
+            let publicKey = try #require(SecKeyCreateWithData(x963Data as CFData, attributes as CFDictionary, nil))
             let message = BipeDeviceKey.passwordOnceMessage(userId: try #require(vector["user_id"] as? String),
                                                             deviceId: try #require(vector["device_id"] as? String),
                                                             challenge: try #require(vector["challenge"] as? String))
-            let signature = try #require(Data(base64Encoded: try #require(vector["signature"] as? String)))
+            let signatureText = try #require(vector["signature"] as? String)
+            let signature = try #require(Data(base64Encoded: signatureText))
             let valid = SecKeyVerifySignature(publicKey, .ecdsaSignatureMessageX962SHA256, message as CFData,
                                               signature as CFData, nil)
             #expect(valid == (vector["expect"] as? Bool), "device key \(name)")
