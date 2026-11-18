@@ -32,6 +32,7 @@ targets:
       - path: QRCode/qrcodegen.c
       - path: QRCode/Nayuki-LICENSE.txt
         buildPhase: resources
+      - path: ../ios/Bipe/Groups/RoomLinkOpenModel.swift
       - path: ../ios/Bipe/ChatList/NativeDm.swift
       - path: ../ios/Bipe/ChatList/RowActivityScanner.swift
       - path: ../ios/Bipe/ChatList/RecentSearches.swift
@@ -72,6 +73,10 @@ targets:
         CFBundleLocalizations: [pt-BR, en]
         LSApplicationCategoryType: public.app-category.social-networking
         NSHumanReadableCopyright: Copyright 2026 Bipe contributors
+        # Spec room-link-open: matrix: links from other apps open in Bipe.
+        CFBundleURLTypes:
+          - CFBundleURLName: chat.bipe.matrix
+            CFBundleURLSchemes: [matrix]
     settings:
       base:
         PRODUCT_NAME: Bipe

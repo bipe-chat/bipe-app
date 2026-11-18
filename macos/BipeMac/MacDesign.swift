@@ -177,8 +177,10 @@ struct MacMessageView: View {
         }
         .environment(\.openURL, OpenURLAction { url in
             if pauseSecondsLeft(.now) > 0 { return .handled }
-            // Spec group-link-open: a bipe.chat/g/ link opens in the app, not in the browser.
-            return MainActor.assumeIsolated { MacGroupLinks.shared.offer(url) } ? .handled : .systemAction
+            // Spec group-link-open: a bipe.chat/g/ link opens in the app, not in the browser. Spec room-link-open: so does
+            // a matrix.to or matrix: link to a room, an alias or an event.
+            return MainActor.assumeIsolated { MacGroupLinks.shared.offer(url) || MacMatrixLinks.shared.offer(url) }
+                ? .handled : .systemAction
         })
         .contextMenu {
             if !message.isDeleted, message.canReact {
