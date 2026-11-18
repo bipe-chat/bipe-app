@@ -207,6 +207,7 @@ struct MacConversationsView: View {
             }
             ForEach(rows) { row in
                 MacChatRow(row: row, media: account.media, isSelected: selected == row.id)
+                    .environment(\.bipeCompanySeals, account.seals)
                     .padding(.horizontal, 16).padding(.vertical, 8)
                     .modifier(MacSidebarSelection(isSelected: selected == row.id, isContextTarget: contextRoom == row.id)).tag(row.id)
                     .listRowInsets(EdgeInsets())
@@ -301,6 +302,7 @@ private struct MacChatRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text(row.name).macFont(.headline).lineLimit(1)
+                    MacNameMarks(isDm: row.isDm, peerID: row.avatar.userID)
                     Spacer(minLength: 0)
                     if let date = row.date {
                         Text(time(date)).macFont(.caption).monospacedDigit().foregroundStyle(secondaryInk)

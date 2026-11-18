@@ -62,7 +62,6 @@ struct MacNotice: View {
 struct MacSenderLine: View {
     let message: MacMessage
     @Environment(\.bipeHandles) private var handles
-    @Environment(\.bipeCompanySeals) private var seals
 
     var body: some View {
         let name = message.senderNameAmbiguous
@@ -71,11 +70,8 @@ struct MacSenderLine: View {
         HStack(spacing: 4) {
             Text(message.senderRole?.senderBadge.map { name + " · " + $0 } ?? name)
                 .macFont(.subheadline).fontWeight(.semibold).foregroundStyle(BipeColor.accentInk)
-            if let mark = seals?.mark(for: message.senderID) {
-                Image(mark.isSuspended ? "seal-warning" : "seal-check")
-                    .renderingMode(.template).resizable().scaledToFit().frame(width: 14, height: 14)
-                    .foregroundStyle(mark.tint).accessibilityLabel(mark.label)
-            }
+            if BipeOfficialAccounts.isOfficial(message.senderID) { MacOfficialBadge() }
+            MacSealMark(userID: message.senderID, size: 14)
         }
     }
 }
