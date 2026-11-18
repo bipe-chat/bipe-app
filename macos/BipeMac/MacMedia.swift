@@ -310,16 +310,22 @@ private final class MacMediaPreviewStream: MediaPreviewConfigListener {
 
 extension MacMedia {
     func download(_ file: MacFile) async throws -> MacDownloadedFile {
+        try await download(source: file.content.source, filename: file.name.filename,
+                           mimeType: file.content.info?.mimetype ?? "application/octet-stream")
+    }
+
+    /// An uncached SDK-decrypted file lease and a quarantined copy named `filename`, in a private folder of its own.
+    func download(source mediaSource: MediaSource, filename: String, mimeType: String) async throws -> MacDownloadedFile {
         guard let client = client else { throw CancellationError() }
         let generation = self.generation
         let folder = try MacTransferFiles.folder()
         do {
-            let handle = try await client.getMediaFile(mediaSource: file.content.source, filename: file.name.filename,
-                mimeType: file.content.info?.mimetype ?? "application/octet-stream", useCache: false, tempDir: folder.path)
+            let handle = try await client.getMediaFile(mediaSource: mediaSource, filename: filename,
+                mimeType: mimeType, useCache: false, tempDir: folder.path)
             try Task.checkCancellation()
             guard self.generation == generation else { throw CancellationError() }
             let source = URL(fileURLWithPath: try handle.path())
-            let safe = folder.appendingPathComponent(file.name.filename)
+            let safe = folder.appendingPathComponent(filename)
             if source != safe { try FileManager.default.copyItem(at: source, to: safe) }
             try MacSavedImage.quarantine(safe)
             return MacDownloadedFile(folder: folder, file: safe, handle: handle)

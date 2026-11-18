@@ -140,7 +140,7 @@ struct MacMessageView: View {
                     } else if let file = message.file {
                         MacFileView(file: file, media: media).disabled(secondsLeft > 0)
                     } else if let voice = message.voice {
-                        MacVoiceView(voice: voice)
+                        MacVoiceView(voice: voice, rowID: message.id, media: media)
                     }
                     if !message.isDeleted, message.voice?.isVoice == true, !message.richText.text.isEmpty {
                         // ADR 0023: the caption of a voice message is the sender's transcript.

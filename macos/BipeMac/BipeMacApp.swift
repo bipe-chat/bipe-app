@@ -502,7 +502,11 @@ struct MacChatView: View {
                     .interactiveDismissDisabled(model.sending)
             }
         }
-        .onDisappear { if !model.sending { model.cancelAttachment() } }
+        .onDisappear {
+            if !model.sending { model.cancelAttachment() }
+            // Spec voice-message: leaving the chat stops its playback and removes the decrypted audio.
+            MacVoicePlayer.shared.stop()
+        }
         .onChange(of: scenePhase) { _, phase in if phase == .active { Task { await model.markRead() } } }
     }
 }
