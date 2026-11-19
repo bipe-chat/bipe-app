@@ -24,7 +24,7 @@ sealed interface AppPhase {
     class Linking(val runtime: MatrixAccountRuntime, val attempt: PhoneLinkAttempt) : AppPhase
     class Recovering(val recovery: PendingDeviceRecovery, val source: StoredSlot) : AppPhase
     class Ready(val runtime: MatrixAccountRuntime, val list: DesktopRoomList, val profile: StateFlow<AccountProfile>,
-                val slots: List<StoredSlot>, val appearance: AccountAppearance) : AppPhase
+                val slots: List<StoredSlot>, val appearance: AccountAppearance, val search: DesktopMessageSearch) : AppPhase
     data class Failed(val needsPhone: Boolean = false) : AppPhase
     class Closing(val source: AppPhase) : AppPhase
     class CloseFailed(val source: AppPhase) : AppPhase
@@ -251,7 +251,8 @@ class DesktopAppModel(val catalog: DesktopCatalog) {
                 AccountProfile(name, runtime.identity.type(userId), runCatching { runtime.client.avatarUrl() }.getOrNull(), userId)
             }.await()
             val liveProfile = MutableStateFlow(profile)
-            val ready = AppPhase.Ready(runtime, list, liveProfile.asStateFlow(), repository.slots(), appearance)
+            val search = DesktopMessageSearch.open(runtime, catalog.chatLabels())
+            val ready = AppPhase.Ready(runtime, list, liveProfile.asStateFlow(), repository.slots(), appearance, search)
             show(ready)
             scope.launch {
                 runtime.signal.first { it != AccountSignal.Healthy }

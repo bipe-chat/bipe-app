@@ -295,6 +295,8 @@ class AccountLease internal constructor(
     internal fun writeAppearance(value: String) = writeProtectedLocal("appearance.bin", value)
     internal fun readFavourites(): String? = readProtectedLocal("favourites.bin")
     internal fun writeFavourites(value: String) = writeProtectedLocal("favourites.bin", value)
+    internal fun readRecentSearches(): String? = readProtectedLocal("recent-searches.bin")
+    internal fun writeRecentSearches(value: String) = writeProtectedLocal("recent-searches.bin", value)
     internal fun readDelivered(): String? = readProtectedLocal("delivered.bin")
     internal fun writeDelivered(value: String) = writeProtectedLocal("delivered.bin", value)
     internal fun readArchive(): String? = readProtectedLocal("archive.bin")

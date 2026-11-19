@@ -21,6 +21,7 @@ import chat.bipe.desktop.chat.TimelineDates
 import chat.bipe.desktop.safety.MessageSafety
 import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
@@ -55,11 +56,25 @@ import kotlinx.coroutines.awaitCancellation
 private fun pickerDay(utcMillis: Long): LocalDate = Instant.ofEpochMilli(utcMillis).atOffset(ZoneOffset.UTC).toLocalDate()
 
 @Composable internal fun DayHistoryDialog(model: DesktopTimeline, focus: DayJump.History, s: DesktopCatalog,
-                                          colors: DesktopColors, close: () -> Unit) {
-    var attempt by remember(model, focus) { mutableStateOf(0) }
-    var phase by remember(model, focus, attempt) { mutableStateOf<LoadPhase<DayHistory>>(LoadPhase.Loading) }
-    LaunchedEffect(model, focus, attempt) {
-        val history = try { model.openDayHistory(focus) }
+                                           colors: DesktopColors, close: () -> Unit) {
+    val title = focus.day.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.LONG).withLocale(Locale.forLanguageTag(s.locale)))
+    FocusedHistoryDialog(focus.eventId, focus.day, focus.zone, title, s, colors, close) { model.openDayHistory(focus) }
+}
+
+@Composable internal fun EventHistoryDialog(model: DesktopTimeline, eventId: String, s: DesktopCatalog,
+                                             colors: DesktopColors, close: () -> Unit) {
+    FocusedHistoryDialog(eventId, null, ZoneId.systemDefault(), s.text("bipe_search_messages"), s, colors, close) {
+        model.openEventHistory(eventId)
+    }
+}
+
+@Composable private fun FocusedHistoryDialog(eventId: String, day: LocalDate?, zone: ZoneId, title: String,
+                                              s: DesktopCatalog, colors: DesktopColors, close: () -> Unit,
+                                              load: suspend () -> DayHistory) {
+    var attempt by remember(eventId, day) { mutableStateOf(0) }
+    var phase by remember(eventId, day, attempt) { mutableStateOf<LoadPhase<DayHistory>>(LoadPhase.Loading) }
+    LaunchedEffect(eventId, day, attempt) {
+        val history = try { load() }
         catch (cancelled: CancellationException) { throw cancelled }
         catch (_: Exception) {
             phase = LoadPhase.Failed
@@ -70,14 +85,12 @@ private fun pickerDay(utcMillis: Long): LocalDate = Instant.ofEpochMilli(utcMill
             awaitCancellation()
         } finally { history.close() }
     }
-    val locale = Locale.forLanguageTag(s.locale)
-    val title = focus.day.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.LONG).withLocale(locale))
     AlertDialog(onDismissRequest = close, title = { Text(title) },
         text = {
             when (val current = phase) {
                 LoadPhase.Loading -> CircularProgressIndicator(Modifier.size(24.dp))
                 LoadPhase.Failed -> Text(s.text("bipe_error_generic"))
-                is LoadPhase.Ready -> DayHistoryRows(current.value, focus, s, colors, retry = { attempt++ })
+                is LoadPhase.Ready -> DayHistoryRows(current.value, eventId, day, zone, s, colors, retry = { attempt++ })
             }
         },
         confirmButton = { TextButton(onClick = close) { Text(s.text("bipe_app_close")) } },
@@ -87,11 +100,11 @@ private fun pickerDay(utcMillis: Long): LocalDate = Instant.ofEpochMilli(utcMill
     )
 }
 
-@Composable private fun DayHistoryRows(history: DayHistory, focus: DayJump.History, s: DesktopCatalog,
+@Composable private fun DayHistoryRows(history: DayHistory, eventId: String, day: LocalDate?, zone: ZoneId, s: DesktopCatalog,
                                        colors: DesktopColors, retry: () -> Unit) {
     val load by history.rows.collectAsState()
     val pages by history.pages.collectAsState()
-    val today = timelineToday(focus.zone)
+    val today = timelineToday(zone)
     val list = rememberLazyListState()
     var positioned by remember(history) { mutableStateOf(false) }
     val messages = (load as? LoadPhase.Ready)?.value.orEmpty()
@@ -99,8 +112,8 @@ private fun pickerDay(utcMillis: Long): LocalDate = Instant.ofEpochMilli(utcMill
     LaunchedEffect(messages) {
         if (positioned || messages.isEmpty()) return@LaunchedEffect
         val index = messages.indexOfFirst {
-            Instant.ofEpochMilli(it.dayBefore ?: it.timestamp).atZone(focus.zone).toLocalDate() == focus.day
-        }.takeIf { it >= 0 } ?: messages.indexOfFirst { it.originalEventId == focus.eventId }
+            day != null && Instant.ofEpochMilli(it.dayBefore ?: it.timestamp).atZone(zone).toLocalDate() == day
+        }.takeIf { it >= 0 } ?: messages.indexOfFirst { it.originalEventId == eventId }
         if (index >= 0) {
             list.scrollToItem(index + if (pages.earlier) 1 else 0)
             positioned = true
@@ -122,18 +135,20 @@ private fun pickerDay(utcMillis: Long): LocalDate = Instant.ofEpochMilli(utcMill
                 }
                 items(messages, key = { it.id }) { row ->
                     Column {
-                        row.dayBefore?.let { TimelineDay(it, today, focus.zone, s, colors) }
+                        row.dayBefore?.let { TimelineDay(it, today, zone, s, colors) }
                         if (row.stateLine != null) {
                             GroupStateRow(row, names, s, colors)
                             return@items
                         }
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = if (row.own) Arrangement.End else Arrangement.Start) {
                             Surface(shape = RoundedCornerShape(16.dp), color = colors[if (row.own) "bubble.own" else "bubble.other"],
+                                border = if (day == null && row.originalEventId == eventId)
+                                    androidx.compose.foundation.BorderStroke(2.dp, colors["accent.fill"]) else null,
                                 contentColor = colors["ink.primary"]) {
                                 Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                     if (!row.own) Text(row.sender, style = MaterialTheme.typography.labelMedium, color = colors["accent.ink"])
                                     Text(row.emotePrefix() + row.body)
-                                    Text(TimelineDates.fullTimestamp(row.timestamp, focus.zone, Locale.forLanguageTag(s.locale)),
+                                    Text(TimelineDates.fullTimestamp(row.timestamp, zone, Locale.forLanguageTag(s.locale)),
                                         style = MaterialTheme.typography.labelSmall, color = colors["ink.secondary"])
                                 }
                             }

@@ -4,6 +4,10 @@
 
 package chat.bipe.desktop.account
 
+import java.nio.file.Files
+import java.nio.file.LinkOption.NOFOLLOW_LINKS
+import java.util.Base64
+
 import chat.bipe.desktop.storage.AccountLease
 import chat.bipe.desktop.chat.AccountMedia
 import chat.bipe.desktop.chat.AccountIdentity
@@ -174,6 +178,12 @@ class MatrixAccountRuntime private constructor(
                 update { it.roomKeyRecipientStrategy(CollectStrategy.IDENTITY_BASED_STRATEGY) }
                 update { it.decryptionSettings(DecryptionSettings(TrustRequirement.CROSS_SIGNED_OR_LEGACY)) }
                 update { it.backupDownloadStrategy(BackupDownloadStrategy.AFTER_DECRYPTION_FAILURE) }
+                if (purpose == Purpose.CLIENT) {
+                    val index = lease.paths.data.resolve("SearchIndex")
+                    if (!Files.exists(index, NOFOLLOW_LINKS)) Files.createDirectory(index)
+                    check(Files.isDirectory(index, NOFOLLOW_LINKS) && index.toRealPath().startsWith(lease.paths.data.toRealPath()))
+                    update { it.withSearchIndexStore(index.toString(), Base64.getEncoder().encodeToString(key)) }
+                }
                 return builder
             } catch (error: Exception) { builder.destroy(); throw error }
             finally { store.destroy() }

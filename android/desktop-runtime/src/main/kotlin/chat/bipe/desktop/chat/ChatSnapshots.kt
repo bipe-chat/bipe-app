@@ -74,6 +74,7 @@ sealed interface OriginalNavigation {
     data object Idle : OriginalNavigation
     data class Searching(val eventId: String) : OriginalNavigation
     data class Found(val rowId: String) : OriginalNavigation
+    data class Context(val eventId: String) : OriginalNavigation
 }
 data class ReactionSender(val userId: String, val reactedAt: Long)
 data class ReactionPerson(val name: String, val reactedAt: Long)

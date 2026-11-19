@@ -33,6 +33,7 @@ import kotlinx.coroutines.sync.withLock
 import chat.bipe.shared.generated.BipeRegistries
 import org.matrix.rustcomponents.sdk.*
 import uniffi.matrix_sdk_ui.TimelineReadReceiptTracking
+import uniffi.matrix_sdk_ui.TimelineEventFocusThreadMode
 import uniffi.ruma_events.MessageLikeEventType
 
 sealed interface SendPhase {
@@ -235,7 +236,7 @@ class DesktopTimeline private constructor(
         }
     }
 
-    fun openOriginal(eventId: String) {
+    fun openOriginal(eventId: String, focusedFallback: Boolean = false) {
         var accepted = false
         group.publish {
             if (mutableOriginal.value == OriginalNavigation.Idle) {
@@ -258,8 +259,23 @@ class DesktopTimeline private constructor(
                 }
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (_: Exception) { /* A missing original never navigates to another room or loses the draft. */ }
-            finally { group.publish { mutableOriginal.value = OriginalNavigation.Idle } }
+            finally {
+                group.publish {
+                    mutableOriginal.value = if (focusedFallback && mutableOriginal.value is OriginalNavigation.Searching)
+                        OriginalNavigation.Context(eventId) else OriginalNavigation.Idle
+                }
+            }
         }
+    }
+
+    fun consumeContext(expected: OriginalNavigation.Context) = group.publish {
+        if (mutableOriginal.value === expected) mutableOriginal.value = OriginalNavigation.Idle
+    }
+
+    suspend fun openEventHistory(eventId: String): DayHistory {
+        group.requireCurrent()
+        return DayHistory.open(runtime, roomId, TimelineFocus.Event(eventId, 40u, TimelineEventFocusThreadMode.Automatic(false)),
+            TimelineFilter.All) { snapshot(it, trackFailedSends = false) }
     }
 
     suspend fun reactionPeople(rowId: String, key: String, ownName: String): List<ReactionPerson> = group.async {

@@ -37,7 +37,6 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -190,7 +189,7 @@ fun DesktopApp(model: DesktopAppModel, phase: AppPhase, colors: DesktopColors, l
 
 private enum class Destination(val key: String) { CHATS("bipe_tab_chats"), GROUPS("bipe_tab_groups"), YOU("bipe_tab_you") }
 private enum class ChatListMode { ACTIVE, ARCHIVED }
-private data class TimelineLinkFocus(val tab: Destination, val roomId: String, val eventId: String)
+private data class TimelineLinkFocus(val tab: Destination, val roomId: String, val eventId: String, val fromSearch: Boolean = false)
 
 @Composable private fun Workspace(model: DesktopAppModel, account: AppPhase.Ready, colors: DesktopColors,
                                   launchLink: MatrixRoomLink?, onLaunchLinkOpened: () -> Unit) {
@@ -206,16 +205,11 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
     val searchFocus = remember(account) { FocusRequester() }
     val workspaceFocus = remember(account) { FocusRequester() }
     var searchFocused by remember(account) { mutableStateOf(false) }
-    var searchRequest by remember(account) { mutableStateOf(0) }
     val selected = selections[destination]
     var linkFocus by remember(account) { mutableStateOf<TimelineLinkFocus?>(null) }
     val searchValue = searches[destination] ?: TextFieldValue()
     val search = searchValue.text
     LaunchedEffect(account) { workspaceFocus.requestFocus() }
-    LaunchedEffect(searchRequest, destination) {
-        if (searchRequest > 0 && destination != Destination.YOU &&
-            !(destination == Destination.GROUPS && profile.kind == AccountKind.COMPANY)) searchFocus.requestFocus()
-    }
     LaunchedEffect(account, destination, selected) {
         val focus = linkFocus
         if (focus != null && (focus.tab != destination || focus.roomId != selected)) linkFocus = null
@@ -302,19 +296,17 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
         }
     }
     Column(Modifier.onPreviewKeyEvent { event ->
-        if (event.type == KeyEventType.KeyDown && event.key == Key.K && event.isCtrlPressed &&
-            !event.isAltPressed && !event.isMetaPressed && !event.isShiftPressed) {
-            if (destination == Destination.YOU || (destination == Destination.GROUPS && profile.kind == AccountKind.COMPANY))
-                destination = Destination.CHATS
-            val value = searches[destination] ?: TextFieldValue()
-            searches[destination] = value.copy(selection = TextRange(0, value.text.length))
-            searchRequest++; true
-        } else false
+        if (event.type != KeyEventType.KeyDown || !event.isCtrlPressed || event.isAltPressed ||
+            event.isMetaPressed || event.isShiftPressed) return@onPreviewKeyEvent false
+        when {
+            event.key == Key.K -> { popup = WorkspacePopup.Search(null); true }
+            event.key == Key.F && showsTimeline && selected != null -> { popup = WorkspacePopup.Search(selected); true }
+            else -> false
+        }
     }.onKeyEvent { event ->
         if (event.type != KeyEventType.KeyDown || event.key != Key.Escape) false
         else when {
-            popup != null -> { if (popup !is TimelinePopup.Forward && popup !is TimelinePopup.Attachments && popup !is TimelinePopup.RecordVoice && popup != TimelinePopup.Stickers) popup = null; true }
-            selection.isNotEmpty() -> { selection = emptySet(); true }
+            popup != null -> { popup = null; true }
             editing != FavouriteEditing.Normal -> { editing = FavouriteEditing.Normal; true }
             searchFocused -> { searches[destination] = TextFieldValue(); workspaceFocus.requestFocus(); true }
             else -> false
@@ -433,7 +425,7 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
                             state.model.originalNavigation.first { it == OriginalNavigation.Idle }
                             if (linkFocus === target && model.phase.value === account && destination == target.tab &&
                                 selections[destination] == target.roomId) {
-                                state.model.openOriginal(target.eventId)
+                                state.model.openOriginal(target.eventId, focusedFallback = target.fromSearch)
                                 linkFocus = null
                             }
                         }
@@ -448,7 +440,11 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
                                         role = Role.Button, onClickLabel = s.text("bipe_avatar_open"),
                                         onClick = { popup = WorkspacePopup.Avatar(row.name, photo) },
                                     )) { Avatar(row, account.runtime.media, account.runtime.identity, colors) }
-                                    Text(row.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text(row.name, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium,
+                                        maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    TextButton(onClick = { popup = WorkspacePopup.Search(row.id) }) {
+                                        Text(s.text("bipe_search_in_chat"))
+                                    }
                                 }
                                 HorizontalDivider(color = colors["line.subtle"])
                             }
@@ -466,6 +462,21 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
                 }
             }
         }
+    }
+    (popup as? WorkspacePopup.Search)?.let { request ->
+        fun openResult(room: DesktopSearchRoom, eventId: String?) {
+            if (model.phase.value !== account || popup != request) return
+            val target = if (profile.kind == AccountKind.COMPANY || room.isDm) Destination.CHATS else Destination.GROUPS
+            popup = null
+            searches.remove(target)
+            selections[target] = room.id
+            destination = target
+            if (eventId != null) linkFocus = TimelineLinkFocus(target, room.id, eventId, fromSearch = true)
+        }
+        DesktopSearchDialog(account.search, request.roomId, selected.takeIf { showsTimeline }, s,
+            close = { if (popup == request) popup = null },
+            openCurrent = { room -> popup = WorkspacePopup.Search(room) },
+            open = ::openResult)
     }
     (popup as? WorkspacePopup.Avatar)?.let { target ->
         key(target) { OriginalPhoto(target.name, s, close = { popup = null }) { account.runtime.media.originalAvatar(target.mxc) } }
@@ -541,6 +552,12 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
         }
     }
     val original by model.originalNavigation.collectAsState()
+    LaunchedEffect(original, popup) {
+        val target = original as? OriginalNavigation.Context ?: return@LaunchedEffect
+        if (popup != null) return@LaunchedEffect
+        popup = TimelinePopup.EventHistory(target.eventId)
+        model.consumeContext(target)
+    }
     val rows = when (val snapshot = load) { is LoadPhase.Ready -> snapshot.value; else -> emptyList() }
     val stateNames = remember(rows, room) {
         (room?.members.orEmpty().mapNotNull { member -> member.userId?.let { it to member.name } } +
@@ -856,6 +873,7 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
         TimelinePopup.PickDate -> JumpDatePicker(today, s,
             pick = { day -> if (popup == TimelinePopup.PickDate) popup = TimelinePopup.Jumping(day) },
             close = { if (popup == TimelinePopup.PickDate) popup = null })
+        is TimelinePopup.EventHistory -> EventHistoryDialog(model, dialog.eventId, s, colors) { if (popup === dialog) popup = null }
         is TimelinePopup.Day -> DayHistoryDialog(model, dialog.focus, s, colors) { if (popup === dialog) popup = null }
         else -> Unit
     }

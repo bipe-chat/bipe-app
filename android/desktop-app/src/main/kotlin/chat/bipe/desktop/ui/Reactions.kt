@@ -38,6 +38,7 @@ internal sealed interface TimelinePopup {
     data object Pins : TimelinePopup
     data object PickDate : TimelinePopup
     data class Jumping(val date: LocalDate) : TimelinePopup
+    data class EventHistory(val eventId: String) : TimelinePopup
     data class Day(val focus: DayJump.History) : TimelinePopup
 }
 
