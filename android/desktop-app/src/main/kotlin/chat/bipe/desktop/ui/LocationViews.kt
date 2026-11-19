@@ -218,10 +218,12 @@ private fun locationLabel(location: DesktopLocation, s: DesktopCatalog): String 
 })
 
 @Composable private fun liveStatus(live: DesktopLocation.Live, s: DesktopCatalog): String {
-    val now by produceState(System.currentTimeMillis(), live) {
-        while (true) {
-            value = System.currentTimeMillis()
-            delay(30_000)
+    val now by key(live) {
+        produceState(System.currentTimeMillis()) {
+            while (live.active && value < live.endsAt) {
+                delay((live.endsAt - value).coerceAtMost(60_000L))
+                value = System.currentTimeMillis()
+            }
         }
     }
     if (!live.active || now >= live.endsAt) return s.text("bipe_app_location_live_ended")

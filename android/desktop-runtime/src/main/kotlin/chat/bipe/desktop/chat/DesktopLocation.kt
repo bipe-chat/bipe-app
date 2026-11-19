@@ -29,10 +29,10 @@ data class DesktopLocation(val point: MapPoint?, val pinned: Boolean, val descri
                 val data = kind.content
                 val latest = data.locations.lastOrNull()
                 val point = latest?.geoUri?.let(GeoUri::parse)?.let { (lat, lon) -> MapPoint.of(lat, lon) }
-                val timeout = data.timeoutMs.coerceAtMost(86_400_000uL).toLong()
-                val start = data.ts.toLong().coerceIn(0, Long.MAX_VALUE - timeout)
+                val start = data.ts.coerceAtMost(Long.MAX_VALUE.toULong())
+                val timeout = data.timeoutMs.coerceAtMost(Long.MAX_VALUE.toULong() - start)
                 DesktopLocation(point, data.assetType == AssetType.PIN, latest?.description ?: data.description,
-                    Live(start + timeout, data.isLive))
+                    Live((start + timeout).toLong(), data.isLive))
             }
             else -> null
         }
