@@ -8,15 +8,20 @@ import chat.bipe.desktop.account.AccountLifetime
 import chat.bipe.desktop.account.AccountResource
 import chat.bipe.desktop.account.AccountTaskGroup
 import chat.bipe.desktop.account.NativeResource
+import chat.bipe.desktop.account.TaskResource
 import java.net.URI
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import org.matrix.rustcomponents.sdk.Client
 import org.matrix.rustcomponents.sdk.MediaSource
+import org.matrix.rustcomponents.sdk.MediaPreviewConfig
+import org.matrix.rustcomponents.sdk.MediaPreviewConfigListener
 
 /** What AccountMedia asks the SDK; tests replace it. */
 internal interface MediaBackend {
@@ -33,9 +38,25 @@ internal interface MediaBackend {
  * Authenticated SDK media. No global cache, bearer URL, independent HTTP client or plaintext disk cache:
  * decrypted bytes stay in this account's bounded memory cache, and a file reaches the disk only where the person saves it.
  */
+sealed interface MediaPreference {
+    data object Loading : MediaPreference
+    data object Unavailable : MediaPreference
+    data class Ready(val value: ShowMedia) : MediaPreference
+    data class Saving(val before: ShowMedia, val requested: ShowMedia) : MediaPreference
+    data class Failed(val before: ShowMedia, val requested: ShowMedia) : MediaPreference
+
+    val current get() = when (this) {
+        is Ready -> value
+        is Saving -> before
+        is Failed -> before
+        else -> null
+    }
+}
+
 class AccountMedia private constructor(
     private val group: AccountTaskGroup,
     private val backend: MediaBackend,
+    private val settings: Client?,
 ) : AccountResource {
     private data class Key(val url: String, val pixels: Int)
     private val monitor = Any()
@@ -43,6 +64,56 @@ class AccountMedia private constructor(
     private val requests = mutableMapOf<Key, Deferred<ByteArray?>>()
     private val downloads = Semaphore(4)
     private var cacheBytes = 0
+    private val mutablePreference = MutableStateFlow<MediaPreference>(MediaPreference.Loading)
+    val preference = mutablePreference.asStateFlow()
+
+    internal fun listenPreferences() {
+        val client = settings ?: return
+        group.launch {
+            try {
+                group.own(TaskResource(client.subscribeToMediaPreviewConfig(object : MediaPreviewConfigListener {
+                    override fun onChange(mediaPreviewConfig: MediaPreviewConfig?) = group.publish {
+                        val incoming = ShowMedia.of(mediaPreviewConfig?.mediaPreviews)
+                        val current = mutablePreference.value
+                        if (current !is MediaPreference.Saving || incoming == current.requested)
+                            mutablePreference.value = MediaPreference.Ready(incoming)
+                    }
+                })))
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) { /* The explicit initial read still supplies the local setting. */ }
+            refreshPreference()
+        }
+    }
+
+    fun refreshPreference() = group.launch {
+        val client = settings ?: return@launch
+        val state = try { MediaPreference.Ready(ShowMedia.of(client.getMediaPreviewDisplayPolicy())) }
+        catch (cancelled: CancellationException) { throw cancelled }
+        catch (_: Exception) { MediaPreference.Unavailable }
+        group.publish { if (mutablePreference.value.current == null) mutablePreference.value = state }
+    }
+
+    fun setPreference(requested: ShowMedia) {
+        val client = settings ?: return
+        var accepted: MediaPreference.Saving? = null
+        group.publish {
+            val before = mutablePreference.value
+            val current = before.current
+            if (current != null && current != requested && before !is MediaPreference.Saving) {
+                accepted = MediaPreference.Saving(current, requested)
+                mutablePreference.value = checkNotNull(accepted)
+            }
+        }
+        val attempt = accepted ?: return
+        group.launch {
+            val result = try {
+                client.setMediaPreviewDisplayPolicy(requested.sdk())
+                MediaPreference.Ready(requested)
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) { MediaPreference.Failed(attempt.before, requested) }
+            group.publish { if (mutablePreference.value === attempt) mutablePreference.value = result }
+        }
+    }
 
     suspend fun thumbnail(url: String, pixels: Int): ByteArray? {
         group.requireCurrent()
@@ -150,7 +221,7 @@ class AccountMedia private constructor(
                     try { check(handle.persist(destination.toString())) } finally { handle.destroy() }
                 } finally { source.destroy() }
             }
-        })
+        }, client)
 
         internal suspend fun create(owner: AccountLifetime, fetch: suspend (String, Int) -> ByteArray): AccountMedia =
             create(owner, object : MediaBackend {
@@ -159,9 +230,9 @@ class AccountMedia private constructor(
                 override suspend fun save(sourceJson: String, filename: String, mimeType: String, destination: Path) = error("No event media in this test")
             })
 
-        internal suspend fun create(owner: AccountLifetime, backend: MediaBackend): AccountMedia {
+        internal suspend fun create(owner: AccountLifetime, backend: MediaBackend, settings: Client? = null): AccountMedia {
             val group = AccountTaskGroup.create(owner)
-            val media = AccountMedia(group, backend)
+            val media = AccountMedia(group, backend, settings)
             group.own(NativeResource { synchronized(media.monitor) {
                 media.cache.values.forEach { it.fill(0) }
                 media.cache.clear(); media.requests.clear(); media.cacheBytes = 0

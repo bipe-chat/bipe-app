@@ -478,27 +478,13 @@ class DesktopTimeline private constructor(
         }
     }
 
-    /** Reads the account's MSC4278 setting and follows its changes; the computer never writes it (spec timeline-media notes). */
-    private suspend fun startMediaPolicy() {
-        val showMedia = MutableStateFlow<ShowMedia?>(null)
-        try {
-            group.own(TaskResource(runtime.client.subscribeToMediaPreviewConfig(object : MediaPreviewConfigListener {
-                override fun onChange(mediaPreviewConfig: MediaPreviewConfig?) { showMedia.value = ShowMedia.of(mediaPreviewConfig?.mediaPreviews) }
-            })))
-        } catch (cancelled: CancellationException) { throw cancelled }
-          catch (_: Exception) { /* Without the subscription the first read below still applies. */ }
+    private fun startMediaPolicy() {
         group.launch {
-            try { if (showMedia.value == null) showMedia.value = ShowMedia.of(runtime.client.getMediaPreviewDisplayPolicy()) }
-            catch (cancelled: CancellationException) { throw cancelled }
-            catch (_: Exception) { /* Unknown keeps other people's media behind a click. */ }
-        }
-        group.launch {
-            showMedia.collect { value ->
-                if (value == null) return@collect
+            runtime.media.preference.collect { setting ->
+                val value = setting.current ?: return@collect
                 val known = try {
                     val info = room.roomInfo()
                     val dm = try { info.isDm } finally { info.destroy() }
-                    // A room whose join rule is unknown counts as private, as on the phones.
                     MediaShowPolicy.Known(value, dm, room.isPublic() == true)
                 } catch (cancelled: CancellationException) { throw cancelled }
                   catch (_: Exception) { MediaShowPolicy.Unknown }

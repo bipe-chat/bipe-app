@@ -25,6 +25,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import chat.bipe.desktop.chat.LoadPhase
+import chat.bipe.desktop.chat.MediaPreference
+import chat.bipe.desktop.chat.ShowMedia
 import chat.bipe.desktop.settings.*
 import java.awt.Desktop
 import java.net.URI
@@ -135,7 +137,7 @@ private enum class LinkPhase { IDLE, FAILED }
                         val rows = section.getValue("rows").jsonArray.map { it.jsonObject }.filter { row ->
                             val key = row.getValue("key").jsonPrimitive.content
                             row["gate"] == null && (row.getValue("kind").jsonPrimitive.content == "url" ||
-                                (current.key == "chats" && key in setOf("appearance", "colors", "accessibility")) ||
+                                (current.key == "chats" && key in setOf("appearance", "colors", "accessibility", "showMedia")) ||
                                 (current.key == "privacy" && key in setOf("presence", "readReceipts")) ||
                                 (current.key == "account" && key == "linkedDevices") || (current.key == "help" && key in setOf("licenses", "versions")))
                         }
@@ -164,6 +166,8 @@ private enum class LinkPhase { IDLE, FAILED }
                                         TextButton(onClick = { model.devicePresence.pick(failed.requested) }) { Text(s.text("bipe_app_retry")) }
                                     }
                                 }
+                            } else if (key == "showMedia") {
+                                ShowMediaPreference(account, s)
                             } else if (key == "readReceipts") {
                                 val titleKey = row.getValue("title").jsonPrimitive.content
                                 val subtitleKey = row.getValue("footer").jsonPrimitive.content
@@ -322,4 +326,41 @@ private enum class LinkPhase { IDLE, FAILED }
 @Composable internal fun sharedIcon(id: String): Painter {
     val density = LocalDensity.current
     return remember(id, density) { useResource("phosphor-$id.svg") { loadSvgPainter(it, density) } }
+}
+
+@Composable private fun ShowMediaPreference(account: AppPhase.Ready, s: DesktopCatalog) {
+    val media = account.runtime.media
+    val state by media.preference.collectAsState()
+    var menu by remember(account) { mutableStateOf(false) }
+    fun label(value: ShowMedia): String = s.text(when (value) {
+        ShowMedia.ALWAYS -> "bipe_chats_show_media_always"
+        ShowMedia.PRIVATE_ONLY -> "bipe_chats_show_media_private"
+        ShowMedia.NEVER -> "bipe_chats_show_media_never"
+    })
+    Box {
+        PreferenceRow(s.text("bipe_chats_show_media"), state.current?.let(::label), onClick = {
+            when (state) {
+                MediaPreference.Unavailable -> media.refreshPreference()
+                is MediaPreference.Ready, is MediaPreference.Failed -> menu = true
+                else -> Unit
+            }
+        })
+        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+            ShowMedia.entries.forEach { value ->
+                DropdownMenuItem(text = { Text(label(value)) }, onClick = { menu = false; media.setPreference(value) },
+                    trailingIcon = {
+                        if (state.current == value) Icon(sharedIcon("check"), contentDescription = null)
+                    })
+            }
+        }
+    }
+    when (val current = state) {
+        MediaPreference.Unavailable -> TextButton(onClick = { media.refreshPreference() }) { Text(s.text("bipe_app_retry")) }
+        is MediaPreference.Failed -> Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(s.text("bipe_error_generic"), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+            TextButton(onClick = { media.setPreference(current.requested) }) { Text(s.text("bipe_app_retry")) }
+        }
+        is MediaPreference.Saving -> Text(s.text("bipe_web_loading"), Modifier.padding(horizontal = 16.dp))
+        else -> Unit
+    }
 }

@@ -76,6 +76,7 @@ class DesktopRoomList private constructor(
         }
         val sync = runtime.startSync()
         delivered.start()
+        runtime.media.listenPreferences()
         val service = sync.roomListService()
         group.own(NativeResource { service.destroy() })
         val list = service.allRooms()
