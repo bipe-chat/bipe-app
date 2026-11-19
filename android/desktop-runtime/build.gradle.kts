@@ -17,9 +17,11 @@ val portableVectorDiff by tasks.registering(Sync::class) {
     from("../libraries/bipe/src/main/kotlin/chat/bipe/shared/BipeFavouritesOrder.kt")
     from("../libraries/bipe/src/main/kotlin/chat/bipe/shared/BipeSyncedSettings.kt")
     from("../libraries/bipe/src/main/kotlin/chat/bipe/shared/BipeOfficialAccounts.kt")
+    from("../libraries/bipe/src/main/kotlin/chat/bipe/shared/BipeMessageText.kt")
     from("../libraries/bipe/src/main/kotlin/chat/bipe/shared/generated/BipeRegistries.kt")
     from("../libraries/bipe/src/main/kotlin/chat/bipe/shared/generated/BipeReactions.kt")
     from("../libraries/bipe/src/main/kotlin/chat/bipe/shared/generated/BipeChatArchive.kt")
+    from("../libraries/bipe/src/main/kotlin/chat/bipe/shared/generated/BipeMessageFormatting.kt")
     into(layout.buildDirectory.dir("generated/portable-kotlin"))
 }
 tasks.named("compileKotlin") { dependsOn(portableVectorDiff) }
@@ -38,6 +40,7 @@ dependencies {
     api(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.zxing.core)
+    implementation(libs.jsoup)
     testImplementation(libs.junit)
 }
 

@@ -4,6 +4,8 @@
 
 package chat.bipe.desktop.chat
 
+import chat.bipe.shared.BipeMessageText
+
 import chat.bipe.app.common.VectorDiff
 import chat.bipe.app.common.applyDiff
 import chat.bipe.desktop.safety.MessageSafety
@@ -46,6 +48,7 @@ data class MessageRow(
     val dmReceipt: DmReceipt? = null,
     /** Kind MEDIA only: the photo, video, sticker, file or voice message. */
     val media: MessageMedia? = null,
+    val richText: BipeMessageText? = null,
 ) {
     val linkEventId: String?
         get() = eventId?.takeIf { delivery == Delivery.SENT && (kind == Kind.TEXT || kind == Kind.MEDIA) }

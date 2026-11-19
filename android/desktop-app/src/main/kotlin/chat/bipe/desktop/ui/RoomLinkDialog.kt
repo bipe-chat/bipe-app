@@ -40,16 +40,15 @@ private sealed interface RoomLinkDialogPhase {
 }
 
 /** Spec room-link-open. Preview is read-only until the person confirms Join or Request to join. */
-@Composable internal fun RoomLinkDialog(runtime: MatrixAccountRuntime, url: String, s: DesktopCatalog, colors: DesktopColors,
+@Composable internal fun RoomLinkDialog(runtime: MatrixAccountRuntime, link: MatrixRoomLink, s: DesktopCatalog, colors: DesktopColors,
                                         openRoom: (MatrixRoomLinkResult.Joined) -> Unit, close: () -> Unit) {
-    val link = remember(runtime, url) { MatrixRoomLink.parse(url) }
     val currentOpenRoom by rememberUpdatedState(openRoom)
-    var phase by remember(runtime, url) { mutableStateOf<RoomLinkDialogPhase>(RoomLinkDialogPhase.Loading) }
-    LaunchedEffect(runtime, url, phase) {
+    var phase by remember(runtime, link) { mutableStateOf<RoomLinkDialogPhase>(RoomLinkDialogPhase.Loading) }
+    LaunchedEffect(runtime, link, phase) {
         val request = phase
         val result = when (request) {
-            RoomLinkDialogPhase.Loading -> link?.open(runtime) ?: MatrixRoomLinkResult.NotFound
-            is RoomLinkDialogPhase.Submitting -> link?.submit(runtime, request.preview) ?: MatrixRoomLinkResult.NotFound
+            RoomLinkDialogPhase.Loading -> link.open(runtime)
+            is RoomLinkDialogPhase.Submitting -> link.submit(runtime, request.preview)
             is RoomLinkDialogPhase.Showing -> return@LaunchedEffect
         }
         if (phase !== request || !runtime.lifetime.isCurrent()) return@LaunchedEffect

@@ -126,11 +126,12 @@ class DesktopTimeline private constructor(
         }
         val row = previous ?: return
         group.launch {
-            val assessment = CoreSafety.boundary({ safetyEngine.warning(row.body) }, { MessageSafety.Unavailable })
+            val assessment = CoreSafety.boundary({ safetyEngine.warning(messageSafetyText(row.body, row.richText)) }, { MessageSafety.Unavailable })
             group.publish {
                 val state = mutableRows.value as? LoadPhase.Ready ?: return@publish
                 mutableRows.value = LoadPhase.Ready(state.value.map {
-                    if (it.id == rowId && it.body == row.body && it.safety == MessageSafety.Checking) it.copy(safety = assessment) else it
+                    if (it.id == rowId && it.body == row.body && it.richText == row.richText && it.safety == MessageSafety.Checking)
+                        it.copy(safety = assessment) else it
                 })
             }
         }
@@ -147,12 +148,25 @@ class DesktopTimeline private constructor(
         group.publish {
             val row = currentRow(id) ?: return@publish
             if (row.kind != MessageRow.Kind.TEXT) return@publish
-            val warning = row.safety as? MessageSafety.Warning
-            val seconds = pause.remaining(MoneyPause.nowMs())[id]
-                ?: if (warning?.kind?.registryId() in BipeRegistries.scamMoneyPauseKinds) BipeRegistries.SCAM_MONEY_PAUSE_SECONDS else 0
-            if (seconds == 0) result = row.body
+            if (moneyPauseSeconds(row) == 0) result = row.body
         }
         return result
+    }
+
+    fun canOpenLink(rowId: String, url: String): Boolean {
+        var allowed = false
+        group.publish {
+            val row = currentRow(rowId) ?: return@publish
+            allowed = row.safety != MessageSafety.Checking && row.safety != MessageSafety.Unavailable &&
+                moneyPauseSeconds(row) == 0 && row.richText?.runs?.any { it.link == url } == true
+        }
+        return allowed
+    }
+
+    private fun moneyPauseSeconds(row: MessageRow): Int {
+        val warning = row.safety as? MessageSafety.Warning
+        return pause.remaining(MoneyPause.nowMs())[row.id]
+            ?: if (warning?.kind?.registryId() in BipeRegistries.scamMoneyPauseKinds) BipeRegistries.SCAM_MONEY_PAUSE_SECONDS else 0
     }
 
     /** The Matrix SDK supplies the permalink, including its routing information. */
@@ -488,6 +502,7 @@ class DesktopTimeline private constructor(
             }
             // The scam warning reads text and media captions (spec timeline-media notes), never a kind label.
             val checksSafety = type == MessageRow.Kind.TEXT || (type == MessageRow.Kind.MEDIA && !media?.caption.isNullOrBlank())
+            val richText = if (checksSafety) desktopMessageText(body, (kind as? MsgLikeKind.Message)?.content?.msgType) else null
             val profile = event.senderProfile as? ProfileDetails.Ready
             val delivery = when (event.localSendState) {
                 is EventSendState.NotSentYet -> MessageRow.Delivery.SENDING
@@ -504,7 +519,7 @@ class DesktopTimeline private constructor(
             }
             return MessageRow(id, realName(profile?.displayName, event.sender, labels.noName),
                 event.isOwn, body, type, event.timestamp.toLong(), delivery, canRetry = handle != null,
-                safety = messageSafety(body, event.isOwn, checksSafety, safetyEngine),
+                safety = messageSafety(messageSafetyText(body, richText), event.isOwn, checksSafety, safetyEngine),
                 eventId = reactionTarget,
                 reactions = if (reactionTarget == null) emptyList() else reactionSnapshots(content.reactions, runtime.client.userId()),
                 canReply = reactionTarget != null && event.canBeRepliedTo,
@@ -512,7 +527,7 @@ class DesktopTimeline private constructor(
                 originalEventId = (event.eventOrTransactionId as? EventOrTransactionId.EventId)?.eventId,
                 canEdit = event.isOwn && event.isEditable && type == MessageRow.Kind.TEXT && reactionTarget != null,
                 senderId = event.sender, readersAtEvent = event.readReceipts.keys.toSet(),
-                media = media.takeIf { type == MessageRow.Kind.MEDIA })
+                media = media.takeIf { type == MessageRow.Kind.MEDIA }, richText = richText)
         } finally { event.destroy() }
     }
 

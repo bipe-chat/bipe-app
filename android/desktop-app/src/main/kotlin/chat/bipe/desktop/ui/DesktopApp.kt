@@ -32,6 +32,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.AnnotatedString
@@ -437,7 +438,13 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
                             }
                             Box(Modifier.weight(1f)) { TimelineView(state.model, s, colors, background,
                                 viewports.getOrPut(state.model.roomId) { RoomViewport() }, allRows.firstOrNull { it.id == state.model.roomId }, presence.enabled,
-                                account.runtime.media, { url -> popup = WorkspacePopup.MatrixLink(url) }) }
+                                account.runtime.media) { url ->
+                                val link = MatrixRoomLink.parse(url)
+                                if (link == null) false else {
+                                    popup = WorkspacePopup.MatrixLink(link)
+                                    true
+                                }
+                            } }
                         }
                     }
                 }
@@ -448,7 +455,7 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
         RoomNotificationDialog(account.runtime, target.id, s) { popup = null }
     }
     (popup as? WorkspacePopup.MatrixLink)?.let { request ->
-        RoomLinkDialog(account.runtime, request.url, s, colors,
+        RoomLinkDialog(account.runtime, request.link, s, colors,
             openRoom = { target ->
                 if (popup === request && model.phase.value === account) {
                     val tab = if (profile.kind == AccountKind.COMPANY || target.isDm) Destination.CHATS else Destination.GROUPS
@@ -465,7 +472,7 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
 
 @Composable private fun TimelineView(model: DesktopTimeline, s: DesktopCatalog, colors: DesktopColors, background: String,
                                      viewport: RoomViewport, room: ChatRow?, sharesTyping: Boolean, media: AccountMedia,
-                                     openLink: (String) -> Unit) {
+                                     openRoomLink: (String) -> Boolean) {
     val load by model.rows.collectAsState()
     val mediaPolicy by model.mediaPolicy.collectAsState()
     // Spec timeline-media tapToShow: a click shows that one message only, while this room stays open.
@@ -500,6 +507,15 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
     val composerFocus = remember(model) { FocusRequester() }
     val notices = remember(model) { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val uriHandler = LocalUriHandler.current
+    fun openMessageLink(rowId: String, url: String) {
+        if (!model.canOpenLink(rowId, url)) return
+        try {
+            if (!openRoomLink(url)) uriHandler.openUri(url)
+        } catch (_: Exception) {
+            scope.launch { notices.showSnackbar(s.text("bipe_error_generic")) }
+        }
+    }
     val original by model.originalNavigation.collectAsState()
     val rows = when (val snapshot = load) { is LoadPhase.Ready -> snapshot.value; else -> emptyList() }
     LaunchedEffect(rows) {
@@ -540,6 +556,8 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
                         message.dayBefore?.let { TimelineDay(it, today, zone, s, colors) }
                         val warning = message.safety as? MessageSafety.Warning
                         val seconds = pauses[message.id] ?: if (warning?.kind?.registryId() in s.moneyPauseKinds) s.moneyPauseSeconds else 0
+                        val linksEnabled = message.safety != MessageSafety.Checking && message.safety != MessageSafety.Unavailable
+                        val richText = message.richText
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = if (message.own) Arrangement.End else Arrangement.Start) {
                             Column(verticalArrangement = Arrangement.spacedBy(4.dp),
                                 horizontalAlignment = if (message.own) Alignment.End else Alignment.Start) {
@@ -567,10 +585,11 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
                                                 } }, s, colors)
                                             // The caption shows under the media as text; the money pause blocks selecting it, as for text.
                                             attached.caption?.takeIf { it.isNotBlank() }?.let { caption ->
-                                                if (seconds > 0) Text(caption) else TimelineLinks(caption, colors, openLink)
+                                                if (seconds > 0 || richText == null) Text(caption)
+                                                else TimelineMessageText(richText, colors, linksEnabled) { openMessageLink(message.id, it) }
                                             }
-                                        } else if (seconds > 0 || message.kind != MessageRow.Kind.TEXT) Text(message.body)
-                                        else TimelineLinks(message.body, colors, openLink)
+                                        } else if (seconds > 0 || richText == null) Text(message.body)
+                                        else TimelineMessageText(richText, colors, linksEnabled) { openMessageLink(message.id, it) }
                                         Row(Modifier.align(Alignment.End), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
                                             Text(timeLabel(message.timestamp, s.locale), style = MaterialTheme.typography.labelSmall, color = colors["ink.secondary"],
                                                 modifier = Modifier.clearAndSetSemantics {
