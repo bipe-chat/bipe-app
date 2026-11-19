@@ -46,6 +46,7 @@ class DesktopTimeline private constructor(
     private val runtime: MatrixAccountRuntime,
     private val group: AccountTaskGroup,
     val roomId: String,
+    val threadRoot: String?,
     private val labels: ChatLabels,
     private val typingPreference: TypingPreference,
     private val delivered: DesktopDelivered?,
@@ -54,7 +55,7 @@ class DesktopTimeline private constructor(
 ) : AccountResource {
     private val mutableRows = MutableStateFlow<LoadPhase<List<MessageRow>>>(LoadPhase.Loading)
     val rows = mutableRows.asStateFlow()
-    val composer = runtime.drafts.room(roomId)
+    val composer = runtime.drafts.room(roomId, threadRoot)
     lateinit var typing: RoomTyping
         private set
     private val presentation = Mutex()
@@ -77,7 +78,7 @@ class DesktopTimeline private constructor(
     }
     val attachments = AttachmentActions(runtime.client, group, { room }, { timeline }, composer)
     val voice = VoiceSend(group, { room }, { timeline }, composer)
-    val stickers = StickerActions(runtime, group, { room }, ::currentRow)
+    val stickers = StickerActions(runtime, group, { room }, ::currentRow, threadRoot)
     val pins = RoomPins(group, labels, ::currentRow)
     val reactions = ReactionActions(group, ::currentRow) { eventId, key ->
         timeline.toggleReaction(EventOrTransactionId.EventId(eventId), key)
@@ -404,6 +405,12 @@ class DesktopTimeline private constructor(
         return DayHistory.open(runtime, roomId, focus) { snapshot(it, trackFailedSends = false) }
     }
 
+    suspend fun openThread(rootEventId: String): DesktopTimeline {
+        group.requireCurrent()
+        check(threadRoot == null && isGroup)
+        return open(runtime, roomId, labels, threadRoot = rootEventId)
+    }
+
     suspend fun openGallery(): DayHistory {
         group.requireCurrent()
         return DayHistory.open(runtime, roomId, TimelineFocus.Live(hideThreadedEvents = false),
@@ -417,10 +424,13 @@ class DesktopTimeline private constructor(
         room = runtime.client.getRoom(roomId) ?: error("Room unavailable")
         group.own(NativeResource { room.destroy() })
         val info = room.roomInfo()
-        try { isGroup = !info.isDm && !info.isSpace } finally { info.destroy() }
+        try {
+            isGroup = !info.isDm && !info.isSpace
+            check(threadRoot == null || (isGroup && info.membership == Membership.JOINED))
+        } finally { info.destroy() }
         val configuration = TimelineConfiguration(
-            focus = TimelineFocus.Live(hideThreadedEvents = false), filter = TimelineFilter.All,
-            internalIdPrefix = null, dateDividerMode = DateDividerMode.DAILY,
+            focus = threadRoot?.let { TimelineFocus.Thread(it) } ?: TimelineFocus.Live(hideThreadedEvents = isGroup),
+            filter = TimelineFilter.All, internalIdPrefix = null, dateDividerMode = DateDividerMode.DAILY,
             // Windows has no UTD diagnostic collector. The SDK still decrypts and emits locked-message items.
             trackReadReceipts = TimelineReadReceiptTracking.ALL_EVENTS, reportUtds = false,
         )
@@ -482,7 +492,7 @@ class DesktopTimeline private constructor(
                 delay(5_000)
             }
         }
-        pins.start(room, timeline) { snapshot(it, trackFailedSends = false) }
+        if (threadRoot == null) pins.start(room, timeline) { snapshot(it, trackFailedSends = false) }
         startMediaPolicy()
         // Back-pagination failure is retryable; the live listener remains attached for offline/local events.
         loadEarlier()
@@ -528,7 +538,7 @@ class DesktopTimeline private constructor(
             val sender = realName(profile?.displayName, event.sender, labels.noName)
             val id = item.uniqueId().id
             val eventId = (event.eventOrTransactionId as? EventOrTransactionId.EventId)?.eventId
-            if (isGroup) StateLines.line(event)?.let { line ->
+            if (isGroup && threadRoot == null) StateLines.line(event)?.let { line ->
                 return MessageRow(id, sender, event.isOwn, "", MessageRow.Kind.STATE, event.timestamp.toLong(),
                     MessageRow.Delivery.SENT, originalEventId = eventId, senderId = event.sender,
                     readersAtEvent = event.readReceipts.keys.toSet(), stateLine = line)
@@ -593,7 +603,11 @@ class DesktopTimeline private constructor(
                     else it
                 }, richText = richText,
                 canForward = canForward, forwardSource = forwardSource,
-                isEmote = (kind as? MsgLikeKind.Message)?.content?.msgType is MessageType.Emote)
+                isEmote = (kind as? MsgLikeKind.Message)?.content?.msgType is MessageType.Emote,
+                inThread = content.threadRoot != null,
+                threadReplies = content.threadSummary?.let { summary ->
+                    try { summary.numReplies().coerceAtMost(Int.MAX_VALUE.toULong()).toInt() } finally { summary.destroy() }
+                } ?: 0)
         } finally { event.destroy() }
     }
 
@@ -624,9 +638,10 @@ class DesktopTimeline private constructor(
     companion object {
         suspend fun open(runtime: MatrixAccountRuntime, roomId: String, labels: ChatLabels,
                          typingPreference: TypingPreference = TypingPreference.Hidden,
-                         delivered: DesktopDelivered? = null, permitsReadTick: () -> Boolean = { true }): DesktopTimeline {
+                         delivered: DesktopDelivered? = null, threadRoot: String? = null,
+                         permitsReadTick: () -> Boolean = { true }): DesktopTimeline {
             val group = AccountTaskGroup.create(runtime.lifetime)
-            val model = DesktopTimeline(runtime, group, roomId, labels, typingPreference, delivered, permitsReadTick)
+            val model = DesktopTimeline(runtime, group, roomId, threadRoot, labels, typingPreference, delivered, permitsReadTick)
             try { group.async { model.start() }.await(); return model }
             catch (error: Exception) { group.close(); throw error }
         }

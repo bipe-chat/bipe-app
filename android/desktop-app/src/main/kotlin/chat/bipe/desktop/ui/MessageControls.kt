@@ -52,6 +52,9 @@ private data class MessageCommand(val label: String, val enabled: Boolean, val i
     val reactionEnabled = reactions !is ReactionActionPhase.Sending
     val label = s.text("bipe_message_actions")
     val actions = buildList {
+        if (isGroup && model.threadRoot == null && !row.inThread) row.eventId?.let { eventId ->
+            add(MessageCommand(s.text("bipe_thread_reply_action"), true, "chat-text") { show(TimelinePopup.Thread(eventId)) })
+        }
         if (row.canRetry) add(MessageCommand(s.text("bipe_app_retry"), true, "arrow-clockwise") { model.retry(row.id) })
         if (row.canReply) add(MessageCommand(s.text("bipe_app_message_action_reply"), replyEnabled, "arrow-bend-up-left") {
             if (model.startReply(row.id)) focusComposer()

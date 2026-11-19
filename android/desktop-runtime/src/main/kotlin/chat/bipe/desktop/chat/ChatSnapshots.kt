@@ -56,6 +56,8 @@ data class MessageRow(
     val forwardSource: BipeForwardMark.Source? = null,
     val stateLine: StateLine? = null,
     val isEmote: Boolean = false,
+    val inThread: Boolean = false,
+    val threadReplies: Int = 0,
 ) {
     val linkEventId: String?
         get() = eventId?.takeIf { delivery == Delivery.SENT && (kind == Kind.TEXT || kind == Kind.MEDIA) }

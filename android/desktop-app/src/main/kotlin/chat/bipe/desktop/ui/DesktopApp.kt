@@ -568,7 +568,7 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
     val newest = rows.lastOrNull { it.originalEventId != null }?.originalEventId
     val readPhase by readActions.phase.collectAsState()
     LaunchedEffect(foreground, atNewest, room?.unread, newest, readPhase, original) {
-        if (foreground && atNewest && original == OriginalNavigation.Idle && readPhase is ReadActionPhase.Idle &&
+        if (model.threadRoot == null && foreground && atNewest && original == OriginalNavigation.Idle && readPhase is ReadActionPhase.Idle &&
             (room?.unread ?: 0L) > 0L && newest != null && newest != lastReadFrame) {
             lastReadFrame = newest
             readActions.set(model.roomId, unread = false)
@@ -648,12 +648,14 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
     }) {
         Row {
             TextButton(onClick = { model.loadEarlier() }) { Text(s.text("bipe_action_show_more")) }
-            TextButton(onClick = { voice.stop(); popup = TimelinePopup.Gallery }) { Text(s.text("bipe_gallery_title")) }
-            TextButton(onClick = { popup = TimelinePopup.PickDate }, enabled = jumping == null && load is LoadPhase.Ready) {
+            if (model.threadRoot == null) TextButton(onClick = { voice.stop(); popup = TimelinePopup.Gallery }) {
+                Text(s.text("bipe_gallery_title"))
+            }
+            if (model.threadRoot == null) TextButton(onClick = { popup = TimelinePopup.PickDate }, enabled = jumping == null && load is LoadPhase.Ready) {
                 Text(s.text(if (jumping == null) "bipe_jump_to_date_title" else "bipe_web_loading"))
             }
         }
-        PinnedBanner(model, s, colors) { popup = TimelinePopup.Pins }
+        if (model.threadRoot == null) PinnedBanner(model, s, colors) { popup = TimelinePopup.Pins }
         when (load) {
             LoadPhase.Loading -> Text(s.text("bipe_web_loading"), Modifier.padding(16.dp))
             LoadPhase.Failed -> Text(s.text("bipe_error_generic"), Modifier.padding(16.dp))
@@ -686,7 +688,10 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
                             Column(verticalArrangement = Arrangement.spacedBy(4.dp),
                                 horizontalAlignment = if (message.own) Alignment.End else Alignment.Start) {
                                 MessageSurface(model, message, seconds, (original as? OriginalNavigation.Found)?.rowId == message.id,
-                                    popup, { popup = it }, s, colors, inputEnabled, room?.isDm == false, { composerFocus.requestFocus() }, {
+                                    popup, { target ->
+                                        if (target is TimelinePopup.Thread) voice.stop()
+                                        popup = target
+                                    }, s, colors, inputEnabled, room?.isDm == false, { composerFocus.requestFocus() }, {
                                         scope.launch { notices.showSnackbar(s.text("bipe_app_copied")) }
                                     }, ::toggleSelection, { scope.launch { notices.showSnackbar(it) } }) {
                                     Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -741,6 +746,13 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
                                         if (message.delivery == MessageRow.Delivery.FAILED) {
                                             if (message.canRetry) TextButton(onClick = { model.retry(message.id) }) { Text(s.text("bipe_app_retry")) }
                                             else Text(s.text("bipe_error_generic"), style = MaterialTheme.typography.bodySmall)
+                                        }
+                                    }
+                                }
+                                if (model.threadRoot == null && room?.isDm == false && message.threadReplies > 0) {
+                                    message.eventId?.let { eventId ->
+                                        TextButton(onClick = { voice.stop(); popup = TimelinePopup.Thread(eventId) }) {
+                                            Text(s.text("bipe_thread_replies", message.threadReplies.toString()))
                                         }
                                     }
                                 }
@@ -873,6 +885,10 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
         TimelinePopup.PickDate -> JumpDatePicker(today, s,
             pick = { day -> if (popup == TimelinePopup.PickDate) popup = TimelinePopup.Jumping(day) },
             close = { if (popup == TimelinePopup.PickDate) popup = null })
+        is TimelinePopup.Thread -> ThreadDialog(model, dialog.eventId, s, close = { popup = null }) { thread ->
+            TimelineView(thread, s, colors, background, remember(thread) { RoomViewport() }, room, false, media,
+                readActions, showsReadReceipts, openRoomLink)
+        }
         is TimelinePopup.EventHistory -> EventHistoryDialog(model, dialog.eventId, s, colors) { if (popup === dialog) popup = null }
         is TimelinePopup.Day -> DayHistoryDialog(model, dialog.focus, s, colors) { if (popup === dialog) popup = null }
         else -> Unit

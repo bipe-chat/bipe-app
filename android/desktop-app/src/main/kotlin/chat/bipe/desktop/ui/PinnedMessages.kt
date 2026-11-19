@@ -28,7 +28,7 @@ import chat.bipe.desktop.chat.RoomPins
         else s.text("bipe_pinned_banner_count", (index + 1).toString(), pins.size.toString())
     Row(Modifier.fillMaxWidth().background(colors["surface.raised"]), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f).heightIn(min = 48.dp).clickable(role = Role.Button) {
-            model.openOriginal(pin.eventId)
+            model.openOriginal(pin.eventId, focusedFallback = true)
             eventId = pins[(index + 1) % pins.size].eventId
         }.padding(horizontal = 16.dp, vertical = 8.dp)) {
             Text(heading, style = MaterialTheme.typography.labelMedium, color = colors["accent.ink"])
@@ -50,7 +50,7 @@ import chat.bipe.desktop.chat.RoomPins
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Box(Modifier.weight(1f).heightIn(min = 48.dp).clickable(role = Role.Button) {
                                 close()
-                                model.openOriginal(pin.eventId)
+                                model.openOriginal(pin.eventId, focusedFallback = true)
                             }.padding(vertical = 8.dp)) { PinPreview(pin) }
                             if (access.canPin && pin.eventId in access.pinned)
                                 TextButton(onClick = { model.pins.change(pin.eventId, pin = false) },

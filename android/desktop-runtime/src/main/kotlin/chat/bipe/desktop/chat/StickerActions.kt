@@ -21,6 +21,7 @@ class StickerActions internal constructor(
     private val owner: AccountTaskGroup,
     private val room: () -> Room,
     private val row: (String) -> MessageRow?,
+    private val threadRoot: String? = null,
 ) {
     data class Picker internal constructor(
         val packs: List<StickerPack>, val favourites: List<Sticker>, val recents: List<Sticker>,
@@ -56,7 +57,7 @@ class StickerActions internal constructor(
         val destination = room()
         check(destination.membership() == Membership.JOINED && !destination.isSpace())
         owner.requireCurrent()
-        destination.sendRaw("m.sticker", sticker.sendContentJson())
+        destination.sendRaw("m.sticker", sticker.sendContentJson(threadRoot))
         writes.withLock {
             pendingRecents = StickerShortlist.pushRecent(StickerRef(sticker), pendingRecents)
             try {
