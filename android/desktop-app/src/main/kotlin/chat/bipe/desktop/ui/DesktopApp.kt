@@ -631,7 +631,7 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
     }) {
         Row {
             TextButton(onClick = { model.loadEarlier() }) { Text(s.text("bipe_action_show_more")) }
-            TextButton(onClick = { popup = TimelinePopup.Gallery }) { Text(s.text("bipe_gallery_title")) }
+            TextButton(onClick = { voice.stop(); popup = TimelinePopup.Gallery }) { Text(s.text("bipe_gallery_title")) }
             TextButton(onClick = { popup = TimelinePopup.PickDate }, enabled = jumping == null && load is LoadPhase.Ready) {
                 Text(s.text(if (jumping == null) "bipe_jump_to_date_title" else "bipe_web_loading"))
             }
@@ -693,8 +693,11 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
                                                     catch (cancelled: CancellationException) { throw cancelled }
                                                     catch (_: Exception) { notices.showSnackbar(s.text("bipe_app_save_error")) }
                                                 } }, s, colors, open =
-                                                    if (attached.kind == MessageMedia.Kind.IMAGE) { { popup = TimelinePopup.Photo(attached) } }
-                                                    else null)
+                                                    when (attached.kind) {
+                                                        MessageMedia.Kind.IMAGE -> { { popup = TimelinePopup.Photo(attached) } }
+                                                        MessageMedia.Kind.VIDEO -> { { voice.stop(); popup = TimelinePopup.Video(attached) } }
+                                                        else -> null
+                                                    })
                                             // The caption shows under the media as text; the money pause blocks selecting it, as for text.
                                             attached.caption?.takeIf { it.isNotBlank() }?.let { caption ->
                                                 if (seconds > 0 || richText == null) Text(caption)
@@ -839,6 +842,9 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
         }
         is TimelinePopup.Attachments -> AttachmentPreview(model.attachments, dialog.inputs, dialog.reply, s) {
             if (popup === dialog) popup = null
+        }
+        is TimelinePopup.Video -> key(dialog.media.sourceJson) {
+            WindowsVideoDialog(dialog.media, media, s) { popup = null }
         }
         is TimelinePopup.Photo -> key(dialog.media.sourceJson) {
             OriginalPhoto(dialog.media.filename, s, close = { popup = null }) { media.eventPicture(dialog.media.sourceJson) }

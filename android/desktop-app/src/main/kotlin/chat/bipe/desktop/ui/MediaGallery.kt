@@ -131,7 +131,7 @@ import kotlinx.coroutines.withContext
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                 key(active.sourceJson) {
                     if (active.kind == MessageMedia.Kind.IMAGE) OriginalPhotoContent(active.filename, s) { loader.eventPicture(active.sourceJson) }
-                    else Text(active.filename)
+                    else WindowsVideoPlayer(active, loader, s, Modifier.fillMaxSize())
                 }
             }
             return
