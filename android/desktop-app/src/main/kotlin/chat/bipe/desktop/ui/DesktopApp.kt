@@ -912,7 +912,9 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
             WindowsVideoDialog(dialog.media, media, s) { popup = null }
         }
         is TimelinePopup.Photo -> key(dialog.media.sourceJson) {
-            OriginalPhoto(dialog.media.filename, s, close = { popup = null }) { media.eventPicture(dialog.media.sourceJson) }
+            OriginalPhoto(dialog.media.filename, s, close = { popup = null }, imageDescription = dialog.media.description) {
+                media.eventPicture(dialog.media.sourceJson)
+            }
         }
         is TimelinePopup.RecordVoice -> RecordVoice(model.voice, dialog.reply, s) { popup = null }
         TimelinePopup.Stickers -> StickerPicker(model.stickers, media, s) { popup = null }

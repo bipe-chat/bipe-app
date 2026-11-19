@@ -6,9 +6,12 @@ package chat.bipe.desktop.ui
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -27,12 +30,13 @@ import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-@Composable internal fun OriginalPhoto(title: String, s: DesktopCatalog, close: () -> Unit, load: suspend () -> ByteArray?) {
+@Composable internal fun OriginalPhoto(title: String, s: DesktopCatalog, close: () -> Unit,
+                                       imageDescription: String? = null, load: suspend () -> ByteArray?) {
     DialogWindow(onCloseRequest = close, title = title, state = rememberDialogState(width = 900.dp, height = 700.dp)) {
         Surface(Modifier.fillMaxSize()) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Box(Modifier.weight(1f).fillMaxWidth().padding(12.dp), contentAlignment = Alignment.Center) {
-                    OriginalPhotoContent(title, s, load)
+                    OriginalPhotoContent(photoLabel(title, imageDescription, s), s, load)
                 }
                 TextButton(onClick = close) { Text(s.text("bipe_app_close")) }
             }
@@ -40,7 +44,10 @@ import kotlinx.coroutines.withContext
     }
 }
 
-@Composable private fun OriginalPhotoContent(title: String, s: DesktopCatalog, load: suspend () -> ByteArray?) {
+private fun photoLabel(title: String, description: String?, s: DesktopCatalog): String =
+    description?.let { s.text("bipe_app_media_image_described", it) } ?: title
+
+@Composable private fun OriginalPhotoContent(label: String, s: DesktopCatalog, load: suspend () -> ByteArray?) {
     var attempt by remember { mutableStateOf(0) }
     val state by key(attempt) { produceState<LoadPhase<ImageBitmap>>(LoadPhase.Loading) {
         value = try {
@@ -53,8 +60,32 @@ import kotlinx.coroutines.withContext
     when (val result = state) {
         LoadPhase.Loading -> CircularProgressIndicator()
         LoadPhase.Failed -> TextButton(onClick = { attempt++ }) { Text(s.text("bipe_app_media_failed")) }
-        is LoadPhase.Ready -> Image(result.value, contentDescription = title,
-            contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize())
+        is LoadPhase.Ready -> ZoomablePhoto(result.value, label, s)
+    }
+}
+
+@Composable private fun ZoomablePhoto(image: ImageBitmap, label: String, s: DesktopCatalog) {
+    var zoom by remember(image) { mutableIntStateOf(1) }
+    val horizontal = rememberScrollState()
+    val vertical = rememberScrollState()
+    Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
+        BoxWithConstraints(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+            val aspect = image.width.toFloat() / image.height
+            val width = minOf(maxWidth, maxHeight * aspect)
+            val height = width / aspect
+            LaunchedEffect(zoom, horizontal.maxValue, vertical.maxValue) {
+                if (horizontal.maxValue != Int.MAX_VALUE) horizontal.scrollTo(horizontal.maxValue / 2)
+                if (vertical.maxValue != Int.MAX_VALUE) vertical.scrollTo(vertical.maxValue / 2)
+            }
+            Image(image, contentDescription = label, contentScale = ContentScale.Fit,
+                modifier = Modifier.horizontalScroll(horizontal).verticalScroll(vertical)
+                    .size(width * zoom.toFloat(), height * zoom.toFloat()))
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            TextButton(onClick = { zoom /= 2 }, enabled = zoom > 1) { Text(s.text("bipe_app_location_zoom_out")) }
+            Text("${zoom}×", style = MaterialTheme.typography.labelMedium)
+            TextButton(onClick = { zoom *= 2 }, enabled = zoom < 4) { Text(s.text("bipe_app_location_zoom_in")) }
+        }
     }
 }
 
@@ -135,7 +166,9 @@ import kotlinx.coroutines.withContext
             if (saveFailed) Text(s.text("bipe_app_save_error"))
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                 key(active.sourceJson) {
-                    if (active.kind == MessageMedia.Kind.IMAGE) OriginalPhotoContent(active.filename, s) { loader.eventPicture(active.sourceJson) }
+                    if (active.kind == MessageMedia.Kind.IMAGE) OriginalPhotoContent(photoLabel(active.filename, active.description, s), s) {
+                        loader.eventPicture(active.sourceJson)
+                    }
                     else WindowsVideoPlayer(active, loader, s, Modifier.fillMaxSize())
                 }
             }
@@ -190,12 +223,13 @@ import kotlinx.coroutines.withContext
         } catch (cancelled: CancellationException) { throw cancelled }
         catch (_: Exception) { /* Keep the labelled tile available to retry from its viewer. */ }
     } }
-    val label = s.text(s.mediaKey(media.kind))
+    val kind = s.text(s.mediaKey(media.kind))
+    val label = photoLabel(kind, media.description, s)
     Surface(Modifier.fillMaxSize().clickable(role = Role.Button, onClickLabel = label, onClick = open),
         color = MaterialTheme.colorScheme.surfaceVariant) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             val preview = picture
-            if (preview == null) Text(label)
+            if (preview == null) Text(kind)
             else Image(preview, contentDescription = label, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
             media.durationMillis?.let { duration ->
                 Surface(Modifier.align(Alignment.BottomEnd).padding(6.dp)) {
