@@ -87,7 +87,7 @@ private enum class LinkPhase { IDLE, FAILED }
                 Text(title, style = MaterialTheme.typography.headlineSmall)
             }
             if (linkPhase == LinkPhase.FAILED) Text(s.text("bipe_error_generic"), style = MaterialTheme.typography.bodySmall)
-            if (page == SettingsPage.Colors || page == SettingsPage.Group("chats")) AppearanceStatus(appearance, account.appearance::retry, s)
+            if (page == SettingsPage.Colors || page == SettingsPage.Group("chats") || page == SettingsPage.Group("privacy")) AppearanceStatus(appearance, account.appearance::retry, s)
             when (val current = page) {
                 SettingsPage.Root -> LazyColumn {
                     item {
@@ -127,7 +127,7 @@ private enum class LinkPhase { IDLE, FAILED }
                             val key = row.getValue("key").jsonPrimitive.content
                             row["gate"] == null && (row.getValue("kind").jsonPrimitive.content == "url" ||
                                 (current.key == "chats" && key in setOf("appearance", "colors", "accessibility")) ||
-                                (current.key == "privacy" && key == "presence") ||
+                                (current.key == "privacy" && key in setOf("presence", "readReceipts")) ||
                                 (current.key == "account" && key == "linkedDevices") || (current.key == "help" && key in setOf("licenses", "versions")))
                         }
                         if (rows.isEmpty()) continue
@@ -139,7 +139,7 @@ private enum class LinkPhase { IDLE, FAILED }
                                 "colors" -> s.text("bipe_colors_${values.palette(s.appearancePolicy)}")
                                 else -> null
                             }
-                            if (current.key == "privacy" && key == "presence") {
+                            if (current.key == "privacy" && key in setOf("presence", "readReceipts")) {
                                 Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Column(Modifier.weight(1f)) {
                                         Text(s.text("bipe_privacy_presence"), style = MaterialTheme.typography.bodyLarge)
@@ -154,6 +154,18 @@ private enum class LinkPhase { IDLE, FAILED }
                                         Text(s.text("bipe_error_generic"), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
                                         TextButton(onClick = { model.devicePresence.pick(failed.requested) }) { Text(s.text("bipe_app_retry")) }
                                     }
+                                }
+                            } else if (key == "readReceipts") {
+                                val titleKey = row.getValue("title").jsonPrimitive.content
+                                val subtitleKey = row.getValue("footer").jsonPrimitive.content
+                                Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text(s.text(titleKey), style = MaterialTheme.typography.bodyLarge)
+                                        Text(s.text(subtitleKey), style = MaterialTheme.typography.bodySmall)
+                                    }
+                                    Switch(checked = values.readReceipts, onCheckedChange = account.appearance::pickReadReceipts,
+                                        enabled = (appearance as? AppearancePhase.Ready)?.let { it.sync != AppearanceSync.SAVING } == true,
+                                        modifier = Modifier.semantics { contentDescription = s.text(titleKey) })
                                 }
                             } else PreferenceRow(s.text(row.getValue("title").jsonPrimitive.content), subtitle, onClick = {
                                 when {

@@ -184,9 +184,9 @@ class DesktopRoomList private constructor(
     }
 
     companion object {
-        suspend fun open(runtime: MatrixAccountRuntime, labels: ChatLabels): DesktopRoomList {
+        suspend fun open(runtime: MatrixAccountRuntime, labels: ChatLabels, permitsPublicDmReads: () -> Boolean = { true }): DesktopRoomList {
             val group = AccountTaskGroup.create(runtime.lifetime)
-            val model = DesktopRoomList(runtime, group, labels, AccountFavourites.open(runtime), AccountArchive.open(runtime), AccountReadActions.open(runtime))
+            val model = DesktopRoomList(runtime, group, labels, AccountFavourites.open(runtime), AccountArchive.open(runtime), AccountReadActions.open(runtime, permitsPublicDmReads))
             try { group.async { model.start() }.await(); return model }
             catch (error: Exception) { group.close(); throw error }
         }

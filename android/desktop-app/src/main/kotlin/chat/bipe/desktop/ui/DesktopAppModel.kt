@@ -239,14 +239,16 @@ class DesktopAppModel(val catalog: DesktopCatalog) {
                     }
                 }
             }
-            val list = DesktopRoomList.open(runtime, catalog.chatLabels())
+            val appearance = AccountAppearance.open(runtime, catalog.appearancePolicy)
+            val list = DesktopRoomList.open(runtime, catalog.chatLabels()) {
+                (appearance.phase.value as? AppearancePhase.Ready)?.values?.readReceipts == true
+            }
             val profile = runtime.lifetime.async {
                 val userId = runtime.client.userId()
                 val name = realName(runCatching { runtime.client.displayName() }.getOrNull(), userId, catalog.text("bipe_tab_you"))
                 AccountProfile(name, runtime.identity.type(userId), runCatching { runtime.client.avatarUrl() }.getOrNull(), userId)
             }.await()
             val liveProfile = MutableStateFlow(profile)
-            val appearance = AccountAppearance.open(runtime, catalog.appearancePolicy)
             val ready = AppPhase.Ready(runtime, list, liveProfile.asStateFlow(), repository.slots(), appearance)
             show(ready)
             scope.launch {

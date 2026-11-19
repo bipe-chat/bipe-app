@@ -447,7 +447,7 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
                             }
                             Box(Modifier.weight(1f)) { TimelineView(state.model, s, colors, background,
                                 viewports.getOrPut(state.model.roomId) { RoomViewport() }, allRows.firstOrNull { it.id == state.model.roomId }, presence.enabled,
-                                account.runtime.media) { url ->
+                                account.runtime.media, account.list.readActions, (appearance as? AppearancePhase.Ready)?.values?.readReceipts == true) { url ->
                                 val link = MatrixRoomLink.parse(url)
                                 if (link == null) false else {
                                     popup = WorkspacePopup.MatrixLink(link)
@@ -481,7 +481,7 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
 
 @Composable private fun TimelineView(model: DesktopTimeline, s: DesktopCatalog, colors: DesktopColors, background: String,
                                      viewport: RoomViewport, room: ChatRow?, sharesTyping: Boolean, media: AccountMedia,
-                                     openRoomLink: (String) -> Boolean) {
+                                     readActions: AccountReadActions, showsReadReceipts: Boolean, openRoomLink: (String) -> Boolean) {
     val load by model.rows.collectAsState()
     val mediaPolicy by model.mediaPolicy.collectAsState()
     // Spec timeline-media tapToShow: a click shows that one message only, while this room stays open.
@@ -530,6 +530,17 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
     }
     val original by model.originalNavigation.collectAsState()
     val rows = when (val snapshot = load) { is LoadPhase.Ready -> snapshot.value; else -> emptyList() }
+    val atNewest = !jumpVisible
+    var lastReadFrame by remember(model) { mutableStateOf<String?>(null) }
+    val newest = rows.lastOrNull { it.originalEventId != null }?.originalEventId
+    val readPhase by readActions.phase.collectAsState()
+    LaunchedEffect(foreground, atNewest, room?.unread, newest, readPhase, original) {
+        if (foreground && atNewest && original == OriginalNavigation.Idle && readPhase is ReadActionPhase.Idle &&
+            (room?.unread ?: 0L) > 0L && newest != null && newest != lastReadFrame) {
+            lastReadFrame = newest
+            readActions.set(model.roomId, unread = false)
+        }
+    }
     val deletePermission by model.deletion.permission.collectAsState()
     val selectionRows = rows.filter { it.id in selection }
     LaunchedEffect(rows) { selection = selection.intersect(rows.mapTo(mutableSetOf()) { it.id }) }
@@ -667,7 +678,11 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
                                                     contentDescription = TimelineDates.fullTimestamp(message.timestamp, zone, Locale.forLanguageTag(s.locale))
                                                 })
                                             if (message.isEdited) Text(s.text("bipe_app_message_edited"), style = MaterialTheme.typography.labelSmall, color = colors["ink.secondary"])
-                                            if (room?.isDm == true) message.dmReceipt?.let { DmReceiptFooter(it, s, colors) }
+                                            if (room?.isDm == true) message.dmReceipt?.let {
+                                                val receipt = if (!showsReadReceipts && it.tick == DmReceipt.Tick.READ)
+                                                    it.copy(tick = DmReceipt.Tick.DELIVERED) else it
+                                                DmReceiptFooter(receipt, s, colors)
+                                            }
                                         }
                                         if (message.delivery == MessageRow.Delivery.SENDING && (room?.isDm != true || message.dmReceipt == null)) Text(s.text("bipe_app_timeline_sending"), style = MaterialTheme.typography.bodySmall)
                                         if (message.delivery == MessageRow.Delivery.FAILED) {
