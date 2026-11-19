@@ -106,6 +106,9 @@ import kotlinx.coroutines.delay
                     Text(s.text("bipe_search_messages"), Modifier.padding(vertical = 8.dp), style = MaterialTheme.typography.labelLarge)
                 }
                 items(hits, key = { "hit/${it.room.id}/${it.eventId}" }) { hit ->
+                    if (roomId == null && page?.hasMore == true && hit === hits.lastOrNull()) {
+                        LaunchedEffect(query, hit) { query?.more() }
+                    }
                     val time = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.SHORT).withLocale(locale).withZone(ZoneId.systemDefault())
                         .format(Instant.ofEpochMilli(hit.timestamp))
                     val heading = if (roomId == null) hit.room.name else hit.sender

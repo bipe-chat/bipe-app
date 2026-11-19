@@ -5,6 +5,7 @@
 package chat.bipe.desktop.chat
 
 import chat.bipe.app.common.toVectorDiff
+import chat.bipe.desktop.account.AccountResource
 import chat.bipe.desktop.account.AccountTaskGroup
 import chat.bipe.desktop.account.MatrixAccountRuntime
 import chat.bipe.search.MessageSearchQuery
@@ -32,7 +33,7 @@ data class DesktopSearchHit(val room: DesktopSearchRoom, val eventId: String, va
 class DesktopMessageSearch private constructor(private val runtime: MatrixAccountRuntime,
                                                private val owner: AccountTaskGroup, private val labels: ChatLabels) {
     private val searchLock = Mutex()
-    private val recentLock = Mutex()
+    private val recentChanges = Channel<(List<String>) -> List<String>>(Channel.UNLIMITED)
     private val mutableRecent = MutableStateFlow<List<String>>(emptyList())
     val recent = mutableRecent.asStateFlow()
 
@@ -98,7 +99,6 @@ class DesktopMessageSearch private constructor(private val runtime: MatrixAccoun
                             publish()
                         }
                     }
-                    publish()
                     for (ignored in query.requests) {
                         if ((service.paginationState() as? SearchServicePaginationState.Idle)?.endReached != false) continue
                         paging.value = true
@@ -149,15 +149,19 @@ class DesktopMessageSearch private constructor(private val runtime: MatrixAccoun
 
     fun clearRecent() = record { emptyList() }
 
-    private fun record(change: (List<String>) -> List<String>) = owner.launch {
-        try {
-            recentLock.withLock {
+    private fun record(change: (List<String>) -> List<String>) {
+        owner.publish { recentChanges.trySend(change) }
+    }
+
+    private suspend fun persistRecentChanges() {
+        for (change in recentChanges) {
+            try {
                 val values = change(mutableRecent.value)
                 runtime.lifetime.lease.writeRecentSearches(JsonArray(values.map { JsonPrimitive(it) }).toString())
                 owner.publish { mutableRecent.value = values }
-            }
-        } catch (cancelled: CancellationException) { throw cancelled }
-        catch (_: Exception) { /* The protected store retains the last committed list. */ }
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) { /* The protected store retains the last committed list. */ }
+        }
     }
 
     private fun toHit(value: SearchServiceResult, own: String, rooms: Map<String, DesktopSearchRoom>): DesktopSearchHit? {
@@ -179,6 +183,7 @@ class DesktopMessageSearch private constructor(private val runtime: MatrixAccoun
         suspend fun open(runtime: MatrixAccountRuntime, labels: ChatLabels): DesktopMessageSearch {
             val owner = AccountTaskGroup.create(runtime.lifetime)
             val search = DesktopMessageSearch(runtime, owner, labels)
+            owner.own(AccountResource { search.recentChanges.cancel() })
             owner.async {
                 val saved = runCatching {
                     val value = runtime.lifetime.lease.readRecentSearches() ?: return@runCatching emptyList()
@@ -188,6 +193,7 @@ class DesktopMessageSearch private constructor(private val runtime: MatrixAccoun
                 }.getOrDefault(emptyList())
                 owner.publish { search.mutableRecent.value = saved }
             }.await()
+            owner.launch { search.persistRecentChanges() }
             return search
         }
 
