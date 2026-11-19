@@ -6,6 +6,8 @@ package chat.bipe.desktop.chat
 
 import chat.bipe.app.timeline.StateLines
 import chat.bipe.app.polls.PollData
+import chat.bipe.app.location.MapPoint
+import chat.bipe.app.location.GeoUri
 import chat.bipe.desktop.account.AccountResource
 import chat.bipe.desktop.account.AccountTaskGroup
 import chat.bipe.desktop.account.MatrixAccountRuntime
@@ -70,6 +72,7 @@ class DesktopTimeline private constructor(
     private enum class ReplyLoad { LOADING, SETTLED }
     private val replyLoads = mutableMapOf<String, ReplyLoad>()
     private val paging = Mutex()
+    private val sendingLocation = Mutex()
     @Volatile private var reachedStart = false
     private lateinit var timeline: Timeline
     private lateinit var room: Room
@@ -407,6 +410,16 @@ class DesktopTimeline private constructor(
         return DayHistory.open(runtime, roomId, focus) { snapshot(it, trackFailedSends = false) }
     }
 
+    suspend fun sendPin(location: MapPoint, body: String, reply: String?) = group.async {
+        check(sendingLocation.tryLock())
+        try {
+            check(room.membership() == Membership.JOINED)
+            group.requireCurrent()
+            timeline.sendLocation(body, GeoUri.make(location.latitude, location.longitude), null, location.zoom.toUByte(), AssetType.PIN, reply)
+            if (reply != null) composer.acceptedAttachmentReply(reply)
+        } finally { sendingLocation.unlock() }
+    }.await()
+
     suspend fun openThread(rootEventId: String): DesktopTimeline {
         group.requireCurrent()
         check(threadRoot == null && isGroup)
@@ -547,6 +560,7 @@ class DesktopTimeline private constructor(
             }
             val content = (event.content as? TimelineItemContent.MsgLike)?.content ?: return null
             val kind = content.kind
+            val location = DesktopLocation.of(kind)
             val media = MessageMedia.of(kind)
             val poll = if (kind is MsgLikeKind.Poll && eventId != null)
                 PollData.of(eventId, kind, event.isOwn && event.isRemote, runtime.client.userId()) else null
@@ -554,6 +568,7 @@ class DesktopTimeline private constructor(
                 kind is MsgLikeKind.Message && kind.content.msgType.isText() -> MessageRow.Kind.TEXT
                 media != null -> MessageRow.Kind.MEDIA
                 poll != null -> MessageRow.Kind.POLL
+                location != null -> MessageRow.Kind.LOCATION
                 kind is MsgLikeKind.UnableToDecrypt -> MessageRow.Kind.UNDECRYPTABLE
                 kind == MsgLikeKind.Redacted -> MessageRow.Kind.DELETED
                 else -> MessageRow.Kind.UNSUPPORTED
@@ -565,6 +580,7 @@ class DesktopTimeline private constructor(
                 MessageRow.Kind.DELETED -> labels.deleted
                 MessageRow.Kind.UNSUPPORTED -> (kind as? MsgLikeKind.Message)?.content?.body ?: labels.unsupported
                 MessageRow.Kind.POLL -> checkNotNull(poll).question
+                MessageRow.Kind.LOCATION -> if (location?.live != null) labels.liveLocation else labels.location
                 MessageRow.Kind.STATE -> error("State uses its own row")
             }
             // The scam warning reads text and media captions (spec timeline-media notes), never a kind label.
@@ -610,7 +626,7 @@ class DesktopTimeline private constructor(
                 }, richText = richText,
                 canForward = canForward, forwardSource = forwardSource,
                 isEmote = (kind as? MsgLikeKind.Message)?.content?.msgType is MessageType.Emote,
-                inThread = content.threadRoot != null, poll = poll,
+                inThread = content.threadRoot != null, poll = poll, location = location,
                 threadReplies = content.threadSummary?.let { summary ->
                     try { summary.numReplies().coerceAtMost(Int.MAX_VALUE.toULong()).toInt() } finally { summary.destroy() }
                 } ?: 0)
@@ -624,7 +640,9 @@ class DesktopTimeline private constructor(
                 is EmbeddedEventDetails.Ready -> {
                     val kind = (event.content as? TimelineItemContent.MsgLike)?.content?.kind
                     val preview = when (kind) {
-                        is MsgLikeKind.Message -> MessageMedia.of(kind.content.msgType)?.summary(labels) ?: kind.content.body
+                        is MsgLikeKind.Message -> if (kind.content.msgType is MessageType.Location) labels.location
+                            else MessageMedia.of(kind.content.msgType)?.summary(labels) ?: kind.content.body
+                        is MsgLikeKind.LiveLocation -> labels.liveLocation
                         is MsgLikeKind.Poll -> kind.question
                         is MsgLikeKind.Sticker -> labels.mediaLabel(MessageMedia.Kind.STICKER)
                         MsgLikeKind.Redacted -> labels.deleted

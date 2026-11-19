@@ -707,7 +707,9 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
                                         message.forwardSource?.let { ForwardSource(it, s, colors) }
                                         val attached = message.media
                                         val poll = message.poll
-                                        if (poll != null) PollPreview(poll, s) { popup = TimelinePopup.Poll(poll.eventId) }
+                                        val location = message.location
+                                        if (location != null) TimelineLocation(location, s, colors) { popup = TimelinePopup.Location(message.id) }
+                                        else if (poll != null) PollPreview(poll, s) { popup = TimelinePopup.Poll(poll.eventId) }
                                         else if (attached != null) {
                                             if (attached.kind == MessageMedia.Kind.VOICE || attached.kind == MessageMedia.Kind.AUDIO)
                                                 VoiceControls(voice, message.id, attached, s)
@@ -822,6 +824,9 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
                             popup = null
                             attach(pickAttachments(s.text("bipe_app_composer_attach")))
                         })
+                        DropdownMenuItem(text = { Text(s.text("bipe_app_attach_location")) }, onClick = {
+                            popup = TimelinePopup.SendLocation((composer as? ComposerState.Editing)?.replyTo)
+                        })
                         if (room?.isDm == false) DropdownMenuItem(text = { Text(s.text("bipe_app_attach_poll")) }, onClick = {
                             popup = TimelinePopup.PollEditor(null)
                         })
@@ -879,6 +884,10 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
             model.deletion.confirm(dialog.intents)
             selection = emptySet()
             popup = null
+        }
+        is TimelinePopup.SendLocation -> SendLocationDialog(model, dialog.reply, s, colors, close = { popup = null })
+        is TimelinePopup.Location -> rows.firstOrNull { it.id == dialog.rowId }?.let { row ->
+            row.location?.let { LocationDialog(row.sender, it, s, colors, close = { popup = null }) }
         }
         is TimelinePopup.Poll -> rows.firstOrNull { it.poll?.eventId == dialog.eventId }?.poll?.let { poll ->
             PollDetails(model.polls, poll, s, close = { popup = null },

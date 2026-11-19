@@ -54,7 +54,8 @@ class DesktopCatalog private constructor(private val root: JsonObject, val build
 
     fun chatLabels() = ChatLabels(text("bipe_dm_no_name"), text("bipe_person_no_name"),
         text("bipe_web_timeline_undecryptable"), text("bipe_app_timeline_unsupported"), text("bipe_app_message_deleted"), text("bipe_app_you"),
-        MessageMedia.Kind.entries.associateWith { text(mediaKey(it)) })
+        MessageMedia.Kind.entries.associateWith { text(mediaKey(it)) },
+        text("bipe_app_location_title"), text("bipe_app_location_live_title"))
 
     /** Spec timeline-media: the kind labels, also the accessibility labels of the rows. Audio files read as files. */
     fun mediaKey(kind: MessageMedia.Kind): String = when (kind) {

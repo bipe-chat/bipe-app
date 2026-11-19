@@ -22,6 +22,7 @@ import kotlinx.coroutines.sync.withLock
 import org.matrix.rustcomponents.sdk.LatestEventValue
 import org.matrix.rustcomponents.sdk.Membership
 import org.matrix.rustcomponents.sdk.MsgLikeKind
+import org.matrix.rustcomponents.sdk.MessageType
 import org.matrix.rustcomponents.sdk.Room
 import org.matrix.rustcomponents.sdk.ComposerDraftType
 import uniffi.matrix_sdk_base.EncryptionState
@@ -182,7 +183,9 @@ class DesktopRoomList private constructor(
     }.await()
 
     private fun preview(content: TimelineItemContent): String? = when (val kind = (content as? TimelineItemContent.MsgLike)?.content?.kind) {
-        is MsgLikeKind.Message -> MessageMedia.of(kind.content.msgType)?.summary(labels) ?: kind.content.body
+        is MsgLikeKind.Message -> if (kind.content.msgType is MessageType.Location) labels.location
+            else MessageMedia.of(kind.content.msgType)?.summary(labels) ?: kind.content.body
+        is MsgLikeKind.LiveLocation -> labels.liveLocation
         is MsgLikeKind.Poll -> kind.question
         is MsgLikeKind.Sticker -> labels.mediaLabel(MessageMedia.Kind.STICKER)
         is MsgLikeKind.UnableToDecrypt -> labels.undecryptable

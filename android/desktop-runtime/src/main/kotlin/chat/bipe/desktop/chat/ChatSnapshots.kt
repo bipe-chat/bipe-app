@@ -17,7 +17,8 @@ import chat.bipe.desktop.safety.MessageSafety
 data class ChatLabels(val unnamed: String, val noName: String, val undecryptable: String, val unsupported: String,
                       val deleted: String = unsupported, val you: String = noName,
                       /** bipe_app_media_image, _video, _file, _sticker and _voice (spec timeline-media notes). */
-                      val media: Map<MessageMedia.Kind, String> = emptyMap()) {
+                      val media: Map<MessageMedia.Kind, String> = emptyMap(),
+                      val location: String = unsupported, val liveLocation: String = unsupported) {
     fun mediaLabel(kind: MessageMedia.Kind): String = media[kind] ?: unsupported
 }
 data class ChatAvatar(val name: String, val url: String?, val userId: String? = null)
@@ -60,11 +61,12 @@ data class MessageRow(
     val inThread: Boolean = false,
     val threadReplies: Int = 0,
     val poll: PollData? = null,
+    val location: DesktopLocation? = null,
 ) {
     val linkEventId: String?
         get() = eventId?.takeIf { delivery == Delivery.SENT && (kind == Kind.TEXT || kind == Kind.MEDIA) }
 
-    enum class Kind { TEXT, MEDIA, UNDECRYPTABLE, DELETED, UNSUPPORTED, STATE, POLL }
+    enum class Kind { TEXT, MEDIA, UNDECRYPTABLE, DELETED, UNSUPPORTED, STATE, POLL, LOCATION }
     enum class Delivery { SENT, SENDING, FAILED }
 }
 data class MessageQuote(val eventId: String, val details: Details) {
