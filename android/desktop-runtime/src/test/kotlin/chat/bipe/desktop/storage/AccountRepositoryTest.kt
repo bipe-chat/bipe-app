@@ -170,6 +170,26 @@ class AccountRepositoryTest {
         assertFalse(Files.exists(lease.paths.root))
     }
 
+    @Test fun revokingOneLinkedSlotRemovesOnlyItsProtectedSearchHistoryAndIndex() {
+        val first = provision()
+        val second = provision()
+        materializeStore(first)
+        materializeStore(second)
+        repository.completeLink(first, session())
+        repository.completeLink(second, session().copy(userId = "@other:example.test", deviceId = "OTHER"))
+        first.writeRecentSearches("""["first private query"]""")
+        second.writeRecentSearches("""["second private query"]""")
+        val index = Files.createDirectory(first.paths.data.resolve("SearchIndex"))
+        Files.writeString(index.resolve("synthetic-index"), "test marker")
+        assertFalse(Files.readString(first.paths.root.resolve("recent-searches.bin")).contains("first private query"))
+        assertEquals("""["first private query"]""", first.readRecentSearches())
+        assertEquals(RevocationResult.Complete, first.revoke())
+        first.close()
+        repository.removeRevokedFiles(first.slot)
+        assertFalse(Files.exists(first.paths.root))
+        assertEquals("""["second private query"]""", second.readRecentSearches())
+    }
+
     @Test fun duplicateLinkCannotReplaceAnAlreadyLinkedAccount() {
         val first = provision()
         val second = provision()

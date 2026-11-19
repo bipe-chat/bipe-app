@@ -70,6 +70,25 @@ class AccountDraftsTest {
         assertEquals("work", second.saved["same-room"])
     }
 
+    @Test(timeout = 20_000) fun roomAndThreadDraftsKeepIndependentRevisionsAndRestoreAfterClose() = runBlocking {
+        val store = Store()
+        val (owner, drafts) = createDrafts(store)
+        val main = drafts.room("room")
+        val replies = drafts.room("room", "root")
+        ready(main); ready(replies)
+        main.edit("main draft"); replies.edit("thread draft")
+        saved(main); saved(replies)
+        assertEquals("main draft", drafts.previews.value["room"])
+        replies.accepted(replies.submission()!!)
+        saved(replies)
+        assertEquals("main draft", main.state.value.let { it as ComposerState.Editing }.text)
+        replies.edit("restore this thread")
+        assertEquals(AccountCloseResult.Closed, owner.closeAsync().await())
+        val (_, restored) = createDrafts(store, owner.lease.slot)
+        assertEquals("main draft", ready(restored.room("room")).text)
+        assertEquals("restore this thread", ready(restored.room("room", "root")).text)
+    }
+
     @Test(timeout = 20_000) fun aSuccessfulSendCannotEraseAnEditAwayAndBackToTheSameBody() = runBlocking {
         val (_, drafts) = createDrafts(Store())
         val composer = drafts.room("room"); ready(composer)
@@ -195,6 +214,10 @@ class AccountDraftsTest {
         @Volatile var failSave = false
         @Volatile var unsupported = false
         var beforeSave: suspend (String) -> Unit = {}
+        override suspend fun load(roomId: String, threadRoot: String?): SavedComposerDraft =
+            load(if (threadRoot == null) roomId else "$roomId:$threadRoot")
+        override suspend fun save(roomId: String, threadRoot: String?, draft: SavedComposerDraft.Text) =
+            save(if (threadRoot == null) roomId else "$roomId:$threadRoot", draft)
         override suspend fun load(roomId: String): SavedComposerDraft {
             if (failLoad) throw IllegalStateException("synthetic-private-body")
             return if (unsupported) SavedComposerDraft.Unsupported else SavedComposerDraft.Text(saved[roomId].orEmpty(), replyTargets[roomId])
