@@ -64,7 +64,11 @@ class MatrixRoomLink private constructor(
                 return@accountRequest preview
             }
             localJoined(client, preview.roomId)?.let { return@accountRequest it }
-            val servers = if (isAlias) (via + idOrAlias.substringAfter(':')).distinct() else via
+            val servers = if (isAlias) {
+                val resolved = try { client.resolveRoomAlias(idOrAlias) } catch (_: ClientException) { null }
+                val known = resolved?.takeIf { it.roomId == preview.roomId }?.servers.orEmpty()
+                (via + known + idOrAlias.substringAfter(':')).distinct()
+            } else via
             if (access == MatrixRoomLinkResult.Preview.Access.KNOCK) {
                 val room = client.knock(preview.roomId, null, servers)
                 room.destroy()

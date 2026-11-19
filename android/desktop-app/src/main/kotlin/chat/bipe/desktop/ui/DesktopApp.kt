@@ -59,7 +59,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 @Composable
-fun DesktopApp(model: DesktopAppModel, phase: AppPhase, colors: DesktopColors, onClose: () -> Unit) {
+fun DesktopApp(model: DesktopAppModel, phase: AppPhase, colors: DesktopColors, launchLink: MatrixRoomLink?,
+               onLaunchLinkOpened: () -> Unit, onClose: () -> Unit) {
     val s = model.catalog
     Surface(Modifier.fillMaxSize(), color = colors["surface.base"]) {
         when (phase) {
@@ -79,7 +80,7 @@ fun DesktopApp(model: DesktopAppModel, phase: AppPhase, colors: DesktopColors, o
             }
             is AppPhase.Linking -> PhoneLinkView(model, phase, colors)
             is AppPhase.Recovering -> PendingRecoveryView(model, phase)
-            is AppPhase.Ready -> Workspace(model, phase, colors)
+            is AppPhase.Ready -> Workspace(model, phase, colors, launchLink, onLaunchLinkOpened)
             is AppPhase.Closing -> Centered { Text(s.text("bipe_web_loading")) }
             is AppPhase.CloseFailed -> Centered {
                 Text(s.text("bipe_error_generic"))
@@ -190,7 +191,8 @@ private enum class Destination(val key: String) { CHATS("bipe_tab_chats"), GROUP
 private enum class ChatListMode { ACTIVE, ARCHIVED }
 private data class TimelineLinkFocus(val tab: Destination, val roomId: String, val eventId: String)
 
-@Composable private fun Workspace(model: DesktopAppModel, account: AppPhase.Ready, colors: DesktopColors) {
+@Composable private fun Workspace(model: DesktopAppModel, account: AppPhase.Ready, colors: DesktopColors,
+                                  launchLink: MatrixRoomLink?, onLaunchLinkOpened: () -> Unit) {
     val s = model.catalog
     val profile by account.profile.collectAsState()
     val presence by model.devicePresence.phase.collectAsState()
@@ -220,6 +222,12 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
         else if (selected == null) model.clearRoom() else model.selectRoom(selected)
     }
     var popup by remember(account, destination) { mutableStateOf<WorkspacePopup?>(null) }
+    LaunchedEffect(account, launchLink) {
+        if (launchLink != null && model.phase.value === account) {
+            popup = WorkspacePopup.MatrixLink(launchLink)
+            onLaunchLinkOpened()
+        }
+    }
     var listMode by remember(account, destination) { mutableStateOf(ChatListMode.ACTIVE) }
     val archivedView = listMode == ChatListMode.ARCHIVED
     var editing by remember(account, destination, profile.kind) { mutableStateOf<FavouriteEditing>(FavouriteEditing.Normal) }
