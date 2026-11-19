@@ -24,6 +24,8 @@ mod small_rules;
 mod text;
 mod theft;
 mod trust;
+#[cfg(target_os = "windows")]
+mod voice;
 
 /// bipe-shared tools/gen.mjs output (bipe-chat/bipe#1277). Never edit by hand.
 mod generated {
@@ -50,6 +52,8 @@ pub use small_rules::*;
 pub use text::{TextFold, normalize_text};
 pub use theft::*;
 pub use trust::*;
+#[cfg(target_os = "windows")]
+pub use voice::*;
 
 uniffi::setup_scaffolding!("bipe_core");
 

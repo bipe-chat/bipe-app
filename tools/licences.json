@@ -614,6 +614,13 @@
       "checked": "2026-11-10",
       "note": "MIT OR Apache-2.0; Apache-2.0 chosen."
     },
+    "cargo:ruopus": {
+      "ecosystem": "cargo",
+      "licence": "MIT",
+      "source": "https://docs.rs/ruopus/0.1.2/ruopus/",
+      "checked": "2026-11-19",
+      "note": "Windows voice codec. The checksum-matched crate declares MIT. Uses the std-only feature with no transitive dependencies."
+    },
     "cargo:rustc_version": {
       "ecosystem": "cargo",
       "licence": "Apache-2.0",

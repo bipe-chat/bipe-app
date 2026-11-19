@@ -25,6 +25,9 @@ unicode-normalization = { version = "0.1", default-features = false, features = 
 # No default features: `cargo-metadata` serves the bindings generator, and tools/uniffi-bindgen has it (bipe-chat/bipe#1277).
 uniffi = { git = "https://github.com/mozilla/uniffi-rs.git", rev = "e5f4821410bea19e71984ea5e06a7bc8b11ed9e5", version = "0.31.0", default-features = false }
 
+[target.'cfg(target_os = "windows")'.dependencies]
+ruopus = { version = "=0.1.2", default-features = false, features = ["std"] }
+
 [target.'cfg(target_family = "wasm")'.dependencies]
 uniffi = { git = "https://github.com/mozilla/uniffi-rs.git", rev = "e5f4821410bea19e71984ea5e06a7bc8b11ed9e5", version = "0.31.0", default-features = false, features = ["wasm-unstable-single-threaded"] }
 # Allocator and panic hook for the ubrn wasm2 player (web/patches/0002).
