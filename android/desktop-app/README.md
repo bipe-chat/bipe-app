@@ -4,6 +4,21 @@ This standalone Compose Desktop x64 target is part of [bipe#1346](https://github
 
 **14 November 2026: keyboard/navigation and timeline-layout build 830 (`28a97d5`) passed all 155 Windows runtime tests (none skipped) and native Compose UI compilation ([CI run 43637214751](https://github.com/bipe-chat/bipe-app/actions/runs/43637214751)). Exact CI source/native inputs are ready for the Cloud PC. Installation and actual keyboard/scroll/layout checks await its sign-in; the last verified Cloud PC baseline remains 825 (`a1c4338`, 148 tests). No live account data or messages were changed in this continuation. Windows remains planned; installer, signing and released-phone acceptance remain open.**
 
+## Cloud PC smoke test
+
+Build **1.0.1 (930)** at `45ff5cd431015982397794db1002fe03741c9bae` passed 184 Windows runtime tests and the Compose compile. Both native DLL hashes and both source archives were checked after downloading the artifact. The Cloud PC opens to the work-account password prompt. Device results for this build are pending. [Windows CI](https://github.com/bipe-chat/bipe-app/actions/runs/44536442391) · [Source-launch artifact](https://github.com/bipe-chat/bipe-app/actions/runs/44536442391/artifacts/14536717508)
+
+Use the exact source-launch artifact on the x64 Cloud PC. Check the app, SDK and shared revisions in the artifact, then verify the native DLLs against `native-sha256.txt`. Use the artifact's generated bindings and resources so the window reports build 930. Use the source launcher and preserve the existing launcher and account data.
+
+- [ ] Link Bipe from a released phone using the approved test account. Confirm that the Windows session reaches Chats and loads encrypted history.
+- [ ] Send a text message in each direction in the test chat. Confirm both messages appear under the expected sender.
+- [ ] Send a photo and a file from the phone. Open the photo and save both items to a test folder. Confirm the saved files open and match the originals.
+- [ ] Receive a desktop notification while Bipe is in the background. Open it and confirm it selects the correct account and chat.
+- [ ] Close Bipe normally and reopen it. Confirm the same account, device ID and history return.
+- [ ] For build 930, also verify Ctrl+F, Ctrl+K, prefix search, opening an older result, and one photo, video and voice message sent from Windows.
+
+Record the source commit, build, Windows version and architecture, counterpart build, account scope, and each result with its evidence. Record failures with the action that reproduced them. Native device acceptance and the parity ledger depend on these results. [Cloud PC testing issue](https://github.com/bipe-chat/bipe/issues/1607)
+
 ## Source implemented
 
 - Typing: a room-owned actor serializes four-second on notices and off on blank/send/edit/background/close. Native callbacks resolve names under that same owner; stale lookups cannot bring back a cleared indicator. No draft body enters typing requests. The Windows-local Online and typing switch disables visibility and emission immediately, fails closed on unreadable preferences or failed disable persistence, and updates the captured client's SDK presence for future sync requests. Enabling waits for preference persistence. The line uses shared one/two/many strings and static dots (motion/a11y announcement acceptance remains open).
