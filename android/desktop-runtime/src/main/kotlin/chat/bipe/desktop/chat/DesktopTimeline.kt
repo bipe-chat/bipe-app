@@ -4,6 +4,7 @@
 
 package chat.bipe.desktop.chat
 
+import chat.bipe.app.timeline.StateLines
 import chat.bipe.desktop.account.AccountResource
 import chat.bipe.desktop.account.AccountTaskGroup
 import chat.bipe.desktop.account.MatrixAccountRuntime
@@ -66,6 +67,7 @@ class DesktopTimeline private constructor(
     @Volatile private var reachedStart = false
     private lateinit var timeline: Timeline
     private lateinit var room: Room
+    private var isGroup = false
     val forwarding = ForwardActions(runtime.client, group, labels.noName, { timeline }) {
         (mutableRows.value as? LoadPhase.Ready)?.value.orEmpty()
     }
@@ -383,6 +385,8 @@ class DesktopTimeline private constructor(
     private suspend fun start() {
         room = runtime.client.getRoom(roomId) ?: error("Room unavailable")
         group.own(NativeResource { room.destroy() })
+        val info = room.roomInfo()
+        try { isGroup = !info.isDm && !info.isSpace } finally { info.destroy() }
         val configuration = TimelineConfiguration(
             focus = TimelineFocus.Live(hideThreadedEvents = false), filter = TimelineFilter.All,
             internalIdPrefix = null, dateDividerMode = DateDividerMode.DAILY,
@@ -491,6 +495,15 @@ class DesktopTimeline private constructor(
     private fun message(item: TimelineItem, trackFailedSends: Boolean): MessageRow? {
         val event = item.asEvent() ?: return null
         try {
+            val profile = event.senderProfile as? ProfileDetails.Ready
+            val sender = realName(profile?.displayName, event.sender, labels.noName)
+            val id = item.uniqueId().id
+            val eventId = (event.eventOrTransactionId as? EventOrTransactionId.EventId)?.eventId
+            if (isGroup) StateLines.line(event)?.let { line ->
+                return MessageRow(id, sender, event.isOwn, "", MessageRow.Kind.STATE, event.timestamp.toLong(),
+                    MessageRow.Delivery.SENT, originalEventId = eventId, senderId = event.sender,
+                    readersAtEvent = event.readReceipts.keys.toSet(), stateLine = line)
+            }
             val content = (event.content as? TimelineItemContent.MsgLike)?.content ?: return null
             val kind = content.kind
             val media = MessageMedia.of(kind)
@@ -506,19 +519,18 @@ class DesktopTimeline private constructor(
                 MessageRow.Kind.MEDIA -> media!!.summary(labels)
                 MessageRow.Kind.UNDECRYPTABLE -> labels.undecryptable
                 MessageRow.Kind.DELETED -> labels.deleted
-                MessageRow.Kind.UNSUPPORTED -> labels.unsupported
+                MessageRow.Kind.UNSUPPORTED -> (kind as? MsgLikeKind.Message)?.content?.body ?: labels.unsupported
+                MessageRow.Kind.STATE -> error("State uses its own row")
             }
             // The scam warning reads text and media captions (spec timeline-media notes), never a kind label.
-            val checksSafety = type == MessageRow.Kind.TEXT || (type == MessageRow.Kind.MEDIA && !media?.caption.isNullOrBlank())
+            val checksSafety = type == MessageRow.Kind.TEXT || (type == MessageRow.Kind.UNSUPPORTED && kind is MsgLikeKind.Message) || (type == MessageRow.Kind.MEDIA && !media?.caption.isNullOrBlank())
             val richText = if (checksSafety) desktopMessageText(body, (kind as? MsgLikeKind.Message)?.content?.msgType) else null
-            val profile = event.senderProfile as? ProfileDetails.Ready
             val delivery = when (event.localSendState) {
                 is EventSendState.NotSentYet -> MessageRow.Delivery.SENDING
                 is EventSendState.SendingFailed -> MessageRow.Delivery.FAILED
                 else -> MessageRow.Delivery.SENT
             }
-            val id = item.uniqueId().id
-            val reactionTarget = (event.eventOrTransactionId as? EventOrTransactionId.EventId)?.eventId
+            val reactionTarget = eventId
                 ?.takeIf { event.isRemote && event.localSendState == null && kind !is MsgLikeKind.UnableToDecrypt && kind != MsgLikeKind.Redacted }
             val debugInfo = if (reactionTarget != null && kind is MsgLikeKind.Message)
                 runCatching { event.lazyProvider.debugInfo() }.getOrNull() else null
@@ -532,18 +544,19 @@ class DesktopTimeline private constructor(
                 failedSends.remove(id)?.destroy()
                 if (handle != null) failedSends[id] = handle
             }
-            return MessageRow(id, realName(profile?.displayName, event.sender, labels.noName),
+            return MessageRow(id, sender,
                 event.isOwn, body, type, event.timestamp.toLong(), delivery, canRetry = handle != null,
                 safety = messageSafety(messageSafetyText(body, richText), event.isOwn, checksSafety, safetyEngine),
                 eventId = reactionTarget,
                 reactions = if (reactionTarget == null) emptyList() else reactionSnapshots(content.reactions, runtime.client.userId()),
                 canReply = reactionTarget != null && event.canBeRepliedTo,
                 reply = content.inReplyTo?.let(::quote), isEdited = (kind as? MsgLikeKind.Message)?.content?.isEdited == true,
-                originalEventId = (event.eventOrTransactionId as? EventOrTransactionId.EventId)?.eventId,
+                originalEventId = eventId,
                 canEdit = event.isOwn && event.isEditable && type == MessageRow.Kind.TEXT && reactionTarget != null,
                 senderId = event.sender, readersAtEvent = event.readReceipts.keys.toSet(),
                 media = media.takeIf { type == MessageRow.Kind.MEDIA }, richText = richText,
-                canForward = canForward, forwardSource = forwardSource)
+                canForward = canForward, forwardSource = forwardSource,
+                isEmote = (kind as? MsgLikeKind.Message)?.content?.msgType is MessageType.Emote)
         } finally { event.destroy() }
     }
 

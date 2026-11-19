@@ -95,6 +95,7 @@ private fun pickerDay(utcMillis: Long): LocalDate = Instant.ofEpochMilli(utcMill
     val list = rememberLazyListState()
     var positioned by remember(history) { mutableStateOf(false) }
     val messages = (load as? LoadPhase.Ready)?.value.orEmpty()
+    val names = remember(messages) { messages.mapNotNull { row -> row.senderId?.let { it to row.sender } }.toMap() }
     LaunchedEffect(messages) {
         if (positioned || messages.isEmpty()) return@LaunchedEffect
         val index = messages.indexOfFirst {
@@ -122,12 +123,16 @@ private fun pickerDay(utcMillis: Long): LocalDate = Instant.ofEpochMilli(utcMill
                 items(messages, key = { it.id }) { row ->
                     Column {
                         row.dayBefore?.let { TimelineDay(it, today, focus.zone, s, colors) }
+                        if (row.stateLine != null) {
+                            GroupStateRow(row, names, s, colors)
+                            return@items
+                        }
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = if (row.own) Arrangement.End else Arrangement.Start) {
                             Surface(shape = RoundedCornerShape(16.dp), color = colors[if (row.own) "bubble.own" else "bubble.other"],
                                 contentColor = colors["ink.primary"]) {
                                 Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                     if (!row.own) Text(row.sender, style = MaterialTheme.typography.labelMedium, color = colors["accent.ink"])
-                                    Text(row.body)
+                                    Text(row.emotePrefix() + row.body)
                                     Text(TimelineDates.fullTimestamp(row.timestamp, focus.zone, Locale.forLanguageTag(s.locale)),
                                         style = MaterialTheme.typography.labelSmall, color = colors["ink.secondary"])
                                 }

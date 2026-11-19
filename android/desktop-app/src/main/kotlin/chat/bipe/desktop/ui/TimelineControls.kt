@@ -18,6 +18,9 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.style.TextAlign
+import chat.bipe.app.timeline.StateLines
+import chat.bipe.desktop.chat.MessageRow
 import chat.bipe.desktop.chat.TimelineDates
 import chat.bipe.desktop.chat.TimelineScrollPolicy
 import java.time.Duration
@@ -59,5 +62,16 @@ internal class RoomViewport {
     IconButton(onClick = jump, modifier = modifier.size(48.dp).clip(CircleShape)
         .background(colors["surface.raised"]).border(1.dp, colors["line.subtle"], CircleShape)) {
         Icon(sharedIcon("caret-right"), contentDescription = s.text("bipe_a11y_scroll_to_newest"), tint = colors["accent.ink"], modifier = Modifier.rotate(90f))
+    }
+}
+
+internal fun MessageRow.emotePrefix() = if (isEmote) "* $sender " else ""
+
+@Composable internal fun GroupStateRow(row: MessageRow, names: Map<String, String>, s: DesktopCatalog, colors: DesktopColors) {
+    val line = row.stateLine ?: return
+    val caption = StateLines.text(line, { id -> names[id] ?: id }) { key, args -> s.text(key, *args.toTypedArray()) }
+    Box(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), contentAlignment = Alignment.Center) {
+        Text(caption, style = MaterialTheme.typography.labelMedium, color = colors["ink.secondary"],
+            textAlign = TextAlign.Center)
     }
 }

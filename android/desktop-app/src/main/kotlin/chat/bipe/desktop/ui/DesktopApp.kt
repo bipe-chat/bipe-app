@@ -530,6 +530,10 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
     }
     val original by model.originalNavigation.collectAsState()
     val rows = when (val snapshot = load) { is LoadPhase.Ready -> snapshot.value; else -> emptyList() }
+    val stateNames = remember(rows, room) {
+        (room?.members.orEmpty().mapNotNull { member -> member.userId?.let { it to member.name } } +
+            rows.mapNotNull { row -> row.senderId?.let { it to if (row.own) s.text("bipe_app_you") else row.sender } }).toMap()
+    }
     val atNewest = !jumpVisible
     var lastReadFrame by remember(model) { mutableStateOf<String?>(null) }
     val newest = rows.lastOrNull { it.originalEventId != null }?.originalEventId
@@ -627,6 +631,10 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
                 items(rows.asReversed(), key = { it.id }) { message ->
                     Column {
                         message.dayBefore?.let { TimelineDay(it, today, zone, s, colors) }
+                        if (message.stateLine != null) {
+                            GroupStateRow(message, stateNames, s, colors)
+                            return@items
+                        }
                         if (selection.isNotEmpty()) {
                             val permission = deletePermission as? DeletePermission.Ready
                             SelectionMessage(message, message.id in selection,
@@ -670,8 +678,11 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
                                                 if (seconds > 0 || richText == null) Text(caption)
                                                 else TimelineMessageText(richText, colors, linksEnabled) { openMessageLink(message.id, it) }
                                             }
-                                        } else if (seconds > 0 || richText == null) Text(message.body)
-                                        else TimelineMessageText(richText, colors, linksEnabled) { openMessageLink(message.id, it) }
+                                        } else {
+                                            val prefix = message.emotePrefix()
+                                            if (seconds > 0 || richText == null) Text(prefix + message.body)
+                                            else TimelineMessageText(richText, colors, linksEnabled, prefix) { openMessageLink(message.id, it) }
+                                        }
                                         Row(Modifier.align(Alignment.End), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
                                             Text(timeLabel(message.timestamp, s.locale), style = MaterialTheme.typography.labelSmall, color = colors["ink.secondary"],
                                                 modifier = Modifier.clearAndSetSemantics {
@@ -686,7 +697,7 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
                                         }
                                         if (message.delivery == MessageRow.Delivery.SENDING && (room?.isDm != true || message.dmReceipt == null)) Text(s.text("bipe_app_timeline_sending"), style = MaterialTheme.typography.bodySmall)
                                         if (message.delivery == MessageRow.Delivery.FAILED) {
-                                            if (message.canRetry) TextButton(onClick = { model.retry(message.id) }) { Text(s.text("bipe_app_timeline_failed")) }
+                                            if (message.canRetry) TextButton(onClick = { model.retry(message.id) }) { Text(s.text("bipe_app_retry")) }
                                             else Text(s.text("bipe_error_generic"), style = MaterialTheme.typography.bodySmall)
                                         }
                                     }

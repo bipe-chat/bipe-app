@@ -4,6 +4,8 @@
 
 package chat.bipe.desktop.chat
 
+import chat.bipe.app.timeline.StateLines
+
 /** Retains SDK daily dividers in the same vector/index space as message and hidden event items. */
 internal sealed interface TimelineSnapshot {
     data class Message(val row: MessageRow) : TimelineSnapshot
@@ -18,7 +20,12 @@ internal fun List<TimelineSnapshot>.messageRows(): List<MessageRow> {
             is TimelineSnapshot.Day -> day = item.timestamp
             is TimelineSnapshot.ReadPoint -> Unit
             is TimelineSnapshot.Message -> {
-                add(item.row.copy(dayBefore = day))
+                val next = item.row.stateLine
+                val previous = lastOrNull()
+                val folded = if (day == null && next != null)
+                    previous?.stateLine?.let { StateLines.folded(next, it) } else null
+                if (previous != null && folded != null) set(lastIndex, previous.copy(stateLine = folded))
+                else add(item.row.copy(dayBefore = day))
                 day = null
             }
         }

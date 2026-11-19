@@ -104,7 +104,7 @@ private sealed interface ForwardPhase {
         if (enabled || selected) Checkbox(selected, onCheckedChange = null, modifier = Modifier.padding(end = 8.dp))
         Column {
             Text(if (message.own) s.text("bipe_app_you") else message.sender, style = MaterialTheme.typography.labelMedium, color = colors["accent.ink"])
-            Text(message.body)
+            Text(message.emotePrefix() + message.body)
         }
     }
 }

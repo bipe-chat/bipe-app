@@ -5,6 +5,7 @@
 package chat.bipe.desktop.chat
 
 import chat.bipe.shared.media.BipeForwardMark
+import chat.bipe.app.timeline.StateLine
 
 import chat.bipe.shared.BipeMessageText
 
@@ -53,11 +54,13 @@ data class MessageRow(
     val richText: BipeMessageText? = null,
     val canForward: Boolean = false,
     val forwardSource: BipeForwardMark.Source? = null,
+    val stateLine: StateLine? = null,
+    val isEmote: Boolean = false,
 ) {
     val linkEventId: String?
         get() = eventId?.takeIf { delivery == Delivery.SENT && (kind == Kind.TEXT || kind == Kind.MEDIA) }
 
-    enum class Kind { TEXT, MEDIA, UNDECRYPTABLE, DELETED, UNSUPPORTED }
+    enum class Kind { TEXT, MEDIA, UNDECRYPTABLE, DELETED, UNSUPPORTED, STATE }
     enum class Delivery { SENT, SENDING, FAILED }
 }
 data class MessageQuote(val eventId: String, val details: Details) {

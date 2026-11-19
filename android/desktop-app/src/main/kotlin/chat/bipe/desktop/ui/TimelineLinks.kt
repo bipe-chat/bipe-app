@@ -20,9 +20,10 @@ import androidx.compose.ui.text.withStyle
 import chat.bipe.shared.BipeMessageText
 
 /** Compose link annotations expose each destination to the keyboard and accessibility services. */
-@Composable internal fun TimelineMessageText(text: BipeMessageText, colors: DesktopColors, linksEnabled: Boolean, openLink: (String) -> Unit) {
+@Composable internal fun TimelineMessageText(text: BipeMessageText, colors: DesktopColors, linksEnabled: Boolean, prefix: String = "", openLink: (String) -> Unit) {
     val linkStyle = TextLinkStyles(style = SpanStyle(color = colors["accent.ink"], textDecoration = TextDecoration.Underline))
     val annotated = buildAnnotatedString {
+        append(prefix)
         for (run in text.runs) {
             withStyle(SpanStyle(
                 fontWeight = if (run.bold) FontWeight.Bold else null,
