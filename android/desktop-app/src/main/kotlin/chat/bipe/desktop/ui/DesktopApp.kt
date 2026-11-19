@@ -706,7 +706,9 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
                                         }
                                         message.forwardSource?.let { ForwardSource(it, s, colors) }
                                         val attached = message.media
-                                        if (attached != null) {
+                                        val poll = message.poll
+                                        if (poll != null) PollPreview(poll, s) { popup = TimelinePopup.Poll(poll.eventId) }
+                                        else if (attached != null) {
                                             if (attached.kind == MessageMedia.Kind.VOICE || attached.kind == MessageMedia.Kind.AUDIO)
                                                 VoiceControls(voice, message.id, attached, s)
                                             MediaBody(attached, mediaPolicy.shows(message.own), message.id in revealed, { revealed = revealed + message.id },
@@ -811,10 +813,19 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
             if (editDraft != null) ComposerEdit(model, editing, s, colors)
             else (composer as? ComposerState.Editing)?.replyTo?.let { ComposerReply(model, it, rows, s, colors) }
             Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                if (editDraft == null) IconButton(enabled = inputEnabled, onClick = {
-                    attach(pickAttachments(s.text("bipe_app_composer_attach")))
-                }, modifier = Modifier.size(48.dp)) {
-                    Icon(sharedIcon("paperclip"), contentDescription = s.text("bipe_app_composer_attach"))
+                if (editDraft == null) Box {
+                    IconButton(enabled = inputEnabled, onClick = { popup = TimelinePopup.AttachmentMenu }, modifier = Modifier.size(48.dp)) {
+                        Icon(sharedIcon("paperclip"), contentDescription = s.text("bipe_app_composer_attach"))
+                    }
+                    DropdownMenu(expanded = popup == TimelinePopup.AttachmentMenu, onDismissRequest = { popup = null }) {
+                        DropdownMenuItem(text = { Text(s.text("bipe_app_attach_file")) }, onClick = {
+                            popup = null
+                            attach(pickAttachments(s.text("bipe_app_composer_attach")))
+                        })
+                        if (room?.isDm == false) DropdownMenuItem(text = { Text(s.text("bipe_app_attach_poll")) }, onClick = {
+                            popup = TimelinePopup.PollEditor(null)
+                        })
+                    }
                 }
                 if (editDraft == null) IconButton(enabled = inputEnabled, onClick = {
                     voice.stop()
@@ -868,6 +879,15 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
             model.deletion.confirm(dialog.intents)
             selection = emptySet()
             popup = null
+        }
+        is TimelinePopup.Poll -> rows.firstOrNull { it.poll?.eventId == dialog.eventId }?.poll?.let { poll ->
+            PollDetails(model.polls, poll, s, close = { popup = null },
+                edit = { popup = TimelinePopup.PollEditor(dialog.eventId) })
+        }
+        is TimelinePopup.PollEditor -> {
+            val poll = rows.firstOrNull { it.poll?.eventId == dialog.eventId }?.poll
+            if (dialog.eventId == null || poll != null)
+                PollEditor(model.polls, poll, s, close = { popup = null })
         }
         is TimelinePopup.Attachments -> AttachmentPreview(model.attachments, dialog.inputs, dialog.reply, s) {
             if (popup === dialog) popup = null

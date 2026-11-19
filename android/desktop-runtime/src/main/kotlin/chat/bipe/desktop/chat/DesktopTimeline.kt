@@ -5,6 +5,7 @@
 package chat.bipe.desktop.chat
 
 import chat.bipe.app.timeline.StateLines
+import chat.bipe.app.polls.PollData
 import chat.bipe.desktop.account.AccountResource
 import chat.bipe.desktop.account.AccountTaskGroup
 import chat.bipe.desktop.account.MatrixAccountRuntime
@@ -79,6 +80,7 @@ class DesktopTimeline private constructor(
     val attachments = AttachmentActions(runtime.client, group, { room }, { timeline }, composer)
     val voice = VoiceSend(group, { room }, { timeline }, composer)
     val stickers = StickerActions(runtime, group, { room }, ::currentRow, threadRoot)
+    val polls = PollActions(group, { room }, { timeline }, { runtime.client.userId() }, labels.noName)
     val pins = RoomPins(group, labels, ::currentRow)
     val reactions = ReactionActions(group, ::currentRow) { eventId, key ->
         timeline.toggleReaction(EventOrTransactionId.EventId(eventId), key)
@@ -546,9 +548,12 @@ class DesktopTimeline private constructor(
             val content = (event.content as? TimelineItemContent.MsgLike)?.content ?: return null
             val kind = content.kind
             val media = MessageMedia.of(kind)
+            val poll = if (kind is MsgLikeKind.Poll && eventId != null)
+                PollData.of(eventId, kind, event.isOwn && event.isRemote, runtime.client.userId()) else null
             val type = when {
                 kind is MsgLikeKind.Message && kind.content.msgType.isText() -> MessageRow.Kind.TEXT
                 media != null -> MessageRow.Kind.MEDIA
+                poll != null -> MessageRow.Kind.POLL
                 kind is MsgLikeKind.UnableToDecrypt -> MessageRow.Kind.UNDECRYPTABLE
                 kind == MsgLikeKind.Redacted -> MessageRow.Kind.DELETED
                 else -> MessageRow.Kind.UNSUPPORTED
@@ -559,6 +564,7 @@ class DesktopTimeline private constructor(
                 MessageRow.Kind.UNDECRYPTABLE -> labels.undecryptable
                 MessageRow.Kind.DELETED -> labels.deleted
                 MessageRow.Kind.UNSUPPORTED -> (kind as? MsgLikeKind.Message)?.content?.body ?: labels.unsupported
+                MessageRow.Kind.POLL -> checkNotNull(poll).question
                 MessageRow.Kind.STATE -> error("State uses its own row")
             }
             // The scam warning reads text and media captions (spec timeline-media notes), never a kind label.
@@ -604,7 +610,7 @@ class DesktopTimeline private constructor(
                 }, richText = richText,
                 canForward = canForward, forwardSource = forwardSource,
                 isEmote = (kind as? MsgLikeKind.Message)?.content?.msgType is MessageType.Emote,
-                inThread = content.threadRoot != null,
+                inThread = content.threadRoot != null, poll = poll,
                 threadReplies = content.threadSummary?.let { summary ->
                     try { summary.numReplies().coerceAtMost(Int.MAX_VALUE.toULong()).toInt() } finally { summary.destroy() }
                 } ?: 0)
@@ -619,6 +625,7 @@ class DesktopTimeline private constructor(
                     val kind = (event.content as? TimelineItemContent.MsgLike)?.content?.kind
                     val preview = when (kind) {
                         is MsgLikeKind.Message -> MessageMedia.of(kind.content.msgType)?.summary(labels) ?: kind.content.body
+                        is MsgLikeKind.Poll -> kind.question
                         is MsgLikeKind.Sticker -> labels.mediaLabel(MessageMedia.Kind.STICKER)
                         MsgLikeKind.Redacted -> labels.deleted
                         is MsgLikeKind.UnableToDecrypt -> labels.undecryptable

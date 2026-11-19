@@ -183,6 +183,7 @@ class DesktopRoomList private constructor(
 
     private fun preview(content: TimelineItemContent): String? = when (val kind = (content as? TimelineItemContent.MsgLike)?.content?.kind) {
         is MsgLikeKind.Message -> MessageMedia.of(kind.content.msgType)?.summary(labels) ?: kind.content.body
+        is MsgLikeKind.Poll -> kind.question
         is MsgLikeKind.Sticker -> labels.mediaLabel(MessageMedia.Kind.STICKER)
         is MsgLikeKind.UnableToDecrypt -> labels.undecryptable
         null -> null

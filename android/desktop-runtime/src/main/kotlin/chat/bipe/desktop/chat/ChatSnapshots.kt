@@ -6,6 +6,7 @@ package chat.bipe.desktop.chat
 
 import chat.bipe.shared.media.BipeForwardMark
 import chat.bipe.app.timeline.StateLine
+import chat.bipe.app.polls.PollData
 
 import chat.bipe.shared.BipeMessageText
 
@@ -58,11 +59,12 @@ data class MessageRow(
     val isEmote: Boolean = false,
     val inThread: Boolean = false,
     val threadReplies: Int = 0,
+    val poll: PollData? = null,
 ) {
     val linkEventId: String?
         get() = eventId?.takeIf { delivery == Delivery.SENT && (kind == Kind.TEXT || kind == Kind.MEDIA) }
 
-    enum class Kind { TEXT, MEDIA, UNDECRYPTABLE, DELETED, UNSUPPORTED, STATE }
+    enum class Kind { TEXT, MEDIA, UNDECRYPTABLE, DELETED, UNSUPPORTED, STATE, POLL }
     enum class Delivery { SENT, SENDING, FAILED }
 }
 data class MessageQuote(val eventId: String, val details: Details) {
