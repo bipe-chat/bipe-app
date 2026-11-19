@@ -4,8 +4,11 @@
 
 package chat.bipe.desktop.storage
 
+import com.sun.nio.file.ExtendedOpenOption.NOSHARE_DELETE
+import java.nio.channels.FileChannel
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.StandardOpenOption.READ
 import java.util.UUID
 import org.junit.After
 import org.junit.Assert.*
@@ -170,6 +173,20 @@ class AccountRepositoryTest {
         assertFalse(Files.exists(lease.paths.root))
     }
 
+    @Test fun aBusyWindowsFileKeepsTheRevocationRetryable() {
+        org.junit.Assume.assumeTrue(System.getProperty("os.name").startsWith("Windows"))
+        val lease = provision()
+        val file = Files.writeString(lease.paths.data.resolve("held"), "test data")
+        assertEquals(RevocationResult.Complete, lease.revoke())
+        lease.close()
+        FileChannel.open(file, READ, NOSHARE_DELETE).use {
+            expect(StorageCode.IO_FAILURE) { repository.removeRevokedFiles(lease.slot) }
+            assertEquals(StoredSlot.Revoked(lease.slot), repository.slots().single())
+        }
+        repository.retryRevokedCleanup(lease.slot)
+        assertTrue(repository.slots().isEmpty())
+    }
+
     @Test fun revokingOneLinkedSlotRemovesOnlyItsProtectedSearchHistoryAndIndex() {
         val first = provision()
         val second = provision()
@@ -183,11 +200,18 @@ class AccountRepositoryTest {
         Files.writeString(index.resolve("synthetic-index"), "test marker")
         assertFalse(Files.readString(first.paths.root.resolve("recent-searches.bin")).contains("first private query"))
         assertEquals("""["first private query"]""", first.readRecentSearches())
-        assertEquals(RevocationResult.Complete, first.revoke())
+        second.close()
+        expect(StorageCode.LINK_INCOMPLETE) { repository.finishLinkedSignOut(second.slot) }
+        first.markLinkedSignedOut()
+        assertEquals(StoredSlot.SignedOut(first.slot), repository.slots().find { it.slot == first.slot })
+        expect(StorageCode.STALE_OWNER) { first.persistSession(session()) }
         first.close()
-        repository.removeRevokedFiles(first.slot)
+        expect(StorageCode.REVOKED) { repository.open(first.slot) }
+        repository.finishLinkedSignOut(first.slot)
         assertFalse(Files.exists(first.paths.root))
-        assertEquals("""["second private query"]""", second.readRecentSearches())
+        repository.open(second.slot).use {
+            assertEquals("""["second private query"]""", it.readRecentSearches())
+        }
     }
 
     @Test fun duplicateLinkCannotReplaceAnAlreadyLinkedAccount() {

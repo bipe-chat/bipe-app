@@ -6,7 +6,7 @@ This standalone Compose Desktop x64 target is part of [bipe#1346](https://github
 
 ## Cloud PC smoke test
 
-Build **1.0.1 (930)** at `45ff5cd431015982397794db1002fe03741c9bae` passed 184 Windows runtime tests and the Compose compile. Both native DLL hashes and both source archives were checked after downloading the artifact. The Cloud PC opens to the work-account password prompt. Device results for this build are pending. [Windows CI](https://github.com/bipe-chat/bipe-app/actions/runs/44536442391) · [Source-launch artifact](https://github.com/bipe-chat/bipe-app/actions/runs/44536442391/artifacts/14536717508)
+Build **1.0.1 (930)** at `45ff5cd431015982397794db1002fe03741c9bae` passed 184 Windows runtime tests and the Compose compile. Both native DLL hashes and both source archives were checked after downloading the artifact. The Cloud PC is signed in. File transfer is off, and device results for this build are pending. [Windows CI](https://github.com/bipe-chat/bipe-app/actions/runs/44536442391) · [Source-launch artifact](https://github.com/bipe-chat/bipe-app/actions/runs/44536442391/artifacts/14536717508)
 
 Use the exact source-launch artifact on the x64 Cloud PC. Check the app, SDK and shared revisions in the artifact, then verify the native DLLs against `native-sha256.txt`. Use the artifact's generated bindings and resources so the window reports build 930. Use the source launcher and preserve the existing launcher and account data.
 
@@ -65,7 +65,7 @@ Kotlin parser verification passed on 73 changed Kotlin sources and Gradle script
 
 ### Remaining acceptance and dependencies
 
-- [#1606](https://github.com/bipe-chat/bipe/issues/1606) owns linked-account sign-out. Search recents and the encrypted index live under the same protected slot as the SDK stores. The cleanup regression covers revoking one linked slot without affecting another. Released sign-out still needs to invoke and verify that cleanup.
+- Linked-account sign-out in You › Account calls SDK logout for the selected slot, records success, and closes the native client before removing the slot's credentials, encrypted index and search recents. Cleanup can retry after a busy file or a restart. Verify this with a disposable linked account and a second saved account on the Cloud PC. Signed installation and update work remain in [#1606](https://github.com/bipe-chat/bipe/issues/1606).
 - [#1216](https://github.com/bipe-chat/bipe/issues/1216) owns the shared keyboard command registry and help sheet. Ctrl+K opens the Windows search palette with chats, indexed messages, recents and the current-chat search command. The full registry-driven command set needs that shared contract.
 - Windows location sending uses a manually placed pin. Adding device location and outgoing live shares needs a Windows permission and lifecycle design. The system map action depends on an installed geo URI handler, with coordinates available to copy. Microsoft retired the inbox Maps app. [Windows Maps retirement](https://learn.microsoft.com/en-us/windows/uwp/maps-and-location/)
 - Media playback uses Windows Media Foundation for video and scoped temporary files. Windows codec availability, cleanup after process interruption, and actual phone media interop require native acceptance. Voice recording has no Windows transcription or expiry registration in this slice. Sticker pack import, creation and animated playback are separate from sending and saving received stickers.

@@ -23,6 +23,7 @@ internal object SessionCodec {
             is StoredRecord.Linked -> "linked"
             is StoredRecord.Pending -> "pending"
             is StoredRecord.Discarding -> "discarding"
+            StoredRecord.SignedOut -> "signed-out"
         })
         if (record is StoredRecord.Discarding) put("remoteEnded", record.remoteEnded)
         put("session", record.session?.let { session ->
@@ -60,6 +61,7 @@ internal object SessionCodec {
             }
             return when (root.text("phase")) {
                 "pending" -> StoredRecord.Pending(session)
+                "signed-out" -> if (session == null) StoredRecord.SignedOut else corrupt()
                 "linked" -> StoredRecord.Linked(session ?: corrupt())
                 "discarding" -> {
                     if (session != null) corrupt()

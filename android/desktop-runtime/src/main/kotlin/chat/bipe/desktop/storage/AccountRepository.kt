@@ -96,6 +96,7 @@ class AccountRepository(
                         is StoredRecord.Pending -> StoredSlot.Pending(slot)
                         is StoredRecord.Linked -> StoredSlot.Linked(slot, record.session.userId, record.session.deviceId)
                         is StoredRecord.Discarding -> StoredSlot.Discarding(slot, record.remoteEnded)
+                        StoredRecord.SignedOut -> StoredSlot.SignedOut(slot)
                     }
                 } catch (error: StorageFailure) { StoredSlot.Unavailable(slot, error.code) }
             }.filter { it != null }.map { it!! }.toList()
@@ -109,6 +110,19 @@ class AccountRepository(
             if (lease.revoke() != RevocationResult.Complete) throw StorageFailure(StorageCode.IO_FAILURE)
         }
         removeRevokedFiles(slot)
+    }
+
+    /** Complete only a linked slot whose remote logout was recorded, after its native client has closed. */
+    fun finishLinkedSignOut(slot: AccountSlot) = safeIo {
+        if (Files.isRegularFile(existingDirectory(slot).resolve(REVOKED), NOFOLLOW_LINKS)) {
+            retryRevokedCleanup(slot)
+        } else {
+            open(slot, recovery = true).use { lease ->
+                if (!lease.isSignedOut()) throw StorageFailure(StorageCode.LINK_INCOMPLETE)
+                if (lease.revoke(requireMarker = true) != RevocationResult.Complete) throw StorageFailure(StorageCode.IO_FAILURE)
+            }
+            removeRevokedFiles(slot)
+        }
     }
 
     /** Repair key/file cleanup after a committed tombstone, still under the exclusive slot lock. */
@@ -125,21 +139,29 @@ class AccountRepository(
     /** Called only after SDK teardown, lease release and a committed key revocation. Does not follow links. */
     fun removeRevokedFiles(slot: AccountSlot) = safeIo {
         val directory = existingDirectory(slot)
-        if (!Files.isRegularFile(directory.resolve(REVOKED), NOFOLLOW_LINKS)) throw StorageFailure(StorageCode.REVOKED)
+        val marker = directory.resolve(REVOKED)
+        if (!Files.isRegularFile(marker, NOFOLLOW_LINKS)) throw StorageFailure(StorageCode.REVOKED)
         vault.read(slot)?.let { it.fill(0); throw StorageFailure(StorageCode.STALE_OWNER) }
         // Acquire once more to reject cleanup while another owner still holds the slot.
         lock(slot, directory, null).close()
         Files.walkFileTree(directory, object : SimpleFileVisitor<Path>() {
             override fun visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult {
-                Files.delete(file)
+                if (file != marker) Files.delete(file)
                 return FileVisitResult.CONTINUE
             }
             override fun postVisitDirectory(dir: Path, error: IOException?): FileVisitResult {
                 if (error != null) throw error
-                Files.delete(dir)
+                if (dir != directory) Files.delete(dir)
                 return FileVisitResult.CONTINUE
             }
         })
+        // Windows may reject deletion of a file still held by another process. Keep the slot discoverable until its data is gone.
+        Files.delete(marker)
+        try { Files.delete(directory) }
+        catch (error: IOException) {
+            if (Files.isDirectory(directory, NOFOLLOW_LINKS)) atomicWrite(marker, byteArrayOf())
+            throw error
+        }
     }
 
     private fun lock(slot: AccountSlot, directory: Path, record: StoredRecord?): AccountLease {
@@ -245,6 +267,7 @@ class AccountLease internal constructor(
     @Synchronized internal fun load(recovery: Boolean = false) = AccountRepository.safeIo {
         val record = AccountRepository.withKey(vault, slot) { key -> AccountRepository.decodeRecord(slot, paths.root, key, protection) }
         if (recovery && record is StoredRecord.Linked) throw StorageFailure(StorageCode.LINK_INCOMPLETE)
+        if (!recovery && record == StoredRecord.SignedOut) throw StorageFailure(StorageCode.REVOKED)
         if (!recovery) SdkStoreLayout.requireDirectories(paths)
         if (record is StoredRecord.Linked) SdkStoreLayout.requireExisting(paths)
         phase = Phase.Active(record)
@@ -267,9 +290,16 @@ class AccountLease internal constructor(
     @Synchronized fun linkedSession(): Session = (active().record as? StoredRecord.Linked)?.session
         ?: throw StorageFailure(StorageCode.LINK_INCOMPLETE)
 
+    @Synchronized internal fun isSignedOut(): Boolean = active().record == StoredRecord.SignedOut
+
+    @Synchronized internal fun markLinkedSignedOut() = AccountRepository.safeIo {
+        linkedSession()
+        write(StoredRecord.SignedOut)
+    }
+
     @Synchronized fun persistSession(session: Session) = AccountRepository.safeIo {
         val current = active().record ?: throw StorageFailure(StorageCode.CORRUPT_RECORD)
-        if (current is StoredRecord.Discarding) throw StorageFailure(StorageCode.STALE_OWNER)
+        if (current is StoredRecord.Discarding || current == StoredRecord.SignedOut) throw StorageFailure(StorageCode.STALE_OWNER)
         validateIdentity(current.session, session)
         write(if (current is StoredRecord.Linked) StoredRecord.Linked(session) else StoredRecord.Pending(session))
     }
@@ -322,12 +352,15 @@ class AccountLease internal constructor(
         if (phase !is Phase.Closed) phase = Phase.Retired
     }
 
-    @Synchronized fun revoke(): RevocationResult {
+    @Synchronized fun revoke(): RevocationResult = revoke(requireMarker = false)
+
+    @Synchronized internal fun revoke(requireMarker: Boolean): RevocationResult {
         if (phase is Phase.Closed) throw StorageFailure(StorageCode.STALE_OWNER)
         phase = Phase.Retired
         val marker = runCatching {
             AccountRepository.safeIo { AccountRepository.atomicWrite(paths.root.resolve(AccountRepository.REVOKED), byteArrayOf()) }
         }
+        if (requireMarker && marker.isFailure) return RevocationResult.Blocked(StorageCode.IO_FAILURE)
         val key = runCatching { vault.remove(slot) }
         return when {
             marker.isSuccess && key.isSuccess -> RevocationResult.Complete

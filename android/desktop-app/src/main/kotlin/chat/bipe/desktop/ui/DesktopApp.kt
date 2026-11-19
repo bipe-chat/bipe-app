@@ -70,6 +70,7 @@ fun DesktopApp(model: DesktopAppModel, phase: AppPhase, colors: DesktopColors, l
                 phase.slots.forEachIndexed { index, slot ->
                     val label = when (slot) {
                         is StoredSlot.Linked -> "bipe_tab_you"
+                        is StoredSlot.SignedOut -> "bipe_desktop_pending_cleanup"
                         is StoredSlot.Unavailable -> "bipe_app_start_error"
                         else -> "bipe_desktop_pending_title"
                     }
@@ -81,6 +82,12 @@ fun DesktopApp(model: DesktopAppModel, phase: AppPhase, colors: DesktopColors, l
             is AppPhase.Linking -> PhoneLinkView(model, phase, colors)
             is AppPhase.Recovering -> PendingRecoveryView(model, phase)
             is AppPhase.Ready -> Workspace(model, phase, colors, launchLink, onLaunchLinkOpened)
+            AppPhase.SigningOut -> Centered { Text(s.text("bipe_app_signing_out")) }
+            is AppPhase.SignOutFailed -> Centered {
+                Text(s.text("bipe_error_generic"))
+                BipeButton(s.text("bipe_app_retry"), { model.retrySignOut(phase) })
+                TextButton(onClick = { model.refresh() }) { Text(s.text("bipe_a11y_back")) }
+            }
             is AppPhase.Closing -> Centered { Text(s.text("bipe_web_loading")) }
             is AppPhase.CloseFailed -> Centered {
                 Text(s.text("bipe_error_generic"))

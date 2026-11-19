@@ -47,7 +47,10 @@ private sealed interface SettingsPage {
     data object Licences : SettingsPage
     data class Licence(val index: Int) : SettingsPage
 }
-private data class SettingsPhoto(val name: String, val mxc: String)
+private sealed interface SettingsSheet {
+    data class Photo(val name: String, val mxc: String) : SettingsSheet
+    data object SignOut : SettingsSheet
+}
 private enum class LinkPhase { IDLE, FAILED }
 
 /** Native settings pages consume the same group/section/row order and icon tiles as the other clients. */
@@ -58,7 +61,7 @@ private enum class LinkPhase { IDLE, FAILED }
     val local by model.deviceAppearance.phase.collectAsState()
     val presence by model.devicePresence.phase.collectAsState()
     val values = (appearance as? AppearancePhase.Ready)?.values ?: AppearanceValues(emptyMap())
-    var photo by remember(account) { mutableStateOf<SettingsPhoto?>(null) }
+    var sheet by remember(account) { mutableStateOf<SettingsSheet?>(null) }
     var page by remember(account) { mutableStateOf<SettingsPage>(SettingsPage.Root) }
     var linkPhase by remember(account) { mutableStateOf(LinkPhase.IDLE) }
     val openUrl: (String) -> Unit = { url ->
@@ -73,8 +76,15 @@ private enum class LinkPhase { IDLE, FAILED }
             else -> SettingsPage.Root
         }
     }
-    photo?.let { target ->
-        key(target) { OriginalPhoto(target.name, s, close = { photo = null }) { account.runtime.media.originalAvatar(target.mxc) } }
+    when (val target = sheet) {
+        is SettingsSheet.Photo -> key(target) {
+            OriginalPhoto(target.name, s, close = { sheet = null }) { account.runtime.media.originalAvatar(target.mxc) }
+        }
+        SettingsSheet.SignOut -> SignOutConfirmation(account, profile.name, s, close = { sheet = null }) {
+            sheet = null
+            model.signOut(account)
+        }
+        null -> Unit
     }
     val title = when (val current = page) {
         SettingsPage.Root -> s.text("bipe_settings_section")
@@ -102,7 +112,7 @@ private enum class LinkPhase { IDLE, FAILED }
                             horizontalArrangement = Arrangement.spacedBy(20.dp)) {
                             val mxc = profile.avatar?.takeUnless { chat.bipe.shared.BipeOfficialAccounts.isOfficial(profile.userId) }
                             Box(if (mxc == null) Modifier else Modifier.clickable(role = Role.Button,
-                                onClickLabel = s.text("bipe_avatar_open"), onClick = { photo = SettingsPhoto(profile.name, mxc) })) {
+                                onClickLabel = s.text("bipe_avatar_open"), onClick = { sheet = SettingsSheet.Photo(profile.name, mxc) })) {
                                 AvatarPhoto(profile.name, profile.avatar, account.runtime.media, account.runtime.identity, colors, 72.dp,
                                     userId = profile.userId, isCompany = profile.kind == AccountKind.COMPANY)
                             }
@@ -139,7 +149,7 @@ private enum class LinkPhase { IDLE, FAILED }
                             row["gate"] == null && (row.getValue("kind").jsonPrimitive.content == "url" ||
                                 (current.key == "chats" && key in setOf("appearance", "colors", "accessibility", "showMedia")) ||
                                 (current.key == "privacy" && key in setOf("presence", "readReceipts")) ||
-                                (current.key == "account" && key == "linkedDevices") || (current.key == "help" && key in setOf("licenses", "versions")))
+                                (current.key == "account" && key in setOf("linkedDevices", "signOut")) || (current.key == "help" && key in setOf("licenses", "versions")))
                         }
                         if (rows.isEmpty()) continue
                         section["title"]?.jsonPrimitive?.content?.let { key -> item { SectionTitle(s.text(key)) } }
@@ -187,6 +197,7 @@ private enum class LinkPhase { IDLE, FAILED }
                                     key == "colors" -> page = SettingsPage.Colors
                                     key == "accessibility" -> page = SettingsPage.Accessibility
                                     key == "linkedDevices" -> page = SettingsPage.Devices
+                                    key == "signOut" -> sheet = SettingsSheet.SignOut
                                     key == "licenses" -> page = SettingsPage.Licences
                                     key == "versions" -> openUrl(s.settingsUrl("versions"))
                                 }
@@ -257,6 +268,30 @@ private enum class LinkPhase { IDLE, FAILED }
             }
         }
     }
+}
+
+@Composable private fun SignOutConfirmation(account: AppPhase.Ready, name: String, s: DesktopCatalog,
+                                            close: () -> Unit, confirm: () -> Unit) {
+    val history by produceState<LoadPhase<Boolean>>(LoadPhase.Loading, account) {
+        value = try { LoadPhase.Ready(account.runtime.hasOtherKeySource()) }
+        catch (cancelled: CancellationException) { throw cancelled }
+        catch (_: Exception) { LoadPhase.Failed }
+    }
+    AlertDialog(onDismissRequest = close,
+        title = { Text(s.text("bipe_linked_devices_sign_out_title", name)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(s.text("bipe_windows_sign_out_body"))
+                if (history == LoadPhase.Loading) LinearProgressIndicator(Modifier.fillMaxWidth())
+                else if ((history as? LoadPhase.Ready)?.value != true) Text(s.text("bipe_windows_sign_out_history"))
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = confirm, enabled = history != LoadPhase.Loading) {
+                Text(s.text("bipe_linked_devices_sign_out"), color = MaterialTheme.colorScheme.error)
+            }
+        },
+        dismissButton = { TextButton(onClick = close) { Text(s.text("bipe_app_cancel")) } })
 }
 
 @Composable private fun LinkedComputers(account: AppPhase.Ready, s: DesktopCatalog) {
