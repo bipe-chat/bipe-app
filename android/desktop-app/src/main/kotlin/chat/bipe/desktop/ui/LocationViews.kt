@@ -148,7 +148,7 @@ private enum class PinPhase { PICKING, SENDING, FAILED }
     var retry by remember(centre) { mutableStateOf(0) }
     var mapModifier = modifier.background(colors["surface.raised"])
     if (open != null) mapModifier = mapModifier.clickable(role = Role.Button, onClickLabel = title, onClick = open)
-    if (pan != null) mapModifier = mapModifier.focusable().onKeyEvent { event ->
+    if (pan != null) mapModifier = mapModifier.onKeyEvent { event ->
         if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
         val offset = when (event.key) {
             Key.DirectionLeft -> MapOffset(-72.0, 0.0)
@@ -159,7 +159,7 @@ private enum class PinPhase { PICKING, SENDING, FAILED }
         }
         pan(BipeMap.place(offset, centre))
         true
-    }.pointerInput(centre, density) {
+    }.focusable().pointerInput(centre, density) {
         var movement = Offset.Zero
         detectDragGestures(onDragStart = { movement = Offset.Zero }, onDragEnd = {
             pan(BipeMap.place(MapOffset(-movement.x.toDouble() / density, -movement.y.toDouble() / density), centre))

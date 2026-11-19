@@ -37,7 +37,6 @@ import kotlinx.coroutines.delay
     val title = s.text(if (roomId == null) "bipe_app_search_placeholder" else "bipe_search_in_chat")
     val recent by model.recent.collectAsState()
     val focus = remember(model, roomId) { FocusRequester() }
-    val focusManager = LocalFocusManager.current
     val joined by produceState<LoadPhase<List<DesktopSearchRoom>>>(LoadPhase.Loading, model, attempt) {
         if (roomId != null) { value = LoadPhase.Ready(emptyList()); return@produceState }
         value = try { LoadPhase.Ready(model.joinedRooms()) }
@@ -61,9 +60,9 @@ import kotlinx.coroutines.delay
     LaunchedEffect(query) {
         if (query != null) { delay(150); model.run(query) }
     }
-    LaunchedEffect(focus) { focus.requestFocus() }
-
     AlertDialog(onDismissRequest = close, title = { Text(title) }, text = {
+        val focusManager = LocalFocusManager.current
+        LaunchedEffect(focus) { focus.requestFocus() }
         Column(Modifier.widthIn(min = 380.dp).onPreviewKeyEvent { event ->
             if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
             when (event.key) {
