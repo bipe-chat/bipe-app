@@ -16,6 +16,8 @@ import java.nio.file.LinkOption.NOFOLLOW_LINKS
 import java.nio.file.Path
 import javax.imageio.ImageIO
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.matrix.rustcomponents.sdk.*
@@ -90,8 +92,10 @@ class AttachmentActions internal constructor(
             var nextReply = reply
             for (draft in drafts) {
                 try {
-                    prepareAndSend(draft, batch.limit, nextCaption, nextReply)
-                    if (nextReply != null) composer.acceptedAttachmentReply(nextReply)
+                    withContext(NonCancellable) {
+                        prepareAndSend(draft, batch.limit, nextCaption, nextReply)
+                        nextReply?.let(composer::acceptedAttachmentReply)
+                    }
                     nextCaption = ""
                     nextReply = null
                 } catch (cancelled: CancellationException) { throw cancelled }
@@ -101,7 +105,7 @@ class AttachmentActions internal constructor(
         }
     }.await()
 
-    private fun prepareAndSend(draft: Draft, limit: Long, caption: String, reply: String?) {
+    private suspend fun prepareAndSend(draft: Draft, limit: Long, caption: String, reply: String?) {
         val item = draft.item
         val image = if (item.kind == Kind.IMAGE) readImage(item.input) else null
         val cropped = image?.let { scaled(it, 2048) }
@@ -138,8 +142,8 @@ class AttachmentActions internal constructor(
                 try { timeline().sendFile(params, info) } finally { info.destroy() }
             }
         }
-        // The SDK owns the queued upload and retry handle after this handoff.
-        handle.destroy()
+        // The FFI creates a Rust task first. Its join settles admission to the SDK send queue.
+        try { handle.join() } finally { handle.destroy() }
     }
 
     private fun readImage(input: AttachmentInput): Image = when (input) {

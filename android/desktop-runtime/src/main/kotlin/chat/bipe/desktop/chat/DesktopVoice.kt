@@ -17,6 +17,7 @@ import javax.sound.sampled.DataLine
 import javax.sound.sampled.SourceDataLine
 import javax.sound.sampled.TargetDataLine
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
@@ -114,8 +115,11 @@ class VoiceSend internal constructor(private val owner: AccountTaskGroup, privat
             peak / 32768f
         }
         owner.requireCurrent()
-        timeline().sendVoiceMessage(params, info, waveform).destroy()
-        if (reply != null) composer.acceptedAttachmentReply(reply)
+        withContext(NonCancellable) {
+            val handle = timeline().sendVoiceMessage(params, info, waveform)
+            try { handle.join() } finally { handle.destroy() }
+            if (reply != null) composer.acceptedAttachmentReply(reply)
+        }
     }.await()
 }
 
