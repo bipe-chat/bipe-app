@@ -62,7 +62,7 @@ private sealed interface PictureState {
         if (preview != null) MediaPicture(media, preview, mayShow || revealed, reveal, loader, label, s, colors, open)
         else {
             MediaFileCard(media, label, s, colors)
-            if (open != null) TextButton(onClick = open) { Text(s.text("bipe_app_voice_play")) }
+            OpenOriginalMedia(media, open, s)
         }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             mediaDetails(media, s.locale)?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = colors["ink.secondary"]) }
@@ -106,6 +106,13 @@ private sealed interface PictureState {
             }
         }
     }
+    if (state == PictureState.Failed) OpenOriginalMedia(media, open, s)
+}
+
+@Composable private fun OpenOriginalMedia(media: MessageMedia, open: (() -> Unit)?, s: DesktopCatalog) {
+    if (open == null) return
+    val label = if (media.kind == MessageMedia.Kind.VIDEO) "bipe_app_voice_play" else "bipe_avatar_open"
+    TextButton(onClick = open) { Text(s.text(label)) }
 }
 
 @Composable private fun MediaFileCard(media: MessageMedia, label: String, s: DesktopCatalog, colors: DesktopColors) {

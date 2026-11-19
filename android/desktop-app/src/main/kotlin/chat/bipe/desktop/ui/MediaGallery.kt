@@ -42,15 +42,14 @@ import kotlinx.coroutines.withContext
 
 @Composable private fun OriginalPhotoContent(title: String, s: DesktopCatalog, load: suspend () -> ByteArray?) {
     var attempt by remember { mutableStateOf(0) }
-    val state by produceState<LoadPhase<ImageBitmap>>(LoadPhase.Loading, attempt) {
-        value = LoadPhase.Loading
+    val state by key(attempt) { produceState<LoadPhase<ImageBitmap>>(LoadPhase.Loading) {
         value = try {
             val bytes = load()
             val image = bytes?.let { withContext(Dispatchers.Default) { decodePicture(it, maxSide = 3072) } }
             image?.let { LoadPhase.Ready(it) } ?: LoadPhase.Failed
         } catch (cancelled: CancellationException) { throw cancelled }
         catch (_: Exception) { LoadPhase.Failed }
-    }
+    } }
     when (val result = state) {
         LoadPhase.Loading -> CircularProgressIndicator()
         LoadPhase.Failed -> TextButton(onClick = { attempt++ }) { Text(s.text("bipe_app_media_failed")) }
@@ -122,8 +121,14 @@ import kotlinx.coroutines.withContext
                     Icon(sharedIcon("caret-left"), contentDescription = s.text("bipe_gallery_media") + " " + index)
                 }
                 Text("${index + 1} / ${rows.size}")
-                IconButton(onClick = { selected = rows[index + 1].id }, enabled = index + 1 < rows.size) {
+                IconButton(onClick = { rows.getOrNull(index + 1)?.let { selected = it.id } }, enabled = index + 1 < rows.size) {
                     Icon(sharedIcon("caret-right"), contentDescription = s.text("bipe_gallery_media") + " " + (index + 2))
+                }
+                if (index == rows.lastIndex && pages.earlier) {
+                    if (pages.status == DayHistory.Paging.LOADING) CircularProgressIndicator(Modifier.size(24.dp))
+                    else TextButton(onClick = { history.paginate(earlier = true) }) {
+                        Text(s.text(if (pages.status == DayHistory.Paging.FAILED) "bipe_app_retry" else "bipe_action_show_more"))
+                    }
                 }
                 TextButton(onClick = { save(active) }) { Text(s.text("bipe_app_save")) }
             }
