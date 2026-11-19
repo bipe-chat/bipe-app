@@ -75,6 +75,7 @@ class DesktopTimeline private constructor(
         (mutableRows.value as? LoadPhase.Ready)?.value.orEmpty()
     }
     val attachments = AttachmentActions(runtime.client, group, { room }, { timeline }, composer)
+    val voice = VoiceSend(group, { room }, { timeline }, composer)
     val stickers = StickerActions(runtime, group, { room }, ::currentRow)
     val pins = RoomPins(group, labels, ::currentRow)
     val reactions = ReactionActions(group, ::currentRow) { eventId, key ->
@@ -547,8 +548,11 @@ class DesktopTimeline private constructor(
             val debugInfo = if (reactionTarget != null && kind is MsgLikeKind.Message)
                 runCatching { event.lazyProvider.debugInfo() }.getOrNull() else null
             val forwardCount = BipeForwardMark.count(debugInfo?.originalJson)
-            val forwardSource = if (media?.kind == MessageMedia.Kind.VOICE) BipeForwardMark.source(true, forwardCount)
-                else BipeForwardMark.line(forwardCount)
+            val forwardSource = when (media?.kind) {
+                MessageMedia.Kind.VOICE -> BipeForwardMark.source(true, forwardCount)
+                MessageMedia.Kind.AUDIO -> BipeForwardMark.source(false, forwardCount)
+                else -> BipeForwardMark.line(forwardCount)
+            }
             val canForward = trackFailedSends && debugInfo != null &&
                 BipeForwardMark.forwardedContentJson(debugInfo.originalJson, debugInfo.latestEditJson) != null
             val handle = if (trackFailedSends && event.isOwn && delivery == MessageRow.Delivery.FAILED) event.lazyProvider.getSendHandle() else null

@@ -313,7 +313,7 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
     }.onKeyEvent { event ->
         if (event.type != KeyEventType.KeyDown || event.key != Key.Escape) false
         else when {
-            popup != null -> { if (popup !is TimelinePopup.Forward && popup !is TimelinePopup.Attachments && popup != TimelinePopup.Stickers) popup = null; true }
+            popup != null -> { if (popup !is TimelinePopup.Forward && popup !is TimelinePopup.Attachments && popup !is TimelinePopup.RecordVoice && popup != TimelinePopup.Stickers) popup = null; true }
             selection.isNotEmpty() -> { selection = emptySet(); true }
             editing != FavouriteEditing.Normal -> { editing = FavouriteEditing.Normal; true }
             searchFocused -> { searches[destination] = TextFieldValue(); workspaceFocus.requestFocus(); true }
@@ -529,6 +529,8 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
     val composerFocus = remember(model) { FocusRequester() }
     val notices = remember(model) { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val voice = remember(model, media) { TimelineVoicePlayer(scope, media) }
+    DisposableEffect(voice) { onDispose(voice::stop) }
     val uriHandler = LocalUriHandler.current
     fun openMessageLink(rowId: String, url: String) {
         if (!model.canOpenLink(rowId, url)) return
@@ -617,7 +619,7 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
     Column(Modifier.fillMaxSize().chatBackdrop(s, colors, background).onKeyEvent { event ->
         if (event.type != KeyEventType.KeyDown || event.key != Key.Escape) false
         else when {
-            popup != null -> { if (popup !is TimelinePopup.Forward && popup !is TimelinePopup.Attachments && popup != TimelinePopup.Stickers) popup = null; true }
+            popup != null -> { if (popup !is TimelinePopup.Forward && popup !is TimelinePopup.Attachments && popup !is TimelinePopup.RecordVoice && popup != TimelinePopup.Stickers) popup = null; true }
             selection.isNotEmpty() -> { selection = emptySet(); true }
             editing is EditPhase.Saving -> true
             editDraft != null || (composer as? ComposerState.Editing)?.replyTo != null -> {
@@ -683,6 +685,8 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
                                         message.forwardSource?.let { ForwardSource(it, s, colors) }
                                         val attached = message.media
                                         if (attached != null) {
+                                            if (attached.kind == MessageMedia.Kind.VOICE || attached.kind == MessageMedia.Kind.AUDIO)
+                                                VoiceControls(voice, message.id, attached, s)
                                             MediaBody(attached, mediaPolicy.shows(message.own), message.id in revealed, { revealed = revealed + message.id },
                                                 media, { path -> scope.launch {
                                                     try { media.save(attached, path) }
@@ -780,6 +784,12 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
                 }, modifier = Modifier.size(48.dp)) {
                     Icon(sharedIcon("paperclip"), contentDescription = s.text("bipe_app_composer_attach"))
                 }
+                if (editDraft == null) IconButton(enabled = inputEnabled, onClick = {
+                    voice.stop()
+                    popup = TimelinePopup.RecordVoice((composer as? ComposerState.Editing)?.replyTo)
+                }, modifier = Modifier.size(48.dp)) {
+                    Icon(sharedIcon("microphone"), contentDescription = s.text("bipe_app_composer_record"))
+                }
                 if (editDraft == null) IconButton(enabled = inputEnabled, onClick = { popup = TimelinePopup.Stickers }, modifier = Modifier.size(48.dp)) {
                     Icon(sharedIcon("sticker"), contentDescription = s.text("bipe_stickers_title"))
                 }
@@ -833,6 +843,7 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
         is TimelinePopup.Photo -> key(dialog.media.sourceJson) {
             OriginalPhoto(dialog.media.filename, s, close = { popup = null }) { media.eventPicture(dialog.media.sourceJson) }
         }
+        is TimelinePopup.RecordVoice -> RecordVoice(model.voice, dialog.reply, s) { popup = null }
         TimelinePopup.Stickers -> StickerPicker(model.stickers, media, s) { popup = null }
         TimelinePopup.Gallery -> ChatGallery(model, media, mediaPolicy, s) { popup = null }
         TimelinePopup.Pins -> PinnedList(model, s) { popup = null }
