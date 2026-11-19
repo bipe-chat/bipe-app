@@ -21,6 +21,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.collect
 import chat.bipe.shared.BipeSyncedSettings
+import chat.bipe.shared.media.BipeForwardMark
 import chat.bipe.desktop.settings.MatrixSettingsReader
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -65,6 +66,9 @@ class DesktopTimeline private constructor(
     @Volatile private var reachedStart = false
     private lateinit var timeline: Timeline
     private lateinit var room: Room
+    val forwarding = ForwardActions(runtime.client, group, labels.noName, { timeline }) {
+        (mutableRows.value as? LoadPhase.Ready)?.value.orEmpty()
+    }
     val pins = RoomPins(group, labels, ::currentRow)
     val reactions = ReactionActions(group, ::currentRow) { eventId, key ->
         timeline.toggleReaction(EventOrTransactionId.EventId(eventId), key)
@@ -516,6 +520,13 @@ class DesktopTimeline private constructor(
             val id = item.uniqueId().id
             val reactionTarget = (event.eventOrTransactionId as? EventOrTransactionId.EventId)?.eventId
                 ?.takeIf { event.isRemote && event.localSendState == null && kind !is MsgLikeKind.UnableToDecrypt && kind != MsgLikeKind.Redacted }
+            val debugInfo = if (reactionTarget != null && kind is MsgLikeKind.Message)
+                runCatching { event.lazyProvider.debugInfo() }.getOrNull() else null
+            val forwardCount = BipeForwardMark.count(debugInfo?.originalJson)
+            val forwardSource = if (media?.kind == MessageMedia.Kind.VOICE) BipeForwardMark.source(true, forwardCount)
+                else BipeForwardMark.line(forwardCount)
+            val canForward = trackFailedSends && debugInfo != null &&
+                BipeForwardMark.forwardedContentJson(debugInfo.originalJson, debugInfo.latestEditJson) != null
             val handle = if (trackFailedSends && event.isOwn && delivery == MessageRow.Delivery.FAILED) event.lazyProvider.getSendHandle() else null
             if (trackFailedSends) synchronized(failedSends) {
                 failedSends.remove(id)?.destroy()
@@ -531,7 +542,8 @@ class DesktopTimeline private constructor(
                 originalEventId = (event.eventOrTransactionId as? EventOrTransactionId.EventId)?.eventId,
                 canEdit = event.isOwn && event.isEditable && type == MessageRow.Kind.TEXT && reactionTarget != null,
                 senderId = event.sender, readersAtEvent = event.readReceipts.keys.toSet(),
-                media = media.takeIf { type == MessageRow.Kind.MEDIA }, richText = richText)
+                media = media.takeIf { type == MessageRow.Kind.MEDIA }, richText = richText,
+                canForward = canForward, forwardSource = forwardSource)
         } finally { event.destroy() }
     }
 

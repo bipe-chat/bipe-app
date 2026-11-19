@@ -312,7 +312,8 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
     }.onKeyEvent { event ->
         if (event.type != KeyEventType.KeyDown || event.key != Key.Escape) false
         else when {
-            popup != null -> { popup = null; true }
+            popup != null -> { if (popup !is TimelinePopup.Forward) popup = null; true }
+            selection.isNotEmpty() -> { selection = emptySet(); true }
             editing != FavouriteEditing.Normal -> { editing = FavouriteEditing.Normal; true }
             searchFocused -> { searches[destination] = TextFieldValue(); workspaceFocus.requestFocus(); true }
             else -> false
@@ -502,6 +503,8 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
     val deletion by model.deletion.phase.collectAsState()
     val pinChange by model.pins.change.collectAsState()
     var popup by remember(model) { mutableStateOf<TimelinePopup?>(null) }
+    var selection by remember(model) { mutableStateOf(emptySet<String>()) }
+    var bulkDeleting by remember(model) { mutableStateOf(false) }
     val listState = viewport.list
     val zone = ZoneId.systemDefault()
     val today = timelineToday(zone)
@@ -527,6 +530,19 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
     }
     val original by model.originalNavigation.collectAsState()
     val rows = when (val snapshot = load) { is LoadPhase.Ready -> snapshot.value; else -> emptyList() }
+    val deletePermission by model.deletion.permission.collectAsState()
+    val selectionRows = rows.filter { it.id in selection }
+    LaunchedEffect(rows) { selection = selection.intersect(rows.mapTo(mutableSetOf()) { it.id }) }
+    LaunchedEffect(deletion) {
+        if (deletion == DeletePhase.Idle) bulkDeleting = false
+    }
+    fun toggleSelection(id: String) {
+        when {
+            id in selection -> selection = selection - id
+            selection.size < ForwardActions.SELECTION_LIMIT -> selection = selection + id
+            else -> scope.launch { notices.showSnackbar(s.text("bipe_select_limit", ForwardActions.SELECTION_LIMIT.toString())) }
+        }
+    }
     val jumping = popup as? TimelinePopup.Jumping
     LaunchedEffect(model, jumping) {
         val request = jumping ?: return@LaunchedEffect
@@ -571,7 +587,8 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
     Column(Modifier.fillMaxSize().chatBackdrop(s, colors, background).onKeyEvent { event ->
         if (event.type != KeyEventType.KeyDown || event.key != Key.Escape) false
         else when {
-            popup != null -> { popup = null; true }
+            popup != null -> { if (popup !is TimelinePopup.Forward) popup = null; true }
+            selection.isNotEmpty() -> { selection = emptySet(); true }
             editing is EditPhase.Saving -> true
             editDraft != null || (composer as? ComposerState.Editing)?.replyTo != null -> {
                 model.cancelContext(editDraft, (composer as? ComposerState.Editing)?.replyTo)
@@ -599,6 +616,14 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
                 items(rows.asReversed(), key = { it.id }) { message ->
                     Column {
                         message.dayBefore?.let { TimelineDay(it, today, zone, s, colors) }
+                        if (selection.isNotEmpty()) {
+                            val permission = deletePermission as? DeletePermission.Ready
+                            SelectionMessage(message, message.id in selection,
+                                message.canForward || (permission?.own == true && model.deletion.candidate(message.id) != null), s, colors) {
+                                toggleSelection(message.id)
+                            }
+                            return@items
+                        }
                         val warning = message.safety as? MessageSafety.Warning
                         val seconds = pauses[message.id] ?: if (warning?.kind?.registryId() in s.moneyPauseKinds) s.moneyPauseSeconds else 0
                         val linksEnabled = message.safety != MessageSafety.Checking && message.safety != MessageSafety.Unavailable
@@ -609,7 +634,7 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
                                 MessageSurface(model, message, seconds, (original as? OriginalNavigation.Found)?.rowId == message.id,
                                     popup, { popup = it }, s, colors, inputEnabled, room?.isDm == false, { composerFocus.requestFocus() }, {
                                         scope.launch { notices.showSnackbar(s.text("bipe_app_copied")) }
-                                    }) {
+                                    }, ::toggleSelection) {
                                     Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                         if (message.showsSender(room?.isDm == true, room?.peerUserId))
                                             Text(message.sender, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = colors["accent.ink"])
@@ -620,6 +645,7 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
                                                 else model.loadReply(message.id, retry = true)
                                             })
                                         }
+                                        message.forwardSource?.let { ForwardSource(it, s, colors) }
                                         val attached = message.media
                                         if (attached != null) {
                                             MediaBody(attached, mediaPolicy.shows(message.own), message.id in revealed, { revealed = revealed + message.id },
@@ -676,7 +702,8 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
             TextButton(onClick = model.pins::dismissFailure) { Text(s.text("bipe_app_close")) }
         }
         if (deletion is DeletePhase.Failed) Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(s.text("bipe_app_message_delete_failed"), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+            Text(s.text(if (bulkDeleting) "bipe_select_delete_failed" else "bipe_app_message_delete_failed"),
+                Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
             TextButton(onClick = model.deletion::dismissFailure) { Text(s.text("bipe_app_close")) }
         }
         if (reactionAction is ReactionActionPhase.Failed) Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -693,29 +720,52 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
             is ComposerState.Editing -> if (state.persistence == DraftPersistence.FAILED)
                 DraftFailure(s.text("bipe_desktop_draft_save_error"), s, model.composer::retry)
         }
-        if (foreground && sharesTyping) (typing as? TypingPhase.Showing)?.let { TypingIndicator(it.people, s, colors) }
-        if (editDraft != null) ComposerEdit(model, editing, s, colors)
-        else (composer as? ComposerState.Editing)?.replyTo?.let { ComposerReply(model, it, rows, s, colors) }
-        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            OutlinedTextField(draft, { model.draftChanged(it, editDraft) }, placeholder = { Text(s.text("bipe_app_timeline_composer_placeholder")) },
-                enabled = inputEnabled,
-                shape = RoundedCornerShape(24.dp), maxLines = 8, modifier = Modifier.weight(1f).focusRequester(composerFocus).onPreviewKeyEvent {
-                    if (it.type == KeyEventType.KeyDown && it.key == Key.Enter && !it.isShiftPressed && inputEnabled) { model.submit(editDraft); true } else false
-                })
-            val canSend = if (editDraft != null) editDraft.canSave && editing !is EditPhase.Saving
-                else draft.isNotBlank() && sending != SendPhase.Sending
-            IconButton(onClick = { model.submit(editDraft) }, enabled = canSend, modifier = Modifier.size(48.dp).clip(CircleShape)
-                .background(colors[if (canSend) "accent.fill" else "surface.raised"])
-                .border(1.dp, colors["line.subtle"], CircleShape)) {
-                Icon(sharedIcon(if (editDraft == null) "paper-plane-right" else "check"),
-                    contentDescription = s.text(if (editDraft == null) "bipe_app_timeline_send" else "bipe_app_message_save_edit"),
-                    tint = colors[if (canSend) "ink.onAccent" else "ink.disabled"], modifier = Modifier.size(22.dp))
+        if (selection.isNotEmpty()) {
+            val own = if (deletePermission is DeletePermission.Ready && deletion !is DeletePhase.Deleting)
+                selectionRows.mapNotNull { model.deletion.candidate(it.id) } else emptyList()
+            SelectionBar(selection.size, selectionRows.size == selection.size && selectionRows.all { it.canForward }, own.isNotEmpty(), s,
+                forward = { popup = TimelinePopup.Forward(selection) },
+                delete = { popup = TimelinePopup.DeleteSelection(own) }, close = { selection = emptySet() })
+        } else {
+            if (foreground && sharesTyping) (typing as? TypingPhase.Showing)?.let { TypingIndicator(it.people, s, colors) }
+            if (editDraft != null) ComposerEdit(model, editing, s, colors)
+            else (composer as? ComposerState.Editing)?.replyTo?.let { ComposerReply(model, it, rows, s, colors) }
+            Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(draft, { model.draftChanged(it, editDraft) }, placeholder = { Text(s.text("bipe_app_timeline_composer_placeholder")) },
+                    enabled = inputEnabled,
+                    shape = RoundedCornerShape(24.dp), maxLines = 8, modifier = Modifier.weight(1f).focusRequester(composerFocus).onPreviewKeyEvent {
+                        if (it.type == KeyEventType.KeyDown && it.key == Key.Enter && !it.isShiftPressed && inputEnabled) { model.submit(editDraft); true } else false
+                    })
+                val canSend = if (editDraft != null) editDraft.canSave && editing !is EditPhase.Saving
+                    else draft.isNotBlank() && sending != SendPhase.Sending
+                IconButton(onClick = { model.submit(editDraft) }, enabled = canSend, modifier = Modifier.size(48.dp).clip(CircleShape)
+                    .background(colors[if (canSend) "accent.fill" else "surface.raised"])
+                    .border(1.dp, colors["line.subtle"], CircleShape)) {
+                    Icon(sharedIcon(if (editDraft == null) "paper-plane-right" else "check"),
+                        contentDescription = s.text(if (editDraft == null) "bipe_app_timeline_send" else "bipe_app_message_save_edit"),
+                        tint = colors[if (canSend) "ink.onAccent" else "ink.disabled"], modifier = Modifier.size(22.dp))
+                }
             }
         }
     }
     ReactionDialog(model, popup, { popup = null }, s)
     DeleteDialog(model, popup, { popup = null }, s)
     when (val dialog = popup) {
+        is TimelinePopup.Forward -> ForwardDialog(model.forwarding, dialog.rowIds, s, close = { popup = null }) { count, failed ->
+            popup = null
+            selection = emptySet()
+            scope.launch {
+                val label = if (failed.isNotEmpty()) s.text("bipe_forward_failed", failed.joinToString())
+                    else s.text(if (count == 1) "bipe_forward_done" else "bipe_select_forward_done")
+                notices.showSnackbar(label)
+            }
+        }
+        is TimelinePopup.DeleteSelection -> SelectionDeleteDialog(s, close = { popup = null }) {
+            bulkDeleting = true
+            model.deletion.confirm(dialog.intents)
+            selection = emptySet()
+            popup = null
+        }
         TimelinePopup.Pins -> PinnedList(model, s) { popup = null }
         TimelinePopup.PickDate -> JumpDatePicker(today, s,
             pick = { day -> if (popup == TimelinePopup.PickDate) popup = TimelinePopup.Jumping(day) },

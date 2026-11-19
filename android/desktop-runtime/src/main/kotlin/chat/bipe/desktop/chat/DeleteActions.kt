@@ -65,22 +65,31 @@ class DeleteActions internal constructor(private val group: AccountTaskGroup, pr
     }
 
     /** Called only by the explicit Delete confirmation. Stale identities and repeat clicks cannot dispatch. */
-    fun confirm(intent: DeleteIntent) {
+    fun confirm(intent: DeleteIntent) = confirm(listOf(intent))
+
+    fun confirm(intents: List<DeleteIntent>) {
+        val first = intents.firstOrNull() ?: return
+        if (intents.size > ForwardActions.SELECTION_LIMIT || intents.distinct().size != intents.size) return
         var accepted = false
         group.publish {
-            if (candidate(intent.rowId) == intent) { mutablePhase.value = DeletePhase.Deleting(intent); accepted = true }
+            if (intents.all { candidate(it.rowId) == it }) {
+                mutablePhase.value = DeletePhase.Deleting(first)
+                accepted = true
+            }
         }
         if (!accepted) return
         group.launch {
-            try {
-                // The controller rechecks again after scheduling, before any backend I/O.
-                val current = row(intent.rowId)
-                check(current != null && current.eventId == intent.eventId && current.own && current.delivery == MessageRow.Delivery.SENT &&
-                    current.kind != MessageRow.Kind.DELETED && current.kind != MessageRow.Kind.UNDECRYPTABLE)
-                backend.deleteOwn(intent.eventId)
-                group.publish { mutablePhase.value = DeletePhase.Idle }
-            } catch (cancelled: CancellationException) { throw cancelled }
-            catch (_: Exception) { group.publish { mutablePhase.value = DeletePhase.Failed(intent) } }
+            var failed: DeleteIntent? = null
+            for (intent in intents) {
+                try {
+                    val current = row(intent.rowId)
+                    check(current != null && current.eventId == intent.eventId && current.own && current.delivery == MessageRow.Delivery.SENT &&
+                        current.kind != MessageRow.Kind.DELETED && current.kind != MessageRow.Kind.UNDECRYPTABLE)
+                    backend.deleteOwn(intent.eventId)
+                } catch (cancelled: CancellationException) { throw cancelled }
+                catch (_: Exception) { if (failed == null) failed = intent }
+            }
+            group.publish { mutablePhase.value = failed?.let { DeletePhase.Failed(it) } ?: DeletePhase.Idle }
         }
     }
     fun dismissFailure() = group.publish { if (mutablePhase.value is DeletePhase.Failed) mutablePhase.value = DeletePhase.Idle }

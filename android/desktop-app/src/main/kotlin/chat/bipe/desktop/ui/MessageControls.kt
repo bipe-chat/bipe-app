@@ -38,7 +38,7 @@ private data class MessageCommand(val label: String, val enabled: Boolean, val i
 @Composable internal fun MessageSurface(model: DesktopTimeline, row: MessageRow, seconds: Int, highlighted: Boolean,
                                        popup: TimelinePopup?, show: (TimelinePopup?) -> Unit, s: DesktopCatalog,
                                        colors: DesktopColors, replyEnabled: Boolean, isGroup: Boolean, focusComposer: () -> Unit, copied: () -> Unit,
-                                       content: @Composable () -> Unit) {
+                                       onSelect: (String) -> Unit, content: @Composable () -> Unit) {
     val clipboard = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
     val focus = remember { FocusRequester() }
@@ -73,6 +73,11 @@ private data class MessageCommand(val label: String, val enabled: Boolean, val i
                 }
             })
         }
+        if (row.canForward) add(MessageCommand(s.text("bipe_forward_action"), true, "arrow-bend-up-left") {
+            show(TimelinePopup.Forward(setOf(row.id)))
+        })
+        if (row.canForward || model.deletion.candidate(row.id) != null)
+            add(MessageCommand(s.text("bipe_select_action"), true, "check") { onSelect(row.id) })
         if (pinAccess.canPin) row.linkEventId?.let { eventId ->
             val pinned = eventId in pinAccess.pinned
             add(MessageCommand(s.text(if (pinned) "bipe_unpin_action" else "bipe_pin_action"),

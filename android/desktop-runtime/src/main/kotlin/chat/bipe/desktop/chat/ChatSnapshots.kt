@@ -4,6 +4,8 @@
 
 package chat.bipe.desktop.chat
 
+import chat.bipe.shared.media.BipeForwardMark
+
 import chat.bipe.shared.BipeMessageText
 
 import chat.bipe.app.common.VectorDiff
@@ -49,6 +51,8 @@ data class MessageRow(
     /** Kind MEDIA only: the photo, video, sticker, file or voice message. */
     val media: MessageMedia? = null,
     val richText: BipeMessageText? = null,
+    val canForward: Boolean = false,
+    val forwardSource: BipeForwardMark.Source? = null,
 ) {
     val linkEventId: String?
         get() = eventId?.takeIf { delivery == Delivery.SENT && (kind == Kind.TEXT || kind == Kind.MEDIA) }

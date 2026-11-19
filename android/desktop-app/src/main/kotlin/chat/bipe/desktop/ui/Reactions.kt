@@ -27,6 +27,8 @@ internal sealed interface TimelinePopup {
     data class DeleteConfirm(val intent: DeleteIntent) : TimelinePopup
     data class Picker(val rowId: String) : TimelinePopup
     data class Senders(val rowId: String, val key: String) : TimelinePopup
+    data class Forward(val rowIds: Set<String>) : TimelinePopup
+    data class DeleteSelection(val intents: List<chat.bipe.desktop.chat.DeleteIntent>) : TimelinePopup
     data object Pins : TimelinePopup
     data object PickDate : TimelinePopup
     data class Jumping(val date: LocalDate) : TimelinePopup

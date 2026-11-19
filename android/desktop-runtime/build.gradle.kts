@@ -18,6 +18,7 @@ val portableVectorDiff by tasks.registering(Sync::class) {
     from("../libraries/bipe/src/main/kotlin/chat/bipe/shared/BipeSyncedSettings.kt")
     from("../libraries/bipe/src/main/kotlin/chat/bipe/shared/BipeOfficialAccounts.kt")
     from("../libraries/bipe/src/main/kotlin/chat/bipe/shared/BipeMessageText.kt")
+    from("../libraries/bipe/src/main/kotlin/chat/bipe/shared/media/BipeForwardMark.kt")
     from("../libraries/bipe/src/main/kotlin/chat/bipe/shared/generated/BipeRegistries.kt")
     from("../libraries/bipe/src/main/kotlin/chat/bipe/shared/generated/BipeReactions.kt")
     from("../libraries/bipe/src/main/kotlin/chat/bipe/shared/generated/BipeChatArchive.kt")
