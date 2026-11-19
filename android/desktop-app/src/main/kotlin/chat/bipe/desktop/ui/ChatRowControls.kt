@@ -33,6 +33,7 @@ internal sealed interface WorkspacePopup {
     data object Accounts : WorkspacePopup
     data class Room(val id: String) : WorkspacePopup
     data class Notifications(val id: String) : WorkspacePopup
+    data class MatrixLink(val url: String) : WorkspacePopup
 }
 internal sealed interface FavouriteEditing {
     data object Normal : FavouriteEditing

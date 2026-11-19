@@ -8,6 +8,7 @@ import chat.bipe.desktop.account.AccountCloseResult
 import chat.bipe.desktop.account.MatrixAccountRuntime
 import chat.bipe.desktop.chat.*
 import chat.bipe.desktop.link.MatrixRoomLink
+import chat.bipe.desktop.link.MatrixRoomLinkResult
 import com.sun.jna.Platform
 import com.sun.net.httpserver.HttpServer
 import java.net.InetSocketAddress
@@ -174,12 +175,10 @@ class WindowsNativeLifecycleTest {
                 val decodedLink = java.net.URLDecoder.decode(messageLink, Charsets.UTF_8)
                 assertTrue(decodedLink.startsWith("https://matrix.to/#/$room/\$message"))
                 assertNull(timeline.messageLink(original.id, "\$edit-own"))
-                val linkedMessage = checkNotNull(MatrixRoomLink.parse(messageLink)).joinedRoom(first)
-                assertEquals(MatrixRoomLink.JoinedRoom(room, false, "\$message"), linkedMessage)
+                val linkedMessage = checkNotNull(MatrixRoomLink.parse(messageLink)).open(first)
+                assertEquals(MatrixRoomLinkResult.Joined(room, false, "\$message"), linkedMessage)
                 val linkedRoom = checkNotNull(MatrixRoomLink.parse("matrix:roomid/lifecycle:example.test"))
-                assertEquals(MatrixRoomLink.JoinedRoom(room, false, null), linkedRoom.joinedRoom(first))
-                val unjoined = checkNotNull(MatrixRoomLink.parse("https://matrix.to/#/!unjoined:example.test"))
-                assertNull(unjoined.joinedRoom(first))
+                assertEquals(MatrixRoomLinkResult.Joined(room, false, null), linkedRoom.open(first))
                 assertNull(MatrixRoomLink.parse("https://matrix.to.example/#/$room"))
                 assertNull(MatrixRoomLink.parse("matrix:u/peer:example.test"))
                 assertTrue((timeline.rows.value as LoadPhase.Ready).value.any { it.dayBefore != null })

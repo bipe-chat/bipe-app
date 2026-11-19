@@ -187,10 +187,7 @@ fun DesktopApp(model: DesktopAppModel, phase: AppPhase, colors: DesktopColors, o
 
 private enum class Destination(val key: String) { CHATS("bipe_tab_chats"), GROUPS("bipe_tab_groups"), YOU("bipe_tab_you") }
 private enum class ChatListMode { ACTIVE, ARCHIVED }
-private sealed interface TimelineLinkNavigation {
-    data class Resolve(val url: String, val fromTab: Destination, val fromRoom: String?) : TimelineLinkNavigation
-    data class Focus(val tab: Destination, val roomId: String, val eventId: String) : TimelineLinkNavigation
-}
+private data class TimelineLinkFocus(val tab: Destination, val roomId: String, val eventId: String)
 
 @Composable private fun Workspace(model: DesktopAppModel, account: AppPhase.Ready, colors: DesktopColors) {
     val s = model.catalog
@@ -207,8 +204,7 @@ private sealed interface TimelineLinkNavigation {
     var searchFocused by remember(account) { mutableStateOf(false) }
     var searchRequest by remember(account) { mutableStateOf(0) }
     val selected = selections[destination]
-    var linkNavigation by remember(account) { mutableStateOf<TimelineLinkNavigation?>(null) }
-    val linkNotices = remember(account) { SnackbarHostState() }
+    var linkFocus by remember(account) { mutableStateOf<TimelineLinkFocus?>(null) }
     val searchValue = searches[destination] ?: TextFieldValue()
     val search = searchValue.text
     LaunchedEffect(account) { workspaceFocus.requestFocus() }
@@ -217,31 +213,10 @@ private sealed interface TimelineLinkNavigation {
             !(destination == Destination.GROUPS && profile.kind == AccountKind.COMPANY)) searchFocus.requestFocus()
     }
     LaunchedEffect(account, destination, selected) {
-        val focus = linkNavigation as? TimelineLinkNavigation.Focus
-        if (focus != null && (focus.tab != destination || focus.roomId != selected)) linkNavigation = null
+        val focus = linkFocus
+        if (focus != null && (focus.tab != destination || focus.roomId != selected)) linkFocus = null
         if (destination == Destination.YOU || (destination == Destination.GROUPS && profile.kind == AccountKind.COMPANY)) model.clearRoom()
         else if (selected == null) model.clearRoom() else model.selectRoom(selected)
-    }
-    LaunchedEffect(account, destination, selected, linkNavigation) {
-        val request = linkNavigation as? TimelineLinkNavigation.Resolve ?: return@LaunchedEffect
-        if (request.fromTab != destination || request.fromRoom != selected) {
-            linkNavigation = null
-            return@LaunchedEffect
-        }
-        val result = runCatching { MatrixRoomLink.parse(request.url)?.joinedRoom(account.runtime) }
-        (result.exceptionOrNull() as? CancellationException)?.let { throw it }
-        if (model.phase.value !== account || destination != request.fromTab ||
-            selections[destination] != request.fromRoom || linkNavigation !== request) return@LaunchedEffect
-        val target = result.getOrNull()
-        if (target == null) {
-            linkNotices.showSnackbar(s.text(if (result.isFailure) "bipe_error_network" else "bipe_app_room_link_not_found"))
-            if (linkNavigation === request) linkNavigation = null
-        } else {
-            val tab = if (profile.kind == AccountKind.COMPANY || target.isDm) Destination.CHATS else Destination.GROUPS
-            linkNavigation = target.eventId?.let { TimelineLinkNavigation.Focus(tab, target.roomId, it) }
-            selections[tab] = target.roomId
-            destination = tab
-        }
     }
     var popup by remember(account, destination) { mutableStateOf<WorkspacePopup?>(null) }
     var listMode by remember(account, destination) { mutableStateOf(ChatListMode.ACTIVE) }
@@ -441,14 +416,14 @@ private sealed interface TimelineLinkNavigation {
                     is SelectedTimeline.Opening -> Centered { Text(s.text("bipe_web_loading")) }
                     is SelectedTimeline.Failed -> Centered { BipeButton(s.text("bipe_app_retry"), { selected?.let(model::selectRoom) }) }
                     is SelectedTimeline.Showing -> key(state.model) {
-                        LaunchedEffect(linkNavigation, destination, selected) {
-                            val target = linkNavigation as? TimelineLinkNavigation.Focus ?: return@LaunchedEffect
+                        LaunchedEffect(linkFocus, destination, selected) {
+                            val target = linkFocus ?: return@LaunchedEffect
                             if (target.tab != destination || target.roomId != selected || target.roomId != state.model.roomId) return@LaunchedEffect
                             state.model.originalNavigation.first { it == OriginalNavigation.Idle }
-                            if (linkNavigation === target && model.phase.value === account && destination == target.tab &&
+                            if (linkFocus === target && model.phase.value === account && destination == target.tab &&
                                 selections[destination] == target.roomId) {
                                 state.model.openOriginal(target.eventId)
-                                linkNavigation = null
+                                linkFocus = null
                             }
                         }
                         Column {
@@ -462,16 +437,29 @@ private sealed interface TimelineLinkNavigation {
                             }
                             Box(Modifier.weight(1f)) { TimelineView(state.model, s, colors, background,
                                 viewports.getOrPut(state.model.roomId) { RoomViewport() }, allRows.firstOrNull { it.id == state.model.roomId }, presence.enabled,
-                                account.runtime.media, { url -> linkNavigation = TimelineLinkNavigation.Resolve(url, destination, selected) }) }
+                                account.runtime.media, { url -> popup = WorkspacePopup.MatrixLink(url) }) }
                         }
                     }
                 }
-                SnackbarHost(linkNotices, Modifier.align(Alignment.BottomCenter))
             }
         }
     }
     (popup as? WorkspacePopup.Notifications)?.let { target ->
         RoomNotificationDialog(account.runtime, target.id, s) { popup = null }
+    }
+    (popup as? WorkspacePopup.MatrixLink)?.let { request ->
+        RoomLinkDialog(account.runtime, request.url, s, colors,
+            openRoom = { target ->
+                if (popup === request && model.phase.value === account) {
+                    val tab = if (profile.kind == AccountKind.COMPANY || target.isDm) Destination.CHATS else Destination.GROUPS
+                    linkFocus = target.eventId?.let { TimelineLinkFocus(tab, target.roomId, it) }
+                    selections[tab] = target.roomId
+                    destination = tab
+                    popup = null
+                }
+            },
+            close = { if (popup === request) popup = null },
+        )
     }
 }
 
