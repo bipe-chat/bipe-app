@@ -18,10 +18,6 @@ import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.util.zip.ZipInputStream
 
-/** A sticker file ready to go into the user's pack. Mirrors StickerImport.swift in BipeKit. */
-@Suppress("UseDataClass") // A ByteArray has no structural equality.
-
-
 /** Imports stickers from a WhatsApp chat export or from loose image files (ADR 0029, 0033). */
 object StickerImporter {
     /** WhatsApp stickers are 512 × 512, static up to 100 KB, animated up to 500 KB. These limits leave room. */

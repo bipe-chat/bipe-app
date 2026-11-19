@@ -8,6 +8,8 @@ package chat.bipe.stickers
 
 import java.security.MessageDigest
 
+/** A sticker file ready to go into the user's pack. Mirrors StickerImport.swift in BipeKit. */
+@Suppress("UseDataClass") // A ByteArray has no structural equality.
 class StickerImportCandidate(
     val bytes: ByteArray,
     val mimeType: String,
