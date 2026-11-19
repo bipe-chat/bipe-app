@@ -61,7 +61,8 @@ export async function writeDesktopResources(output, sharedRoot = resolve(REPO_RO
   writeFileSync(join(output, 'warning-circle.svg'), readFileSync(join(phosphor, 'Sources/Phosphor/Resources/Phosphor.xcassets/warning-circle.imageset/warning-circle.svg')));
   for (const id of [...new Set([...catalog.settings.groups.map(group => group.icon).filter(Boolean), 'caret-left', 'caret-right', 'check', 'archive',
     'arrow-bend-up-left', 'copy', 'trash', 'pencil-simple', 'x', 'paper-plane-right', 'checks', 'clock',
-    'image', 'video-camera', 'sticker', 'microphone', 'file', 'download-simple', 'link'])]) {
+    'image', 'video-camera', 'sticker', 'microphone', 'file', 'download-simple', 'link',
+    'paperclip', 'star', 'arrow-clockwise', 'chat-text', 'push-pin', 'push-pin-slash'])]) {
     writeFileSync(join(output, `phosphor-${id}.svg`), readFileSync(join(phosphor, `Sources/Phosphor/Resources/Phosphor.xcassets/${id}.imageset/${id}.svg`)));
   }
   writeFileSync(join(output, 'open-source-licences.json'), readFileSync(join(REPO_ROOT, 'android/app/src/main/assets/open_source_licences.json')));

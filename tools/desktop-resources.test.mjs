@@ -81,7 +81,9 @@ test('desktop resource generation uses the shared version/build and existing Bip
     }
     assert.match(readFileSync(join(directory, 'warning-circle.svg'), 'utf8'), /<svg /);
     assert.match(readFileSync(join(directory, 'phosphor-LICENSE.txt'), 'utf8'), /MIT License/);
-    assert.match(readFileSync(join(directory, 'phosphor-archive.svg'), 'utf8'), /<svg /);
+    for (const id of ['archive', 'paperclip', 'star', 'arrow-clockwise', 'chat-text', 'push-pin', 'push-pin-slash']) {
+      assert.match(readFileSync(join(directory, `phosphor-${id}.svg`), 'utf8'), /<svg /);
+    }
     for (const group of catalog.settings.groups.filter(group => group.icon)) {
       assert.match(readFileSync(join(directory, `phosphor-${group.icon}.svg`), 'utf8'), /<svg /);
     }
