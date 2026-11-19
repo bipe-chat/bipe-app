@@ -55,8 +55,8 @@ private sealed interface PictureState {
 @Composable internal fun MediaBody(media: MessageMedia, mayShow: Boolean, revealed: Boolean, reveal: () -> Unit,
                                   loader: AccountMedia, save: (Path) -> Unit, s: DesktopCatalog, colors: DesktopColors,
                                   open: (() -> Unit)? = null) {
-    val label = if (media.description != null) s.text("bipe_app_media_image_described", media.description)
-        else s.text(s.mediaKey(media.kind))
+    val label = media.description?.let { s.text("bipe_app_media_image_described", it) }
+        ?: s.text(s.mediaKey(media.kind))
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         val preview = media.previewJson
         if (preview != null) MediaPicture(media, preview, mayShow || revealed, reveal, loader, label, s, colors, open)
