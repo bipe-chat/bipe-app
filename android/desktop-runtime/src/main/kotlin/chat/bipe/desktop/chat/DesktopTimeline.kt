@@ -65,6 +65,7 @@ class DesktopTimeline private constructor(
     @Volatile private var reachedStart = false
     private lateinit var timeline: Timeline
     private lateinit var room: Room
+    val pins = RoomPins(group, labels, ::currentRow)
     val reactions = ReactionActions(group, ::currentRow) { eventId, key ->
         timeline.toggleReaction(EventOrTransactionId.EventId(eventId), key)
         Unit
@@ -438,6 +439,7 @@ class DesktopTimeline private constructor(
                 delay(5_000)
             }
         }
+        pins.start(room, timeline) { snapshot(it, trackFailedSends = false) }
         startMediaPolicy()
         // Back-pagination failure is retryable; the live listener remains attached for offline/local events.
         loadEarlier()

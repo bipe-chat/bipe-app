@@ -500,6 +500,7 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
     val pauses by model.pauseSeconds.collectAsState()
     val reactionAction by model.reactions.phase.collectAsState()
     val deletion by model.deletion.phase.collectAsState()
+    val pinChange by model.pins.change.collectAsState()
     var popup by remember(model) { mutableStateOf<TimelinePopup?>(null) }
     val listState = viewport.list
     val zone = ZoneId.systemDefault()
@@ -585,6 +586,7 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
                 Text(s.text(if (jumping == null) "bipe_jump_to_date_title" else "bipe_web_loading"))
             }
         }
+        PinnedBanner(model, s, colors) { popup = TimelinePopup.Pins }
         when (load) {
             LoadPhase.Loading -> Text(s.text("bipe_web_loading"), Modifier.padding(16.dp))
             LoadPhase.Failed -> Text(s.text("bipe_error_generic"), Modifier.padding(16.dp))
@@ -669,6 +671,10 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
             }
         }
         SnackbarHost(notices, Modifier.padding(horizontal = 16.dp))
+        if (pinChange == RoomPins.Change.FAILED) Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(s.text("bipe_error_generic"), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+            TextButton(onClick = model.pins::dismissFailure) { Text(s.text("bipe_app_close")) }
+        }
         if (deletion is DeletePhase.Failed) Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(s.text("bipe_app_message_delete_failed"), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
             TextButton(onClick = model.deletion::dismissFailure) { Text(s.text("bipe_app_close")) }
@@ -710,6 +716,7 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
     ReactionDialog(model, popup, { popup = null }, s)
     DeleteDialog(model, popup, { popup = null }, s)
     when (val dialog = popup) {
+        TimelinePopup.Pins -> PinnedList(model, s) { popup = null }
         TimelinePopup.PickDate -> JumpDatePicker(today, s,
             pick = { day -> if (popup == TimelinePopup.PickDate) popup = TimelinePopup.Jumping(day) },
             close = { if (popup == TimelinePopup.PickDate) popup = null })

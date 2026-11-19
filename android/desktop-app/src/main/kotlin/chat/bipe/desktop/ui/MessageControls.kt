@@ -46,6 +46,8 @@ private data class MessageCommand(val label: String, val enabled: Boolean, val i
     val deletePhase by model.deletion.phase.collectAsState()
     val editing by model.edits.phase.collectAsState()
     val reactions by model.reactions.phase.collectAsState()
+    val pinAccess by model.pins.access.collectAsState()
+    val pinChange by model.pins.change.collectAsState()
     val canReact = row.eventId != null
     val reactionEnabled = reactions !is ReactionActionPhase.Sending
     val label = s.text("bipe_message_actions")
@@ -69,6 +71,13 @@ private data class MessageCommand(val label: String, val enabled: Boolean, val i
                         copied()
                     }
                 }
+            })
+        }
+        if (pinAccess.canPin) row.linkEventId?.let { eventId ->
+            val pinned = eventId in pinAccess.pinned
+            add(MessageCommand(s.text(if (pinned) "bipe_unpin_action" else "bipe_pin_action"),
+                pinChange != RoomPins.Change.SENDING, if (pinned) "push-pin-slash" else "push-pin") {
+                model.pins.change(eventId, pin = !pinned, rowId = row.id)
             })
         }
         if (deletePermission is DeletePermission.Ready && deletePhase !is DeletePhase.Deleting && editing !is EditPhase.Saving) {
