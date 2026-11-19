@@ -119,8 +119,7 @@ class DesktopDelivered internal constructor(private val runtime: MatrixAccountRu
 
     private suspend fun isPeer(room: Room, id: String): Boolean {
         if (id == runtime.client.userId()) return false
-        val member = room.member(id)
-        return try { member.membership is MembershipState.Join } finally { member.destroy() }
+        return room.member(id).membership is MembershipState.Join
     }
 
     private suspend fun isEncryptedDm(room: Room): Boolean {

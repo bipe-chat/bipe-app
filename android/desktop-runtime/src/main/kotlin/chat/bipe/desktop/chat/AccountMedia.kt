@@ -76,11 +76,13 @@ class AccountMedia private constructor(
         group.launch {
             try {
                 group.own(TaskResource(client.subscribeToMediaPreviewConfig(object : MediaPreviewConfigListener {
-                    override fun onChange(mediaPreviewConfig: MediaPreviewConfig?) = group.publish {
-                        val incoming = ShowMedia.of(mediaPreviewConfig?.mediaPreviews)
-                        val current = mutablePreference.value
-                        if (current !is MediaPreference.Saving || incoming == current.requested)
-                            mutablePreference.value = MediaPreference.Ready(incoming)
+                    override fun onChange(mediaPreviewConfig: MediaPreviewConfig?) {
+                        group.publish {
+                            val incoming = ShowMedia.of(mediaPreviewConfig?.mediaPreviews)
+                            val current = mutablePreference.value
+                            if (current !is MediaPreference.Saving || incoming == current.requested)
+                                mutablePreference.value = MediaPreference.Ready(incoming)
+                        }
                     }
                 })))
             } catch (cancelled: CancellationException) { throw cancelled }
