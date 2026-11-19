@@ -6,16 +6,23 @@ This standalone Compose Desktop x64 target is part of [bipe#1346](https://github
 
 ## Cloud PC smoke test
 
+Use build **1.0.1 (938)** at `27b70c8dab6bcb333ced513c31b3564e904b7a87` for the next Cloud PC run. Windows x64 CI passed all 189 runtime tests and compiled the Compose window. The run covers the live-location expiry, sign-out cleanup and sticker import regressions. Photo zoom, screen-reader labels and the separate read-receipts switch still need device checks. Both native DLL hashes and both source archives were verified after download. [Windows CI](https://github.com/bipe-chat/bipe-app/actions/runs/44589405025) · [Source-launch artifact](https://github.com/bipe-chat/bipe-app/actions/runs/44589405025/artifacts/14563136637)
+
 Build **1.0.1 (930)** at `45ff5cd431015982397794db1002fe03741c9bae` passed 184 Windows runtime tests and the Compose compile. Both native DLL hashes and both source archives were checked after downloading the artifact. The Cloud PC is signed in. File transfer is off, and device results for this build are pending. [Windows CI](https://github.com/bipe-chat/bipe-app/actions/runs/44536442391) · [Source-launch artifact](https://github.com/bipe-chat/bipe-app/actions/runs/44536442391/artifacts/14536717508)
 
-Use the exact source-launch artifact on the x64 Cloud PC. Check the app, SDK and shared revisions in the artifact, then verify the native DLLs against `native-sha256.txt`. Use the artifact's generated bindings and resources so the window reports build 930. Use the source launcher and preserve the existing launcher and account data.
+Build **1.0.1 (935)** at `95bd25d7e04de10a7ce959d68027885a9250487e` passed 187 Windows runtime tests and the Compose compile. The storage report confirms that the revocation marker survives a locked Windows file and that sign-out removes one account's search history and index while preserving a second account's recents. The downloaded source archives and DLL hashes were verified. [Windows CI](https://github.com/bipe-chat/bipe-app/actions/runs/44587326328) · [Source-launch artifact](https://github.com/bipe-chat/bipe-app/actions/runs/44587326328/artifacts/14562121850)
+
+Use the exact source-launch artifact on the x64 Cloud PC. Check the app, SDK and shared revisions in the artifact, then verify the native DLLs against `native-sha256.txt`. Use the artifact's generated bindings and resources so the window reports the build from `version.json`. Use the source launcher and preserve the existing launcher and account data.
 
 - [ ] Link Bipe from a released phone using the approved test account. Confirm that the Windows session reaches Chats and loads encrypted history.
 - [ ] Send a text message in each direction in the test chat. Confirm both messages appear under the expected sender.
 - [ ] Send a photo and a file from the phone. Open the photo and save both items to a test folder. Confirm the saved files open and match the originals.
 - [ ] Receive a desktop notification while Bipe is in the background. Open it and confirm it selects the correct account and chat.
 - [ ] Close Bipe normally and reopen it. Confirm the same account, device ID and history return.
-- [ ] For build 930, also verify Ctrl+F, Ctrl+K, prefix search, opening an older result, and one photo, video and voice message sent from Windows.
+- [ ] Verify Ctrl+F, Ctrl+K, prefix search, opening an older result, and one photo, video and voice message sent from Windows.
+- [ ] Open a described photo from the timeline and from the gallery. Check the screen-reader label, zoom in, and scroll across the original. Open Privacy and confirm the read-receipts switch syncs separately from Online and typing.
+- [ ] Import one PNG and one WebP from a WhatsApp export using a test pack. Reopen the picker, send an imported sticker to the test chat, and confirm the phone can open it.
+- [ ] With two linked test accounts saved, sign out one from You › Account. Reopen Bipe and confirm the selected device is gone from the phone's Linked devices and the other account still has its history and recent searches.
 
 Record the source commit, build, Windows version and architecture, counterpart build, account scope, and each result with its evidence. Record failures with the action that reproduced them. Native device acceptance and the parity ledger depend on these results. [Cloud PC testing issue](https://github.com/bipe-chat/bipe/issues/1607)
 
@@ -68,6 +75,7 @@ Kotlin parser verification passed on 73 changed Kotlin sources and Gradle script
 - Linked-account sign-out in You › Account calls SDK logout for the selected slot, records success, and closes the native client before removing the slot's credentials, encrypted index and search recents. Cleanup can retry after a busy file or a restart. Verify this with a disposable linked account and a second saved account on the Cloud PC. Signed installation and update work remain in [#1606](https://github.com/bipe-chat/bipe/issues/1606).
 - [#1216](https://github.com/bipe-chat/bipe/issues/1216) owns the shared keyboard command registry and help sheet. Ctrl+K opens the Windows search palette with chats, indexed messages, recents and the current-chat search command. The full registry-driven command set needs that shared contract.
 - Windows location sending uses a manually placed pin. Adding device location and outgoing live shares needs a Windows permission and lifecycle design. The system map action depends on an installed geo URI handler, with coordinates available to copy. Microsoft retired the inbox Maps app. [Windows Maps retirement](https://learn.microsoft.com/en-us/windows/uwp/maps-and-location/)
+- The gallery saves files to a chosen folder. In-place previews for general files still need a supported Windows preview path.
 - Media playback uses Windows Media Foundation for video and scoped temporary files. Windows codec availability, cleanup after process interruption, and actual phone media interop require native acceptance. Voice recording has no Windows transcription or expiry registration in this slice. The sticker picker imports WebP, PNG and WhatsApp export ZIPs into the personal pack after showing the shared upload notice. Sticker creation and animated playback remain separate work.
 - The device and parity ledger stay at their existing status until the native checks, fixture and peer-device evidence, and release gates are met. Windows builds, CI dispatches, Cloud PC checks, pushes and releases were deferred for this checkpoint.
 
