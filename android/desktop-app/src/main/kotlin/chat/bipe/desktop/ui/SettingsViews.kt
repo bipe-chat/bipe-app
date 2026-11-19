@@ -160,7 +160,7 @@ private enum class LinkPhase { IDLE, FAILED }
                                 "colors" -> s.text("bipe_colors_${values.palette(s.appearancePolicy)}")
                                 else -> null
                             }
-                            if (current.key == "privacy" && key in setOf("presence", "readReceipts")) {
+                            if (current.key == "privacy" && key == "presence") {
                                 Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Column(Modifier.weight(1f)) {
                                         Text(s.text("bipe_privacy_presence"), style = MaterialTheme.typography.bodyLarge)
