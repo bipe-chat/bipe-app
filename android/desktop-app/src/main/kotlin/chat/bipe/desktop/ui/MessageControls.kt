@@ -57,8 +57,19 @@ private data class MessageCommand(val label: String, val enabled: Boolean, val i
             if (model.startReply(row.id)) focusComposer()
         })
         if (editing !is EditPhase.Saving && model.edits.canEdit(row.id))
-            add(MessageCommand(s.text("bipe_app_message_action_edit"), true, "pencil-simple") {
+            add(MessageCommand(s.text(when {
+                row.media == null -> "bipe_app_message_action_edit"
+                row.media?.caption.isNullOrBlank() -> "bipe_caption_add"
+                else -> "bipe_caption_edit"
+            }), true, "pencil-simple") {
                 if (model.edits.start(row.id)) focusComposer()
+            })
+        if (row.media?.caption?.isNotBlank() == true && model.edits.canEdit(row.id))
+            add(MessageCommand(s.text("bipe_caption_remove"), true, "trash") {
+                if (model.edits.start(row.id)) {
+                    model.edits.change("")
+                    model.edits.save()
+                }
             })
         if (row.kind == MessageRow.Kind.TEXT) add(MessageCommand(if (seconds > 0)
             s.text("bipe_pause_countdown", NumberFormat.getIntegerInstance().format(seconds)) else s.text("bipe_app_copy"), seconds == 0, "copy") {

@@ -19,7 +19,10 @@ import chat.bipe.desktop.link.MatrixRoomLink
 import chat.bipe.desktop.settings.AppearancePhase
 import java.awt.Dimension
 import java.awt.Toolkit
+import java.awt.Window as AwtWindow
 import java.beans.PropertyChangeListener
+
+internal val LocalDesktopWindow = staticCompositionLocalOf<AwtWindow?> { null }
 
 fun main(args: Array<String>) = application {
     val catalog = remember { DesktopCatalog.load() }
@@ -56,7 +59,7 @@ fun main(args: Array<String>) = application {
             surfaceVariant = colors["surface.raised"], onSurfaceVariant = colors["ink.secondary"],
             outline = colors["line.strong"], error = colors["trust.danger.ink"],
         ), typography = BipeTypography) {
-            CompositionLocalProvider(LocalDesktopAlerts provides alerts) {
+            CompositionLocalProvider(LocalDesktopAlerts provides alerts, LocalDesktopWindow provides window) {
                 DesktopApp(model, phase, colors, launchLink, onLaunchLinkOpened = { launchLink = null },
                     onClose = { model.closeWindow(::exitApplication) })
             }

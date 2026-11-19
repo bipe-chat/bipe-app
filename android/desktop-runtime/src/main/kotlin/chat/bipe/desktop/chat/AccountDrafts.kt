@@ -81,6 +81,7 @@ class RoomComposer internal constructor(private val owner: AccountDrafts, intern
     fun cancelReply() { owner.replyTo(this, null) }
     internal fun submission(): DraftSubmission? = (mutableState.value as? ComposerState.Editing)
         ?.takeIf { it.text.isNotBlank() }?.let { DraftSubmission(it.text, it.revision, this, it.replyTo) }
+    internal fun acceptedAttachmentReply(eventId: String) { owner.acceptedAttachmentReply(this, eventId) }
     internal fun accepted(submission: DraftSubmission) { owner.accepted(this, submission) }
 }
 
@@ -138,6 +139,13 @@ class AccountDrafts(private val lifetime: AccountLifetime, private val store: Co
         val current = room.mutableState.value as? ComposerState.Editing ?: return@synchronized
         // Body equality alone loses an edit away and back to the same text while the SDK send is in flight.
         if (current.revision == submitted.revision) update(room, ComposerState.Editing("", current.revision + 1, DraftPersistence.PENDING))
+    }
+
+    internal fun acceptedAttachmentReply(room: RoomComposer, eventId: String) = synchronized(monitor) {
+        if (phase != Phase.ACTIVE) return@synchronized
+        val current = room.mutableState.value as? ComposerState.Editing ?: return@synchronized
+        if (current.replyTo == eventId) update(room, current.copy(replyTo = null,
+            revision = current.revision + 1, persistence = DraftPersistence.PENDING))
     }
 
     internal fun retry(room: RoomComposer) = change {

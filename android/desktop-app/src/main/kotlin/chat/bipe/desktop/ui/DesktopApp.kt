@@ -313,7 +313,7 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
     }.onKeyEvent { event ->
         if (event.type != KeyEventType.KeyDown || event.key != Key.Escape) false
         else when {
-            popup != null -> { if (popup !is TimelinePopup.Forward) popup = null; true }
+            popup != null -> { if (popup !is TimelinePopup.Forward && popup !is TimelinePopup.Attachments) popup = null; true }
             selection.isNotEmpty() -> { selection = emptySet(); true }
             editing != FavouriteEditing.Normal -> { editing = FavouriteEditing.Normal; true }
             searchFocused -> { searches[destination] = TextFieldValue(); workspaceFocus.requestFocus(); true }
@@ -609,10 +609,15 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
             listState.scrollToItem(index)
         }
     }
+    fun attach(inputs: List<AttachmentInput>) {
+        if (inputs.isEmpty() || popup != null || !inputEnabled || editDraft != null || selection.isNotEmpty()) return
+        popup = TimelinePopup.Attachments(inputs, (composer as? ComposerState.Editing)?.replyTo)
+    }
+    AttachmentDropTarget(enabled = popup == null && inputEnabled && editDraft == null && selection.isEmpty(), receive = ::attach)
     Column(Modifier.fillMaxSize().chatBackdrop(s, colors, background).onKeyEvent { event ->
         if (event.type != KeyEventType.KeyDown || event.key != Key.Escape) false
         else when {
-            popup != null -> { if (popup !is TimelinePopup.Forward) popup = null; true }
+            popup != null -> { if (popup !is TimelinePopup.Forward && popup !is TimelinePopup.Attachments) popup = null; true }
             selection.isNotEmpty() -> { selection = emptySet(); true }
             editing is EditPhase.Saving -> true
             editDraft != null || (composer as? ComposerState.Editing)?.replyTo != null -> {
@@ -770,10 +775,24 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
             if (editDraft != null) ComposerEdit(model, editing, s, colors)
             else (composer as? ComposerState.Editing)?.replyTo?.let { ComposerReply(model, it, rows, s, colors) }
             Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                if (editDraft == null) IconButton(enabled = inputEnabled, onClick = {
+                    attach(pickAttachments(s.text("bipe_app_composer_attach")))
+                }, modifier = Modifier.size(48.dp)) {
+                    Icon(sharedIcon("paperclip"), contentDescription = s.text("bipe_app_composer_attach"))
+                }
                 OutlinedTextField(draft, { model.draftChanged(it, editDraft) }, placeholder = { Text(s.text("bipe_app_timeline_composer_placeholder")) },
                     enabled = inputEnabled,
                     shape = RoundedCornerShape(24.dp), maxLines = 8, modifier = Modifier.weight(1f).focusRequester(composerFocus).onPreviewKeyEvent {
-                        if (it.type == KeyEventType.KeyDown && it.key == Key.Enter && !it.isShiftPressed && inputEnabled) { model.submit(editDraft); true } else false
+                        when {
+                            it.type != KeyEventType.KeyDown || !inputEnabled -> false
+                            it.key == Key.Enter && !it.isShiftPressed -> { model.submit(editDraft); true }
+                            it.key == Key.V && it.isCtrlPressed && editDraft == null && popup == null -> {
+                                val attachments = pastedAttachments()
+                                attach(attachments)
+                                attachments.isNotEmpty()
+                            }
+                            else -> false
+                        }
                     })
                 val canSend = if (editDraft != null) editDraft.canSave && editing !is EditPhase.Saving
                     else draft.isNotBlank() && sending != SendPhase.Sending
@@ -804,6 +823,9 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
             model.deletion.confirm(dialog.intents)
             selection = emptySet()
             popup = null
+        }
+        is TimelinePopup.Attachments -> AttachmentPreview(model.attachments, dialog.inputs, dialog.reply, s) {
+            if (popup === dialog) popup = null
         }
         is TimelinePopup.Photo -> key(dialog.media.sourceJson) {
             OriginalPhoto(dialog.media.filename, s, close = { popup = null }) { media.eventPicture(dialog.media.sourceJson) }

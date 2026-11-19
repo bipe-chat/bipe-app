@@ -23,6 +23,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.collect
 import chat.bipe.shared.BipeSyncedSettings
 import chat.bipe.shared.media.BipeForwardMark
+import chat.bipe.shared.media.BipeImageDescription
 import chat.bipe.desktop.settings.MatrixSettingsReader
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -73,6 +74,7 @@ class DesktopTimeline private constructor(
     val forwarding = ForwardActions(runtime.client, group, labels.noName, { timeline }) {
         (mutableRows.value as? LoadPhase.Ready)?.value.orEmpty()
     }
+    val attachments = AttachmentActions(runtime.client, group, { room }, { timeline }, composer)
     val pins = RoomPins(group, labels, ::currentRow)
     val reactions = ReactionActions(group, ::currentRow) { eventId, key ->
         timeline.toggleReaction(EventOrTransactionId.EventId(eventId), key)
@@ -102,11 +104,13 @@ class DesktopTimeline private constructor(
         try {
             val kind = (event.content as? TimelineItemContent.MsgLike)?.content?.kind as? MsgLikeKind.Message
             check(event.isOwn && event.isEditable && event.isRemote && event.localSendState == null && kind != null)
-            check(kind.content.msgType.isText())
+            val type = kind.content.msgType
+            check(type.isText() || type.hasEditableCaption())
             val powers = room.getPowerLevels()
             try { check(powers.canOwnUserSendMessage(MessageLikeEventType.RoomMessage)) } finally { powers.destroy() }
             group.requireCurrent()
-            val content = EditedContent.RoomMessage(messageEventContentFromMarkdown(text))
+            val content = if (type.hasEditableCaption()) EditedContent.MediaCaption(text.takeIf { it.isNotEmpty() }, null, null)
+                else EditedContent.RoomMessage(messageEventContentFromMarkdown(text))
             try { timeline.edit(EventOrTransactionId.EventId(eventId), content) } finally { content.destroy() }
         } finally { event.destroy() }
     }
@@ -573,9 +577,14 @@ class DesktopTimeline private constructor(
                 canReply = reactionTarget != null && event.canBeRepliedTo,
                 reply = content.inReplyTo?.let(::quote), isEdited = (kind as? MsgLikeKind.Message)?.content?.isEdited == true,
                 originalEventId = eventId,
-                canEdit = event.isOwn && event.isEditable && type == MessageRow.Kind.TEXT && reactionTarget != null,
+                canEdit = event.isOwn && event.isEditable && reactionTarget != null &&
+                    (type == MessageRow.Kind.TEXT || (kind as? MsgLikeKind.Message)?.content?.msgType?.hasEditableCaption() == true),
                 senderId = event.sender, readersAtEvent = event.readReceipts.keys.toSet(),
-                media = media.takeIf { type == MessageRow.Kind.MEDIA }, richText = richText,
+                media = media?.let {
+                    if (it.kind == MessageMedia.Kind.IMAGE) it.copy(description =
+                        BipeImageDescription.read(debugInfo?.latestEditJson) ?: BipeImageDescription.read(debugInfo?.originalJson))
+                    else it
+                }, richText = richText,
                 canForward = canForward, forwardSource = forwardSource,
                 isEmote = (kind as? MsgLikeKind.Message)?.content?.msgType is MessageType.Emote)
         } finally { event.destroy() }
@@ -620,3 +629,5 @@ class DesktopTimeline private constructor(
 
 /** Text, notice and emote are the text rows; every other message type is media or unsupported. */
 internal fun MessageType.isText(): Boolean = this is MessageType.Text || this is MessageType.Notice || this is MessageType.Emote
+
+private fun MessageType.hasEditableCaption(): Boolean = this is MessageType.Image || this is MessageType.Video || this is MessageType.File

@@ -26,6 +26,7 @@ data class MessageMedia(
     val durationMillis: Long? = null,
     val sourceJson: String,
     val thumbnailJson: String? = null,
+    val description: String? = null,
 ) {
     enum class Kind { IMAGE, VIDEO, FILE, STICKER, AUDIO, VOICE }
 
