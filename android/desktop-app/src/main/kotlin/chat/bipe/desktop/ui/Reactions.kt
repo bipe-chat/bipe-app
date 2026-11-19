@@ -19,6 +19,7 @@ import chat.bipe.shared.generated.BipeReactions
 import java.awt.Robot
 import java.awt.event.KeyEvent
 import java.text.NumberFormat
+import java.time.LocalDate
 import kotlinx.coroutines.CancellationException
 
 internal sealed interface TimelinePopup {
@@ -26,6 +27,9 @@ internal sealed interface TimelinePopup {
     data class DeleteConfirm(val intent: DeleteIntent) : TimelinePopup
     data class Picker(val rowId: String) : TimelinePopup
     data class Senders(val rowId: String, val key: String) : TimelinePopup
+    data object PickDate : TimelinePopup
+    data class Jumping(val date: LocalDate) : TimelinePopup
+    data class Day(val focus: DayJump.History) : TimelinePopup
 }
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)

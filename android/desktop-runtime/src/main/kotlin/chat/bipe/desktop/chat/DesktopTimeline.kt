@@ -4,13 +4,14 @@
 
 package chat.bipe.desktop.chat
 
-import chat.bipe.app.common.toVectorDiff
 import chat.bipe.desktop.account.AccountResource
 import chat.bipe.desktop.account.AccountTaskGroup
 import chat.bipe.desktop.account.MatrixAccountRuntime
 import chat.bipe.desktop.account.NativeResource
 import chat.bipe.desktop.account.TaskResource
 import chat.bipe.desktop.safety.*
+import java.time.LocalDate
+import java.time.ZoneId
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
@@ -18,7 +19,6 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withTimeoutOrNull
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collect
 import chat.bipe.shared.BipeSyncedSettings
 import chat.bipe.desktop.settings.MatrixSettingsReader
@@ -62,6 +62,7 @@ class DesktopTimeline private constructor(
     private enum class ReplyLoad { LOADING, SETTLED }
     private val replyLoads = mutableMapOf<String, ReplyLoad>()
     private val paging = Mutex()
+    @Volatile private var reachedStart = false
     private lateinit var timeline: Timeline
     private lateinit var room: Room
     val reactions = ReactionActions(group, ::currentRow) { eventId, key ->
@@ -237,7 +238,7 @@ class DesktopTimeline private constructor(
                         return@launch
                     }
                     if (page == 5) break
-                    paging.withLock { timeline.paginateBackwards(50u) }
+                    paging.withLock { if (timeline.paginateBackwards(50u)) reachedStart = true }
                     withTimeoutOrNull(1_000) { rows.first { it is LoadPhase.Ready && it.value.any { row -> row.originalEventId == eventId } } }
                 }
             } catch (cancelled: CancellationException) { throw cancelled }
@@ -350,10 +351,26 @@ class DesktopTimeline private constructor(
 
     fun loadEarlier() = group.launch {
         if (!paging.tryLock()) return@launch
-        try { timeline.paginateBackwards(50u) }
+        try { if (timeline.paginateBackwards(50u)) reachedStart = true }
         catch (cancelled: CancellationException) { throw cancelled }
         catch (_: Exception) { /* Current messages stay visible; the same button retries. */ }
         finally { paging.unlock() }
+    }
+
+    suspend fun jumpToDate(date: LocalDate, zone: ZoneId): DayJump {
+        val lookup = group.async {
+            if (date.isAfter(LocalDate.now(zone))) return@async DayJump.Empty
+            val window = DayWindow(date, zone)
+            val found = timestampToEvent(runtime.client, roomId, window.start) ?: return@async DayJump.Empty
+            val loaded = (mutableRows.value as? LoadPhase.Ready)?.value.orEmpty()
+            window.target(found.eventId, found.timestamp, loaded, reachedStart)
+        }
+        try { return lookup.await() } finally { lookup.cancel() }
+    }
+
+    suspend fun openDayHistory(focus: DayJump.History): DayHistory {
+        group.requireCurrent()
+        return DayHistory.open(runtime, roomId, focus) { snapshot(it, trackFailedSends = false) }
     }
 
     override suspend fun close() = group.close()
@@ -373,31 +390,15 @@ class DesktopTimeline private constructor(
         group.own(NativeResource {
             synchronized(failedSends) { failedSends.values.forEach { it.destroy() }; failedSends.clear(); retrying.clear() }
         })
-        val changes = Channel<List<TimelineDiff>>(Channel.UNLIMITED, onUndeliveredElement = ::dispose)
-        group.own(NativeResource { changes.cancel() })
-        group.own(TaskResource(timeline.addListener(object : TimelineListener {
-            override fun onUpdate(diff: List<TimelineDiff>) {
-                if (changes.trySend(diff).isFailure) dispose(diff)
-            }
-        })))
-        group.launch {
-            val snapshots = SnapshotVector<TimelineSnapshot>()
-            try {
-                for (batch in changes) {
-                    try {
-                        batch.forEach { snapshots.apply(it.toVectorDiff().snapshot(::snapshot)) }
-                    } finally { dispose(batch) }
-                    presentation.withLock {
-                        latestSnapshots = snapshots.visible()
-                        val receipts = latestSnapshots.dmReceipts(receiptPolicy)
-                        group.publish {
-                            mutableRows.value = LoadPhase.Ready(latestSnapshots.messageRows().map { it.copy(dmReceipt = receipts[it.id]) })
-                        }
-                    }
+        group.observeTimeline(timeline, { snapshot(it, trackFailedSends = true) }, { snapshots ->
+            presentation.withLock {
+                latestSnapshots = snapshots
+                val receipts = latestSnapshots.dmReceipts(receiptPolicy)
+                group.publish {
+                    mutableRows.value = LoadPhase.Ready(latestSnapshots.messageRows().map { it.copy(dmReceipt = receipts[it.id]) })
                 }
-            } catch (cancelled: CancellationException) { throw cancelled }
-            catch (_: Exception) { group.publish { mutableRows.value = LoadPhase.Failed } }
-        }
+            }
+        }, { mutableRows.value = LoadPhase.Failed })
         group.launch {
             while (currentCoroutineContext().isActive) {
                 delay(250)
@@ -471,16 +472,17 @@ class DesktopTimeline private constructor(
         }
     }
 
-    private fun snapshot(item: TimelineItem): TimelineSnapshot? {
+    private fun snapshot(item: TimelineItem, trackFailedSends: Boolean): TimelineSnapshot? {
         val day = item.asVirtual() as? VirtualTimelineItem.DateDivider
         if (day != null) return TimelineSnapshot.Day(day.ts.toLong())
-        message(item)?.let { return TimelineSnapshot.Message(it) }
+        message(item, trackFailedSends)?.let { return TimelineSnapshot.Message(it) }
+        if (!trackFailedSends) return null
         val event = item.asEvent() ?: return null
         try { return event.readReceipts.keys.takeIf { it.isNotEmpty() }?.let { TimelineSnapshot.ReadPoint(it.toSet()) } }
         finally { event.destroy() }
     }
 
-    private fun message(item: TimelineItem): MessageRow? {
+    private fun message(item: TimelineItem, trackFailedSends: Boolean): MessageRow? {
         val event = item.asEvent() ?: return null
         try {
             val content = (event.content as? TimelineItemContent.MsgLike)?.content ?: return null
@@ -512,8 +514,8 @@ class DesktopTimeline private constructor(
             val id = item.uniqueId().id
             val reactionTarget = (event.eventOrTransactionId as? EventOrTransactionId.EventId)?.eventId
                 ?.takeIf { event.isRemote && event.localSendState == null && kind !is MsgLikeKind.UnableToDecrypt && kind != MsgLikeKind.Redacted }
-            val handle = if (event.isOwn && delivery == MessageRow.Delivery.FAILED) event.lazyProvider.getSendHandle() else null
-            synchronized(failedSends) {
+            val handle = if (trackFailedSends && event.isOwn && delivery == MessageRow.Delivery.FAILED) event.lazyProvider.getSendHandle() else null
+            if (trackFailedSends) synchronized(failedSends) {
                 failedSends.remove(id)?.destroy()
                 if (handle != null) failedSends[id] = handle
             }
@@ -564,9 +566,6 @@ class DesktopTimeline private constructor(
             catch (error: Exception) { group.close(); throw error }
         }
 
-        private fun dispose(updates: List<TimelineDiff>) {
-            updates.forEach { it.toVectorDiff().forEachValue { item -> item.destroy() } }
-        }
     }
 }
 

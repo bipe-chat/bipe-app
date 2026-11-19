@@ -526,6 +526,36 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
     }
     val original by model.originalNavigation.collectAsState()
     val rows = when (val snapshot = load) { is LoadPhase.Ready -> snapshot.value; else -> emptyList() }
+    val jumping = popup as? TimelinePopup.Jumping
+    LaunchedEffect(model, jumping) {
+        val request = jumping ?: return@LaunchedEffect
+        val result = try { model.jumpToDate(request.date, zone) }
+        catch (cancelled: CancellationException) { throw cancelled }
+        catch (_: Exception) {
+            if (popup === request) {
+                popup = null
+                scope.launch { notices.showSnackbar(s.text("bipe_error_generic")) }
+            }
+            return@LaunchedEffect
+        }
+        if (popup !== request) return@LaunchedEffect
+        when (result) {
+            DayJump.Empty -> {
+                popup = null
+                scope.launch { notices.showSnackbar(s.text("bipe_jump_to_date_empty")) }
+            }
+            is DayJump.Loaded -> {
+                val loaded = (model.rows.value as? LoadPhase.Ready)?.value.orEmpty()
+                val index = loaded.asReversed().indexOfFirst { it.id == result.rowId }
+                if (index >= 0) {
+                    viewport.policy.userScrolled(false)
+                    listState.scrollToItem(index)
+                }
+                if (popup === request) popup = null
+            }
+            is DayJump.History -> popup = TimelinePopup.Day(result)
+        }
+    }
     LaunchedEffect(rows) {
         if (viewport.policy.messagesChanged(rows)) listState.scrollToItem(0)
     }
@@ -549,7 +579,12 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
             else -> false
         }
     }) {
-        TextButton(onClick = { model.loadEarlier() }) { Text(s.text("bipe_action_show_more")) }
+        Row {
+            TextButton(onClick = { model.loadEarlier() }) { Text(s.text("bipe_action_show_more")) }
+            TextButton(onClick = { popup = TimelinePopup.PickDate }, enabled = jumping == null && load is LoadPhase.Ready) {
+                Text(s.text(if (jumping == null) "bipe_jump_to_date_title" else "bipe_web_loading"))
+            }
+        }
         when (load) {
             LoadPhase.Loading -> Text(s.text("bipe_web_loading"), Modifier.padding(16.dp))
             LoadPhase.Failed -> Text(s.text("bipe_error_generic"), Modifier.padding(16.dp))
@@ -674,6 +709,13 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
     }
     ReactionDialog(model, popup, { popup = null }, s)
     DeleteDialog(model, popup, { popup = null }, s)
+    when (val dialog = popup) {
+        TimelinePopup.PickDate -> JumpDatePicker(today, s,
+            pick = { day -> if (popup == TimelinePopup.PickDate) popup = TimelinePopup.Jumping(day) },
+            close = { if (popup == TimelinePopup.PickDate) popup = null })
+        is TimelinePopup.Day -> DayHistoryDialog(model, dialog.focus, s, colors) { if (popup === dialog) popup = null }
+        else -> Unit
+    }
 }
 
 @Composable private fun DraftFailure(message: String, s: DesktopCatalog, retry: () -> Unit) {
