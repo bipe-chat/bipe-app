@@ -29,7 +29,15 @@ private sealed interface StickerPhase {
     data object Loading : StickerPhase
     data object LoadFailed : StickerPhase
     data class Ready(val picker: StickerActions.Picker, val phase: Action = Action.IDLE) : StickerPhase
+    data class Import(val phase: StickerImportPhase) : StickerPhase
     enum class Action { IDLE, WORKING, SEND_FAILED, CHANGE_FAILED }
+}
+
+private sealed interface StickerImportPhase {
+    data object Intro : StickerImportPhase
+    data object Importing : StickerImportPhase
+    data class Done(val added: Int) : StickerImportPhase
+    data object Failed : StickerImportPhase
 }
 
 @Composable internal fun StickerPicker(actions: StickerActions, media: AccountMedia, s: DesktopCatalog, close: () -> Unit) {
@@ -43,7 +51,24 @@ private sealed interface StickerPhase {
         catch (cancelled: CancellationException) { throw cancelled }
         catch (_: Exception) { StickerPhase.LoadFailed }
     }
-    val busy = (phase as? StickerPhase.Ready)?.phase == StickerPhase.Action.WORKING
+    val importing = (phase as? StickerPhase.Import)?.phase
+    val busy = (phase as? StickerPhase.Ready)?.phase == StickerPhase.Action.WORKING || importing == StickerImportPhase.Importing
+    fun leaveImport() {
+        phase = StickerPhase.Loading
+        attempt++
+    }
+    fun importFiles() {
+        val current = phase as? StickerPhase.Import ?: return
+        if (current.phase == StickerImportPhase.Importing) return
+        val paths = pickFiles(s.text("bipe_stickers_import_action"))
+        if (paths.isEmpty()) return
+        phase = StickerPhase.Import(StickerImportPhase.Importing)
+        scope.launch {
+            phase = StickerPhase.Import(try { StickerImportPhase.Done(actions.importStickers(readStickerFiles(paths))) }
+            catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) { StickerImportPhase.Failed })
+        }
+    }
     fun act(sticker: Sticker, send: Boolean) {
         val current = phase as? StickerPhase.Ready ?: return
         if (current.phase == StickerPhase.Action.WORKING) return
@@ -58,13 +83,28 @@ private sealed interface StickerPhase {
             }
         }
     }
-    AlertDialog(onDismissRequest = { if (!busy) close() }, title = { Text(s.text("bipe_stickers_title")) },
+    val dismiss = { if (!busy) { if (importing == null) close() else leaveImport() } }
+    AlertDialog(onDismissRequest = dismiss,
+        title = { Text(s.text(if (importing == null) "bipe_stickers_title" else "bipe_stickers_import_action")) },
         text = {
             when (val current = phase) {
                 StickerPhase.Loading -> CircularProgressIndicator()
                 StickerPhase.LoadFailed -> Column {
                     Text(s.text("bipe_stickers_error_load"))
                     TextButton(onClick = { attempt++ }) { Text(s.text("bipe_app_retry")) }
+                }
+                is StickerPhase.Import -> Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    when (val result = current.phase) {
+                        StickerImportPhase.Intro -> Text(s.text("bipe_stickers_import_help"))
+                        StickerImportPhase.Importing -> {
+                            Text(s.text("bipe_stickers_import_progress"))
+                            LinearProgressIndicator(Modifier.fillMaxWidth())
+                        }
+                        is StickerImportPhase.Done -> Text(if (result.added == 0) s.text("bipe_stickers_import_none")
+                            else s.text("bipe_stickers_import_done", result.added.toString()))
+                        StickerImportPhase.Failed -> Text(s.text("bipe_stickers_import_failed"))
+                    }
+                    if (!busy) Text(s.text("bipe_stickers_import_note"))
                 }
                 is StickerPhase.Ready -> Column {
                     OutlinedTextField(query, { query = it }, enabled = !busy, singleLine = true, modifier = Modifier.fillMaxWidth(),
@@ -111,7 +151,15 @@ private sealed interface StickerPhase {
                 }
             }
         },
-        confirmButton = { TextButton(onClick = close, enabled = !busy) { Text(s.text("bipe_app_close")) } })
+        dismissButton = {
+            if (phase is StickerPhase.Ready) TextButton(onClick = { phase = StickerPhase.Import(StickerImportPhase.Intro) }, enabled = !busy) {
+                Text(s.text("bipe_stickers_import_action"))
+            }
+            if (importing != null && !busy) TextButton(onClick = ::importFiles) {
+                Text(s.text("bipe_stickers_import_action"))
+            }
+        },
+        confirmButton = { TextButton(onClick = dismiss, enabled = !busy) { Text(s.text("bipe_app_close")) } })
 }
 
 @Composable private fun StickerThumbnail(sticker: Sticker, media: AccountMedia) {

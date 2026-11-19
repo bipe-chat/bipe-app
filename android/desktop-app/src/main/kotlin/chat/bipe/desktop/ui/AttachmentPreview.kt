@@ -29,16 +29,20 @@ import java.awt.dnd.DropTarget
 import java.awt.dnd.DropTargetAdapter
 import java.awt.dnd.DropTargetDropEvent
 import java.io.File
+import java.nio.file.Path
 import java.util.Locale
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
-internal fun pickAttachments(title: String): List<AttachmentInput> {
+internal fun pickAttachments(title: String): List<AttachmentInput> = pickFiles(title)
+    .take(AttachmentActions.MAX_ITEMS).map { AttachmentInput.File(it) }
+
+internal fun pickFiles(title: String): List<Path> {
     val dialog = FileDialog(null as Frame?, title, FileDialog.LOAD)
     return try {
         dialog.isMultipleMode = true
         dialog.isVisible = true
-        dialog.files.take(AttachmentActions.MAX_ITEMS).map { AttachmentInput.File(it.toPath().toAbsolutePath()) }
+        dialog.files.map { it.toPath().toAbsolutePath() }
     } finally { dialog.dispose() }
 }
 

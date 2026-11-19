@@ -10,8 +10,10 @@ import chat.bipe.shared.generated.BipeRegistries
 import chat.bipe.stickers.*
 import java.net.URI
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import org.matrix.rustcomponents.sdk.MediaSource
 import org.matrix.rustcomponents.sdk.Membership
 import org.matrix.rustcomponents.sdk.Room
@@ -26,7 +28,7 @@ class StickerActions internal constructor(
     data class Picker internal constructor(
         val packs: List<StickerPack>, val favourites: List<Sticker>, val recents: List<Sticker>,
     )
-    private val writes = Mutex()
+    private val writes get() = runtime.stickerWriteLock
     private var pendingRecents = emptyList<StickerRef>()
 
     private fun client(): StickerPackClient {
@@ -78,6 +80,13 @@ class StickerActions internal constructor(
             api.setShortlist(event, StickerShortlist.toggleFavourite(StickerRef(sticker), api.shortlist(event)))
         }
     }.await()
+
+    suspend fun importStickers(candidates: List<StickerImportCandidate>): Int {
+        if (candidates.isEmpty()) return 0
+        val task = owner.async { writes.withLock { client().addToUserPack(candidates) } }
+        return try { task.await() }
+        finally { withContext(NonCancellable) { task.cancelAndJoin() } }
+    }
 
     suspend fun saveReceived(rowId: String) = owner.async {
         writes.withLock {

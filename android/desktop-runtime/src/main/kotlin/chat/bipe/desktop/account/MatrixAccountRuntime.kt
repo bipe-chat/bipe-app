@@ -70,6 +70,7 @@ class MatrixAccountRuntime private constructor(
     private val syncLock = Mutex()
     private val roomTagLock = Mutex()
     internal val notificationLock = Mutex()
+    internal val stickerWriteLock = Mutex()
 
     /** Favourite and archive writes share the SDK's mutually exclusive priority tags. */
     suspend fun <T> withRoomTagWrite(operation: suspend () -> T): T = roomTagLock.withLock {
