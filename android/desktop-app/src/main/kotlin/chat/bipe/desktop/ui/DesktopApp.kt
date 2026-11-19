@@ -15,7 +15,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -55,6 +54,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlin.math.floor
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 @Composable
@@ -187,6 +187,10 @@ fun DesktopApp(model: DesktopAppModel, phase: AppPhase, colors: DesktopColors, o
 
 private enum class Destination(val key: String) { CHATS("bipe_tab_chats"), GROUPS("bipe_tab_groups"), YOU("bipe_tab_you") }
 private enum class ChatListMode { ACTIVE, ARCHIVED }
+private sealed interface TimelineLinkNavigation {
+    data class Resolve(val url: String, val fromTab: Destination, val fromRoom: String?) : TimelineLinkNavigation
+    data class Focus(val tab: Destination, val roomId: String, val eventId: String) : TimelineLinkNavigation
+}
 
 @Composable private fun Workspace(model: DesktopAppModel, account: AppPhase.Ready, colors: DesktopColors) {
     val s = model.catalog
@@ -203,6 +207,8 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
     var searchFocused by remember(account) { mutableStateOf(false) }
     var searchRequest by remember(account) { mutableStateOf(0) }
     val selected = selections[destination]
+    var linkNavigation by remember(account) { mutableStateOf<TimelineLinkNavigation?>(null) }
+    val linkNotices = remember(account) { SnackbarHostState() }
     val searchValue = searches[destination] ?: TextFieldValue()
     val search = searchValue.text
     LaunchedEffect(account) { workspaceFocus.requestFocus() }
@@ -211,8 +217,31 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
             !(destination == Destination.GROUPS && profile.kind == AccountKind.COMPANY)) searchFocus.requestFocus()
     }
     LaunchedEffect(account, destination, selected) {
+        val focus = linkNavigation as? TimelineLinkNavigation.Focus
+        if (focus != null && (focus.tab != destination || focus.roomId != selected)) linkNavigation = null
         if (destination == Destination.YOU || (destination == Destination.GROUPS && profile.kind == AccountKind.COMPANY)) model.clearRoom()
         else if (selected == null) model.clearRoom() else model.selectRoom(selected)
+    }
+    LaunchedEffect(account, destination, selected, linkNavigation) {
+        val request = linkNavigation as? TimelineLinkNavigation.Resolve ?: return@LaunchedEffect
+        if (request.fromTab != destination || request.fromRoom != selected) {
+            linkNavigation = null
+            return@LaunchedEffect
+        }
+        val result = runCatching { MatrixRoomLink.parse(request.url)?.joinedRoom(account.runtime) }
+        (result.exceptionOrNull() as? CancellationException)?.let { throw it }
+        if (model.phase.value !== account || destination != request.fromTab ||
+            selections[destination] != request.fromRoom || linkNavigation !== request) return@LaunchedEffect
+        val target = result.getOrNull()
+        if (target == null) {
+            linkNotices.showSnackbar(s.text(if (result.isFailure) "bipe_error_network" else "bipe_app_room_link_not_found"))
+            if (linkNavigation === request) linkNavigation = null
+        } else {
+            val tab = if (profile.kind == AccountKind.COMPANY || target.isDm) Destination.CHATS else Destination.GROUPS
+            linkNavigation = target.eventId?.let { TimelineLinkNavigation.Focus(tab, target.roomId, it) }
+            selections[tab] = target.roomId
+            destination = tab
+        }
     }
     var popup by remember(account, destination) { mutableStateOf<WorkspacePopup?>(null) }
     var listMode by remember(account, destination) { mutableStateOf(ChatListMode.ACTIVE) }
@@ -412,6 +441,16 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
                     is SelectedTimeline.Opening -> Centered { Text(s.text("bipe_web_loading")) }
                     is SelectedTimeline.Failed -> Centered { BipeButton(s.text("bipe_app_retry"), { selected?.let(model::selectRoom) }) }
                     is SelectedTimeline.Showing -> key(state.model) {
+                        LaunchedEffect(linkNavigation, destination, selected) {
+                            val target = linkNavigation as? TimelineLinkNavigation.Focus ?: return@LaunchedEffect
+                            if (target.tab != destination || target.roomId != selected || target.roomId != state.model.roomId) return@LaunchedEffect
+                            state.model.originalNavigation.first { it == OriginalNavigation.Idle }
+                            if (linkNavigation === target && model.phase.value === account && destination == target.tab &&
+                                selections[destination] == target.roomId) {
+                                state.model.openOriginal(target.eventId)
+                                linkNavigation = null
+                            }
+                        }
                         Column {
                             allRows.firstOrNull { it.id == state.model.roomId }?.let { row ->
                                 Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically,
@@ -423,10 +462,11 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
                             }
                             Box(Modifier.weight(1f)) { TimelineView(state.model, s, colors, background,
                                 viewports.getOrPut(state.model.roomId) { RoomViewport() }, allRows.firstOrNull { it.id == state.model.roomId }, presence.enabled,
-                                account.runtime.media) }
+                                account.runtime.media, { url -> linkNavigation = TimelineLinkNavigation.Resolve(url, destination, selected) }) }
                         }
                     }
                 }
+                SnackbarHost(linkNotices, Modifier.align(Alignment.BottomCenter))
             }
         }
     }
@@ -436,7 +476,8 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
 }
 
 @Composable private fun TimelineView(model: DesktopTimeline, s: DesktopCatalog, colors: DesktopColors, background: String,
-                                     viewport: RoomViewport, room: ChatRow?, sharesTyping: Boolean, media: AccountMedia) {
+                                     viewport: RoomViewport, room: ChatRow?, sharesTyping: Boolean, media: AccountMedia,
+                                     openLink: (String) -> Unit) {
     val load by model.rows.collectAsState()
     val mediaPolicy by model.mediaPolicy.collectAsState()
     // Spec timeline-media tapToShow: a click shows that one message only, while this room stays open.
@@ -538,10 +579,10 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
                                                 } }, s, colors)
                                             // The caption shows under the media as text; the money pause blocks selecting it, as for text.
                                             attached.caption?.takeIf { it.isNotBlank() }?.let { caption ->
-                                                if (seconds > 0) Text(caption) else SelectionContainer { Text(caption) }
+                                                if (seconds > 0) Text(caption) else TimelineLinks(caption, colors, openLink)
                                             }
                                         } else if (seconds > 0 || message.kind != MessageRow.Kind.TEXT) Text(message.body)
-                                        else SelectionContainer { Text(message.body) }
+                                        else TimelineLinks(message.body, colors, openLink)
                                         Row(Modifier.align(Alignment.End), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
                                             Text(timeLabel(message.timestamp, s.locale), style = MaterialTheme.typography.labelSmall, color = colors["ink.secondary"],
                                                 modifier = Modifier.clearAndSetSemantics {
