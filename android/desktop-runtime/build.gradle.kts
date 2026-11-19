@@ -16,6 +16,7 @@ val portableVectorDiff by tasks.registering(Sync::class) {
     from("../app/src/main/kotlin/chat/bipe/app/common/VectorDiff.kt")
     from("../app/src/main/kotlin/chat/bipe/app/groups/GroupRole.kt")
     from("../app/src/main/kotlin/chat/bipe/app/timeline/StateLines.kt")
+    from("../app/src/main/kotlin/chat/bipe/app/timeline/DeliveredAck.kt")
     from("../libraries/bipe/src/main/kotlin/chat/bipe/shared/generated/BipeGroupPowerLevels.kt")
     from("../libraries/bipe/src/main/kotlin/chat/bipe/shared/BipeFavouritesOrder.kt")
     from("../libraries/bipe/src/main/kotlin/chat/bipe/shared/BipeSyncedSettings.kt")

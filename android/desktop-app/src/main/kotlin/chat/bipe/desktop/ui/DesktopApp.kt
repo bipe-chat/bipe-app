@@ -691,7 +691,7 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
                                             if (message.isEdited) Text(s.text("bipe_app_message_edited"), style = MaterialTheme.typography.labelSmall, color = colors["ink.secondary"])
                                             if (room?.isDm == true) message.dmReceipt?.let {
                                                 val receipt = if (!showsReadReceipts && it.tick == DmReceipt.Tick.READ)
-                                                    it.copy(tick = DmReceipt.Tick.DELIVERED) else it
+                                                    it.copy(tick = it.privateTick) else it
                                                 DmReceiptFooter(receipt, s, colors)
                                             }
                                         }

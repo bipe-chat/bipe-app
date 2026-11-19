@@ -147,7 +147,9 @@ class DesktopAppModel(val catalog: DesktopCatalog) {
             val previous = mutableTimeline.value.owned()
             try {
                 previous?.close()
-                val model = DesktopTimeline.open(current.runtime, roomId, catalog.chatLabels(), devicePresence)
+                val model = DesktopTimeline.open(current.runtime, roomId, catalog.chatLabels(), devicePresence, current.list.delivered) {
+                    (current.appearance.phase.value as? AppearancePhase.Ready)?.values?.readReceipts == true
+                }
                 if (request != roomRequest || mutablePhase.value !== current) model.close()
                 else mutableTimeline.value = SelectedTimeline.Showing(model)
             } catch (_: Exception) {

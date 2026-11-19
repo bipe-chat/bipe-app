@@ -38,6 +38,7 @@ class DesktopRoomList private constructor(
     val favourites: AccountFavourites,
     val archive: AccountArchive,
     val readActions: AccountReadActions,
+    val delivered: DesktopDelivered,
 ) : AccountResource {
     private val mutableRows = MutableStateFlow<LoadPhase<List<ChatRow>>>(LoadPhase.Loading)
     private val mutableVisibleRows = MutableStateFlow<LoadPhase<List<ChatRow>>>(LoadPhase.Loading)
@@ -74,6 +75,7 @@ class DesktopRoomList private constructor(
             catch (_: Exception) { group.publish { mutableVisibleRows.value = LoadPhase.Failed } }
         }
         val sync = runtime.startSync()
+        delivered.start()
         val service = sync.roomListService()
         group.own(NativeResource { service.destroy() })
         val list = service.allRooms()
@@ -143,7 +145,10 @@ class DesktopRoomList private constructor(
             try { when (latest) {
                 is LatestEventValue.Remote -> {
                     preview = preview(latest.content); timestamp = latest.timestamp.toLong()
-                    if (!latest.isOwn && preview != null) incoming = timestamp
+                    if (!latest.isOwn && preview != null) {
+                        incoming = timestamp
+                        if (info.isDm && info.encryptionState == EncryptionState.ENCRYPTED) delivered.changed(info.id, latest.timestamp.toLong())
+                    }
                 }
                 is LatestEventValue.Local -> { preview = preview(latest.content); timestamp = latest.timestamp.toLong() }
                 else -> Unit
@@ -186,7 +191,7 @@ class DesktopRoomList private constructor(
     companion object {
         suspend fun open(runtime: MatrixAccountRuntime, labels: ChatLabels, permitsPublicDmReads: () -> Boolean = { true }): DesktopRoomList {
             val group = AccountTaskGroup.create(runtime.lifetime)
-            val model = DesktopRoomList(runtime, group, labels, AccountFavourites.open(runtime), AccountArchive.open(runtime), AccountReadActions.open(runtime, permitsPublicDmReads))
+            val model = DesktopRoomList(runtime, group, labels, AccountFavourites.open(runtime), AccountArchive.open(runtime), AccountReadActions.open(runtime, permitsPublicDmReads), DesktopDelivered(runtime, group))
             try { group.async { model.start() }.await(); return model }
             catch (error: Exception) { group.close(); throw error }
         }

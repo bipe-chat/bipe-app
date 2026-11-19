@@ -11,14 +11,14 @@ import org.junit.Test
 class DmReceiptsTest {
     private val policy = DmReceiptPolicy("own", true, true)
     private fun row(id: String, own: Boolean = true, readers: Set<String> = emptySet()) = MessageRow(
-        id, "Person", own, "body", MessageRow.Kind.TEXT, 1, MessageRow.Delivery.SENT, readersAtEvent = readers)
+        id, "Person", own, "body", MessageRow.Kind.TEXT, 1, MessageRow.Delivery.SENT, readersAtEvent = readers, eventId = id)
     private fun message(row: MessageRow) = TimelineSnapshot.Message(row)
 
     @Test fun readOnANewerIncomingOrHiddenEventCoversOlderOwnMessagesAndIgnoresOwnReceipts() {
         val rows = listOf(message(row("old")), message(row("new")), message(row("incoming", false, setOf("peer", "own"))))
         val receipts = rows.dmReceipts(policy)
-        assertEquals(DmReceipt(DmReceipt.Tick.READ, false), receipts["old"])
-        assertEquals(DmReceipt(DmReceipt.Tick.READ, true), receipts["new"])
+        assertEquals(DmReceipt(DmReceipt.Tick.READ, false, DmReceipt.Tick.SENT), receipts["old"])
+        assertEquals(DmReceipt(DmReceipt.Tick.READ, true, DmReceipt.Tick.SENT), receipts["new"])
         assertNull(receipts["incoming"])
         assertEquals(DmReceipt.Tick.SENT, listOf(message(row("old", readers = setOf("own")))).dmReceipts(policy)["old"]!!.tick)
         assertEquals(DmReceipt.Tick.READ, listOf(message(row("old")), TimelineSnapshot.ReadPoint(setOf("peer"))).dmReceipts(policy)["old"]!!.tick)
@@ -29,11 +29,23 @@ class DmReceiptsTest {
             message(row("failed").copy(delivery = MessageRow.Delivery.FAILED)),
             message(row("deleted").copy(kind = MessageRow.Kind.DELETED)), TimelineSnapshot.ReadPoint(setOf("peer")))
         val receipts = rows.dmReceipts(policy.copy(showsRead = false))
-        assertEquals(DmReceipt.Tick.DELIVERED, receipts["old"]!!.tick)
+        assertEquals(DmReceipt.Tick.SENT, receipts["old"]!!.tick)
         assertEquals(DmReceipt.Tick.SENDING, receipts["queued"]!!.tick)
         assertEquals(DmReceipt.Tick.FAILED, receipts["failed"]!!.tick)
         assertNull(receipts["deleted"])
         assertTrue(rows.dmReceipts(policy.copy(isDm = false)).isEmpty())
+    }
+
+    @Test fun deliveryCoversOlderOwnMessagesAndReadTakesPrecedenceOnlyWithPrivacyOn() {
+        val rows = listOf(message(row("older")), message(row("acked")), message(row("later")),
+            TimelineSnapshot.ReadPoint(setOf("peer")))
+        val privatePolicy = policy.copy(showsRead = false, acked = setOf("acked"))
+        val privateTicks = rows.dmReceipts(privatePolicy)
+        assertEquals(DmReceipt.Tick.DELIVERED, privateTicks["older"]?.tick)
+        assertEquals(DmReceipt.Tick.SENT, privateTicks["later"]?.tick)
+        val read = rows.dmReceipts(privatePolicy.copy(showsRead = true))
+        assertEquals(DmReceipt.Tick.READ, read["acked"]?.tick)
+        assertEquals(DmReceipt.Tick.DELIVERED, read["acked"]?.privateTick)
     }
 
     @Test fun staleCacheCannotOverrideFreshOffAndOnlyAnObservedSyncChangeCanEnableItAgain() = runBlocking {

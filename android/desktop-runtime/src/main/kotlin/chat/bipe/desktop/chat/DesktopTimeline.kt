@@ -46,6 +46,8 @@ class DesktopTimeline private constructor(
     val roomId: String,
     private val labels: ChatLabels,
     private val typingPreference: TypingPreference,
+    private val delivered: DesktopDelivered?,
+    private val permitsReadTick: () -> Boolean,
     private val safetyEngine: SafetyEngine = CoreSafety,
 ) : AccountResource {
     private val mutableRows = MutableStateFlow<LoadPhase<List<MessageRow>>>(LoadPhase.Loading)
@@ -421,6 +423,14 @@ class DesktopTimeline private constructor(
         group.own(TaskResource(room.subscribeToTypingNotifications(object : TypingNotificationsListener {
             override fun call(typingUserIds: List<String>) { typing.incoming(typingUserIds) }
         })))
+        delivered?.let { delivery ->
+            group.launch { delivery.acks.collect { acks ->
+                presentation.withLock {
+                    receiptPolicy = receiptPolicy.copy(acked = acks[roomId].orEmpty().toSet())
+                    publishReceipts()
+                }
+            } }
+        }
         group.launch { typingPreference.changes.collect { typing.available(it) } }
         group.launch { edits.phase.collect { if (it != EditPhase.Idle) typing.draftChanged(false) } }
         group.launch {
@@ -432,15 +442,11 @@ class DesktopTimeline private constructor(
                     val info = room.roomInfo()
                     val dm = try { info.isDm } finally { info.destroy() }
                     val show = try {
-                        if (dm) preference.refresh() else false
+                        if (dm && permitsReadTick()) preference.refresh() else false
                     } catch (cancelled: CancellationException) { throw cancelled } catch (_: Exception) { false }
                     presentation.withLock {
-                        receiptPolicy = DmReceiptPolicy(runtime.client.userId(), dm, show)
-                        val receipts = latestSnapshots.dmReceipts(receiptPolicy)
-                        group.publish {
-                            val current = mutableRows.value as? LoadPhase.Ready ?: return@publish
-                            mutableRows.value = LoadPhase.Ready(current.value.map { it.copy(dmReceipt = receipts[it.id]) })
-                        }
+                        receiptPolicy = receiptPolicy.copy(ownId = runtime.client.userId(), isDm = dm, showsRead = show)
+                        publishReceipts()
                     }
                 } catch (cancelled: CancellationException) { throw cancelled }
                   catch (_: Exception) { /* No stale room can publish; the next SDK cache refresh retries. */ }
@@ -451,6 +457,14 @@ class DesktopTimeline private constructor(
         startMediaPolicy()
         // Back-pagination failure is retryable; the live listener remains attached for offline/local events.
         loadEarlier()
+    }
+
+    private fun publishReceipts() {
+        val receipts = latestSnapshots.dmReceipts(receiptPolicy)
+        group.publish {
+            val current = mutableRows.value as? LoadPhase.Ready ?: return@publish
+            mutableRows.value = LoadPhase.Ready(current.value.map { it.copy(dmReceipt = receipts[it.id]) })
+        }
     }
 
     /** Reads the account's MSC4278 setting and follows its changes; the computer never writes it (spec timeline-media notes). */
@@ -586,9 +600,10 @@ class DesktopTimeline private constructor(
 
     companion object {
         suspend fun open(runtime: MatrixAccountRuntime, roomId: String, labels: ChatLabels,
-                         typingPreference: TypingPreference = TypingPreference.Hidden): DesktopTimeline {
+                         typingPreference: TypingPreference = TypingPreference.Hidden,
+                         delivered: DesktopDelivered? = null, permitsReadTick: () -> Boolean = { true }): DesktopTimeline {
             val group = AccountTaskGroup.create(runtime.lifetime)
-            val model = DesktopTimeline(runtime, group, roomId, labels, typingPreference)
+            val model = DesktopTimeline(runtime, group, roomId, labels, typingPreference, delivered, permitsReadTick)
             try { group.async { model.start() }.await(); return model }
             catch (error: Exception) { group.close(); throw error }
         }
