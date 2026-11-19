@@ -5,6 +5,8 @@
 package chat.bipe.desktop.ui
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -51,12 +53,16 @@ private sealed interface PictureState {
  * [revealed] is the click that shows this one message (tapToShow). [save] asks where to save and saves it.
  */
 @Composable internal fun MediaBody(media: MessageMedia, mayShow: Boolean, revealed: Boolean, reveal: () -> Unit,
-                                  loader: AccountMedia, save: (Path) -> Unit, s: DesktopCatalog, colors: DesktopColors) {
+                                  loader: AccountMedia, save: (Path) -> Unit, s: DesktopCatalog, colors: DesktopColors,
+                                  open: (() -> Unit)? = null) {
     val label = s.text(s.mediaKey(media.kind))
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         val preview = media.previewJson
-        if (preview != null) MediaPicture(media, preview, mayShow || revealed, reveal, loader, label, s, colors)
-        else MediaFileCard(media, label, s, colors)
+        if (preview != null) MediaPicture(media, preview, mayShow || revealed, reveal, loader, label, s, colors, open)
+        else {
+            MediaFileCard(media, label, s, colors)
+            if (open != null) TextButton(onClick = open) { Text(s.text("bipe_app_voice_play")) }
+        }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             mediaDetails(media, s.locale)?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = colors["ink.secondary"]) }
             TextButton(onClick = { chooseDestination(media.filename, s.text("bipe_app_save"))?.let(save) }) {
@@ -69,7 +75,7 @@ private sealed interface PictureState {
 }
 
 @Composable private fun MediaPicture(media: MessageMedia, sourceJson: String, shows: Boolean, reveal: () -> Unit, loader: AccountMedia,
-                                     label: String, s: DesktopCatalog, colors: DesktopColors) {
+                                     label: String, s: DesktopCatalog, colors: DesktopColors, open: (() -> Unit)?) {
     val maxWidth = if (media.kind == MessageMedia.Kind.STICKER) 160.dp else 320.dp
     val width = if (media.aspectRatio >= 1f) maxWidth else maxWidth * media.aspectRatio.coerceAtLeast(0.5f)
     var attempt by remember(sourceJson) { mutableStateOf(0) }
@@ -86,7 +92,8 @@ private sealed interface PictureState {
     Box(Modifier.width(width).aspectRatio(media.aspectRatio).clip(RoundedCornerShape(12.dp)).background(colors["surface.raised"])
         .semantics { contentDescription = label }, contentAlignment = Alignment.Center) {
         when (val current = state) {
-            is PictureState.Shown -> Image(current.image, contentDescription = label, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+            is PictureState.Shown -> Image(current.image, contentDescription = label, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().then(
+                if (open == null) Modifier else Modifier.clickable(role = Role.Button, onClick = open)))
             PictureState.Loading -> Text(s.text("bipe_web_loading"), style = MaterialTheme.typography.bodySmall, color = colors["ink.secondary"])
             PictureState.Hidden -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Icon(sharedIcon(mediaIcon(media.kind)), contentDescription = null, tint = colors["glyph.secondary"], modifier = Modifier.size(28.dp))
@@ -140,11 +147,11 @@ internal fun sizeLabel(bytes: Long, locale: Locale): String {
 }
 
 /** Decodes and scales to at most 1024 pixels on the long side, so a large photo cannot hold tens of MB per row. */
-private fun decodePicture(bytes: ByteArray): ImageBitmap? {
+internal fun decodePicture(bytes: ByteArray, maxSide: Int = 1024): ImageBitmap? {
     val decoded = runCatching { SkiaImage.makeFromEncoded(bytes) }.getOrNull() ?: return null
     try {
         if (decoded.width !in 1..16_384 || decoded.height !in 1..16_384) return null
-        val scale = minOf(1f, 1024f / maxOf(decoded.width, decoded.height))
+        val scale = minOf(1f, maxSide.toFloat() / maxOf(decoded.width, decoded.height))
         val width = (decoded.width * scale).toInt().coerceAtLeast(1)
         val height = (decoded.height * scale).toInt().coerceAtLeast(1)
         val bitmap = Bitmap()
@@ -156,7 +163,7 @@ private fun decodePicture(bytes: ByteArray): ImageBitmap? {
 }
 
 /** The Windows save dialog, with the file name from the event without any folder part. Null when the person cancels. */
-private fun chooseDestination(filename: String, title: String): Path? {
+internal fun chooseDestination(filename: String, title: String): Path? {
     val dialog = FileDialog(null as Frame?, title, FileDialog.SAVE)
     dialog.file = safeFileName(filename)
     dialog.isVisible = true

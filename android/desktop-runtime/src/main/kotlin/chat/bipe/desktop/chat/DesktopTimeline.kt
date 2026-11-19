@@ -382,6 +382,13 @@ class DesktopTimeline private constructor(
         return DayHistory.open(runtime, roomId, focus) { snapshot(it, trackFailedSends = false) }
     }
 
+    suspend fun openGallery(): DayHistory {
+        group.requireCurrent()
+        return DayHistory.open(runtime, roomId, TimelineFocus.Live(hideThreadedEvents = false),
+            TimelineFilter.OnlyMessage(listOf(RoomMessageEventMessageType.IMAGE, RoomMessageEventMessageType.VIDEO,
+                RoomMessageEventMessageType.FILE))) { snapshot(it, trackFailedSends = false) }
+    }
+
     override suspend fun close() = group.close()
 
     private suspend fun start() {

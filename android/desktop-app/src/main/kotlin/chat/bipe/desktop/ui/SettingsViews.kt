@@ -45,6 +45,7 @@ private sealed interface SettingsPage {
     data object Licences : SettingsPage
     data class Licence(val index: Int) : SettingsPage
 }
+private data class SettingsPhoto(val name: String, val mxc: String)
 private enum class LinkPhase { IDLE, FAILED }
 
 /** Native settings pages consume the same group/section/row order and icon tiles as the other clients. */
@@ -55,6 +56,7 @@ private enum class LinkPhase { IDLE, FAILED }
     val local by model.deviceAppearance.phase.collectAsState()
     val presence by model.devicePresence.phase.collectAsState()
     val values = (appearance as? AppearancePhase.Ready)?.values ?: AppearanceValues(emptyMap())
+    var photo by remember(account) { mutableStateOf<SettingsPhoto?>(null) }
     var page by remember(account) { mutableStateOf<SettingsPage>(SettingsPage.Root) }
     var linkPhase by remember(account) { mutableStateOf(LinkPhase.IDLE) }
     val openUrl: (String) -> Unit = { url ->
@@ -68,6 +70,9 @@ private enum class LinkPhase { IDLE, FAILED }
             is SettingsPage.Licence -> SettingsPage.Licences
             else -> SettingsPage.Root
         }
+    }
+    photo?.let { target ->
+        key(target) { OriginalPhoto(target.name, s, close = { photo = null }) { account.runtime.media.originalAvatar(target.mxc) } }
     }
     val title = when (val current = page) {
         SettingsPage.Root -> s.text("bipe_settings_section")
@@ -93,8 +98,12 @@ private enum class LinkPhase { IDLE, FAILED }
                     item {
                         Row(Modifier.fillMaxWidth().padding(vertical = 20.dp), verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-                            AvatarPhoto(profile.name, profile.avatar, account.runtime.media, account.runtime.identity, colors, 72.dp,
-                                userId = profile.userId, isCompany = profile.kind == AccountKind.COMPANY)
+                            val mxc = profile.avatar?.takeUnless { chat.bipe.shared.BipeOfficialAccounts.isOfficial(profile.userId) }
+                            Box(if (mxc == null) Modifier else Modifier.clickable(role = Role.Button,
+                                onClickLabel = s.text("bipe_avatar_open"), onClick = { photo = SettingsPhoto(profile.name, mxc) })) {
+                                AvatarPhoto(profile.name, profile.avatar, account.runtime.media, account.runtime.identity, colors, 72.dp,
+                                    userId = profile.userId, isCompany = profile.kind == AccountKind.COMPANY)
+                            }
                             Text(profile.name, style = MaterialTheme.typography.headlineMedium)
                         }
                     }

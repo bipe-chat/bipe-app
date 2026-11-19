@@ -22,6 +22,7 @@ import org.matrix.rustcomponents.sdk.MediaSource
 internal interface MediaBackend {
     /** A thumbnail of an unencrypted mxc URL (avatars). */
     suspend fun thumbnail(url: String, pixels: Int): ByteArray
+    suspend fun originalAvatar(url: String): ByteArray = thumbnail(url, 256)
     /** The bytes of an event's media; the SDK downloads and decrypts with the key in the source JSON. */
     suspend fun content(sourceJson: String): ByteArray
     /** Downloads and decrypts an event's media and moves the file to [destination]. */
@@ -60,6 +61,13 @@ class AccountMedia private constructor(
         group.requireCurrent()
         if (sourceJson.isBlank() || sourceJson.length > 64 * 1024) return null
         return cached(Key(EVENT_PREFIX + sourceJson, 0), EVENT_PICTURE_BYTES) { backend.content(sourceJson) }
+    }
+
+    suspend fun originalAvatar(url: String): ByteArray? {
+        val uri = runCatching { URI(url) }.getOrNull() ?: return null
+        if (uri.scheme != "mxc" || uri.rawAuthority.isNullOrBlank() || uri.rawUserInfo != null ||
+            uri.rawPath.isNullOrBlank() || uri.rawPath == "/" || uri.rawQuery != null || uri.rawFragment != null) return null
+        return cached(Key(url, 0), EVENT_PICTURE_BYTES) { backend.originalAvatar(url) }
     }
 
     /** Saves an event's media where the person chose (spec timeline-media open, for a computer). Throws when it fails. */
@@ -121,6 +129,11 @@ class AccountMedia private constructor(
                 val source = MediaSource.fromUrl(url)
                 try { return client.getMediaThumbnail(source, pixels.toULong(), pixels.toULong()) }
                 finally { source.destroy() }
+            }
+
+            override suspend fun originalAvatar(url: String): ByteArray {
+                val source = MediaSource.fromUrl(url)
+                try { return client.getMediaContent(source) } finally { source.destroy() }
             }
 
             override suspend fun content(sourceJson: String): ByteArray {

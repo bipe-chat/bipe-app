@@ -4,6 +4,7 @@
 
 package chat.bipe.desktop.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -440,7 +441,13 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
                             allRows.firstOrNull { it.id == state.model.roomId }?.let { row ->
                                 Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                    Avatar(row, account.runtime.media, account.runtime.identity, colors)
+                                    val photo = row.avatar?.takeUnless {
+                                        chat.bipe.shared.BipeOfficialAccounts.isOfficial(row.peerUserId)
+                                    }
+                                    Box(if (photo == null) Modifier else Modifier.clickable(
+                                        role = Role.Button, onClickLabel = s.text("bipe_avatar_open"),
+                                        onClick = { popup = WorkspacePopup.Avatar(row.name, photo) },
+                                    )) { Avatar(row, account.runtime.media, account.runtime.identity, colors) }
                                     Text(row.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 }
                                 HorizontalDivider(color = colors["line.subtle"])
@@ -459,6 +466,9 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
                 }
             }
         }
+    }
+    (popup as? WorkspacePopup.Avatar)?.let { target ->
+        key(target) { OriginalPhoto(target.name, s, close = { popup = null }) { account.runtime.media.originalAvatar(target.mxc) } }
     }
     (popup as? WorkspacePopup.Notifications)?.let { target ->
         RoomNotificationDialog(account.runtime, target.id, s) { popup = null }
@@ -614,6 +624,7 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
     }) {
         Row {
             TextButton(onClick = { model.loadEarlier() }) { Text(s.text("bipe_action_show_more")) }
+            TextButton(onClick = { popup = TimelinePopup.Gallery }) { Text(s.text("bipe_gallery_title")) }
             TextButton(onClick = { popup = TimelinePopup.PickDate }, enabled = jumping == null && load is LoadPhase.Ready) {
                 Text(s.text(if (jumping == null) "bipe_jump_to_date_title" else "bipe_web_loading"))
             }
@@ -672,7 +683,9 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
                                                     try { media.save(attached, path) }
                                                     catch (cancelled: CancellationException) { throw cancelled }
                                                     catch (_: Exception) { notices.showSnackbar(s.text("bipe_app_save_error")) }
-                                                } }, s, colors)
+                                                } }, s, colors, open =
+                                                    if (attached.kind == MessageMedia.Kind.IMAGE) { { popup = TimelinePopup.Photo(attached) } }
+                                                    else null)
                                             // The caption shows under the media as text; the money pause blocks selecting it, as for text.
                                             attached.caption?.takeIf { it.isNotBlank() }?.let { caption ->
                                                 if (seconds > 0 || richText == null) Text(caption)
@@ -792,6 +805,10 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
             selection = emptySet()
             popup = null
         }
+        is TimelinePopup.Photo -> key(dialog.media.sourceJson) {
+            OriginalPhoto(dialog.media.filename, s, close = { popup = null }) { media.eventPicture(dialog.media.sourceJson) }
+        }
+        TimelinePopup.Gallery -> ChatGallery(model, media, mediaPolicy, s) { popup = null }
         TimelinePopup.Pins -> PinnedList(model, s) { popup = null }
         TimelinePopup.PickDate -> JumpDatePicker(today, s,
             pick = { day -> if (popup == TimelinePopup.PickDate) popup = TimelinePopup.Jumping(day) },

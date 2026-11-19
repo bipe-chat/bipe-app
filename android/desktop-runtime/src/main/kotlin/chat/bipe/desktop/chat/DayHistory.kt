@@ -83,15 +83,19 @@ class DayHistory private constructor(private val owner: AccountTaskGroup, privat
 
     companion object {
         internal suspend fun open(runtime: MatrixAccountRuntime, roomId: String, focus: DayJump.History,
-                                  snapshot: (TimelineItem) -> TimelineSnapshot?): DayHistory {
+                                  snapshot: (TimelineItem) -> TimelineSnapshot?): DayHistory =
+            open(runtime, roomId, TimelineFocus.Event(focus.eventId, 40u, TimelineEventFocusThreadMode.Automatic(false)),
+                TimelineFilter.All, snapshot)
+
+        internal suspend fun open(runtime: MatrixAccountRuntime, roomId: String, focus: TimelineFocus,
+                                  filter: TimelineFilter, snapshot: (TimelineItem) -> TimelineSnapshot?): DayHistory {
             val owner = AccountTaskGroup.create(runtime.lifetime)
             try {
                 return owner.async {
                     val room = runtime.client.getRoom(roomId) ?: error("Room unavailable")
                     owner.own(NativeResource { room.destroy() })
                     val timeline = room.timelineWithConfiguration(TimelineConfiguration(
-                        focus = TimelineFocus.Event(focus.eventId, 40u, TimelineEventFocusThreadMode.Automatic(false)),
-                        filter = TimelineFilter.All, internalIdPrefix = null, dateDividerMode = DateDividerMode.DAILY,
+                        focus = focus, filter = filter, internalIdPrefix = null, dateDividerMode = DateDividerMode.DAILY,
                         trackReadReceipts = TimelineReadReceiptTracking.DISABLED, reportUtds = false,
                     ))
                     owner.own(NativeResource { timeline.destroy() })
