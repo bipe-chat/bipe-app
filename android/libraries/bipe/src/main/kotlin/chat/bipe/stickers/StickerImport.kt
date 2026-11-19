@@ -16,21 +16,11 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
-import java.security.MessageDigest
 import java.util.zip.ZipInputStream
 
 /** A sticker file ready to go into the user's pack. Mirrors StickerImport.swift in BipeKit. */
 @Suppress("UseDataClass") // A ByteArray has no structural equality.
-class StickerImportCandidate(
-    val bytes: ByteArray,
-    val mimeType: String,
-    val width: Int,
-    val height: Int,
-    /** Derived from the file's SHA-256, so the same file imported twice gets the same shortcode. */
-    val shortcode: String,
-    /** Tags from the emoji a WhatsApp WebP carries (spec sticker-import notes). Empty when it carries none. */
-    val tags: List<String> = emptyList(),
-)
+
 
 /** Imports stickers from a WhatsApp chat export or from loose image files (ADR 0029, 0033). */
 object StickerImporter {
@@ -100,8 +90,7 @@ object StickerImporter {
     }
 
     /** st_ plus the first 8 bytes of the SHA-256 in hex. A saved received sticker hashes its mxc:// URL. */
-    fun shortcode(bytes: ByteArray): String =
-        "st_" + MessageDigest.getInstance("SHA-256").digest(bytes).take(8).joinToString("") { "%02x".format(it) }
+    fun shortcode(bytes: ByteArray): String = stickerShortcode(bytes)
 
     /**
      * "Make from a photo": crops a centred square, scales it to 512 × 512 and encodes WebP.

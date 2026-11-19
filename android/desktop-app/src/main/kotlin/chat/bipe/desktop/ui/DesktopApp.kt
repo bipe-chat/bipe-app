@@ -313,7 +313,7 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
     }.onKeyEvent { event ->
         if (event.type != KeyEventType.KeyDown || event.key != Key.Escape) false
         else when {
-            popup != null -> { if (popup !is TimelinePopup.Forward && popup !is TimelinePopup.Attachments) popup = null; true }
+            popup != null -> { if (popup !is TimelinePopup.Forward && popup !is TimelinePopup.Attachments && popup != TimelinePopup.Stickers) popup = null; true }
             selection.isNotEmpty() -> { selection = emptySet(); true }
             editing != FavouriteEditing.Normal -> { editing = FavouriteEditing.Normal; true }
             searchFocused -> { searches[destination] = TextFieldValue(); workspaceFocus.requestFocus(); true }
@@ -617,7 +617,7 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
     Column(Modifier.fillMaxSize().chatBackdrop(s, colors, background).onKeyEvent { event ->
         if (event.type != KeyEventType.KeyDown || event.key != Key.Escape) false
         else when {
-            popup != null -> { if (popup !is TimelinePopup.Forward && popup !is TimelinePopup.Attachments) popup = null; true }
+            popup != null -> { if (popup !is TimelinePopup.Forward && popup !is TimelinePopup.Attachments && popup != TimelinePopup.Stickers) popup = null; true }
             selection.isNotEmpty() -> { selection = emptySet(); true }
             editing is EditPhase.Saving -> true
             editDraft != null || (composer as? ComposerState.Editing)?.replyTo != null -> {
@@ -669,7 +669,7 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
                                 MessageSurface(model, message, seconds, (original as? OriginalNavigation.Found)?.rowId == message.id,
                                     popup, { popup = it }, s, colors, inputEnabled, room?.isDm == false, { composerFocus.requestFocus() }, {
                                         scope.launch { notices.showSnackbar(s.text("bipe_app_copied")) }
-                                    }, ::toggleSelection) {
+                                    }, ::toggleSelection, { scope.launch { notices.showSnackbar(it) } }) {
                                     Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                         if (message.showsSender(room?.isDm == true, room?.peerUserId))
                                             Text(message.sender, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = colors["accent.ink"])
@@ -780,6 +780,9 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
                 }, modifier = Modifier.size(48.dp)) {
                     Icon(sharedIcon("paperclip"), contentDescription = s.text("bipe_app_composer_attach"))
                 }
+                if (editDraft == null) IconButton(enabled = inputEnabled, onClick = { popup = TimelinePopup.Stickers }, modifier = Modifier.size(48.dp)) {
+                    Icon(sharedIcon("sticker"), contentDescription = s.text("bipe_stickers_title"))
+                }
                 OutlinedTextField(draft, { model.draftChanged(it, editDraft) }, placeholder = { Text(s.text("bipe_app_timeline_composer_placeholder")) },
                     enabled = inputEnabled,
                     shape = RoundedCornerShape(24.dp), maxLines = 8, modifier = Modifier.weight(1f).focusRequester(composerFocus).onPreviewKeyEvent {
@@ -830,6 +833,7 @@ private data class TimelineLinkFocus(val tab: Destination, val roomId: String, v
         is TimelinePopup.Photo -> key(dialog.media.sourceJson) {
             OriginalPhoto(dialog.media.filename, s, close = { popup = null }) { media.eventPicture(dialog.media.sourceJson) }
         }
+        TimelinePopup.Stickers -> StickerPicker(model.stickers, media, s) { popup = null }
         TimelinePopup.Gallery -> ChatGallery(model, media, mediaPolicy, s) { popup = null }
         TimelinePopup.Pins -> PinnedList(model, s) { popup = null }
         TimelinePopup.PickDate -> JumpDatePicker(today, s,

@@ -122,12 +122,12 @@ class StickerPackClient(
     suspend fun saveToUserPack(url: String, width: Int?, height: Int?, mimeType: String?, size: Long?): Boolean = withTokenRetry { token ->
         val path = listOf("user", userId, "account_data", StickerPackEventType.USER_PACK)
         val content = get(path, token)
-            ?.let { runCatching { Json.parseToJsonElement(it) as? JsonObject }.getOrNull() }
+            ?.let { Json.parseToJsonElement(it) as JsonObject }
             ?: JsonObject(emptyMap())
         val images = (content["images"] as? JsonObject)?.toMutableMap() ?: mutableMapOf()
         val known = images.values.any { ((it as? JsonObject)?.get("url") as? JsonPrimitive)?.content == url }
         if (known) return@withTokenRetry false
-        images[StickerImporter.shortcode(url.toByteArray())] = buildJsonObject {
+        images[stickerShortcode(url.toByteArray())] = buildJsonObject {
             put("url", url)
             put("body", "Sticker")
             putJsonArray("usage") { add("sticker") }
@@ -239,6 +239,7 @@ class StickerPackClient(
         withContext(Dispatchers.IO) {
             val connection = URL(url).openConnection() as HttpURLConnection
             try {
+                connection.instanceFollowRedirects = false
                 connection.requestMethod = method
                 connection.setRequestProperty("Authorization", "Bearer $token")
                 connection.connectTimeout = 15_000

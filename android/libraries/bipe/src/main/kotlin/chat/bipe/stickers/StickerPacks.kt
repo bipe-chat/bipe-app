@@ -6,7 +6,6 @@
 
 package chat.bipe.stickers
 
-import androidx.compose.runtime.Immutable
 import chat.bipe.shared.generated.BipeRegistries
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -33,7 +32,6 @@ object StickerPackEventType {
     const val ENABLED_ROOMS = "im.ponies.emote_rooms"
 }
 
-@Immutable
 data class Sticker(
     val packId: String,
     val shortcode: String,
@@ -72,7 +70,6 @@ data class Sticker(
     }.toString()
 }
 
-@Immutable
 data class StickerPack(
     val source: Source,
     val displayName: String?,

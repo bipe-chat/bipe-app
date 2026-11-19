@@ -75,6 +75,7 @@ class DesktopTimeline private constructor(
         (mutableRows.value as? LoadPhase.Ready)?.value.orEmpty()
     }
     val attachments = AttachmentActions(runtime.client, group, { room }, { timeline }, composer)
+    val stickers = StickerActions(runtime, group, { room }, ::currentRow)
     val pins = RoomPins(group, labels, ::currentRow)
     val reactions = ReactionActions(group, ::currentRow) { eventId, key ->
         timeline.toggleReaction(EventOrTransactionId.EventId(eventId), key)

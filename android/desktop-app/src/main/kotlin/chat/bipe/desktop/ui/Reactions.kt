@@ -31,6 +31,7 @@ internal sealed interface TimelinePopup {
     data class DeleteSelection(val intents: List<chat.bipe.desktop.chat.DeleteIntent>) : TimelinePopup
     data class Attachments(val inputs: List<chat.bipe.desktop.chat.AttachmentInput>, val reply: String?) : TimelinePopup
     data class Photo(val media: chat.bipe.desktop.chat.MessageMedia) : TimelinePopup
+    data object Stickers : TimelinePopup
     data object Gallery : TimelinePopup
     data object Pins : TimelinePopup
     data object PickDate : TimelinePopup

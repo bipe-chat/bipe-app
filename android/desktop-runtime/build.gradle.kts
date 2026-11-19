@@ -28,6 +28,10 @@ val portableVectorDiff by tasks.registering(Sync::class) {
     from("../libraries/bipe/src/main/kotlin/chat/bipe/shared/generated/BipeReactions.kt")
     from("../libraries/bipe/src/main/kotlin/chat/bipe/shared/generated/BipeChatArchive.kt")
     from("../libraries/bipe/src/main/kotlin/chat/bipe/shared/generated/BipeMessageFormatting.kt")
+    from("../libraries/bipe/src/main/kotlin/chat/bipe/stickers") {
+        include("StickerFormat.kt", "StickerImportCandidate.kt", "StickerPacks.kt", "StickerPackClient.kt",
+            "StickerPackShare.kt", "StickerSearch.kt", "StickerShortlist.kt")
+    }
     into(layout.buildDirectory.dir("generated/portable-kotlin"))
 }
 tasks.named("compileKotlin") { dependsOn(portableVectorDiff) }

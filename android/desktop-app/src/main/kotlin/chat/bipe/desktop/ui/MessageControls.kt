@@ -38,7 +38,7 @@ private data class MessageCommand(val label: String, val enabled: Boolean, val i
 @Composable internal fun MessageSurface(model: DesktopTimeline, row: MessageRow, seconds: Int, highlighted: Boolean,
                                        popup: TimelinePopup?, show: (TimelinePopup?) -> Unit, s: DesktopCatalog,
                                        colors: DesktopColors, replyEnabled: Boolean, isGroup: Boolean, focusComposer: () -> Unit, copied: () -> Unit,
-                                       onSelect: (String) -> Unit, content: @Composable () -> Unit) {
+                                       onSelect: (String) -> Unit, notice: (String) -> Unit, content: @Composable () -> Unit) {
     val clipboard = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
     val focus = remember { FocusRequester() }
@@ -85,6 +85,17 @@ private data class MessageCommand(val label: String, val enabled: Boolean, val i
                 }
             })
         }
+        if (row.media?.kind == MessageMedia.Kind.STICKER && !row.own && row.eventId != null)
+            add(MessageCommand(s.text("bipe_action_save_sticker"), true, "sticker") {
+                scope.launch {
+                    val key = try {
+                        model.stickers.saveReceived(row.id)
+                        "bipe_sticker_saved"
+                    } catch (cancelled: CancellationException) { throw cancelled }
+                    catch (_: Exception) { "bipe_sticker_save_failed" }
+                    notice(s.text(key))
+                }
+            })
         if (row.canForward) add(MessageCommand(s.text("bipe_forward_action"), true, "arrow-bend-up-left") {
             show(TimelinePopup.Forward(setOf(row.id)))
         })

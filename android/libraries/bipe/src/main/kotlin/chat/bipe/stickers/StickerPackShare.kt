@@ -4,7 +4,6 @@
 
 package chat.bipe.stickers
 
-import androidx.compose.runtime.Immutable
 import chat.bipe.shared.generated.BipeRegistries
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -24,7 +23,6 @@ import java.net.URLDecoder
  * A pack in a room (ADR 0205, bipe-chat/bipe#842): the target of a pack link and of stickerPackField on a sent
  * sticker. Mirrors StickerPackShare.swift in BipeKit.
  */
-@Immutable
 data class StickerPackRef(
     val roomId: String,
     /** Empty for a pack link: a pack room holds its pack at state key "". */
@@ -97,7 +95,6 @@ fun Sticker.sendContentJson(threadRootId: String? = null): String {
 }
 
 /** What sticker-pack shows of a pack room, read from its state. */
-@Immutable
 data class StickerPackPreview(
     val pack: StickerPack,
     /** The sender of m.room.create (spec sticker-pack notes). */
