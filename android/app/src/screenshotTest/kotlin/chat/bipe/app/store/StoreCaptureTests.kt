@@ -136,7 +136,21 @@ private fun Pedidos() {
 @Composable
 private fun ConferirPix() {
     val code = StoreCaptures.pixCode
-    val state = PixCheckReceiveModel.State(phase = PixCheckReceiveModel.Phase.READY, results = listOf(PixCheckedItem(0, code, PixCheck.check(code))))
+    // PixCheck.check calls bipe-core (findPixCode), a native library that layoutlib cannot load.
+    // This is the result bipe-core gives for StoreCaptures.pixCode (txid *** reads as no txid).
+    val check = PixCheck(
+        code = PixCheck.Code(
+            status = PixCheck.Status.VALID,
+            key = "7d9f0c2a-4b1e-4e8a-9c3d-2f6b8a1e5c40",
+            keyType = PixCheck.KeyType.RANDOM,
+            name = "Rafael Oliveira",
+            city = "BELO HORIZONTE",
+            amount = "350.00",
+        ),
+        keys = emptyList(),
+        warning = null,
+    )
+    val state = PixCheckReceiveModel.State(phase = PixCheckReceiveModel.Phase.READY, results = listOf(PixCheckedItem(0, code, check)))
     StoreFrame {
         PixCheckScreen(state, onCancel = {}, onClose = {}, onRetry = {})
     }
