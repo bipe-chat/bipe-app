@@ -59,7 +59,7 @@ class AccountReadActions private constructor(private val group: AccountTaskGroup
             if (value != null) check(value is JsonPrimitive && !value.isString && value.booleanOrNull != null)
             return if (BipeSyncedSettings.bool(values, BipeSyncedSettings.READ_RECEIPTS) == false) ReceiptType.READ_PRIVATE else ReceiptType.READ
         }
-        suspend fun open(runtime: MatrixAccountRuntime): AccountReadActions {
+        suspend fun open(runtime: MatrixAccountRuntime, permitsPublicDmReads: () -> Boolean = { true }): AccountReadActions {
             val reader = MatrixSettingsReader(runtime.client)
             return create(runtime.lifetime, ReadBackend { intent ->
                 val room = runtime.client.getRoom(intent.room) ?: error("Read room unavailable")
@@ -67,7 +67,8 @@ class AccountReadActions private constructor(private val group: AccountTaskGroup
                     val info = room.roomInfo()
                     val isDm = try { check(info.membership == Membership.JOINED && !info.isSpace); info.isDm } finally { info.destroy() }
                     if (!intent.unread) {
-                        val type = receipt(isDm, if (isDm) reader.accountData(BipeSyncedSettings.EVENT_TYPE) else null)
+                        val type = if (isDm && !permitsPublicDmReads()) ReceiptType.READ_PRIVATE
+                            else receipt(isDm, if (isDm) reader.accountData(BipeSyncedSettings.EVENT_TYPE) else null)
                         runtime.lifetime.requireCurrent()
                         room.markAsRead(type)
                     }

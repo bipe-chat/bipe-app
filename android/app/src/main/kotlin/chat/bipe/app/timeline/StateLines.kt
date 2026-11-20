@@ -5,7 +5,6 @@
 package chat.bipe.app.timeline
 
 import chat.bipe.app.groups.GroupRole
-import chat.bipe.shared.R
 import org.matrix.rustcomponents.sdk.EventTimelineItem
 import org.matrix.rustcomponents.sdk.MembershipChange
 import org.matrix.rustcomponents.sdk.OtherState
@@ -97,32 +96,32 @@ object StateLines {
         return previous.copy(targetIds = (previous.targetIds + line.targetIds).distinct())
     }
 
-    fun text(line: StateLine, name: (String) -> String, format: (Int, List<String>) -> String): String {
+    fun text(line: StateLine, name: (String) -> String, format: (String, List<String>) -> String): String {
         val names = line.targetIds.map(name)
         val people = when (names.size) {
             0 -> ""
             1 -> names[0]
-            2 -> format(R.string.bipe_app_state_names_two, names)
-            else -> format(R.string.bipe_app_state_names_more, listOf(names[0], names[1], (names.size - 2).toString()))
+            2 -> format("bipe_app_state_names_two", names)
+            else -> format("bipe_app_state_names_more", listOf(names[0], names[1], (names.size - 2).toString()))
         }
         val actor = name(line.actorId)
         val many = names.size > 1
         return when (line.change) {
-            StateLine.Change.JOINED -> format(if (many) R.string.bipe_app_state_joined_many else R.string.bipe_app_state_joined_one, listOf(people))
-            StateLine.Change.LEFT -> format(if (many) R.string.bipe_app_state_left_many else R.string.bipe_app_state_left_one, listOf(people))
-            StateLine.Change.INVITED -> format(R.string.bipe_app_state_invited, listOf(actor, people))
-            StateLine.Change.REMOVED -> format(R.string.bipe_app_state_removed, listOf(actor, people))
-            StateLine.Change.BANNED -> format(R.string.bipe_app_state_banned, listOf(actor, people))
-            StateLine.Change.RENAMED -> format(R.string.bipe_app_state_renamed, listOf(actor, line.newName.orEmpty()))
-            StateLine.Change.NAME_REMOVED -> format(R.string.bipe_app_state_name_removed, listOf(actor))
-            StateLine.Change.PHOTO_CHANGED -> format(R.string.bipe_app_state_photo_changed, listOf(actor))
-            StateLine.Change.PHOTO_REMOVED -> format(R.string.bipe_app_state_photo_removed, listOf(actor))
-            StateLine.Change.DESCRIPTION_CHANGED -> format(R.string.bipe_app_state_description_changed, listOf(actor))
-            StateLine.Change.DESCRIPTION_REMOVED -> format(R.string.bipe_app_state_description_removed, listOf(actor))
-            StateLine.Change.MADE_ADMIN -> format(R.string.bipe_app_state_made_admin, listOf(actor, people))
-            StateLine.Change.MADE_MODERATOR -> format(R.string.bipe_app_state_made_moderator, listOf(actor, people))
-            StateLine.Change.REMOVED_ADMIN -> format(R.string.bipe_app_state_removed_admin, listOf(actor, people))
-            StateLine.Change.REMOVED_MODERATOR -> format(R.string.bipe_app_state_removed_moderator, listOf(actor, people))
+            StateLine.Change.JOINED -> format(if (many) "bipe_app_state_joined_many" else "bipe_app_state_joined_one", listOf(people))
+            StateLine.Change.LEFT -> format(if (many) "bipe_app_state_left_many" else "bipe_app_state_left_one", listOf(people))
+            StateLine.Change.INVITED -> format("bipe_app_state_invited", listOf(actor, people))
+            StateLine.Change.REMOVED -> format("bipe_app_state_removed", listOf(actor, people))
+            StateLine.Change.BANNED -> format("bipe_app_state_banned", listOf(actor, people))
+            StateLine.Change.RENAMED -> format("bipe_app_state_renamed", listOf(actor, line.newName.orEmpty()))
+            StateLine.Change.NAME_REMOVED -> format("bipe_app_state_name_removed", listOf(actor))
+            StateLine.Change.PHOTO_CHANGED -> format("bipe_app_state_photo_changed", listOf(actor))
+            StateLine.Change.PHOTO_REMOVED -> format("bipe_app_state_photo_removed", listOf(actor))
+            StateLine.Change.DESCRIPTION_CHANGED -> format("bipe_app_state_description_changed", listOf(actor))
+            StateLine.Change.DESCRIPTION_REMOVED -> format("bipe_app_state_description_removed", listOf(actor))
+            StateLine.Change.MADE_ADMIN -> format("bipe_app_state_made_admin", listOf(actor, people))
+            StateLine.Change.MADE_MODERATOR -> format("bipe_app_state_made_moderator", listOf(actor, people))
+            StateLine.Change.REMOVED_ADMIN -> format("bipe_app_state_removed_admin", listOf(actor, people))
+            StateLine.Change.REMOVED_MODERATOR -> format("bipe_app_state_removed_moderator", listOf(actor, people))
         }
     }
 }

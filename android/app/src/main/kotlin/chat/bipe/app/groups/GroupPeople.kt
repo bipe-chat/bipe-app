@@ -126,20 +126,6 @@ object GroupPeople {
     )
 }
 
-/** The three roles of a group (spec group-members, bipe-chat/bipe#733), in the order of the members list. */
-enum class GroupRole {
-    ADMIN, MODERATOR, MEMBER;
-
-    companion object {
-        /** A level between two roles is the lower one. */
-        fun of(level: Long): GroupRole = when {
-            level >= BipeGroupPowerLevels.ADMIN -> ADMIN
-            level >= BipeGroupPowerLevels.MODERATOR -> MODERATOR
-            else -> MEMBER
-        }
-    }
-}
-
 /** How an invite went (group-invite-members PersonPick status refused and failed). */
 enum class InviteOutcome {
     SENT,

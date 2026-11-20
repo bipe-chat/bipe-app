@@ -260,9 +260,9 @@ object TimelineRowBuilder {
                             val previous = rows.lastOrNull()?.takeIf { it.kind == TimelineRow.Kind.STATE_LINE }?.stateLine
                             val folded = previous?.let { StateLines.folded(line, it) }
                             if (folded != null) {
-                                rows[rows.lastIndex] = rows.last().copy(stateLine = folded, stateText = StateLines.text(folded, ::name, strings.formatArgs))
+                                rows[rows.lastIndex] = rows.last().copy(stateLine = folded, stateText = StateLines.text(folded, ::name) { key, args -> strings.formatArgs(stateLineString(key), args) })
                             } else {
-                                rows += TimelineRow(id, TimelineRow.Kind.STATE_LINE, stateLine = line, stateText = StateLines.text(line, ::name, strings.formatArgs))
+                                rows += TimelineRow(id, TimelineRow.Kind.STATE_LINE, stateLine = line, stateText = StateLines.text(line, ::name) { key, args -> strings.formatArgs(stateLineString(key), args) })
                             }
                             return@forEachIndexed
                         }

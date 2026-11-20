@@ -29,6 +29,27 @@ class TimelinePresentationTest {
     private data class Scroll(val atNewest: Boolean)
     private data object Jump
 
+    @Test fun dateJumpUsesLocalDayBoundariesThroughDaylightSavingChanges() {
+        val spring = DayWindow(LocalDate.of(2026, 3, 29), ZoneId.of("Europe/Amsterdam"))
+        val autumn = DayWindow(LocalDate.of(2026, 10, 25), ZoneId.of("Europe/Amsterdam"))
+        val hour = 60L * 60 * 1_000
+        assertEquals(23L * hour, spring.end - spring.start)
+        assertEquals(25L * hour, autumn.end - autumn.start)
+        assertEquals(DayJump.Empty, spring.target("later", spring.end, emptyList(), reachedStart = false))
+    }
+
+    @Test fun dateJumpUsesReadOnlyHistoryWhenLiveRowsCoverOnlyPartOfTheDay() {
+        val day = DayWindow(LocalDate.of(2026, 11, 19), ZoneId.of("America/Sao_Paulo"))
+        val later = message("later").copy(timestamp = day.start + 1_000, originalEventId = "\$later")
+        assertEquals(DayJump.History("\$first", day.date, day.zone),
+            day.target("\$first", day.start, listOf(later), reachedStart = false))
+        val earlier = message("prior").copy(timestamp = day.start - 1)
+        assertEquals(DayJump.Loaded("later"),
+            day.target("\$first", day.start, listOf(earlier, later), reachedStart = false))
+        assertEquals(DayJump.Loaded("later"),
+            day.target("\$later", later.timestamp, listOf(later), reachedStart = false))
+    }
+
     @Test fun followingIncomingAndReadingHistoryAreSeparateUntilThePersonJumpsBack() {
         val first = message("first"); val next = message("next"); val latest = message("latest")
         val answers = TimelineScrollPolicy().story(

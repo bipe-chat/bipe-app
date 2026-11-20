@@ -4,6 +4,7 @@
 
 package chat.bipe.desktop.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -15,7 +16,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -33,10 +33,10 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -55,10 +55,12 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlin.math.floor
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 @Composable
-fun DesktopApp(model: DesktopAppModel, phase: AppPhase, colors: DesktopColors, onClose: () -> Unit) {
+fun DesktopApp(model: DesktopAppModel, phase: AppPhase, colors: DesktopColors, launchLink: MatrixRoomLink?,
+               onLaunchLinkOpened: () -> Unit, onClose: () -> Unit) {
     val s = model.catalog
     Surface(Modifier.fillMaxSize(), color = colors["surface.base"]) {
         when (phase) {
@@ -68,6 +70,7 @@ fun DesktopApp(model: DesktopAppModel, phase: AppPhase, colors: DesktopColors, o
                 phase.slots.forEachIndexed { index, slot ->
                     val label = when (slot) {
                         is StoredSlot.Linked -> "bipe_tab_you"
+                        is StoredSlot.SignedOut -> "bipe_desktop_pending_cleanup"
                         is StoredSlot.Unavailable -> "bipe_app_start_error"
                         else -> "bipe_desktop_pending_title"
                     }
@@ -78,7 +81,13 @@ fun DesktopApp(model: DesktopAppModel, phase: AppPhase, colors: DesktopColors, o
             }
             is AppPhase.Linking -> PhoneLinkView(model, phase, colors)
             is AppPhase.Recovering -> PendingRecoveryView(model, phase)
-            is AppPhase.Ready -> Workspace(model, phase, colors)
+            is AppPhase.Ready -> Workspace(model, phase, colors, launchLink, onLaunchLinkOpened)
+            AppPhase.SigningOut -> Centered { Text(s.text("bipe_app_signing_out")) }
+            is AppPhase.SignOutFailed -> Centered {
+                Text(s.text("bipe_error_generic"))
+                BipeButton(s.text("bipe_app_retry"), { model.retrySignOut(phase) })
+                TextButton(onClick = { model.refresh() }) { Text(s.text("bipe_a11y_back")) }
+            }
             is AppPhase.Closing -> Centered { Text(s.text("bipe_web_loading")) }
             is AppPhase.CloseFailed -> Centered {
                 Text(s.text("bipe_error_generic"))
@@ -187,8 +196,10 @@ fun DesktopApp(model: DesktopAppModel, phase: AppPhase, colors: DesktopColors, o
 
 private enum class Destination(val key: String) { CHATS("bipe_tab_chats"), GROUPS("bipe_tab_groups"), YOU("bipe_tab_you") }
 private enum class ChatListMode { ACTIVE, ARCHIVED }
+private data class TimelineLinkFocus(val tab: Destination, val roomId: String, val eventId: String, val fromSearch: Boolean = false)
 
-@Composable private fun Workspace(model: DesktopAppModel, account: AppPhase.Ready, colors: DesktopColors) {
+@Composable private fun Workspace(model: DesktopAppModel, account: AppPhase.Ready, colors: DesktopColors,
+                                  launchLink: MatrixRoomLink?, onLaunchLinkOpened: () -> Unit) {
     val s = model.catalog
     val profile by account.profile.collectAsState()
     val presence by model.devicePresence.phase.collectAsState()
@@ -201,20 +212,24 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
     val searchFocus = remember(account) { FocusRequester() }
     val workspaceFocus = remember(account) { FocusRequester() }
     var searchFocused by remember(account) { mutableStateOf(false) }
-    var searchRequest by remember(account) { mutableStateOf(0) }
     val selected = selections[destination]
+    var linkFocus by remember(account) { mutableStateOf<TimelineLinkFocus?>(null) }
     val searchValue = searches[destination] ?: TextFieldValue()
     val search = searchValue.text
     LaunchedEffect(account) { workspaceFocus.requestFocus() }
-    LaunchedEffect(searchRequest, destination) {
-        if (searchRequest > 0 && destination != Destination.YOU &&
-            !(destination == Destination.GROUPS && profile.kind == AccountKind.COMPANY)) searchFocus.requestFocus()
-    }
     LaunchedEffect(account, destination, selected) {
+        val focus = linkFocus
+        if (focus != null && (focus.tab != destination || focus.roomId != selected)) linkFocus = null
         if (destination == Destination.YOU || (destination == Destination.GROUPS && profile.kind == AccountKind.COMPANY)) model.clearRoom()
         else if (selected == null) model.clearRoom() else model.selectRoom(selected)
     }
     var popup by remember(account, destination) { mutableStateOf<WorkspacePopup?>(null) }
+    LaunchedEffect(account, launchLink) {
+        if (launchLink != null && model.phase.value === account) {
+            popup = WorkspacePopup.MatrixLink(launchLink)
+            onLaunchLinkOpened()
+        }
+    }
     var listMode by remember(account, destination) { mutableStateOf(ChatListMode.ACTIVE) }
     val archivedView = listMode == ChatListMode.ARCHIVED
     var editing by remember(account, destination, profile.kind) { mutableStateOf<FavouriteEditing>(FavouriteEditing.Normal) }
@@ -288,14 +303,13 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
         }
     }
     Column(Modifier.onPreviewKeyEvent { event ->
-        if (event.type == KeyEventType.KeyDown && event.key == Key.K && event.isCtrlPressed &&
-            !event.isAltPressed && !event.isMetaPressed && !event.isShiftPressed) {
-            if (destination == Destination.YOU || (destination == Destination.GROUPS && profile.kind == AccountKind.COMPANY))
-                destination = Destination.CHATS
-            val value = searches[destination] ?: TextFieldValue()
-            searches[destination] = value.copy(selection = TextRange(0, value.text.length))
-            searchRequest++; true
-        } else false
+        if (event.type != KeyEventType.KeyDown || !event.isCtrlPressed || event.isAltPressed ||
+            event.isMetaPressed || event.isShiftPressed) return@onPreviewKeyEvent false
+        when {
+            event.key == Key.K -> { popup = WorkspacePopup.Search(null); true }
+            event.key == Key.F && showsTimeline && selected != null -> { popup = WorkspacePopup.Search(selected); true }
+            else -> false
+        }
     }.onKeyEvent { event ->
         if (event.type != KeyEventType.KeyDown || event.key != Key.Escape) false
         else when {
@@ -412,31 +426,90 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
                     is SelectedTimeline.Opening -> Centered { Text(s.text("bipe_web_loading")) }
                     is SelectedTimeline.Failed -> Centered { BipeButton(s.text("bipe_app_retry"), { selected?.let(model::selectRoom) }) }
                     is SelectedTimeline.Showing -> key(state.model) {
+                        LaunchedEffect(linkFocus, destination, selected) {
+                            val target = linkFocus ?: return@LaunchedEffect
+                            if (target.tab != destination || target.roomId != selected || target.roomId != state.model.roomId) return@LaunchedEffect
+                            state.model.originalNavigation.first { it == OriginalNavigation.Idle }
+                            if (linkFocus === target && model.phase.value === account && destination == target.tab &&
+                                selections[destination] == target.roomId) {
+                                state.model.openOriginal(target.eventId, focusedFallback = target.fromSearch)
+                                linkFocus = null
+                            }
+                        }
                         Column {
                             allRows.firstOrNull { it.id == state.model.roomId }?.let { row ->
                                 Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                    Avatar(row, account.runtime.media, account.runtime.identity, colors)
-                                    Text(row.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    val photo = row.avatar?.takeUnless {
+                                        chat.bipe.shared.BipeOfficialAccounts.isOfficial(row.peerUserId)
+                                    }
+                                    Box(if (photo == null) Modifier else Modifier.clickable(
+                                        role = Role.Button, onClickLabel = s.text("bipe_avatar_open"),
+                                        onClick = { popup = WorkspacePopup.Avatar(row.name, photo) },
+                                    )) { Avatar(row, account.runtime.media, account.runtime.identity, colors) }
+                                    Text(row.name, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium,
+                                        maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    TextButton(onClick = { popup = WorkspacePopup.Search(row.id) }) {
+                                        Text(s.text("bipe_search_in_chat"))
+                                    }
                                 }
                                 HorizontalDivider(color = colors["line.subtle"])
                             }
                             Box(Modifier.weight(1f)) { TimelineView(state.model, s, colors, background,
                                 viewports.getOrPut(state.model.roomId) { RoomViewport() }, allRows.firstOrNull { it.id == state.model.roomId }, presence.enabled,
-                                account.runtime.media) }
+                                account.runtime.media, account.list.readActions, (appearance as? AppearancePhase.Ready)?.values?.readReceipts == true) { url ->
+                                val link = MatrixRoomLink.parse(url)
+                                if (link == null) false else {
+                                    popup = WorkspacePopup.MatrixLink(link)
+                                    true
+                                }
+                            } }
                         }
                     }
                 }
             }
         }
     }
+    (popup as? WorkspacePopup.Search)?.let { request ->
+        fun openResult(room: DesktopSearchRoom, eventId: String?) {
+            if (model.phase.value !== account || popup != request) return
+            val target = if (profile.kind == AccountKind.COMPANY || room.isDm) Destination.CHATS else Destination.GROUPS
+            popup = null
+            searches.remove(target)
+            selections[target] = room.id
+            destination = target
+            if (eventId != null) linkFocus = TimelineLinkFocus(target, room.id, eventId, fromSearch = true)
+        }
+        DesktopSearchDialog(account.search, request.roomId, selected.takeIf { showsTimeline }, s,
+            close = { if (popup == request) popup = null },
+            openCurrent = { room -> popup = WorkspacePopup.Search(room) },
+            open = ::openResult)
+    }
+    (popup as? WorkspacePopup.Avatar)?.let { target ->
+        key(target) { OriginalPhoto(target.name, s, close = { popup = null }) { account.runtime.media.originalAvatar(target.mxc) } }
+    }
     (popup as? WorkspacePopup.Notifications)?.let { target ->
         RoomNotificationDialog(account.runtime, target.id, s) { popup = null }
+    }
+    (popup as? WorkspacePopup.MatrixLink)?.let { request ->
+        RoomLinkDialog(account.runtime, request.link, s, colors,
+            openRoom = { target ->
+                if (popup === request && model.phase.value === account) {
+                    val tab = if (profile.kind == AccountKind.COMPANY || target.isDm) Destination.CHATS else Destination.GROUPS
+                    linkFocus = target.eventId?.let { TimelineLinkFocus(tab, target.roomId, it) }
+                    selections[tab] = target.roomId
+                    destination = tab
+                    popup = null
+                }
+            },
+            close = { if (popup === request) popup = null },
+        )
     }
 }
 
 @Composable private fun TimelineView(model: DesktopTimeline, s: DesktopCatalog, colors: DesktopColors, background: String,
-                                     viewport: RoomViewport, room: ChatRow?, sharesTyping: Boolean, media: AccountMedia) {
+                                     viewport: RoomViewport, room: ChatRow?, sharesTyping: Boolean, media: AccountMedia,
+                                     readActions: AccountReadActions, showsReadReceipts: Boolean, openRoomLink: (String) -> Boolean) {
     val load by model.rows.collectAsState()
     val mediaPolicy by model.mediaPolicy.collectAsState()
     // Spec timeline-media tapToShow: a click shows that one message only, while this room stays open.
@@ -456,7 +529,10 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
     val pauses by model.pauseSeconds.collectAsState()
     val reactionAction by model.reactions.phase.collectAsState()
     val deletion by model.deletion.phase.collectAsState()
+    val pinChange by model.pins.change.collectAsState()
     var popup by remember(model) { mutableStateOf<TimelinePopup?>(null) }
+    var selection by remember(model) { mutableStateOf(emptySet<String>()) }
+    var bulkDeleting by remember(model) { mutableStateOf(false) }
     val listState = viewport.list
     val zone = ZoneId.systemDefault()
     val today = timelineToday(zone)
@@ -471,8 +547,83 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
     val composerFocus = remember(model) { FocusRequester() }
     val notices = remember(model) { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val voice = remember(model, media) { TimelineVoicePlayer(scope, media) }
+    DisposableEffect(voice) { onDispose(voice::stop) }
+    val uriHandler = LocalUriHandler.current
+    fun openMessageLink(rowId: String, url: String) {
+        if (!model.canOpenLink(rowId, url)) return
+        try {
+            if (!openRoomLink(url)) uriHandler.openUri(url)
+        } catch (_: Exception) {
+            scope.launch { notices.showSnackbar(s.text("bipe_error_generic")) }
+        }
+    }
     val original by model.originalNavigation.collectAsState()
+    LaunchedEffect(original, popup) {
+        val target = original as? OriginalNavigation.Context ?: return@LaunchedEffect
+        if (popup != null) return@LaunchedEffect
+        popup = TimelinePopup.EventHistory(target.eventId)
+        model.consumeContext(target)
+    }
     val rows = when (val snapshot = load) { is LoadPhase.Ready -> snapshot.value; else -> emptyList() }
+    val stateNames = remember(rows, room) {
+        (room?.members.orEmpty().mapNotNull { member -> member.userId?.let { it to member.name } } +
+            rows.mapNotNull { row -> row.senderId?.let { it to if (row.own) s.text("bipe_app_you") else row.sender } }).toMap()
+    }
+    val atNewest = !jumpVisible
+    var lastReadFrame by remember(model) { mutableStateOf<String?>(null) }
+    val newest = rows.lastOrNull { it.originalEventId != null }?.originalEventId
+    val readPhase by readActions.phase.collectAsState()
+    LaunchedEffect(foreground, atNewest, room?.unread, newest, readPhase, original) {
+        if (model.threadRoot == null && foreground && atNewest && original == OriginalNavigation.Idle && readPhase is ReadActionPhase.Idle &&
+            (room?.unread ?: 0L) > 0L && newest != null && newest != lastReadFrame) {
+            lastReadFrame = newest
+            readActions.set(model.roomId, unread = false)
+        }
+    }
+    val deletePermission by model.deletion.permission.collectAsState()
+    val selectionRows = rows.filter { it.id in selection }
+    LaunchedEffect(rows) { selection = selection.intersect(rows.mapTo(mutableSetOf()) { it.id }) }
+    LaunchedEffect(deletion) {
+        if (deletion == DeletePhase.Idle) bulkDeleting = false
+    }
+    fun toggleSelection(id: String) {
+        when {
+            id in selection -> selection = selection - id
+            selection.size < ForwardActions.SELECTION_LIMIT -> selection = selection + id
+            else -> scope.launch { notices.showSnackbar(s.text("bipe_select_limit", ForwardActions.SELECTION_LIMIT.toString())) }
+        }
+    }
+    val jumping = popup as? TimelinePopup.Jumping
+    LaunchedEffect(model, jumping) {
+        val request = jumping ?: return@LaunchedEffect
+        val result = try { model.jumpToDate(request.date, zone) }
+        catch (cancelled: CancellationException) { throw cancelled }
+        catch (_: Exception) {
+            if (popup === request) {
+                popup = null
+                scope.launch { notices.showSnackbar(s.text("bipe_error_generic")) }
+            }
+            return@LaunchedEffect
+        }
+        if (popup !== request) return@LaunchedEffect
+        when (result) {
+            DayJump.Empty -> {
+                popup = null
+                scope.launch { notices.showSnackbar(s.text("bipe_jump_to_date_empty")) }
+            }
+            is DayJump.Loaded -> {
+                val loaded = (model.rows.value as? LoadPhase.Ready)?.value.orEmpty()
+                val index = loaded.asReversed().indexOfFirst { it.id == result.rowId }
+                if (index >= 0) {
+                    viewport.policy.userScrolled(false)
+                    listState.scrollToItem(index)
+                }
+                if (popup === request) popup = null
+            }
+            is DayJump.History -> popup = TimelinePopup.Day(result)
+        }
+    }
     LaunchedEffect(rows) {
         if (viewport.policy.messagesChanged(rows)) listState.scrollToItem(0)
     }
@@ -484,10 +635,16 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
             listState.scrollToItem(index)
         }
     }
+    fun attach(inputs: List<AttachmentInput>) {
+        if (inputs.isEmpty() || popup != null || !inputEnabled || editDraft != null || selection.isNotEmpty()) return
+        popup = TimelinePopup.Attachments(inputs, (composer as? ComposerState.Editing)?.replyTo)
+    }
+    AttachmentDropTarget(enabled = popup == null && inputEnabled && editDraft == null && selection.isEmpty(), receive = ::attach)
     Column(Modifier.fillMaxSize().chatBackdrop(s, colors, background).onKeyEvent { event ->
         if (event.type != KeyEventType.KeyDown || event.key != Key.Escape) false
         else when {
-            popup != null -> { popup = null; true }
+            popup != null -> { if (popup !is TimelinePopup.Forward && popup !is TimelinePopup.Attachments && popup !is TimelinePopup.RecordVoice && popup != TimelinePopup.Stickers) popup = null; true }
+            selection.isNotEmpty() -> { selection = emptySet(); true }
             editing is EditPhase.Saving -> true
             editDraft != null || (composer as? ComposerState.Editing)?.replyTo != null -> {
                 model.cancelContext(editDraft, (composer as? ComposerState.Editing)?.replyTo)
@@ -496,7 +653,16 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
             else -> false
         }
     }) {
-        TextButton(onClick = { model.loadEarlier() }) { Text(s.text("bipe_action_show_more")) }
+        Row {
+            TextButton(onClick = { model.loadEarlier() }) { Text(s.text("bipe_action_show_more")) }
+            if (model.threadRoot == null) TextButton(onClick = { voice.stop(); popup = TimelinePopup.Gallery }) {
+                Text(s.text("bipe_gallery_title"))
+            }
+            if (model.threadRoot == null) TextButton(onClick = { popup = TimelinePopup.PickDate }, enabled = jumping == null && load is LoadPhase.Ready) {
+                Text(s.text(if (jumping == null) "bipe_jump_to_date_title" else "bipe_web_loading"))
+            }
+        }
+        if (model.threadRoot == null) PinnedBanner(model, s, colors) { popup = TimelinePopup.Pins }
         when (load) {
             LoadPhase.Loading -> Text(s.text("bipe_web_loading"), Modifier.padding(16.dp))
             LoadPhase.Failed -> Text(s.text("bipe_error_generic"), Modifier.padding(16.dp))
@@ -509,15 +675,32 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
                 items(rows.asReversed(), key = { it.id }) { message ->
                     Column {
                         message.dayBefore?.let { TimelineDay(it, today, zone, s, colors) }
+                        if (message.stateLine != null) {
+                            GroupStateRow(message, stateNames, s, colors)
+                            return@items
+                        }
+                        if (selection.isNotEmpty()) {
+                            val permission = deletePermission as? DeletePermission.Ready
+                            SelectionMessage(message, message.id in selection,
+                                message.canForward || (permission?.own == true && model.deletion.candidate(message.id) != null), s, colors) {
+                                toggleSelection(message.id)
+                            }
+                            return@items
+                        }
                         val warning = message.safety as? MessageSafety.Warning
                         val seconds = pauses[message.id] ?: if (warning?.kind?.registryId() in s.moneyPauseKinds) s.moneyPauseSeconds else 0
+                        val linksEnabled = message.safety != MessageSafety.Checking && message.safety != MessageSafety.Unavailable
+                        val richText = message.richText
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = if (message.own) Arrangement.End else Arrangement.Start) {
                             Column(verticalArrangement = Arrangement.spacedBy(4.dp),
                                 horizontalAlignment = if (message.own) Alignment.End else Alignment.Start) {
                                 MessageSurface(model, message, seconds, (original as? OriginalNavigation.Found)?.rowId == message.id,
-                                    popup, { popup = it }, s, colors, inputEnabled, { composerFocus.requestFocus() }, {
+                                    popup, { target ->
+                                        if (target is TimelinePopup.Thread) voice.stop()
+                                        popup = target
+                                    }, s, colors, inputEnabled, room?.isDm == false, { composerFocus.requestFocus() }, {
                                         scope.launch { notices.showSnackbar(s.text("bipe_app_copied")) }
-                                    }) {
+                                    }, ::toggleSelection, { scope.launch { notices.showSnackbar(it) } }) {
                                     Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                         if (message.showsSender(room?.isDm == true, room?.peerUserId))
                                             Text(message.sender, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = colors["accent.ink"])
@@ -528,32 +711,59 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
                                                 else model.loadReply(message.id, retry = true)
                                             })
                                         }
+                                        message.forwardSource?.let { ForwardSource(it, s, colors) }
                                         val attached = message.media
-                                        if (attached != null) {
+                                        val poll = message.poll
+                                        val location = message.location
+                                        if (location != null) TimelineLocation(location, s, colors) { popup = TimelinePopup.Location(message.id) }
+                                        else if (poll != null) PollPreview(poll, s) { popup = TimelinePopup.Poll(poll.eventId) }
+                                        else if (attached != null) {
+                                            if (attached.kind == MessageMedia.Kind.VOICE || attached.kind == MessageMedia.Kind.AUDIO)
+                                                VoiceControls(voice, message.id, attached, s)
                                             MediaBody(attached, mediaPolicy.shows(message.own), message.id in revealed, { revealed = revealed + message.id },
                                                 media, { path -> scope.launch {
                                                     try { media.save(attached, path) }
                                                     catch (cancelled: CancellationException) { throw cancelled }
                                                     catch (_: Exception) { notices.showSnackbar(s.text("bipe_app_save_error")) }
-                                                } }, s, colors)
+                                                } }, s, colors, open =
+                                                    when (attached.kind) {
+                                                        MessageMedia.Kind.IMAGE -> { { popup = TimelinePopup.Photo(attached) } }
+                                                        MessageMedia.Kind.VIDEO -> { { voice.stop(); popup = TimelinePopup.Video(attached) } }
+                                                        else -> null
+                                                    })
                                             // The caption shows under the media as text; the money pause blocks selecting it, as for text.
                                             attached.caption?.takeIf { it.isNotBlank() }?.let { caption ->
-                                                if (seconds > 0) Text(caption) else SelectionContainer { Text(caption) }
+                                                if (seconds > 0 || richText == null) Text(caption)
+                                                else TimelineMessageText(richText, colors, linksEnabled) { openMessageLink(message.id, it) }
                                             }
-                                        } else if (seconds > 0 || message.kind != MessageRow.Kind.TEXT) Text(message.body)
-                                        else SelectionContainer { Text(message.body) }
+                                        } else {
+                                            val prefix = message.emotePrefix()
+                                            if (seconds > 0 || richText == null) Text(prefix + message.body)
+                                            else TimelineMessageText(richText, colors, linksEnabled, prefix) { openMessageLink(message.id, it) }
+                                        }
                                         Row(Modifier.align(Alignment.End), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
                                             Text(timeLabel(message.timestamp, s.locale), style = MaterialTheme.typography.labelSmall, color = colors["ink.secondary"],
                                                 modifier = Modifier.clearAndSetSemantics {
                                                     contentDescription = TimelineDates.fullTimestamp(message.timestamp, zone, Locale.forLanguageTag(s.locale))
                                                 })
                                             if (message.isEdited) Text(s.text("bipe_app_message_edited"), style = MaterialTheme.typography.labelSmall, color = colors["ink.secondary"])
-                                            if (room?.isDm == true) message.dmReceipt?.let { DmReceiptFooter(it, s, colors) }
+                                            if (room?.isDm == true) message.dmReceipt?.let {
+                                                val receipt = if (!showsReadReceipts && it.tick == DmReceipt.Tick.READ)
+                                                    it.copy(tick = it.privateTick) else it
+                                                DmReceiptFooter(receipt, s, colors)
+                                            }
                                         }
                                         if (message.delivery == MessageRow.Delivery.SENDING && (room?.isDm != true || message.dmReceipt == null)) Text(s.text("bipe_app_timeline_sending"), style = MaterialTheme.typography.bodySmall)
                                         if (message.delivery == MessageRow.Delivery.FAILED) {
-                                            if (message.canRetry) TextButton(onClick = { model.retry(message.id) }) { Text(s.text("bipe_app_timeline_failed")) }
+                                            if (message.canRetry) TextButton(onClick = { model.retry(message.id) }) { Text(s.text("bipe_app_retry")) }
                                             else Text(s.text("bipe_error_generic"), style = MaterialTheme.typography.bodySmall)
+                                        }
+                                    }
+                                }
+                                if (model.threadRoot == null && room?.isDm == false && message.threadReplies > 0) {
+                                    message.eventId?.let { eventId ->
+                                        TextButton(onClick = { voice.stop(); popup = TimelinePopup.Thread(eventId) }) {
+                                            Text(s.text("bipe_thread_replies", message.threadReplies.toString()))
                                         }
                                     }
                                 }
@@ -578,8 +788,13 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
             }
         }
         SnackbarHost(notices, Modifier.padding(horizontal = 16.dp))
+        if (pinChange == RoomPins.Change.FAILED) Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(s.text("bipe_error_generic"), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+            TextButton(onClick = model.pins::dismissFailure) { Text(s.text("bipe_app_close")) }
+        }
         if (deletion is DeletePhase.Failed) Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(s.text("bipe_app_message_delete_failed"), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+            Text(s.text(if (bulkDeleting) "bipe_select_delete_failed" else "bipe_app_message_delete_failed"),
+                Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
             TextButton(onClick = model.deletion::dismissFailure) { Text(s.text("bipe_app_close")) }
         }
         if (reactionAction is ReactionActionPhase.Failed) Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -596,28 +811,126 @@ private enum class ChatListMode { ACTIVE, ARCHIVED }
             is ComposerState.Editing -> if (state.persistence == DraftPersistence.FAILED)
                 DraftFailure(s.text("bipe_desktop_draft_save_error"), s, model.composer::retry)
         }
-        if (foreground && sharesTyping) (typing as? TypingPhase.Showing)?.let { TypingIndicator(it.people, s, colors) }
-        if (editDraft != null) ComposerEdit(model, editing, s, colors)
-        else (composer as? ComposerState.Editing)?.replyTo?.let { ComposerReply(model, it, rows, s, colors) }
-        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            OutlinedTextField(draft, { model.draftChanged(it, editDraft) }, placeholder = { Text(s.text("bipe_app_timeline_composer_placeholder")) },
-                enabled = inputEnabled,
-                shape = RoundedCornerShape(24.dp), maxLines = 8, modifier = Modifier.weight(1f).focusRequester(composerFocus).onPreviewKeyEvent {
-                    if (it.type == KeyEventType.KeyDown && it.key == Key.Enter && !it.isShiftPressed && inputEnabled) { model.submit(editDraft); true } else false
-                })
-            val canSend = if (editDraft != null) editDraft.canSave && editing !is EditPhase.Saving
-                else draft.isNotBlank() && sending != SendPhase.Sending
-            IconButton(onClick = { model.submit(editDraft) }, enabled = canSend, modifier = Modifier.size(48.dp).clip(CircleShape)
-                .background(colors[if (canSend) "accent.fill" else "surface.raised"])
-                .border(1.dp, colors["line.subtle"], CircleShape)) {
-                Icon(sharedIcon(if (editDraft == null) "paper-plane-right" else "check"),
-                    contentDescription = s.text(if (editDraft == null) "bipe_app_timeline_send" else "bipe_app_message_save_edit"),
-                    tint = colors[if (canSend) "ink.onAccent" else "ink.disabled"], modifier = Modifier.size(22.dp))
+        if (selection.isNotEmpty()) {
+            val own = if (deletePermission is DeletePermission.Ready && deletion !is DeletePhase.Deleting)
+                selectionRows.mapNotNull { model.deletion.candidate(it.id) } else emptyList()
+            SelectionBar(selection.size, selectionRows.size == selection.size && selectionRows.all { it.canForward }, own.isNotEmpty(), s,
+                forward = { popup = TimelinePopup.Forward(selection) },
+                delete = { popup = TimelinePopup.DeleteSelection(own) }, close = { selection = emptySet() })
+        } else {
+            if (foreground && sharesTyping) (typing as? TypingPhase.Showing)?.let { TypingIndicator(it.people, s, colors) }
+            if (editDraft != null) ComposerEdit(model, editing, s, colors)
+            else (composer as? ComposerState.Editing)?.replyTo?.let { ComposerReply(model, it, rows, s, colors) }
+            Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                if (editDraft == null) Box {
+                    IconButton(enabled = inputEnabled, onClick = { popup = TimelinePopup.AttachmentMenu }, modifier = Modifier.size(48.dp)) {
+                        Icon(sharedIcon("paperclip"), contentDescription = s.text("bipe_app_composer_attach"))
+                    }
+                    DropdownMenu(expanded = popup == TimelinePopup.AttachmentMenu, onDismissRequest = { popup = null }) {
+                        DropdownMenuItem(text = { Text(s.text("bipe_app_attach_file")) }, onClick = {
+                            popup = null
+                            attach(pickAttachments(s.text("bipe_app_composer_attach")))
+                        })
+                        DropdownMenuItem(text = { Text(s.text("bipe_app_attach_location")) }, onClick = {
+                            popup = TimelinePopup.SendLocation((composer as? ComposerState.Editing)?.replyTo)
+                        })
+                        if (room?.isDm == false) DropdownMenuItem(text = { Text(s.text("bipe_app_attach_poll")) }, onClick = {
+                            popup = TimelinePopup.PollEditor(null)
+                        })
+                    }
+                }
+                if (editDraft == null) IconButton(enabled = inputEnabled, onClick = {
+                    voice.stop()
+                    popup = TimelinePopup.RecordVoice((composer as? ComposerState.Editing)?.replyTo)
+                }, modifier = Modifier.size(48.dp)) {
+                    Icon(sharedIcon("microphone"), contentDescription = s.text("bipe_app_composer_record"))
+                }
+                if (editDraft == null) IconButton(enabled = inputEnabled, onClick = { popup = TimelinePopup.Stickers }, modifier = Modifier.size(48.dp)) {
+                    Icon(sharedIcon("sticker"), contentDescription = s.text("bipe_stickers_title"))
+                }
+                OutlinedTextField(draft, { model.draftChanged(it, editDraft) }, placeholder = { Text(s.text("bipe_app_timeline_composer_placeholder")) },
+                    enabled = inputEnabled,
+                    shape = RoundedCornerShape(24.dp), maxLines = 8, modifier = Modifier.weight(1f).focusRequester(composerFocus).onPreviewKeyEvent {
+                        when {
+                            it.type != KeyEventType.KeyDown || !inputEnabled -> false
+                            it.key == Key.Enter && !it.isShiftPressed -> { model.submit(editDraft); true }
+                            it.key == Key.V && it.isCtrlPressed && editDraft == null && popup == null -> {
+                                val attachments = pastedAttachments()
+                                attach(attachments)
+                                attachments.isNotEmpty()
+                            }
+                            else -> false
+                        }
+                    })
+                val canSend = if (editDraft != null) editDraft.canSave && editing !is EditPhase.Saving
+                    else draft.isNotBlank() && sending != SendPhase.Sending
+                IconButton(onClick = { model.submit(editDraft) }, enabled = canSend, modifier = Modifier.size(48.dp).clip(CircleShape)
+                    .background(colors[if (canSend) "accent.fill" else "surface.raised"])
+                    .border(1.dp, colors["line.subtle"], CircleShape)) {
+                    Icon(sharedIcon(if (editDraft == null) "paper-plane-right" else "check"),
+                        contentDescription = s.text(if (editDraft == null) "bipe_app_timeline_send" else "bipe_app_message_save_edit"),
+                        tint = colors[if (canSend) "ink.onAccent" else "ink.disabled"], modifier = Modifier.size(22.dp))
+                }
             }
         }
     }
     ReactionDialog(model, popup, { popup = null }, s)
     DeleteDialog(model, popup, { popup = null }, s)
+    when (val dialog = popup) {
+        is TimelinePopup.Forward -> ForwardDialog(model.forwarding, dialog.rowIds, s, close = { popup = null }) { count, failed ->
+            popup = null
+            selection = emptySet()
+            scope.launch {
+                val label = if (failed.isNotEmpty()) s.text("bipe_forward_failed", failed.joinToString())
+                    else s.text(if (count == 1) "bipe_forward_done" else "bipe_select_forward_done")
+                notices.showSnackbar(label)
+            }
+        }
+        is TimelinePopup.DeleteSelection -> SelectionDeleteDialog(s, close = { popup = null }) {
+            bulkDeleting = true
+            model.deletion.confirm(dialog.intents)
+            selection = emptySet()
+            popup = null
+        }
+        is TimelinePopup.SendLocation -> SendLocationDialog(model, dialog.reply, s, colors, close = { popup = null })
+        is TimelinePopup.Location -> rows.firstOrNull { it.id == dialog.rowId }?.let { row ->
+            row.location?.let { LocationDialog(row.sender, it, s, colors, close = { popup = null }) }
+        }
+        is TimelinePopup.Poll -> rows.firstOrNull { it.poll?.eventId == dialog.eventId }?.poll?.let { poll ->
+            PollDetails(model.polls, poll, s, close = { popup = null },
+                edit = { popup = TimelinePopup.PollEditor(dialog.eventId) })
+        }
+        is TimelinePopup.PollEditor -> {
+            val poll = rows.firstOrNull { it.poll?.eventId == dialog.eventId }?.poll
+            if (dialog.eventId == null || poll != null)
+                PollEditor(model.polls, poll, s, close = { popup = null })
+        }
+        is TimelinePopup.Attachments -> AttachmentPreview(model.attachments, dialog.inputs, dialog.reply, s) {
+            if (popup === dialog) popup = null
+        }
+        is TimelinePopup.Video -> key(dialog.media.sourceJson) {
+            WindowsVideoDialog(dialog.media, media, s) { popup = null }
+        }
+        is TimelinePopup.Photo -> key(dialog.media.sourceJson) {
+            OriginalPhoto(dialog.media.filename, s, close = { popup = null }, imageDescription = dialog.media.description) {
+                media.eventPicture(dialog.media.sourceJson)
+            }
+        }
+        is TimelinePopup.RecordVoice -> RecordVoice(model.voice, dialog.reply, s) { popup = null }
+        TimelinePopup.Stickers -> StickerPicker(model.stickers, media, s) { popup = null }
+        TimelinePopup.Gallery -> ChatGallery(model, media, mediaPolicy, s) { popup = null }
+        TimelinePopup.Pins -> PinnedList(model, s) { popup = null }
+        TimelinePopup.PickDate -> JumpDatePicker(today, s,
+            pick = { day -> if (popup == TimelinePopup.PickDate) popup = TimelinePopup.Jumping(day) },
+            close = { if (popup == TimelinePopup.PickDate) popup = null })
+        is TimelinePopup.Thread -> ThreadDialog(model, dialog.eventId, s, close = { popup = null }) { thread ->
+            TimelineView(thread, s, colors, background, remember(thread) { RoomViewport() }, room, false, media,
+                readActions, showsReadReceipts, openRoomLink)
+        }
+        is TimelinePopup.EventHistory -> EventHistoryDialog(model, dialog.eventId, s, colors) { if (popup === dialog) popup = null }
+        is TimelinePopup.Day -> DayHistoryDialog(model, dialog.focus, s, colors) { if (popup === dialog) popup = null }
+        else -> Unit
+    }
 }
 
 @Composable private fun DraftFailure(message: String, s: DesktopCatalog, retry: () -> Unit) {

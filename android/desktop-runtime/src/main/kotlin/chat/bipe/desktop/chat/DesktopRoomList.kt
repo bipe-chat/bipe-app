@@ -22,6 +22,7 @@ import kotlinx.coroutines.sync.withLock
 import org.matrix.rustcomponents.sdk.LatestEventValue
 import org.matrix.rustcomponents.sdk.Membership
 import org.matrix.rustcomponents.sdk.MsgLikeKind
+import org.matrix.rustcomponents.sdk.MessageType
 import org.matrix.rustcomponents.sdk.Room
 import org.matrix.rustcomponents.sdk.ComposerDraftType
 import uniffi.matrix_sdk_base.EncryptionState
@@ -38,6 +39,7 @@ class DesktopRoomList private constructor(
     val favourites: AccountFavourites,
     val archive: AccountArchive,
     val readActions: AccountReadActions,
+    val delivered: DesktopDelivered,
 ) : AccountResource {
     private val mutableRows = MutableStateFlow<LoadPhase<List<ChatRow>>>(LoadPhase.Loading)
     private val mutableVisibleRows = MutableStateFlow<LoadPhase<List<ChatRow>>>(LoadPhase.Loading)
@@ -74,6 +76,8 @@ class DesktopRoomList private constructor(
             catch (_: Exception) { group.publish { mutableVisibleRows.value = LoadPhase.Failed } }
         }
         val sync = runtime.startSync()
+        delivered.start()
+        runtime.media.listenPreferences()
         val service = sync.roomListService()
         group.own(NativeResource { service.destroy() })
         val list = service.allRooms()
@@ -143,7 +147,10 @@ class DesktopRoomList private constructor(
             try { when (latest) {
                 is LatestEventValue.Remote -> {
                     preview = preview(latest.content); timestamp = latest.timestamp.toLong()
-                    if (!latest.isOwn && preview != null) incoming = timestamp
+                    if (!latest.isOwn && preview != null) {
+                        incoming = timestamp
+                        if (info.isDm && info.encryptionState == EncryptionState.ENCRYPTED) delivered.changed(info.id, latest.timestamp.toLong())
+                    }
                 }
                 is LatestEventValue.Local -> { preview = preview(latest.content); timestamp = latest.timestamp.toLong() }
                 else -> Unit
@@ -176,7 +183,10 @@ class DesktopRoomList private constructor(
     }.await()
 
     private fun preview(content: TimelineItemContent): String? = when (val kind = (content as? TimelineItemContent.MsgLike)?.content?.kind) {
-        is MsgLikeKind.Message -> MessageMedia.of(kind.content.msgType)?.summary(labels) ?: kind.content.body
+        is MsgLikeKind.Message -> if (kind.content.msgType is MessageType.Location) labels.location
+            else MessageMedia.of(kind.content.msgType)?.summary(labels) ?: kind.content.body
+        is MsgLikeKind.LiveLocation -> labels.liveLocation
+        is MsgLikeKind.Poll -> kind.question
         is MsgLikeKind.Sticker -> labels.mediaLabel(MessageMedia.Kind.STICKER)
         is MsgLikeKind.UnableToDecrypt -> labels.undecryptable
         null -> null
@@ -184,9 +194,9 @@ class DesktopRoomList private constructor(
     }
 
     companion object {
-        suspend fun open(runtime: MatrixAccountRuntime, labels: ChatLabels): DesktopRoomList {
+        suspend fun open(runtime: MatrixAccountRuntime, labels: ChatLabels, permitsPublicDmReads: () -> Boolean = { true }): DesktopRoomList {
             val group = AccountTaskGroup.create(runtime.lifetime)
-            val model = DesktopRoomList(runtime, group, labels, AccountFavourites.open(runtime), AccountArchive.open(runtime), AccountReadActions.open(runtime))
+            val model = DesktopRoomList(runtime, group, labels, AccountFavourites.open(runtime), AccountArchive.open(runtime), AccountReadActions.open(runtime, permitsPublicDmReads), DesktopDelivered(runtime, group))
             try { group.async { model.start() }.await(); return model }
             catch (error: Exception) { group.close(); throw error }
         }

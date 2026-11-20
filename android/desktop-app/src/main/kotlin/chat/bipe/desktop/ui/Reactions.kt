@@ -19,6 +19,7 @@ import chat.bipe.shared.generated.BipeReactions
 import java.awt.Robot
 import java.awt.event.KeyEvent
 import java.text.NumberFormat
+import java.time.LocalDate
 import kotlinx.coroutines.CancellationException
 
 internal sealed interface TimelinePopup {
@@ -26,6 +27,25 @@ internal sealed interface TimelinePopup {
     data class DeleteConfirm(val intent: DeleteIntent) : TimelinePopup
     data class Picker(val rowId: String) : TimelinePopup
     data class Senders(val rowId: String, val key: String) : TimelinePopup
+    data class Forward(val rowIds: Set<String>) : TimelinePopup
+    data class DeleteSelection(val intents: List<chat.bipe.desktop.chat.DeleteIntent>) : TimelinePopup
+    data object AttachmentMenu : TimelinePopup
+    data class SendLocation(val reply: String?) : TimelinePopup
+    data class Location(val rowId: String) : TimelinePopup
+    data class Poll(val eventId: String) : TimelinePopup
+    data class PollEditor(val eventId: String?) : TimelinePopup
+    data class Attachments(val inputs: List<chat.bipe.desktop.chat.AttachmentInput>, val reply: String?) : TimelinePopup
+    data class Video(val media: chat.bipe.desktop.chat.MessageMedia) : TimelinePopup
+    data class Photo(val media: chat.bipe.desktop.chat.MessageMedia) : TimelinePopup
+    data class RecordVoice(val reply: String?) : TimelinePopup
+    data object Stickers : TimelinePopup
+    data object Gallery : TimelinePopup
+    data object Pins : TimelinePopup
+    data object PickDate : TimelinePopup
+    data class Jumping(val date: LocalDate) : TimelinePopup
+    data class Thread(val eventId: String) : TimelinePopup
+    data class EventHistory(val eventId: String) : TimelinePopup
+    data class Day(val focus: DayJump.History) : TimelinePopup
 }
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)

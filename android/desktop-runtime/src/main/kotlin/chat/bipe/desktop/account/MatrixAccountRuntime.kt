@@ -4,23 +4,37 @@
 
 package chat.bipe.desktop.account
 
+import java.nio.file.Files
+import java.nio.file.LinkOption.NOFOLLOW_LINKS
+import java.net.URI
+import java.net.http.HttpClient
+import java.net.http.HttpRequest
+import java.net.http.HttpResponse
+import java.time.Duration
+import java.util.Base64
+
 import chat.bipe.desktop.storage.AccountLease
+import chat.bipe.desktop.link.WindowsOAuthMetadata
 import chat.bipe.desktop.chat.AccountMedia
 import chat.bipe.desktop.chat.AccountIdentity
 import chat.bipe.desktop.storage.StorageCode
 import chat.bipe.desktop.storage.StorageFailure
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.runInterruptible
+import kotlinx.coroutines.withTimeoutOrNull
 import org.matrix.rustcomponents.sdk.Client
 import org.matrix.rustcomponents.sdk.ClientBuilder
 import org.matrix.rustcomponents.sdk.ClientDelegate
 import org.matrix.rustcomponents.sdk.ClientException
 import org.matrix.rustcomponents.sdk.ClientSessionDelegate
 import org.matrix.rustcomponents.sdk.Session
+import org.matrix.rustcomponents.sdk.RecoveryState
 import org.matrix.rustcomponents.sdk.SlidingSyncVersionBuilder
 import org.matrix.rustcomponents.sdk.SqliteStoreBuilder
 import org.matrix.rustcomponents.sdk.SyncService
@@ -56,6 +70,7 @@ class MatrixAccountRuntime private constructor(
     private val syncLock = Mutex()
     private val roomTagLock = Mutex()
     internal val notificationLock = Mutex()
+    internal val stickerWriteLock = Mutex()
 
     /** Favourite and archive writes share the SDK's mutually exclusive priority tags. */
     suspend fun <T> withRoomTagWrite(operation: suspend () -> T): T = roomTagLock.withLock {
@@ -108,8 +123,18 @@ class MatrixAccountRuntime private constructor(
 
     fun closeAsync() = lifetime.closeAsync()
 
+    suspend fun hasOtherKeySource(): Boolean {
+        val task = lifetime.async {
+            val encryption = client.encryption()
+            try { encryption.recoveryState() == RecoveryState.ENABLED || !encryption.isLastDevice() }
+            finally { encryption.destroy() }
+        }
+        return try { withTimeoutOrNull(10_000) { task.await() } == true }
+        finally { task.cancel() }
+    }
+
     companion object {
-        private enum class Purpose { CLIENT, PENDING_LOGOUT }
+        private enum class Purpose { CLIENT, PENDING_LOGOUT, LINKED_LOGOUT }
 
         suspend fun open(lease: AccountLease, homeserver: String, userAgent: String): MatrixAccountRuntime =
             open(lease, homeserver, userAgent, Purpose.CLIENT)
@@ -131,18 +156,19 @@ class MatrixAccountRuntime private constructor(
                     val drafts = lifetime.own(AccountDrafts(lifetime, SdkComposerDraftStore(client)))
                     currentCoroutineContext().ensureActive()
                     lifetime.requireCurrent()
-                    val auth = client.setDelegate(object : ClientDelegate {
-                        override fun didReceiveAuthError(isSoftLogout: Boolean) {
-                            lifetime.publish(lifetime.epoch) {
-                                signal.value = AccountSignal.AuthenticationRejected(isSoftLogout)
+                    if (purpose != Purpose.LINKED_LOGOUT) {
+                        val auth = client.setDelegate(object : ClientDelegate {
+                            override fun didReceiveAuthError(isSoftLogout: Boolean) {
+                                lifetime.publish(lifetime.epoch) {
+                                    signal.value = AccountSignal.AuthenticationRejected(isSoftLogout)
+                                }
+                                lease.retire()
+                                lifetime.closeAsync()
                             }
-                            lease.retire()
-                            lifetime.closeAsync()
-                        }
-                        override fun onBackgroundTaskErrorReport(taskName: String, error: BackgroundTaskFailureReason) {}
-                    })
-                    // The SDK accepts a null delegate; this client always requires an owned auth listener.
-                    lifetime.own(TaskResource(checkNotNull(auth) { "Missing SDK authentication listener" }))
+                            override fun onBackgroundTaskErrorReport(taskName: String, error: BackgroundTaskFailureReason) {}
+                        })
+                        lifetime.own(TaskResource(checkNotNull(auth) { "Missing SDK authentication listener" }))
+                    }
                     val media = AccountMedia.create(lifetime, client)
                     val identity = AccountIdentity.create(lifetime)
                     MatrixAccountRuntime(lifetime, client, drafts, signal, media, identity)
@@ -174,16 +200,26 @@ class MatrixAccountRuntime private constructor(
                 update { it.roomKeyRecipientStrategy(CollectStrategy.IDENTITY_BASED_STRATEGY) }
                 update { it.decryptionSettings(DecryptionSettings(TrustRequirement.CROSS_SIGNED_OR_LEGACY)) }
                 update { it.backupDownloadStrategy(BackupDownloadStrategy.AFTER_DECRYPTION_FAILURE) }
+                if (purpose == Purpose.CLIENT) {
+                    val index = lease.paths.data.resolve("SearchIndex")
+                    if (!Files.exists(index, NOFOLLOW_LINKS)) Files.createDirectory(index)
+                    check(Files.isDirectory(index, NOFOLLOW_LINKS) && index.toRealPath().startsWith(lease.paths.data.toRealPath()))
+                    update { it.withSearchIndexStore(index.toString(), Base64.getEncoder().encodeToString(key)) }
+                }
                 return builder
             } catch (error: Exception) { builder.destroy(); throw error }
             finally { store.destroy() }
         }
 
         suspend fun restore(lease: AccountLease, userAgent: String): MatrixAccountRuntime {
+            return restoreLinked(lease, userAgent, Purpose.CLIENT)
+        }
+
+        private suspend fun restoreLinked(lease: AccountLease, userAgent: String, purpose: Purpose): MatrixAccountRuntime {
             // This fails before SDK construction if the record is pending, revoked or its store is missing.
             val saved = try { lease.linkedSession() }
             catch (error: Exception) { lease.close(); throw error }
-            val runtime = open(lease, saved.homeserverUrl, userAgent)
+            val runtime = open(lease, saved.homeserverUrl, userAgent, purpose)
             try {
                 runtime.lifetime.async {
                     runtime.client.restoreSession(saved)
@@ -193,6 +229,23 @@ class MatrixAccountRuntime private constructor(
             } catch (error: Exception) {
                 withContext(NonCancellable) { runtime.closeAsync().await() }
                 throw error
+            }
+        }
+
+        /** A separate, idle client owns logout after the previous timeline and sync have finished. */
+        suspend fun signOutLinked(lease: AccountLease, userAgent: String, company: Boolean) {
+            val runtime = restoreLinked(lease, userAgent, Purpose.LINKED_LOGOUT)
+            try {
+                val completed = withTimeoutOrNull(45_000) { runtime.lifetime.async {
+                    if (company) runtime.endApprovedWebLinks()
+                    runtime.client.logout()
+                    lease.markLinkedSignedOut()
+                }.await() }
+                if (completed == null) throw StorageFailure(StorageCode.IO_FAILURE)
+            } finally {
+                withContext(NonCancellable) {
+                    if (runtime.closeAsync().await() != AccountCloseResult.Closed) throw StorageFailure(StorageCode.IO_FAILURE)
+                }
             }
         }
 
@@ -239,6 +292,22 @@ class MatrixAccountRuntime private constructor(
                     throw ClientException.Generic("local credential store unavailable", null)
                 }
             }
+    }
+
+    private suspend fun endApprovedWebLinks() {
+        try {
+            val session = client.session()
+            if (session.homeserverUrl.trimEnd('/') != WindowsOAuthMetadata.HOMESERVER.trimEnd('/')) return
+            runInterruptible {
+                val http = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER)
+                    .connectTimeout(Duration.ofSeconds(5)).build()
+                val request = HttpRequest.newBuilder(URI("https://api.bipe.net.br/v1/web-link/sign-out"))
+                    .timeout(Duration.ofSeconds(10)).header("Authorization", "Bearer ${session.accessToken}")
+                    .POST(HttpRequest.BodyPublishers.noBody()).build()
+                check(http.send(request, HttpResponse.BodyHandlers.discarding()).statusCode() in 200..299)
+            }
+        } catch (cancelled: CancellationException) { throw cancelled }
+        catch (_: Exception) { System.err.println("BIPE_WEB_LINK_SIGN_OUT_FAILED") }
     }
 }
 

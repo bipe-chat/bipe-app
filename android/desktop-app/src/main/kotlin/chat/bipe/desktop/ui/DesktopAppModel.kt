@@ -24,7 +24,9 @@ sealed interface AppPhase {
     class Linking(val runtime: MatrixAccountRuntime, val attempt: PhoneLinkAttempt) : AppPhase
     class Recovering(val recovery: PendingDeviceRecovery, val source: StoredSlot) : AppPhase
     class Ready(val runtime: MatrixAccountRuntime, val list: DesktopRoomList, val profile: StateFlow<AccountProfile>,
-                val slots: List<StoredSlot>, val appearance: AccountAppearance) : AppPhase
+                val slots: List<StoredSlot>, val appearance: AccountAppearance, val search: DesktopMessageSearch) : AppPhase
+    data object SigningOut : AppPhase
+    class SignOutFailed(val slot: AccountSlot, val company: Boolean) : AppPhase
     data class Failed(val needsPhone: Boolean = false) : AppPhase
     class Closing(val source: AppPhase) : AppPhase
     class CloseFailed(val source: AppPhase) : AppPhase
@@ -77,6 +79,10 @@ class DesktopAppModel(val catalog: DesktopCatalog) {
         show(AppPhase.Loading)
         try {
             close(previous)
+            if (slot is StoredSlot.SignedOut) {
+                finishSignOut(slot.slot, company = false)
+                return@withLock
+            }
             if (slot is StoredSlot.Pending || slot is StoredSlot.Discarding || slot is StoredSlot.Revoked) {
                 show(AppPhase.Recovering(PendingDeviceRecovery(slot.slot, repository, SdkPendingLogout(userAgent())), slot))
                 return@withLock
@@ -86,6 +92,45 @@ class DesktopAppModel(val catalog: DesktopCatalog) {
             connect(runtime)
         } catch (_: Exception) { show(AppPhase.Failed()) }
     } }
+
+    fun signOut(expected: AppPhase.Ready) = scope.launch { transitions.withLock {
+        if (mutablePhase.value !== expected) return@withLock
+        val slot = expected.runtime.slot
+        val company = expected.profile.value.kind == AccountKind.COMPANY
+        show(AppPhase.SigningOut)
+        try { close(expected) }
+        catch (_: Exception) { show(AppPhase.SignOutFailed(slot, company)); return@withLock }
+        finishSignOut(slot, company)
+    } }
+
+    fun retrySignOut(expected: AppPhase.SignOutFailed) = scope.launch { transitions.withLock {
+        if (mutablePhase.value === expected) finishSignOut(expected.slot, expected.company)
+    } }
+
+    private suspend fun finishSignOut(slot: AccountSlot, company: Boolean) {
+        show(AppPhase.SigningOut)
+        val slots = try {
+            retryCleanup(slot)
+            when (repository.slots().firstOrNull { it.slot == slot }) {
+                is StoredSlot.Linked -> MatrixAccountRuntime.signOutLinked(repository.open(slot), userAgent(), company)
+                is StoredSlot.SignedOut, is StoredSlot.Revoked -> Unit
+                else -> throw StorageFailure(StorageCode.LINK_INCOMPLETE)
+            }
+            repository.finishLinkedSignOut(slot)
+            repository.slots()
+        } catch (cancelled: CancellationException) { throw cancelled }
+        catch (_: Exception) { show(AppPhase.SignOutFailed(slot, company)); return }
+
+        val next = slots.filterIsInstance<StoredSlot.Linked>().firstOrNull()
+        if (next != null && mutablePhase.value !is AppPhase.Closing) {
+            try {
+                connect(MatrixAccountRuntime.restore(repository.open(next.slot), userAgent()))
+                return
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) { /* The remaining accounts stay available from the picker. */ }
+        }
+        show(AppPhase.Welcome(slots))
+    }
 
     fun recoverPending(action: PendingRecoveryAction) {
         val recovery = mutablePhase.value as? AppPhase.Recovering ?: return
@@ -147,7 +192,9 @@ class DesktopAppModel(val catalog: DesktopCatalog) {
             val previous = mutableTimeline.value.owned()
             try {
                 previous?.close()
-                val model = DesktopTimeline.open(current.runtime, roomId, catalog.chatLabels(), devicePresence)
+                val model = DesktopTimeline.open(current.runtime, roomId, catalog.chatLabels(), devicePresence, current.list.delivered) {
+                    (current.appearance.phase.value as? AppearancePhase.Ready)?.values?.readReceipts == true
+                }
                 if (request != roomRequest || mutablePhase.value !== current) model.close()
                 else mutableTimeline.value = SelectedTimeline.Showing(model)
             } catch (_: Exception) {
@@ -193,8 +240,9 @@ class DesktopAppModel(val catalog: DesktopCatalog) {
         mutablePhase.value = if (mutablePhase.value is AppPhase.Closing) AppPhase.Closing(next) else next
     }
 
-    private suspend fun retryCleanup() {
-        for (epoch in AccountLifetime.pendingCleanup().keys) {
+    private suspend fun retryCleanup(slot: AccountSlot? = null) {
+        for ((epoch, ownedSlot) in AccountLifetime.pendingCleanup()) {
+            if (slot != null && ownedSlot != slot) continue
             if (AccountLifetime.retryCleanup(epoch)?.await() != AccountCloseResult.Closed) throw StorageFailure(StorageCode.IO_FAILURE)
         }
     }
@@ -239,15 +287,18 @@ class DesktopAppModel(val catalog: DesktopCatalog) {
                     }
                 }
             }
-            val list = DesktopRoomList.open(runtime, catalog.chatLabels())
+            val appearance = AccountAppearance.open(runtime, catalog.appearancePolicy)
+            val list = DesktopRoomList.open(runtime, catalog.chatLabels()) {
+                (appearance.phase.value as? AppearancePhase.Ready)?.values?.readReceipts == true
+            }
             val profile = runtime.lifetime.async {
                 val userId = runtime.client.userId()
                 val name = realName(runCatching { runtime.client.displayName() }.getOrNull(), userId, catalog.text("bipe_tab_you"))
                 AccountProfile(name, runtime.identity.type(userId), runCatching { runtime.client.avatarUrl() }.getOrNull(), userId)
             }.await()
             val liveProfile = MutableStateFlow(profile)
-            val appearance = AccountAppearance.open(runtime, catalog.appearancePolicy)
-            val ready = AppPhase.Ready(runtime, list, liveProfile.asStateFlow(), repository.slots(), appearance)
+            val search = DesktopMessageSearch.open(runtime, catalog.chatLabels())
+            val ready = AppPhase.Ready(runtime, list, liveProfile.asStateFlow(), repository.slots(), appearance, search)
             show(ready)
             scope.launch {
                 runtime.signal.first { it != AccountSignal.Healthy }

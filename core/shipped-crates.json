@@ -119,6 +119,7 @@
     "regex",
     "regex-automata",
     "regex-syntax",
+    "ruopus",
     "rustix",
     "serde_core",
     "serde_json",

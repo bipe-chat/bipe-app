@@ -10,8 +10,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 data class MessageEditDraft internal constructor(val rowId: String, val eventId: String, val originalText: String,
-                                                 val text: String, val revision: Long = 0, internal val session: Any = Any()) {
-    val canSave get() = text.trim().isNotEmpty() && text.trim() != originalText.trim()
+                                                 val text: String, val revision: Long = 0, internal val session: Any = Any(), val isCaption: Boolean = false) {
+    val canSave get() = (isCaption || text.isNotBlank()) && text.trim() != originalText.trim()
     override fun toString() = "MessageEditDraft(<redacted>)"
 }
 sealed interface EditPhase {
@@ -36,7 +36,7 @@ class EditActions internal constructor(private val group: AccountTaskGroup, priv
         return result
     }
     private fun editable(rowId: String): MessageRow? = row(rowId)?.takeIf {
-        it.id == rowId && it.own && it.canEdit && it.kind == MessageRow.Kind.TEXT &&
+        it.id == rowId && it.own && it.canEdit && (it.kind == MessageRow.Kind.TEXT || it.kind == MessageRow.Kind.MEDIA) &&
             it.delivery == MessageRow.Delivery.SENT && it.eventId != null
     }
 
@@ -47,7 +47,9 @@ class EditActions internal constructor(private val group: AccountTaskGroup, priv
             val current = editable(rowId) ?: return@publish
             // This matches the phone: end the reply, preserve its text, and never save edit text as a new-message draft.
             composer.cancelReply()
-            mutablePhase.value = EditPhase.Composing(MessageEditDraft(rowId, current.eventId!!, current.body, current.body))
+            val isCaption = current.kind == MessageRow.Kind.MEDIA
+            val text = if (isCaption) current.media?.caption.orEmpty() else current.body
+            mutablePhase.value = EditPhase.Composing(MessageEditDraft(rowId, current.eventId!!, text, text, isCaption = isCaption))
             accepted = true
         }
         return accepted

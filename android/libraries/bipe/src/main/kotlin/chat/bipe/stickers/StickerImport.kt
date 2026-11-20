@@ -10,27 +10,9 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.Build
 import chat.bipe.shared.generated.BipeRegistries
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
-import java.security.MessageDigest
 import java.util.zip.ZipInputStream
-
-/** A sticker file ready to go into the user's pack. Mirrors StickerImport.swift in BipeKit. */
-@Suppress("UseDataClass") // A ByteArray has no structural equality.
-class StickerImportCandidate(
-    val bytes: ByteArray,
-    val mimeType: String,
-    val width: Int,
-    val height: Int,
-    /** Derived from the file's SHA-256, so the same file imported twice gets the same shortcode. */
-    val shortcode: String,
-    /** Tags from the emoji a WhatsApp WebP carries (spec sticker-import notes). Empty when it carries none. */
-    val tags: List<String> = emptyList(),
-)
 
 /** Imports stickers from a WhatsApp chat export or from loose image files (ADR 0029, 0033). */
 object StickerImporter {
@@ -60,48 +42,16 @@ object StickerImporter {
      * Checks the format by its magic bytes and the size with BitmapFactory. Returns null when the file is not a usable sticker.
      * Animated WebP passes; an animated PNG does not (ADR 0205: animated WebP is the one animated format).
      */
-    fun candidate(bytes: ByteArray): StickerImportCandidate? {
-        if (bytes.size > MAX_FILE_SIZE) return null
-        val mimeType = mimeType(bytes) ?: return null
-        if (StickerFormat.isAnimatedPng(bytes)) return null
+    fun candidate(bytes: ByteArray): StickerImportCandidate? = StickerImportCandidate.create(bytes) {
         val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
-        val width = options.outWidth
-        val height = options.outHeight
-        if (width !in 1..MAX_SIDE || height !in 1..MAX_SIDE) return null
-        return StickerImportCandidate(bytes, mimeType, width, height, shortcode(bytes), if (mimeType == "image/webp") emojiTags(bytes) else emptyList())
+        BitmapFactory.decodeByteArray(it, 0, it.size, options)
+        options.outWidth to options.outHeight
     }
 
-    /**
-     * WhatsApp puts {"emojis": [...]} as JSON in the EXIF chunk of a sticker WebP. Its emoji map to tags through
-     * BipeRegistries.STICKER_EMOJI, in registry order. Empty for any other file.
-     */
-    fun emojiTags(webp: ByteArray): List<String> {
-        var offset = 12
-        while (offset + 8 <= webp.size) {
-            val size = (webp[offset + 4].toInt() and 0xFF) or ((webp[offset + 5].toInt() and 0xFF) shl 8) or
-                ((webp[offset + 6].toInt() and 0xFF) shl 16) or ((webp[offset + 7].toInt() and 0xFF) shl 24)
-            val start = offset + 8
-            if (size < 0 || start + size > webp.size) return emptyList()
-            if (String(webp, offset, 4, Charsets.US_ASCII) == "EXIF") {
-                val chunk = webp.copyOfRange(start, start + size)
-                val open = chunk.indexOf('{'.code.toByte())
-                val close = chunk.lastIndexOf('}'.code.toByte())
-                if (open < 0 || close <= open) return emptyList()
-                val json = runCatching { Json.parseToJsonElement(String(chunk, open, close - open + 1, Charsets.UTF_8)) as? JsonObject }.getOrNull()
-                val emojis = (json?.get("emojis") as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.takeIf { p -> p.isString }?.content }
-                    ?: return emptyList()
-                val tags = emojis.flatMap { BipeRegistries.STICKER_EMOJI[StickerSearch.emojiKey(it)].orEmpty() }.toSet()
-                return BipeRegistries.STICKER_TAGS.filter { it in tags }
-            }
-            offset = start + size + (size and 1)
-        }
-        return emptyList()
-    }
+    fun emojiTags(webp: ByteArray): List<String> = StickerImportCandidate.emojiTags(webp)
 
     /** st_ plus the first 8 bytes of the SHA-256 in hex. A saved received sticker hashes its mxc:// URL. */
-    fun shortcode(bytes: ByteArray): String =
-        "st_" + MessageDigest.getInstance("SHA-256").digest(bytes).take(8).joinToString("") { "%02x".format(it) }
+    fun shortcode(bytes: ByteArray): String = stickerShortcode(bytes)
 
     /**
      * "Make from a photo": crops a centred square, scales it to 512 × 512 and encodes WebP.
@@ -134,16 +84,6 @@ object StickerImporter {
             }
         }
         return result
-    }
-
-    private fun mimeType(bytes: ByteArray): String? {
-        if (bytes.size < 12) return null
-        val riff = bytes.sliceArray(0..3).contentEquals("RIFF".toByteArray())
-        val webp = bytes.sliceArray(8..11).contentEquals("WEBP".toByteArray())
-        if (riff && webp) return "image/webp"
-        val png = byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A)
-        if (bytes.sliceArray(0..7).contentEquals(png)) return "image/png"
-        return null
     }
 
     /** Reads the stream, or the current ZIP entry, up to [limit] bytes. Returns null when it is larger. */

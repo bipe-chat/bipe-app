@@ -42,6 +42,7 @@ dependencies = [
  "base64",
  "ed25519-dalek",
  "regex",
+ "ruopus",
  "serde_json",
  "sha2",
  "unicode-normalization",
@@ -370,6 +371,12 @@ name = "regex-syntax"
 version = "0.8.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d6f6ff9a378485b298a5286656da665ba74413d36db0979633275d2e708145d4"
+
+[[package]]
+name = "ruopus"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fcfcd963c83fc1ada2180ccdac7f1568d87fb0f2ad7236b266fdc9fb9122fbfd"
 
 [[package]]
 name = "rustc_version"

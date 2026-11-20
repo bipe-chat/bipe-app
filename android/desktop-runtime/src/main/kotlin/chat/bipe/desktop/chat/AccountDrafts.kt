@@ -27,14 +27,24 @@ sealed interface SavedComposerDraft {
 interface ComposerDraftStore {
     suspend fun load(roomId: String): SavedComposerDraft
     suspend fun save(roomId: String, draft: SavedComposerDraft.Text)
+    suspend fun load(roomId: String, threadRoot: String?): SavedComposerDraft {
+        require(threadRoot == null)
+        return load(roomId)
+    }
+    suspend fun save(roomId: String, threadRoot: String?, draft: SavedComposerDraft.Text) {
+        require(threadRoot == null)
+        save(roomId, draft)
+    }
 }
 
 /** Uses the pinned Rust SDK's encrypted state store, not a second file format or an assistant-draft parser. */
 class SdkComposerDraftStore(private val client: Client) : ComposerDraftStore {
-    override suspend fun load(roomId: String): SavedComposerDraft {
+    override suspend fun load(roomId: String): SavedComposerDraft = load(roomId, null)
+
+    override suspend fun load(roomId: String, threadRoot: String?): SavedComposerDraft {
         val room = client.getRoom(roomId) ?: throw StorageFailure(StorageCode.MISSING_STORE)
         try {
-            val saved = room.loadComposerDraft(null) ?: return SavedComposerDraft.Text("")
+            val saved = room.loadComposerDraft(threadRoot) ?: return SavedComposerDraft.Text("")
             try {
                 if (saved.attachments.isNotEmpty() || saved.htmlText != null) return SavedComposerDraft.Unsupported
                 return when (val type = saved.draftType) {
@@ -46,15 +56,17 @@ class SdkComposerDraftStore(private val client: Client) : ComposerDraftStore {
         } finally { room.destroy() }
     }
 
-    override suspend fun save(roomId: String, draft: SavedComposerDraft.Text) {
+    override suspend fun save(roomId: String, draft: SavedComposerDraft.Text) = save(roomId, null, draft)
+
+    override suspend fun save(roomId: String, threadRoot: String?, draft: SavedComposerDraft.Text) {
         val room = client.getRoom(roomId) ?: throw StorageFailure(StorageCode.MISSING_STORE)
         try {
             // A reply with no text still carries intent; cancelling the reply is a separate persisted change.
-            if (draft.body.isBlank() && draft.replyTo == null) room.clearComposerDraft(null)
+            if (draft.body.isBlank() && draft.replyTo == null) room.clearComposerDraft(threadRoot)
             else {
                 val value = ComposerDraft(draft.body, null, draft.replyTo?.let { ComposerDraftType.Reply(it) }
                     ?: ComposerDraftType.NewMessage, emptyList())
-                try { room.saveComposerDraft(value, null) } finally { value.destroy() }
+                try { room.saveComposerDraft(value, threadRoot) } finally { value.destroy() }
             }
         } finally { room.destroy() }
     }
@@ -72,7 +84,9 @@ internal class DraftSubmission(val text: String, val revision: Long, val compose
 }
 
 /** Immutable account/room binding. No caller supplies another account, path or native Room. */
-class RoomComposer internal constructor(private val owner: AccountDrafts, internal val roomId: String) {
+internal data class ComposerTarget(val roomId: String, val threadRoot: String?)
+
+class RoomComposer internal constructor(private val owner: AccountDrafts, internal val target: ComposerTarget) {
     internal val mutableState = MutableStateFlow<ComposerState>(ComposerState.Loading)
     val state = mutableState.asStateFlow()
     fun edit(text: String) { owner.edit(this, text) }
@@ -81,6 +95,7 @@ class RoomComposer internal constructor(private val owner: AccountDrafts, intern
     fun cancelReply() { owner.replyTo(this, null) }
     internal fun submission(): DraftSubmission? = (mutableState.value as? ComposerState.Editing)
         ?.takeIf { it.text.isNotBlank() }?.let { DraftSubmission(it.text, it.revision, this, it.replyTo) }
+    internal fun acceptedAttachmentReply(eventId: String) { owner.acceptedAttachmentReply(this, eventId) }
     internal fun accepted(submission: DraftSubmission) { owner.accepted(this, submission) }
 }
 
@@ -98,8 +113,8 @@ class AccountDrafts(private val lifetime: AccountLifetime, private val store: Co
     private val monitor = Any()
     private val closing = Mutex()
     private var phase = Phase.ACTIVE
-    private val rooms = mutableMapOf<String, RoomComposer>()
-    private val pending = linkedMapOf<String, Work>()
+    private val rooms = mutableMapOf<ComposerTarget, RoomComposer>()
+    private val pending = linkedMapOf<ComposerTarget, Work>()
     private val signals = Channel<Unit>(Channel.CONFLATED)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val mutablePreviews = MutableStateFlow<Map<String, String?>>(emptyMap())
@@ -113,10 +128,11 @@ class AccountDrafts(private val lifetime: AccountLifetime, private val store: Co
         }
     }
 
-    fun room(id: String): RoomComposer {
+    fun room(id: String, threadRoot: String? = null): RoomComposer {
+        val target = ComposerTarget(id, threadRoot)
         var result: RoomComposer? = null
         lifetime.publish(lifetime.epoch) { synchronized(monitor) {
-            if (phase == Phase.ACTIVE) result = rooms.getOrPut(id) { RoomComposer(this, id).also { enqueue(Work.Load(it)) } }
+            if (phase == Phase.ACTIVE) result = rooms.getOrPut(target) { RoomComposer(this, target).also { enqueue(Work.Load(it)) } }
         } }
         return result ?: throw StorageFailure(StorageCode.STALE_OWNER)
     }
@@ -140,6 +156,13 @@ class AccountDrafts(private val lifetime: AccountLifetime, private val store: Co
         if (current.revision == submitted.revision) update(room, ComposerState.Editing("", current.revision + 1, DraftPersistence.PENDING))
     }
 
+    internal fun acceptedAttachmentReply(room: RoomComposer, eventId: String) = synchronized(monitor) {
+        if (phase != Phase.ACTIVE) return@synchronized
+        val current = room.mutableState.value as? ComposerState.Editing ?: return@synchronized
+        if (current.replyTo == eventId) update(room, current.copy(replyTo = null,
+            revision = current.revision + 1, persistence = DraftPersistence.PENDING))
+    }
+
     internal fun retry(room: RoomComposer) = change {
         when (val current = room.mutableState.value) {
             ComposerState.LoadFailed -> { room.mutableState.value = ComposerState.Loading; enqueue(Work.Load(room)) }
@@ -155,20 +178,21 @@ class AccountDrafts(private val lifetime: AccountLifetime, private val store: Co
 
     private fun update(room: RoomComposer, value: ComposerState.Editing) {
         room.mutableState.value = value
-        mutablePreviews.value = mutablePreviews.value + (room.roomId to value.text.takeIf { it.isNotBlank() })
+        if (room.target.threadRoot == null)
+            mutablePreviews.value = mutablePreviews.value + (room.target.roomId to value.text.takeIf { it.isNotBlank() })
         enqueue(Work.Save(room, value))
     }
 
-    private fun enqueue(work: Work) { pending[work.room.roomId] = work; check(signals.trySend(Unit).isSuccess) }
+    private fun enqueue(work: Work) { pending[work.room.target] = work; check(signals.trySend(Unit).isSuccess) }
     private suspend fun perform(work: Work) {
         val result = try {
             when (work) {
-                is Work.Load -> when (val saved = store.load(work.room.roomId)) {
+                is Work.Load -> when (val saved = store.load(work.room.target.roomId, work.room.target.threadRoot)) {
                     is SavedComposerDraft.Text -> ComposerState.Editing(saved.body, 0, DraftPersistence.SAVED, saved.replyTo)
                     SavedComposerDraft.Unsupported -> ComposerState.Unsupported
                 }
                 is Work.Save -> {
-                    store.save(work.room.roomId, SavedComposerDraft.Text(work.value.text, work.value.replyTo))
+                    store.save(work.room.target.roomId, work.room.target.threadRoot, SavedComposerDraft.Text(work.value.text, work.value.replyTo))
                     work.value.copy(persistence = DraftPersistence.SAVED)
                 }
             }
@@ -184,8 +208,8 @@ class AccountDrafts(private val lifetime: AccountLifetime, private val store: Co
             val current = work.room.mutableState.value
             if (work is Work.Load || (current is ComposerState.Editing && work is Work.Save && current.revision == work.value.revision)) {
                 work.room.mutableState.value = result
-                if (result is ComposerState.Editing) mutablePreviews.value = mutablePreviews.value +
-                    (work.room.roomId to result.text.takeIf { it.isNotBlank() })
+                if (result is ComposerState.Editing && work.room.target.threadRoot == null) mutablePreviews.value = mutablePreviews.value +
+                    (work.room.target.roomId to result.text.takeIf { it.isNotBlank() })
             }
         }
     }

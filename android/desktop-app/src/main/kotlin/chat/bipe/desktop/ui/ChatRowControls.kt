@@ -28,11 +28,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import chat.bipe.desktop.account.MatrixAccountRuntime
 import chat.bipe.desktop.chat.ChatRow
+import chat.bipe.desktop.link.MatrixRoomLink
 
 internal sealed interface WorkspacePopup {
     data object Accounts : WorkspacePopup
     data class Room(val id: String) : WorkspacePopup
     data class Notifications(val id: String) : WorkspacePopup
+    data class Search(val roomId: String?) : WorkspacePopup
+    data class Avatar(val name: String, val mxc: String) : WorkspacePopup
+    data class MatrixLink(val link: MatrixRoomLink) : WorkspacePopup
 }
 internal sealed interface FavouriteEditing {
     data object Normal : FavouriteEditing

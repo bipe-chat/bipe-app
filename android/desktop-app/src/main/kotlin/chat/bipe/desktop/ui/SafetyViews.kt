@@ -25,6 +25,10 @@ import chat.bipe.desktop.safety.registryId
 fun ScamWarningCard(model: DesktopTimeline, rowId: String, kind: ScamKind, seconds: Int,
                     s: DesktopCatalog, colors: DesktopColors) {
     LaunchedEffect(model, rowId, kind) { model.warningShown(rowId) }
+    ScamWarningNotice(kind, seconds, s, colors)
+}
+
+@Composable internal fun ScamWarningNotice(kind: ScamKind, seconds: Int, s: DesktopCatalog, colors: DesktopColors) {
     val title = s.text("bipe_scam_warning_title")
     val body = s.text(s.warningKey(kind.registryId()))
     val announcement = title + ". " + body + if (seconds > 0) " " + s.text("bipe_pause_countdown", s.moneyPauseSeconds.toString()) else ""

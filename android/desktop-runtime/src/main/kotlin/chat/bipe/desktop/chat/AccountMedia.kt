@@ -8,20 +8,30 @@ import chat.bipe.desktop.account.AccountLifetime
 import chat.bipe.desktop.account.AccountResource
 import chat.bipe.desktop.account.AccountTaskGroup
 import chat.bipe.desktop.account.NativeResource
+import chat.bipe.desktop.account.TaskResource
 import java.net.URI
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import org.matrix.rustcomponents.sdk.Client
 import org.matrix.rustcomponents.sdk.MediaSource
+import org.matrix.rustcomponents.sdk.MediaPreviewConfig
+import org.matrix.rustcomponents.sdk.MediaPreviewConfigListener
 
 /** What AccountMedia asks the SDK; tests replace it. */
 internal interface MediaBackend {
     /** A thumbnail of an unencrypted mxc URL (avatars). */
     suspend fun thumbnail(url: String, pixels: Int): ByteArray
+    suspend fun originalAvatar(url: String): ByteArray = thumbnail(url, 256)
     /** The bytes of an event's media; the SDK downloads and decrypts with the key in the source JSON. */
     suspend fun content(sourceJson: String): ByteArray
     /** Downloads and decrypts an event's media and moves the file to [destination]. */
@@ -29,12 +39,28 @@ internal interface MediaBackend {
 }
 
 /**
- * Authenticated SDK media. No global cache, bearer URL, independent HTTP client or plaintext disk cache:
- * decrypted bytes stay in this account's bounded memory cache, and a file reaches the disk only where the person saves it.
+ * Authenticated SDK media. The bounded preview cache lives in this account's memory. Video playback
+ * owns a temporary private file through the player lifetime, and explicit saves use the chosen destination.
  */
+sealed interface MediaPreference {
+    data object Loading : MediaPreference
+    data object Unavailable : MediaPreference
+    data class Ready(val value: ShowMedia) : MediaPreference
+    data class Saving(val before: ShowMedia, val requested: ShowMedia) : MediaPreference
+    data class Failed(val before: ShowMedia, val requested: ShowMedia) : MediaPreference
+
+    val current get() = when (this) {
+        is Ready -> value
+        is Saving -> before
+        is Failed -> before
+        else -> null
+    }
+}
+
 class AccountMedia private constructor(
     private val group: AccountTaskGroup,
     private val backend: MediaBackend,
+    private val settings: Client?,
 ) : AccountResource {
     private data class Key(val url: String, val pixels: Int)
     private val monitor = Any()
@@ -42,6 +68,58 @@ class AccountMedia private constructor(
     private val requests = mutableMapOf<Key, Deferred<ByteArray?>>()
     private val downloads = Semaphore(4)
     private var cacheBytes = 0
+    private val mutablePreference = MutableStateFlow<MediaPreference>(MediaPreference.Loading)
+    val preference = mutablePreference.asStateFlow()
+
+    internal fun listenPreferences() {
+        val client = settings ?: return
+        group.launch {
+            try {
+                group.own(TaskResource(client.subscribeToMediaPreviewConfig(object : MediaPreviewConfigListener {
+                    override fun onChange(mediaPreviewConfig: MediaPreviewConfig?) {
+                        group.publish {
+                            val incoming = ShowMedia.of(mediaPreviewConfig?.mediaPreviews)
+                            val current = mutablePreference.value
+                            if (current !is MediaPreference.Saving || incoming == current.requested)
+                                mutablePreference.value = MediaPreference.Ready(incoming)
+                        }
+                    }
+                })))
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) { /* The explicit initial read still supplies the local setting. */ }
+            refreshPreference()
+        }
+    }
+
+    fun refreshPreference() = group.launch {
+        val client = settings ?: return@launch
+        val state = try { MediaPreference.Ready(ShowMedia.of(client.getMediaPreviewDisplayPolicy())) }
+        catch (cancelled: CancellationException) { throw cancelled }
+        catch (_: Exception) { MediaPreference.Unavailable }
+        group.publish { if (mutablePreference.value.current == null) mutablePreference.value = state }
+    }
+
+    fun setPreference(requested: ShowMedia) {
+        val client = settings ?: return
+        var accepted: MediaPreference.Saving? = null
+        group.publish {
+            val before = mutablePreference.value
+            val current = before.current
+            if (current != null && current != requested && before !is MediaPreference.Saving) {
+                accepted = MediaPreference.Saving(current, requested)
+                mutablePreference.value = checkNotNull(accepted)
+            }
+        }
+        val attempt = accepted ?: return
+        group.launch {
+            val result = try {
+                client.setMediaPreviewDisplayPolicy(requested.sdk())
+                MediaPreference.Ready(requested)
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) { MediaPreference.Failed(attempt.before, requested) }
+            group.publish { if (mutablePreference.value === attempt) mutablePreference.value = result }
+        }
+    }
 
     suspend fun thumbnail(url: String, pixels: Int): ByteArray? {
         group.requireCurrent()
@@ -60,6 +138,55 @@ class AccountMedia private constructor(
         group.requireCurrent()
         if (sourceJson.isBlank() || sourceJson.length > 64 * 1024) return null
         return cached(Key(EVENT_PREFIX + sourceJson, 0), EVENT_PICTURE_BYTES) { backend.content(sourceJson) }
+    }
+
+    suspend fun originalAvatar(url: String): ByteArray? {
+        val uri = runCatching { URI(url) }.getOrNull() ?: return null
+        if (uri.scheme != "mxc" || uri.rawAuthority.isNullOrBlank() || uri.rawUserInfo != null ||
+            uri.rawPath.isNullOrBlank() || uri.rawPath == "/" || uri.rawQuery != null || uri.rawFragment != null) return null
+        return cached(Key(url, 0), EVENT_PICTURE_BYTES) { backend.originalAvatar(url) }
+    }
+
+    /** Media Foundation gets a private, short-lived file from the authenticated SDK download. */
+    suspend fun <T> withVideo(media: MessageMedia, play: suspend (Path) -> T): T {
+        group.requireCurrent()
+        check(media.kind == MessageMedia.Kind.VIDEO)
+        val extension = when (media.mimeType?.lowercase()) {
+            "video/quicktime" -> "mov"
+            "video/webm" -> "webm"
+            "video/x-ms-wmv" -> "wmv"
+            "video/x-msvideo" -> "avi"
+            else -> "mp4"
+        }
+        val directory = Files.createTempDirectory("bipe-video-")
+        val path = directory.resolve("video.$extension")
+        try {
+            val download = group.async { backend.save(media.sourceJson, "video.$extension", media.mimeType ?: "video/mp4", path) }
+            try { download.await() }
+            finally { withContext(NonCancellable) { download.cancelAndJoin() } }
+            group.requireCurrent()
+            withContext(Dispatchers.IO) {
+                val header = Files.newInputStream(path).use { it.readNBytes(16) }
+                val signed = when (extension) {
+                    "avi" -> header.size >= 12 && String(header, 0, 4, Charsets.US_ASCII) == "RIFF" &&
+                        String(header, 8, 4, Charsets.US_ASCII) == "AVI "
+                    "wmv" -> header.contentEquals(byteArrayOf(0x30, 0x26, 0xb2.toByte(), 0x75, 0x8e.toByte(),
+                        0x66, 0xcf.toByte(), 0x11, 0xa6.toByte(), 0xd9.toByte(), 0, 0xaa.toByte(), 0, 0x62, 0xce.toByte(), 0x6c))
+                    "webm" -> header.size >= 4 && header.copyOf(4).contentEquals(byteArrayOf(0x1a, 0x45, 0xdf.toByte(), 0xa3.toByte()))
+                    else -> header.size >= 8 && String(header, 4, 4, Charsets.US_ASCII) in setOf("ftyp", "moov", "mdat", "wide", "free")
+                }
+                check(signed)
+            }
+            return play(path)
+        } finally {
+            withContext(NonCancellable + Dispatchers.IO) {
+                try { Files.deleteIfExists(path); Files.deleteIfExists(directory) }
+                catch (_: java.io.IOException) {
+                    directory.toFile().deleteOnExit()
+                    path.toFile().deleteOnExit()
+                }
+            }
+        }
     }
 
     /** Saves an event's media where the person chose (spec timeline-media open, for a computer). Throws when it fails. */
@@ -123,6 +250,11 @@ class AccountMedia private constructor(
                 finally { source.destroy() }
             }
 
+            override suspend fun originalAvatar(url: String): ByteArray {
+                val source = MediaSource.fromUrl(url)
+                try { return client.getMediaContent(source) } finally { source.destroy() }
+            }
+
             override suspend fun content(sourceJson: String): ByteArray {
                 val source = MediaSource.fromJson(sourceJson)
                 try { return client.getMediaContent(source) }
@@ -137,7 +269,7 @@ class AccountMedia private constructor(
                     try { check(handle.persist(destination.toString())) } finally { handle.destroy() }
                 } finally { source.destroy() }
             }
-        })
+        }, client)
 
         internal suspend fun create(owner: AccountLifetime, fetch: suspend (String, Int) -> ByteArray): AccountMedia =
             create(owner, object : MediaBackend {
@@ -146,9 +278,9 @@ class AccountMedia private constructor(
                 override suspend fun save(sourceJson: String, filename: String, mimeType: String, destination: Path) = error("No event media in this test")
             })
 
-        internal suspend fun create(owner: AccountLifetime, backend: MediaBackend): AccountMedia {
+        internal suspend fun create(owner: AccountLifetime, backend: MediaBackend, settings: Client? = null): AccountMedia {
             val group = AccountTaskGroup.create(owner)
-            val media = AccountMedia(group, backend)
+            val media = AccountMedia(group, backend, settings)
             group.own(NativeResource { synchronized(media.monitor) {
                 media.cache.values.forEach { it.fill(0) }
                 media.cache.clear(); media.requests.clear(); media.cacheBytes = 0

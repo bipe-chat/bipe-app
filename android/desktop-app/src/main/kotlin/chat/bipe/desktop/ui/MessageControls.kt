@@ -28,6 +28,7 @@ import chat.bipe.desktop.chat.*
 import chat.bipe.shared.generated.BipeReactions
 import java.text.NumberFormat
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 
 private data class MessageCommand(val label: String, val enabled: Boolean, val icon: String,
                                   val danger: Boolean = false, val run: () -> Unit)
@@ -36,29 +37,80 @@ private data class MessageCommand(val label: String, val enabled: Boolean, val i
 @OptIn(ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class)
 @Composable internal fun MessageSurface(model: DesktopTimeline, row: MessageRow, seconds: Int, highlighted: Boolean,
                                        popup: TimelinePopup?, show: (TimelinePopup?) -> Unit, s: DesktopCatalog,
-                                       colors: DesktopColors, replyEnabled: Boolean, focusComposer: () -> Unit, copied: () -> Unit,
-                                       content: @Composable () -> Unit) {
+                                       colors: DesktopColors, replyEnabled: Boolean, isGroup: Boolean, focusComposer: () -> Unit, copied: () -> Unit,
+                                       onSelect: (String) -> Unit, notice: (String) -> Unit, content: @Composable () -> Unit) {
     val clipboard = LocalClipboardManager.current
+    val scope = rememberCoroutineScope()
     val focus = remember { FocusRequester() }
     val deletePermission by model.deletion.permission.collectAsState()
     val deletePhase by model.deletion.phase.collectAsState()
     val editing by model.edits.phase.collectAsState()
     val reactions by model.reactions.phase.collectAsState()
+    val pinAccess by model.pins.access.collectAsState()
+    val pinChange by model.pins.change.collectAsState()
     val canReact = row.eventId != null
     val reactionEnabled = reactions !is ReactionActionPhase.Sending
     val label = s.text("bipe_message_actions")
     val actions = buildList {
+        if (isGroup && model.threadRoot == null && !row.inThread) row.eventId?.let { eventId ->
+            add(MessageCommand(s.text("bipe_thread_reply_action"), true, "chat-text") { show(TimelinePopup.Thread(eventId)) })
+        }
+        if (row.canRetry) add(MessageCommand(s.text("bipe_app_retry"), true, "arrow-clockwise") { model.retry(row.id) })
         if (row.canReply) add(MessageCommand(s.text("bipe_app_message_action_reply"), replyEnabled, "arrow-bend-up-left") {
             if (model.startReply(row.id)) focusComposer()
         })
         if (editing !is EditPhase.Saving && model.edits.canEdit(row.id))
-            add(MessageCommand(s.text("bipe_app_message_action_edit"), true, "pencil-simple") {
+            add(MessageCommand(s.text(when {
+                row.media == null -> "bipe_app_message_action_edit"
+                row.media?.caption.isNullOrBlank() -> "bipe_caption_add"
+                else -> "bipe_caption_edit"
+            }), true, "pencil-simple") {
                 if (model.edits.start(row.id)) focusComposer()
+            })
+        if (row.media?.caption?.isNotBlank() == true && model.edits.canEdit(row.id))
+            add(MessageCommand(s.text("bipe_caption_remove"), true, "trash") {
+                if (model.edits.start(row.id)) {
+                    model.edits.change("")
+                    model.edits.save()
+                }
             })
         if (row.kind == MessageRow.Kind.TEXT) add(MessageCommand(if (seconds > 0)
             s.text("bipe_pause_countdown", NumberFormat.getIntegerInstance().format(seconds)) else s.text("bipe_app_copy"), seconds == 0, "copy") {
             model.copyText(row.id)?.let { clipboard.setText(AnnotatedString(it)); copied() }
         })
+        if (isGroup) row.linkEventId?.let { eventId ->
+            add(MessageCommand(s.text("bipe_app_message_action_copy_link"), true, "link") {
+                scope.launch {
+                    model.messageLink(row.id, eventId)?.let { link ->
+                        clipboard.setText(AnnotatedString(link))
+                        copied()
+                    }
+                }
+            })
+        }
+        if (row.media?.kind == MessageMedia.Kind.STICKER && !row.own && row.eventId != null)
+            add(MessageCommand(s.text("bipe_action_save_sticker"), true, "sticker") {
+                scope.launch {
+                    val key = try {
+                        model.stickers.saveReceived(row.id)
+                        "bipe_sticker_saved"
+                    } catch (cancelled: CancellationException) { throw cancelled }
+                    catch (_: Exception) { "bipe_sticker_save_failed" }
+                    notice(s.text(key))
+                }
+            })
+        if (row.canForward) add(MessageCommand(s.text("bipe_forward_action"), true, "arrow-bend-up-left") {
+            show(TimelinePopup.Forward(setOf(row.id)))
+        })
+        if (row.canForward || model.deletion.candidate(row.id) != null)
+            add(MessageCommand(s.text("bipe_select_action"), true, "check") { onSelect(row.id) })
+        if (pinAccess.canPin) row.linkEventId?.let { eventId ->
+            val pinned = eventId in pinAccess.pinned
+            add(MessageCommand(s.text(if (pinned) "bipe_unpin_action" else "bipe_pin_action"),
+                pinChange != RoomPins.Change.SENDING, if (pinned) "push-pin-slash" else "push-pin") {
+                model.pins.change(eventId, pin = !pinned, rowId = row.id)
+            })
+        }
         if (deletePermission is DeletePermission.Ready && deletePhase !is DeletePhase.Deleting && editing !is EditPhase.Saving) {
             model.deletion.candidate(row.id)?.let { intent ->
                 add(MessageCommand(s.text("bipe_app_message_action_delete"), true, "trash", danger = true) { show(TimelinePopup.DeleteConfirm(intent)) })

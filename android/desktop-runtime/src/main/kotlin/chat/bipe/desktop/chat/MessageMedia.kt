@@ -26,6 +26,7 @@ data class MessageMedia(
     val durationMillis: Long? = null,
     val sourceJson: String,
     val thumbnailJson: String? = null,
+    val description: String? = null,
 ) {
     enum class Kind { IMAGE, VIDEO, FILE, STICKER, AUDIO, VOICE }
 
@@ -85,8 +86,14 @@ data class MessageMedia(
 enum class ShowMedia {
     ALWAYS, PRIVATE_ONLY, NEVER;
 
+    fun sdk(): MediaPreviews = when (this) {
+        ALWAYS -> MediaPreviews.ON
+        PRIVATE_ONLY -> MediaPreviews.PRIVATE
+        NEVER -> MediaPreviews.OFF
+    }
+
     companion object {
-        /** An account without the setting keeps the default, always; the computer does not write it (spec timeline-media notes). */
+        /** An account without the setting keeps the default, always; per the timeline-media spec. */
         fun of(previews: MediaPreviews?): ShowMedia = when (previews) {
             MediaPreviews.PRIVATE -> PRIVATE_ONLY
             MediaPreviews.OFF -> NEVER

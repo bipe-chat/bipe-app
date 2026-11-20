@@ -15,14 +15,20 @@ import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberTrayState
 import androidx.compose.ui.window.rememberWindowState
 import chat.bipe.app.BipeTypography
+import chat.bipe.desktop.link.MatrixRoomLink
 import chat.bipe.desktop.settings.AppearancePhase
 import java.awt.Dimension
 import java.awt.Toolkit
+import java.awt.Window as AwtWindow
 import java.beans.PropertyChangeListener
 
-fun main() = application {
+internal val LocalDesktopWindow = staticCompositionLocalOf<AwtWindow?> { null }
+
+fun main(args: Array<String>) = application {
     val catalog = remember { DesktopCatalog.load() }
     val model = remember { DesktopAppModel(catalog) }
+    // Retain the launch link while the person picks or links an account.
+    var launchLink by remember { mutableStateOf(args.firstNotNullOfOrNull { MatrixRoomLink.parse(it) }) }
     val phase by model.phase.collectAsState()
     val palette = when (val current = phase) {
         is AppPhase.Ready -> (current.appearance.phase.collectAsState().value as? AppearancePhase.Ready)?.values
@@ -53,8 +59,9 @@ fun main() = application {
             surfaceVariant = colors["surface.raised"], onSurfaceVariant = colors["ink.secondary"],
             outline = colors["line.strong"], error = colors["trust.danger.ink"],
         ), typography = BipeTypography) {
-            CompositionLocalProvider(LocalDesktopAlerts provides alerts) {
-                DesktopApp(model, phase, colors, onClose = { model.closeWindow(::exitApplication) })
+            CompositionLocalProvider(LocalDesktopAlerts provides alerts, LocalDesktopWindow provides window) {
+                DesktopApp(model, phase, colors, launchLink, onLaunchLinkOpened = { launchLink = null },
+                    onClose = { model.closeWindow(::exitApplication) })
             }
         }
     }

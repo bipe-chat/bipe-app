@@ -7,7 +7,6 @@ package chat.bipe.app.timeline
 import android.content.Context
 import android.content.SharedPreferences
 import chat.bipe.app.calls.CallWidget
-import chat.bipe.app.calls.text
 import chat.bipe.app.settings.SettingsKeys
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -34,46 +33,6 @@ import org.matrix.rustcomponents.sdk.Membership
 import org.matrix.rustcomponents.sdk.MembershipState
 import org.matrix.rustcomponents.sdk.ReceiptType
 import org.matrix.rustcomponents.sdk.Room
-import org.matrix.rustcomponents.sdk.WidgetCapabilities
-import org.matrix.rustcomponents.sdk.WidgetEventFilter
-
-/** Spec read-receipts, delivered ack (ADR 0222): the to-device event chat.bipe.delivered with room_id and event_id. */
-object DeliveredAck {
-    const val EVENT_TYPE = "chat.bipe.delivered"
-
-    data class Received(val sender: String, val roomId: String, val eventId: String)
-
-    /** The widget asks for these and nothing else. */
-    val capabilityNames = listOf(
-        "org.matrix.msc3819.send.to_device:$EVENT_TYPE",
-        "org.matrix.msc3819.receive.to_device:$EVENT_TYPE",
-    )
-
-    fun approved() = WidgetCapabilities(
-        read = listOf(WidgetEventFilter.ToDevice(EVENT_TYPE)),
-        send = listOf(WidgetEventFilter.ToDevice(EVENT_TYPE)),
-        requiresClient = false,
-        updateDelayedEvent = false,
-        sendDelayedEvent = false,
-        downloadFiles = false,
-        rtcTransports = false,
-    )
-
-    fun content(roomId: String, eventId: String): JsonObject = buildJsonObject {
-        put("room_id", roomId)
-        put("event_id", eventId)
-    }
-
-    /** The to-device message the driver pushes to the widget: type, sender, content. */
-    fun parse(message: JsonObject): Received? {
-        if (message.text("type") != EVENT_TYPE) return null
-        val sender = message.text("sender") ?: return null
-        val content = message["content"] as? JsonObject ?: return null
-        val roomId = content.text("room_id")?.takeIf { it.isNotEmpty() } ?: return null
-        val eventId = content.text("event_id")?.takeIf { it.isNotEmpty() } ?: return null
-        return Received(sender, roomId, eventId)
-    }
-}
 
 /** The delivered events of each DM on this phone (spec read-receipts notes: delivered state is device-local). */
 object DeliveredLog {

@@ -4,6 +4,12 @@
 
 package chat.bipe.desktop.chat
 
+import chat.bipe.shared.media.BipeForwardMark
+import chat.bipe.app.timeline.StateLine
+import chat.bipe.app.polls.PollData
+
+import chat.bipe.shared.BipeMessageText
+
 import chat.bipe.app.common.VectorDiff
 import chat.bipe.app.common.applyDiff
 import chat.bipe.desktop.safety.MessageSafety
@@ -11,7 +17,8 @@ import chat.bipe.desktop.safety.MessageSafety
 data class ChatLabels(val unnamed: String, val noName: String, val undecryptable: String, val unsupported: String,
                       val deleted: String = unsupported, val you: String = noName,
                       /** bipe_app_media_image, _video, _file, _sticker and _voice (spec timeline-media notes). */
-                      val media: Map<MessageMedia.Kind, String> = emptyMap()) {
+                      val media: Map<MessageMedia.Kind, String> = emptyMap(),
+                      val location: String = unsupported, val liveLocation: String = unsupported) {
     fun mediaLabel(kind: MessageMedia.Kind): String = media[kind] ?: unsupported
 }
 data class ChatAvatar(val name: String, val url: String?, val userId: String? = null)
@@ -46,8 +53,20 @@ data class MessageRow(
     val dmReceipt: DmReceipt? = null,
     /** Kind MEDIA only: the photo, video, sticker, file or voice message. */
     val media: MessageMedia? = null,
+    val richText: BipeMessageText? = null,
+    val canForward: Boolean = false,
+    val forwardSource: BipeForwardMark.Source? = null,
+    val stateLine: StateLine? = null,
+    val isEmote: Boolean = false,
+    val inThread: Boolean = false,
+    val threadReplies: Int = 0,
+    val poll: PollData? = null,
+    val location: DesktopLocation? = null,
 ) {
-    enum class Kind { TEXT, MEDIA, UNDECRYPTABLE, DELETED, UNSUPPORTED }
+    val linkEventId: String?
+        get() = eventId?.takeIf { delivery == Delivery.SENT && (kind == Kind.TEXT || kind == Kind.MEDIA) }
+
+    enum class Kind { TEXT, MEDIA, UNDECRYPTABLE, DELETED, UNSUPPORTED, STATE, POLL, LOCATION }
     enum class Delivery { SENT, SENDING, FAILED }
 }
 data class MessageQuote(val eventId: String, val details: Details) {
@@ -61,6 +80,7 @@ sealed interface OriginalNavigation {
     data object Idle : OriginalNavigation
     data class Searching(val eventId: String) : OriginalNavigation
     data class Found(val rowId: String) : OriginalNavigation
+    data class Context(val eventId: String) : OriginalNavigation
 }
 data class ReactionSender(val userId: String, val reactedAt: Long)
 data class ReactionPerson(val name: String, val reactedAt: Long)

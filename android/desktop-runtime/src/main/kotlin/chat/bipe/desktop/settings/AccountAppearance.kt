@@ -20,13 +20,14 @@ import kotlinx.serialization.json.*
 
 data class AppearancePolicy(val palettes: List<String>, val defaultPalette: String, val backgrounds: List<String>, val defaultBackground: String)
 data class AppearanceValues(val settings: Map<String, JsonElement>) {
+    val readReceipts: Boolean get() = BipeSyncedSettings.bool(settings, BipeSyncedSettings.READ_RECEIPTS) != false
     fun palette(policy: AppearancePolicy) = BipeSyncedSettings.string(settings, BipeSyncedSettings.PALETTE)
         ?.takeIf { it in policy.palettes } ?: policy.defaultPalette
     fun background(policy: AppearancePolicy) = BipeSyncedSettings.string(settings, BipeSyncedSettings.CHAT_BACKGROUND)
         ?.takeIf { it in policy.backgrounds } ?: policy.defaultBackground
 }
 sealed interface AppearanceRetry {
-    data class Edit(val key: String, val value: String) : AppearanceRetry
+    data class Edit(val key: String, val value: JsonPrimitive) : AppearanceRetry
     data object Pending : AppearanceRetry
 }
 sealed interface AppearanceSync {
@@ -63,10 +64,12 @@ class AccountAppearance private constructor(
     private val mutablePhase = MutableStateFlow<AppearancePhase>(AppearancePhase.Loading)
     val phase = mutablePhase.asStateFlow()
 
-    fun pickPalette(id: String) { if (id in policy.palettes) change(BipeSyncedSettings.PALETTE, id) }
-    fun pickBackground(id: String) { if (id in policy.backgrounds) change(BipeSyncedSettings.CHAT_BACKGROUND, id) }
+    fun pickPalette(id: String) { if (id in policy.palettes) change(BipeSyncedSettings.PALETTE, JsonPrimitive(id)) }
+    fun pickBackground(id: String) { if (id in policy.backgrounds) change(BipeSyncedSettings.CHAT_BACKGROUND, JsonPrimitive(id)) }
 
-    private fun change(key: String, value: String) {
+    fun pickReadReceipts(enabled: Boolean) = change(BipeSyncedSettings.READ_RECEIPTS, JsonPrimitive(enabled))
+
+    private fun change(key: String, value: JsonPrimitive) {
         var accepted = false
         group.publish {
             val current = mutablePhase.value as? AppearancePhase.Ready
@@ -81,8 +84,8 @@ class AccountAppearance private constructor(
         } }
     }
 
-    private suspend fun applyChange(key: String, value: String) {
-        val next = record.copy(values = record.values + (key to JsonPrimitive(value)), pending = record.pending + key)
+    private suspend fun applyChange(key: String, value: JsonPrimitive) {
+        val next = record.copy(values = record.values + (key to value), pending = record.pending + key)
         try {
             persist(next) // Commit the protected journal before applying the preference or starting HTTP.
         } catch (cancelled: CancellationException) { throw cancelled }
@@ -112,7 +115,7 @@ class AccountAppearance private constructor(
             check(json.getValue("version").jsonPrimitive.int == 1)
             val values = json.getValue("values").jsonObject
             val pending = json.getValue("pending").jsonArray.map { it.jsonPrimitive.content }.toSet()
-            check(pending.all { it == BipeSyncedSettings.PALETTE || it == BipeSyncedSettings.CHAT_BACKGROUND })
+            check(pending.all { it in setOf(BipeSyncedSettings.PALETTE, BipeSyncedSettings.CHAT_BACKGROUND, BipeSyncedSettings.READ_RECEIPTS) })
             Record(values, pending, json["observed"]?.takeUnless { it == JsonNull }?.jsonObject)
         }
         val cached = backend.cached()?.let(BipeSyncedSettings::parse)

@@ -2577,6 +2577,8 @@
     <string name="bipe_interno_empty">Ninguém mais atende por esta conta ainda.</string>
     <string name="bipe_govbr_step_sign_file">No app gov.br, toque em assinar documento e escolha %1$s.</string>
     <string name="bipe_govbr_reason_wrong_document_file">Esse não é o documento desta verificação. Use o arquivo %1$s.</string>
+    <string name="bipe_windows_sign_out_body">O Bipe apaga os dados desta conta no computador. Para voltar, conecte o computador de novo pelo celular.</string>
+    <string name="bipe_windows_sign_out_history">Se as mensagens antigas estão só neste computador, use a chave de recuperação para ler essas mensagens de novo.</string>
     <string name="bipe_desktop_pending_title">Vínculo incompleto</string>
     <string name="bipe_desktop_pending_body">Este vínculo não terminou. Tente sair deste aparelho antes de começar de novo. As outras contas neste computador continuam conectadas.</string>
     <string name="bipe_desktop_pending_sign_out">Sair e limpar este vínculo</string>

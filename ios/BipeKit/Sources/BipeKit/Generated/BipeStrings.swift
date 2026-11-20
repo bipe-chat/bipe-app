@@ -5982,6 +5982,10 @@ public enum BipeStrings {
         String(format: NSLocalizedString("bipe_govbr_reason_wrong_document_file", tableName: "Bipe", bundle: .module, comment: ""), p1)
     }
 
+    public static var windowsSignOutBody: String { NSLocalizedString("bipe_windows_sign_out_body", tableName: "Bipe", bundle: .module, comment: "") }
+
+    public static var windowsSignOutHistory: String { NSLocalizedString("bipe_windows_sign_out_history", tableName: "Bipe", bundle: .module, comment: "") }
+
     public static var desktopPendingTitle: String { NSLocalizedString("bipe_desktop_pending_title", tableName: "Bipe", bundle: .module, comment: "") }
 
     public static var desktopPendingBody: String { NSLocalizedString("bipe_desktop_pending_body", tableName: "Bipe", bundle: .module, comment: "") }

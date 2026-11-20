@@ -14,12 +14,27 @@ kotlin {
 }
 val portableVectorDiff by tasks.registering(Sync::class) {
     from("../app/src/main/kotlin/chat/bipe/app/common/VectorDiff.kt")
+    from("../app/src/main/kotlin/chat/bipe/app/groups/GroupRole.kt")
+    from("../app/src/main/kotlin/chat/bipe/app/timeline/StateLines.kt")
+    from("../app/src/main/kotlin/chat/bipe/app/timeline/DeliveredAck.kt")
+    from("../app/src/main/kotlin/chat/bipe/app/polls/PollData.kt")
+    from("../app/src/main/kotlin/chat/bipe/app/location/MapGeometry.kt")
+    from("../libraries/bipe/src/main/kotlin/chat/bipe/shared/generated/BipeGroupPowerLevels.kt")
     from("../libraries/bipe/src/main/kotlin/chat/bipe/shared/BipeFavouritesOrder.kt")
     from("../libraries/bipe/src/main/kotlin/chat/bipe/shared/BipeSyncedSettings.kt")
     from("../libraries/bipe/src/main/kotlin/chat/bipe/shared/BipeOfficialAccounts.kt")
+    from("../libraries/bipe/src/main/kotlin/chat/bipe/shared/BipeMessageText.kt")
+    from("../libraries/bipe/src/main/kotlin/chat/bipe/search/MessageSearchQuery.kt")
+    from("../libraries/bipe/src/main/kotlin/chat/bipe/shared/media/BipeForwardMark.kt")
+    from("../libraries/bipe/src/main/kotlin/chat/bipe/shared/media/BipeImageDescription.kt")
     from("../libraries/bipe/src/main/kotlin/chat/bipe/shared/generated/BipeRegistries.kt")
     from("../libraries/bipe/src/main/kotlin/chat/bipe/shared/generated/BipeReactions.kt")
     from("../libraries/bipe/src/main/kotlin/chat/bipe/shared/generated/BipeChatArchive.kt")
+    from("../libraries/bipe/src/main/kotlin/chat/bipe/shared/generated/BipeMessageFormatting.kt")
+    from("../libraries/bipe/src/main/kotlin/chat/bipe/stickers") {
+        include("StickerFormat.kt", "StickerImportCandidate.kt", "StickerPacks.kt", "StickerPackClient.kt",
+            "StickerPackShare.kt", "StickerSearch.kt", "StickerShortlist.kt")
+    }
     into(layout.buildDirectory.dir("generated/portable-kotlin"))
 }
 tasks.named("compileKotlin") { dependsOn(portableVectorDiff) }
@@ -38,6 +53,7 @@ dependencies {
     api(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.zxing.core)
+    implementation(libs.jsoup)
     testImplementation(libs.junit)
 }
 

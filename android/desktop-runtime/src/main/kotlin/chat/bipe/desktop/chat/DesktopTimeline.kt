@@ -4,13 +4,18 @@
 
 package chat.bipe.desktop.chat
 
-import chat.bipe.app.common.toVectorDiff
+import chat.bipe.app.timeline.StateLines
+import chat.bipe.app.polls.PollData
+import chat.bipe.app.location.MapPoint
+import chat.bipe.app.location.GeoUri
 import chat.bipe.desktop.account.AccountResource
 import chat.bipe.desktop.account.AccountTaskGroup
 import chat.bipe.desktop.account.MatrixAccountRuntime
 import chat.bipe.desktop.account.NativeResource
 import chat.bipe.desktop.account.TaskResource
 import chat.bipe.desktop.safety.*
+import java.time.LocalDate
+import java.time.ZoneId
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
@@ -18,9 +23,10 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withTimeoutOrNull
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collect
 import chat.bipe.shared.BipeSyncedSettings
+import chat.bipe.shared.media.BipeForwardMark
+import chat.bipe.shared.media.BipeImageDescription
 import chat.bipe.desktop.settings.MatrixSettingsReader
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -30,6 +36,7 @@ import kotlinx.coroutines.sync.withLock
 import chat.bipe.shared.generated.BipeRegistries
 import org.matrix.rustcomponents.sdk.*
 import uniffi.matrix_sdk_ui.TimelineReadReceiptTracking
+import uniffi.matrix_sdk_ui.TimelineEventFocusThreadMode
 import uniffi.ruma_events.MessageLikeEventType
 
 sealed interface SendPhase {
@@ -42,13 +49,16 @@ class DesktopTimeline private constructor(
     private val runtime: MatrixAccountRuntime,
     private val group: AccountTaskGroup,
     val roomId: String,
+    val threadRoot: String?,
     private val labels: ChatLabels,
     private val typingPreference: TypingPreference,
+    private val delivered: DesktopDelivered?,
+    private val permitsReadTick: () -> Boolean,
     private val safetyEngine: SafetyEngine = CoreSafety,
 ) : AccountResource {
     private val mutableRows = MutableStateFlow<LoadPhase<List<MessageRow>>>(LoadPhase.Loading)
     val rows = mutableRows.asStateFlow()
-    val composer = runtime.drafts.room(roomId)
+    val composer = runtime.drafts.room(roomId, threadRoot)
     lateinit var typing: RoomTyping
         private set
     private val presentation = Mutex()
@@ -62,8 +72,19 @@ class DesktopTimeline private constructor(
     private enum class ReplyLoad { LOADING, SETTLED }
     private val replyLoads = mutableMapOf<String, ReplyLoad>()
     private val paging = Mutex()
+    private val sendingLocation = Mutex()
+    @Volatile private var reachedStart = false
     private lateinit var timeline: Timeline
     private lateinit var room: Room
+    private var isGroup = false
+    val forwarding = ForwardActions(runtime.client, group, labels.noName, { timeline }) {
+        (mutableRows.value as? LoadPhase.Ready)?.value.orEmpty()
+    }
+    val attachments = AttachmentActions(runtime.client, group, { room }, { timeline }, composer)
+    val voice = VoiceSend(group, { room }, { timeline }, composer)
+    val stickers = StickerActions(runtime, group, { room }, ::currentRow, threadRoot)
+    val polls = PollActions(group, { room }, { timeline }, { runtime.client.userId() }, labels.noName)
+    val pins = RoomPins(group, labels, ::currentRow)
     val reactions = ReactionActions(group, ::currentRow) { eventId, key ->
         timeline.toggleReaction(EventOrTransactionId.EventId(eventId), key)
         Unit
@@ -92,11 +113,13 @@ class DesktopTimeline private constructor(
         try {
             val kind = (event.content as? TimelineItemContent.MsgLike)?.content?.kind as? MsgLikeKind.Message
             check(event.isOwn && event.isEditable && event.isRemote && event.localSendState == null && kind != null)
-            check(kind.content.msgType.isText())
+            val type = kind.content.msgType
+            check(type.isText() || type.hasEditableCaption())
             val powers = room.getPowerLevels()
             try { check(powers.canOwnUserSendMessage(MessageLikeEventType.RoomMessage)) } finally { powers.destroy() }
             group.requireCurrent()
-            val content = EditedContent.RoomMessage(messageEventContentFromMarkdown(text))
+            val content = if (type.hasEditableCaption()) EditedContent.MediaCaption(text.takeIf { it.isNotEmpty() }, null, null)
+                else EditedContent.RoomMessage(messageEventContentFromMarkdown(text))
             try { timeline.edit(EventOrTransactionId.EventId(eventId), content) } finally { content.destroy() }
         } finally { event.destroy() }
     }
@@ -126,11 +149,12 @@ class DesktopTimeline private constructor(
         }
         val row = previous ?: return
         group.launch {
-            val assessment = CoreSafety.boundary({ safetyEngine.warning(row.body) }, { MessageSafety.Unavailable })
+            val assessment = CoreSafety.boundary({ safetyEngine.warning(messageSafetyText(row.body, row.richText)) }, { MessageSafety.Unavailable })
             group.publish {
                 val state = mutableRows.value as? LoadPhase.Ready ?: return@publish
                 mutableRows.value = LoadPhase.Ready(state.value.map {
-                    if (it.id == rowId && it.body == row.body && it.safety == MessageSafety.Checking) it.copy(safety = assessment) else it
+                    if (it.id == rowId && it.body == row.body && it.richText == row.richText && it.safety == MessageSafety.Checking)
+                        it.copy(safety = assessment) else it
                 })
             }
         }
@@ -147,12 +171,44 @@ class DesktopTimeline private constructor(
         group.publish {
             val row = currentRow(id) ?: return@publish
             if (row.kind != MessageRow.Kind.TEXT) return@publish
-            val warning = row.safety as? MessageSafety.Warning
-            val seconds = pause.remaining(MoneyPause.nowMs())[id]
-                ?: if (warning?.kind?.registryId() in BipeRegistries.scamMoneyPauseKinds) BipeRegistries.SCAM_MONEY_PAUSE_SECONDS else 0
-            if (seconds == 0) result = row.body
+            if (moneyPauseSeconds(row) == 0) result = row.body
         }
         return result
+    }
+
+    fun canOpenLink(rowId: String, url: String): Boolean {
+        var allowed = false
+        group.publish {
+            val row = currentRow(rowId) ?: return@publish
+            allowed = row.safety != MessageSafety.Checking && row.safety != MessageSafety.Unavailable &&
+                moneyPauseSeconds(row) == 0 && row.richText?.runs?.any { it.link == url } == true
+        }
+        return allowed
+    }
+
+    private fun moneyPauseSeconds(row: MessageRow): Int {
+        val warning = row.safety as? MessageSafety.Warning
+        return pause.remaining(MoneyPause.nowMs())[row.id]
+            ?: if (warning?.kind?.registryId() in BipeRegistries.scamMoneyPauseKinds) BipeRegistries.SCAM_MONEY_PAUSE_SECONDS else 0
+    }
+
+    /** The Matrix SDK supplies the permalink, including its routing information. */
+    suspend fun messageLink(rowId: String, eventId: String): String? = try {
+        group.async {
+            if (currentRow(rowId)?.linkEventId != eventId) return@async null
+            val info = room.roomInfo()
+            val joinedGroup = try { info.membership == Membership.JOINED && !info.isDm && !info.isSpace }
+                finally { info.destroy() }
+            if (!joinedGroup) return@async null
+            group.requireCurrent()
+            val link = room.matrixToEventPermalink(eventId)
+            group.requireCurrent()
+            link.takeIf { currentRow(rowId)?.linkEventId == eventId }
+        }.await()
+    } catch (cancelled: CancellationException) {
+        throw cancelled
+    } catch (_: Exception) {
+        null
     }
 
     suspend fun replyDetails(eventId: String): MessageQuote = group.async {
@@ -186,7 +242,7 @@ class DesktopTimeline private constructor(
         }
     }
 
-    fun openOriginal(eventId: String) {
+    fun openOriginal(eventId: String, focusedFallback: Boolean = false) {
         var accepted = false
         group.publish {
             if (mutableOriginal.value == OriginalNavigation.Idle) {
@@ -204,13 +260,28 @@ class DesktopTimeline private constructor(
                         return@launch
                     }
                     if (page == 5) break
-                    paging.withLock { timeline.paginateBackwards(50u) }
+                    paging.withLock { if (timeline.paginateBackwards(50u)) reachedStart = true }
                     withTimeoutOrNull(1_000) { rows.first { it is LoadPhase.Ready && it.value.any { row -> row.originalEventId == eventId } } }
                 }
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (_: Exception) { /* A missing original never navigates to another room or loses the draft. */ }
-            finally { group.publish { mutableOriginal.value = OriginalNavigation.Idle } }
+            finally {
+                group.publish {
+                    mutableOriginal.value = if (focusedFallback && mutableOriginal.value is OriginalNavigation.Searching)
+                        OriginalNavigation.Context(eventId) else OriginalNavigation.Idle
+                }
+            }
         }
+    }
+
+    fun consumeContext(expected: OriginalNavigation.Context) = group.publish {
+        if (mutableOriginal.value === expected) mutableOriginal.value = OriginalNavigation.Idle
+    }
+
+    suspend fun openEventHistory(eventId: String): DayHistory {
+        group.requireCurrent()
+        return DayHistory.open(runtime, roomId, TimelineFocus.Event(eventId, 40u, TimelineEventFocusThreadMode.Automatic(false)),
+            TimelineFilter.All) { snapshot(it, trackFailedSends = false) }
     }
 
     suspend fun reactionPeople(rowId: String, key: String, ownName: String): List<ReactionPerson> = group.async {
@@ -317,10 +388,49 @@ class DesktopTimeline private constructor(
 
     fun loadEarlier() = group.launch {
         if (!paging.tryLock()) return@launch
-        try { timeline.paginateBackwards(50u) }
+        try { if (timeline.paginateBackwards(50u)) reachedStart = true }
         catch (cancelled: CancellationException) { throw cancelled }
         catch (_: Exception) { /* Current messages stay visible; the same button retries. */ }
         finally { paging.unlock() }
+    }
+
+    suspend fun jumpToDate(date: LocalDate, zone: ZoneId): DayJump {
+        val lookup = group.async {
+            if (date.isAfter(LocalDate.now(zone))) return@async DayJump.Empty
+            val window = DayWindow(date, zone)
+            val found = timestampToEvent(runtime.client, roomId, window.start) ?: return@async DayJump.Empty
+            val loaded = (mutableRows.value as? LoadPhase.Ready)?.value.orEmpty()
+            window.target(found.eventId, found.timestamp, loaded, reachedStart)
+        }
+        try { return lookup.await() } finally { lookup.cancel() }
+    }
+
+    suspend fun openDayHistory(focus: DayJump.History): DayHistory {
+        group.requireCurrent()
+        return DayHistory.open(runtime, roomId, focus) { snapshot(it, trackFailedSends = false) }
+    }
+
+    suspend fun sendPin(location: MapPoint, body: String, reply: String?) = group.async {
+        check(sendingLocation.tryLock())
+        try {
+            check(room.membership() == Membership.JOINED)
+            group.requireCurrent()
+            timeline.sendLocation(body, GeoUri.make(location.latitude, location.longitude), null, location.zoom.toUByte(), AssetType.PIN, reply)
+            if (reply != null) composer.acceptedAttachmentReply(reply)
+        } finally { sendingLocation.unlock() }
+    }.await()
+
+    suspend fun openThread(rootEventId: String): DesktopTimeline {
+        group.requireCurrent()
+        check(threadRoot == null && isGroup)
+        return open(runtime, roomId, labels, threadRoot = rootEventId)
+    }
+
+    suspend fun openGallery(): DayHistory {
+        group.requireCurrent()
+        return DayHistory.open(runtime, roomId, TimelineFocus.Live(hideThreadedEvents = false),
+            TimelineFilter.OnlyMessage(listOf(RoomMessageEventMessageType.IMAGE, RoomMessageEventMessageType.VIDEO,
+                RoomMessageEventMessageType.FILE))) { snapshot(it, trackFailedSends = false) }
     }
 
     override suspend fun close() = group.close()
@@ -328,9 +438,14 @@ class DesktopTimeline private constructor(
     private suspend fun start() {
         room = runtime.client.getRoom(roomId) ?: error("Room unavailable")
         group.own(NativeResource { room.destroy() })
+        val info = room.roomInfo()
+        try {
+            isGroup = !info.isDm && !info.isSpace
+            check(threadRoot == null || (isGroup && info.membership == Membership.JOINED))
+        } finally { info.destroy() }
         val configuration = TimelineConfiguration(
-            focus = TimelineFocus.Live(hideThreadedEvents = false), filter = TimelineFilter.All,
-            internalIdPrefix = null, dateDividerMode = DateDividerMode.DAILY,
+            focus = threadRoot?.let { TimelineFocus.Thread(it) } ?: TimelineFocus.Live(hideThreadedEvents = isGroup),
+            filter = TimelineFilter.All, internalIdPrefix = null, dateDividerMode = DateDividerMode.DAILY,
             // Windows has no UTD diagnostic collector. The SDK still decrypts and emits locked-message items.
             trackReadReceipts = TimelineReadReceiptTracking.ALL_EVENTS, reportUtds = false,
         )
@@ -340,31 +455,15 @@ class DesktopTimeline private constructor(
         group.own(NativeResource {
             synchronized(failedSends) { failedSends.values.forEach { it.destroy() }; failedSends.clear(); retrying.clear() }
         })
-        val changes = Channel<List<TimelineDiff>>(Channel.UNLIMITED, onUndeliveredElement = ::dispose)
-        group.own(NativeResource { changes.cancel() })
-        group.own(TaskResource(timeline.addListener(object : TimelineListener {
-            override fun onUpdate(diff: List<TimelineDiff>) {
-                if (changes.trySend(diff).isFailure) dispose(diff)
-            }
-        })))
-        group.launch {
-            val snapshots = SnapshotVector<TimelineSnapshot>()
-            try {
-                for (batch in changes) {
-                    try {
-                        batch.forEach { snapshots.apply(it.toVectorDiff().snapshot(::snapshot)) }
-                    } finally { dispose(batch) }
-                    presentation.withLock {
-                        latestSnapshots = snapshots.visible()
-                        val receipts = latestSnapshots.dmReceipts(receiptPolicy)
-                        group.publish {
-                            mutableRows.value = LoadPhase.Ready(latestSnapshots.messageRows().map { it.copy(dmReceipt = receipts[it.id]) })
-                        }
-                    }
+        group.observeTimeline(timeline, { snapshot(it, trackFailedSends = true) }, { snapshots ->
+            presentation.withLock {
+                latestSnapshots = snapshots
+                val receipts = latestSnapshots.dmReceipts(receiptPolicy)
+                group.publish {
+                    mutableRows.value = LoadPhase.Ready(latestSnapshots.messageRows().map { it.copy(dmReceipt = receipts[it.id]) })
                 }
-            } catch (cancelled: CancellationException) { throw cancelled }
-            catch (_: Exception) { group.publish { mutableRows.value = LoadPhase.Failed } }
-        }
+            }
+        }, { mutableRows.value = LoadPhase.Failed })
         group.launch {
             while (currentCoroutineContext().isActive) {
                 delay(250)
@@ -378,6 +477,14 @@ class DesktopTimeline private constructor(
         group.own(TaskResource(room.subscribeToTypingNotifications(object : TypingNotificationsListener {
             override fun call(typingUserIds: List<String>) { typing.incoming(typingUserIds) }
         })))
+        delivered?.let { delivery ->
+            group.launch { delivery.acks.collect { acks ->
+                presentation.withLock {
+                    receiptPolicy = receiptPolicy.copy(acked = acks[roomId].orEmpty().toSet())
+                    publishReceipts()
+                }
+            } }
+        }
         group.launch { typingPreference.changes.collect { typing.available(it) } }
         group.launch { edits.phase.collect { if (it != EditPhase.Idle) typing.draftChanged(false) } }
         group.launch {
@@ -389,47 +496,38 @@ class DesktopTimeline private constructor(
                     val info = room.roomInfo()
                     val dm = try { info.isDm } finally { info.destroy() }
                     val show = try {
-                        if (dm) preference.refresh() else false
+                        if (dm && permitsReadTick()) preference.refresh() else false
                     } catch (cancelled: CancellationException) { throw cancelled } catch (_: Exception) { false }
                     presentation.withLock {
-                        receiptPolicy = DmReceiptPolicy(runtime.client.userId(), dm, show)
-                        val receipts = latestSnapshots.dmReceipts(receiptPolicy)
-                        group.publish {
-                            val current = mutableRows.value as? LoadPhase.Ready ?: return@publish
-                            mutableRows.value = LoadPhase.Ready(current.value.map { it.copy(dmReceipt = receipts[it.id]) })
-                        }
+                        receiptPolicy = receiptPolicy.copy(ownId = runtime.client.userId(), isDm = dm, showsRead = show)
+                        publishReceipts()
                     }
                 } catch (cancelled: CancellationException) { throw cancelled }
                   catch (_: Exception) { /* No stale room can publish; the next SDK cache refresh retries. */ }
                 delay(5_000)
             }
         }
+        if (threadRoot == null) pins.start(room, timeline) { snapshot(it, trackFailedSends = false) }
         startMediaPolicy()
         // Back-pagination failure is retryable; the live listener remains attached for offline/local events.
         loadEarlier()
     }
 
-    /** Reads the account's MSC4278 setting and follows its changes; the computer never writes it (spec timeline-media notes). */
-    private suspend fun startMediaPolicy() {
-        val showMedia = MutableStateFlow<ShowMedia?>(null)
-        try {
-            group.own(TaskResource(runtime.client.subscribeToMediaPreviewConfig(object : MediaPreviewConfigListener {
-                override fun onChange(mediaPreviewConfig: MediaPreviewConfig?) { showMedia.value = ShowMedia.of(mediaPreviewConfig?.mediaPreviews) }
-            })))
-        } catch (cancelled: CancellationException) { throw cancelled }
-          catch (_: Exception) { /* Without the subscription the first read below still applies. */ }
-        group.launch {
-            try { if (showMedia.value == null) showMedia.value = ShowMedia.of(runtime.client.getMediaPreviewDisplayPolicy()) }
-            catch (cancelled: CancellationException) { throw cancelled }
-            catch (_: Exception) { /* Unknown keeps other people's media behind a click. */ }
+    private fun publishReceipts() {
+        val receipts = latestSnapshots.dmReceipts(receiptPolicy)
+        group.publish {
+            val current = mutableRows.value as? LoadPhase.Ready ?: return@publish
+            mutableRows.value = LoadPhase.Ready(current.value.map { it.copy(dmReceipt = receipts[it.id]) })
         }
+    }
+
+    private fun startMediaPolicy() {
         group.launch {
-            showMedia.collect { value ->
-                if (value == null) return@collect
+            runtime.media.preference.collect { setting ->
+                val value = setting.current ?: return@collect
                 val known = try {
                     val info = room.roomInfo()
                     val dm = try { info.isDm } finally { info.destroy() }
-                    // A room whose join rule is unknown counts as private, as on the phones.
                     MediaShowPolicy.Known(value, dm, room.isPublic() == true)
                 } catch (cancelled: CancellationException) { throw cancelled }
                   catch (_: Exception) { MediaShowPolicy.Unknown }
@@ -438,24 +536,39 @@ class DesktopTimeline private constructor(
         }
     }
 
-    private fun snapshot(item: TimelineItem): TimelineSnapshot? {
+    private fun snapshot(item: TimelineItem, trackFailedSends: Boolean): TimelineSnapshot? {
         val day = item.asVirtual() as? VirtualTimelineItem.DateDivider
         if (day != null) return TimelineSnapshot.Day(day.ts.toLong())
-        message(item)?.let { return TimelineSnapshot.Message(it) }
+        message(item, trackFailedSends)?.let { return TimelineSnapshot.Message(it) }
+        if (!trackFailedSends) return null
         val event = item.asEvent() ?: return null
         try { return event.readReceipts.keys.takeIf { it.isNotEmpty() }?.let { TimelineSnapshot.ReadPoint(it.toSet()) } }
         finally { event.destroy() }
     }
 
-    private fun message(item: TimelineItem): MessageRow? {
+    private fun message(item: TimelineItem, trackFailedSends: Boolean): MessageRow? {
         val event = item.asEvent() ?: return null
         try {
+            val profile = event.senderProfile as? ProfileDetails.Ready
+            val sender = realName(profile?.displayName, event.sender, labels.noName)
+            val id = item.uniqueId().id
+            val eventId = (event.eventOrTransactionId as? EventOrTransactionId.EventId)?.eventId
+            if (isGroup && threadRoot == null) StateLines.line(event)?.let { line ->
+                return MessageRow(id, sender, event.isOwn, "", MessageRow.Kind.STATE, event.timestamp.toLong(),
+                    MessageRow.Delivery.SENT, originalEventId = eventId, senderId = event.sender,
+                    readersAtEvent = event.readReceipts.keys.toSet(), stateLine = line)
+            }
             val content = (event.content as? TimelineItemContent.MsgLike)?.content ?: return null
             val kind = content.kind
+            val location = DesktopLocation.of(kind)
             val media = MessageMedia.of(kind)
+            val poll = if (kind is MsgLikeKind.Poll && eventId != null)
+                PollData.of(eventId, kind, event.isOwn && event.isRemote, runtime.client.userId()) else null
             val type = when {
                 kind is MsgLikeKind.Message && kind.content.msgType.isText() -> MessageRow.Kind.TEXT
                 media != null -> MessageRow.Kind.MEDIA
+                poll != null -> MessageRow.Kind.POLL
+                location != null -> MessageRow.Kind.LOCATION
                 kind is MsgLikeKind.UnableToDecrypt -> MessageRow.Kind.UNDECRYPTABLE
                 kind == MsgLikeKind.Redacted -> MessageRow.Kind.DELETED
                 else -> MessageRow.Kind.UNSUPPORTED
@@ -465,35 +578,58 @@ class DesktopTimeline private constructor(
                 MessageRow.Kind.MEDIA -> media!!.summary(labels)
                 MessageRow.Kind.UNDECRYPTABLE -> labels.undecryptable
                 MessageRow.Kind.DELETED -> labels.deleted
-                MessageRow.Kind.UNSUPPORTED -> labels.unsupported
+                MessageRow.Kind.UNSUPPORTED -> (kind as? MsgLikeKind.Message)?.content?.body ?: labels.unsupported
+                MessageRow.Kind.POLL -> checkNotNull(poll).question
+                MessageRow.Kind.LOCATION -> if (location?.live != null) labels.liveLocation else labels.location
+                MessageRow.Kind.STATE -> error("State uses its own row")
             }
             // The scam warning reads text and media captions (spec timeline-media notes), never a kind label.
-            val checksSafety = type == MessageRow.Kind.TEXT || (type == MessageRow.Kind.MEDIA && !media?.caption.isNullOrBlank())
-            val profile = event.senderProfile as? ProfileDetails.Ready
+            val checksSafety = type == MessageRow.Kind.TEXT || (type == MessageRow.Kind.UNSUPPORTED && kind is MsgLikeKind.Message) || (type == MessageRow.Kind.MEDIA && !media?.caption.isNullOrBlank())
+            val richText = if (checksSafety) desktopMessageText(body, (kind as? MsgLikeKind.Message)?.content?.msgType) else null
             val delivery = when (event.localSendState) {
                 is EventSendState.NotSentYet -> MessageRow.Delivery.SENDING
                 is EventSendState.SendingFailed -> MessageRow.Delivery.FAILED
                 else -> MessageRow.Delivery.SENT
             }
-            val id = item.uniqueId().id
-            val reactionTarget = (event.eventOrTransactionId as? EventOrTransactionId.EventId)?.eventId
+            val reactionTarget = eventId
                 ?.takeIf { event.isRemote && event.localSendState == null && kind !is MsgLikeKind.UnableToDecrypt && kind != MsgLikeKind.Redacted }
-            val handle = if (event.isOwn && delivery == MessageRow.Delivery.FAILED) event.lazyProvider.getSendHandle() else null
-            synchronized(failedSends) {
+            val debugInfo = if (reactionTarget != null && kind is MsgLikeKind.Message)
+                runCatching { event.lazyProvider.debugInfo() }.getOrNull() else null
+            val forwardCount = BipeForwardMark.count(debugInfo?.originalJson)
+            val forwardSource = when (media?.kind) {
+                MessageMedia.Kind.VOICE -> BipeForwardMark.source(true, forwardCount)
+                MessageMedia.Kind.AUDIO -> BipeForwardMark.source(false, forwardCount)
+                else -> BipeForwardMark.line(forwardCount)
+            }
+            val canForward = trackFailedSends && debugInfo != null &&
+                BipeForwardMark.forwardedContentJson(debugInfo.originalJson, debugInfo.latestEditJson) != null
+            val handle = if (trackFailedSends && event.isOwn && delivery == MessageRow.Delivery.FAILED) event.lazyProvider.getSendHandle() else null
+            if (trackFailedSends) synchronized(failedSends) {
                 failedSends.remove(id)?.destroy()
                 if (handle != null) failedSends[id] = handle
             }
-            return MessageRow(id, realName(profile?.displayName, event.sender, labels.noName),
+            return MessageRow(id, sender,
                 event.isOwn, body, type, event.timestamp.toLong(), delivery, canRetry = handle != null,
-                safety = messageSafety(body, event.isOwn, checksSafety, safetyEngine),
+                safety = messageSafety(messageSafetyText(body, richText), event.isOwn, checksSafety, safetyEngine),
                 eventId = reactionTarget,
                 reactions = if (reactionTarget == null) emptyList() else reactionSnapshots(content.reactions, runtime.client.userId()),
                 canReply = reactionTarget != null && event.canBeRepliedTo,
                 reply = content.inReplyTo?.let(::quote), isEdited = (kind as? MsgLikeKind.Message)?.content?.isEdited == true,
-                originalEventId = (event.eventOrTransactionId as? EventOrTransactionId.EventId)?.eventId,
-                canEdit = event.isOwn && event.isEditable && type == MessageRow.Kind.TEXT && reactionTarget != null,
+                originalEventId = eventId,
+                canEdit = event.isOwn && event.isEditable && reactionTarget != null &&
+                    (type == MessageRow.Kind.TEXT || (kind as? MsgLikeKind.Message)?.content?.msgType?.hasEditableCaption() == true),
                 senderId = event.sender, readersAtEvent = event.readReceipts.keys.toSet(),
-                media = media.takeIf { type == MessageRow.Kind.MEDIA })
+                media = media?.let {
+                    if (it.kind == MessageMedia.Kind.IMAGE) it.copy(description =
+                        BipeImageDescription.read(debugInfo?.latestEditJson) ?: BipeImageDescription.read(debugInfo?.originalJson))
+                    else it
+                }, richText = richText,
+                canForward = canForward, forwardSource = forwardSource,
+                isEmote = (kind as? MsgLikeKind.Message)?.content?.msgType is MessageType.Emote,
+                inThread = content.threadRoot != null, poll = poll, location = location,
+                threadReplies = content.threadSummary?.let { summary ->
+                    try { summary.numReplies().coerceAtMost(Int.MAX_VALUE.toULong()).toInt() } finally { summary.destroy() }
+                } ?: 0)
         } finally { event.destroy() }
     }
 
@@ -504,7 +640,10 @@ class DesktopTimeline private constructor(
                 is EmbeddedEventDetails.Ready -> {
                     val kind = (event.content as? TimelineItemContent.MsgLike)?.content?.kind
                     val preview = when (kind) {
-                        is MsgLikeKind.Message -> MessageMedia.of(kind.content.msgType)?.summary(labels) ?: kind.content.body
+                        is MsgLikeKind.Message -> if (kind.content.msgType is MessageType.Location) labels.location
+                            else MessageMedia.of(kind.content.msgType)?.summary(labels) ?: kind.content.body
+                        is MsgLikeKind.LiveLocation -> labels.liveLocation
+                        is MsgLikeKind.Poll -> kind.question
                         is MsgLikeKind.Sticker -> labels.mediaLabel(MessageMedia.Kind.STICKER)
                         MsgLikeKind.Redacted -> labels.deleted
                         is MsgLikeKind.UnableToDecrypt -> labels.undecryptable
@@ -523,18 +662,19 @@ class DesktopTimeline private constructor(
 
     companion object {
         suspend fun open(runtime: MatrixAccountRuntime, roomId: String, labels: ChatLabels,
-                         typingPreference: TypingPreference = TypingPreference.Hidden): DesktopTimeline {
+                         typingPreference: TypingPreference = TypingPreference.Hidden,
+                         delivered: DesktopDelivered? = null, threadRoot: String? = null,
+                         permitsReadTick: () -> Boolean = { true }): DesktopTimeline {
             val group = AccountTaskGroup.create(runtime.lifetime)
-            val model = DesktopTimeline(runtime, group, roomId, labels, typingPreference)
+            val model = DesktopTimeline(runtime, group, roomId, threadRoot, labels, typingPreference, delivered, permitsReadTick)
             try { group.async { model.start() }.await(); return model }
             catch (error: Exception) { group.close(); throw error }
         }
 
-        private fun dispose(updates: List<TimelineDiff>) {
-            updates.forEach { it.toVectorDiff().forEachValue { item -> item.destroy() } }
-        }
     }
 }
 
 /** Text, notice and emote are the text rows; every other message type is media or unsupported. */
 internal fun MessageType.isText(): Boolean = this is MessageType.Text || this is MessageType.Notice || this is MessageType.Emote
+
+private fun MessageType.hasEditableCaption(): Boolean = this is MessageType.Image || this is MessageType.Video || this is MessageType.File

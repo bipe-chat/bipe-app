@@ -61,9 +61,10 @@ class StickerPackClient(
     suspend fun addToUserPack(candidates: List<StickerImportCandidate>): Int = withTokenRetry { token ->
         val path = listOf("user", userId, "account_data", StickerPackEventType.USER_PACK)
         val content = get(path, token)
-            ?.let { runCatching { Json.parseToJsonElement(it) as? JsonObject }.getOrNull() }
+            ?.let { Json.parseToJsonElement(it) as? JsonObject ?: throw IOException("Invalid sticker pack") }
             ?: JsonObject(emptyMap())
-        val images = (content["images"] as? JsonObject)?.toMutableMap() ?: mutableMapOf()
+        val images = content["images"]?.let { (it as? JsonObject)?.toMutableMap() ?: throw IOException("Invalid sticker images") }
+            ?: mutableMapOf()
         var added = 0
         var uploadError: IOException? = null
         for (candidate in candidates.distinctBy { it.shortcode }.filterNot { images.containsKey(it.shortcode) }) {
@@ -122,12 +123,12 @@ class StickerPackClient(
     suspend fun saveToUserPack(url: String, width: Int?, height: Int?, mimeType: String?, size: Long?): Boolean = withTokenRetry { token ->
         val path = listOf("user", userId, "account_data", StickerPackEventType.USER_PACK)
         val content = get(path, token)
-            ?.let { runCatching { Json.parseToJsonElement(it) as? JsonObject }.getOrNull() }
+            ?.let { Json.parseToJsonElement(it) as JsonObject }
             ?: JsonObject(emptyMap())
         val images = (content["images"] as? JsonObject)?.toMutableMap() ?: mutableMapOf()
         val known = images.values.any { ((it as? JsonObject)?.get("url") as? JsonPrimitive)?.content == url }
         if (known) return@withTokenRetry false
-        images[StickerImporter.shortcode(url.toByteArray())] = buildJsonObject {
+        images[stickerShortcode(url.toByteArray())] = buildJsonObject {
             put("url", url)
             put("body", "Sticker")
             putJsonArray("usage") { add("sticker") }
@@ -219,6 +220,7 @@ class StickerPackClient(
 
     private suspend fun put(path: List<String>, json: String, token: String) {
         perform("PUT", clientUrl(path), token, json.toByteArray(), "application/json")
+            ?: throw IOException("Sticker pack update returned 404")
     }
 
     /** `POST /_matrix/media/v3/upload`. Returns the `mxc://` URI. Stickers are stored in clear (spec sticker-import notes). */
@@ -239,6 +241,7 @@ class StickerPackClient(
         withContext(Dispatchers.IO) {
             val connection = URL(url).openConnection() as HttpURLConnection
             try {
+                connection.instanceFollowRedirects = false
                 connection.requestMethod = method
                 connection.setRequestProperty("Authorization", "Bearer $token")
                 connection.connectTimeout = 15_000
